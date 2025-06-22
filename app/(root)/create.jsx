@@ -53,12 +53,19 @@ const CreateScreen = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to create food entry");
+        const errorMessage =
+          (errorData.details && Array.isArray(errorData.details)
+            ? errorData.details.join("\n")
+            : null) ||
+          errorData.error ||
+          errorData.message ||
+          "Failed to create food entry";
+        throw new Error(errorMessage);
       }
 
       router.push("/");
     } catch (error) {
-      Alert.alert("Error", "Failed to create food entry");
+      Alert.alert("Error", error.message);
       console.error("Error creating food entry:", error);
     } finally {
       setIsLoading(false);

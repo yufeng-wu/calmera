@@ -12,10 +12,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { styles } from "@/assets/styles/create.styles";
 import { COLORS } from "@/constants/colors";
 import { FOOD_ENTRIES_API_URL } from "@/constants/api";
+import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 
 export default function EditFoodEntry() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { setShouldRefresh } = useRefreshSignal();
 
   const [foodName, setFoodName] = useState("");
   const [calories, setCalories] = useState("");
@@ -74,9 +76,18 @@ export default function EditFoodEntry() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to update food entry");
+        const errorMessage =
+          (errorData.details && Array.isArray(errorData.details)
+            ? errorData.details.join("\n")
+            : null) ||
+          errorData.error ||
+          errorData.message ||
+          "Failed to update food entry";
+        throw new Error(errorMessage);
       }
 
+      // Flag the homepage to refresh, then navigate back
+      setShouldRefresh(true);
       router.back();
     } catch (error) {
       Alert.alert("Error", error.message);

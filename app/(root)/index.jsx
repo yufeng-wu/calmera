@@ -14,6 +14,7 @@ import { FoodEntryItem } from "@/components/FoodEntryItem";
 import { Alert } from "react-native";
 import NoRecordYet from "@/components/NoRecordYet";
 import { USERS_API_URL } from "@/constants/api";
+import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 
 const MealGroup = ({ title, entries, onDelete }) => {
   if (entries.length === 0) return null;
@@ -32,6 +33,7 @@ export default function Page() {
   const { user } = useUser();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
+  const { shouldRefresh, setShouldRefresh } = useRefreshSignal();
   const [goals, setGoals] = useState({});
 
   // user.id comes from Clerk
@@ -85,6 +87,14 @@ export default function Page() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Refresh the list when the edit screen signals an update
+  useEffect(() => {
+    if (shouldRefresh) {
+      loadData();
+      setShouldRefresh(false);
+    }
+  }, [shouldRefresh, loadData, setShouldRefresh]);
 
   if (isLoading && !refreshing) {
     return <PageLoader />;
