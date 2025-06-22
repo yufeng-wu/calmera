@@ -15,7 +15,7 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 8,
     paddingHorizontal: 0,
     paddingVertical: 12,
   },
@@ -83,7 +83,7 @@ export const styles = StyleSheet.create({
     backgroundColor: COLORS.card,
     borderRadius: 20,
     padding: 20,
-    marginBottom: 20,
+    marginBottom: 30,
     shadowColor: COLORS.shadow,
     shadowOffset: {
       width: 0,
@@ -110,11 +110,13 @@ export const styles = StyleSheet.create({
   },
   balanceStatItem: {
     flex: 1,
-    alignItems: "center",
+    alignItems: "flex-start",
   },
   statDivider: {
     borderRightWidth: 1,
     borderColor: COLORS.border,
+    marginVertical: 8,
+    marginHorizontal: 12,
   },
   balanceStatLabel: {
     fontSize: 14,
@@ -122,8 +124,9 @@ export const styles = StyleSheet.create({
     marginBottom: 4,
   },
   balanceStatAmount: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: "600",
+    textAlign: "left",
   },
   sectionTitle: {
     fontSize: 18,
@@ -135,8 +138,6 @@ export const styles = StyleSheet.create({
     backgroundColor: COLORS.card,
     borderRadius: 12,
     marginBottom: 10,
-    flexDirection: "row",
-    alignItems: "center",
     shadowColor: COLORS.shadow,
     shadowOffset: {
       width: 0,
@@ -147,7 +148,6 @@ export const styles = StyleSheet.create({
     elevation: 2,
   },
   transactionContent: {
-    flex: 1,
     flexDirection: "row",
     padding: 15,
     alignItems: "center",
@@ -165,10 +165,14 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   transactionTitle: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: "500",
     color: COLORS.text,
     marginBottom: 4,
+  },
+  macrosText: {
+    fontSize: 14,
+    color: COLORS.textLight,
   },
   transactionCategory: {
     fontSize: 14,
@@ -191,7 +195,31 @@ export const styles = StyleSheet.create({
     borderLeftWidth: 1,
     borderLeftColor: COLORS.border,
   },
+  expandedContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 15,
+    paddingBottom: 15,
+    paddingTop: 5,
+  },
+  deleteButtonExpanded: {
+    paddingLeft: 15,
+  },
+  editButtonExpanded: {
+    paddingRight: 5,
+  },
+  iconButtonsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  indicatorContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    paddingLeft: 10,
+  },
   transactionsContainer: {
+    paddingHorizontal: 6,
     marginBottom: 20,
   },
   loadingContainer: {
@@ -247,18 +275,30 @@ export const styles = StyleSheet.create({
     fontWeight: "600",
     marginLeft: 6,
   },
-  transactionsHeaderContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
-    paddingBottom: 5,
-  },
+
   transactionsList: {
     flex: 1,
-    marginHorizontal: 20,
+    paddingHorizontal: 6,
   },
   transactionsListContent: {
     paddingBottom: 20,
+  },
+  mealGroupContainer: {
+    marginBottom: 10,
+  },
+  mealGroupTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 12,
+  },
+  dateText: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 12,
+  },
+  headerContainer: {
+    paddingHorizontal: 6,
   },
 });

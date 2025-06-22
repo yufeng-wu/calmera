@@ -1,0 +1,84 @@
+import { View, Text } from "react-native";
+import { styles } from "../assets/styles/home.styles";
+
+export const NutritionSummaryCard = ({ summary = {}, goals = {} }) => {
+  // Extract consumed values (fallback to 0 if not provided)
+  const calories = Number(
+    summary.calories ?? summary.dailyTotals?.calories ?? 0
+  );
+  const protein = Number(summary.protein ?? summary.dailyTotals?.protein ?? 0);
+  const carbs = Number(summary.carbs ?? summary.dailyTotals?.carbs ?? 0);
+  const fat = Number(summary.fat ?? summary.dailyTotals?.fat ?? 0);
+
+  // Extract goal values (fallback to undefined if not provided)
+  const calorieGoal = goals.calorie_goal ?? goals.calories;
+  const proteinGoal = goals.protein_goal ?? goals.protein;
+  const carbsGoal = goals.carbs_goal ?? goals.carbs;
+  const fatGoal = goals.fat_goal ?? goals.fat;
+
+  // Format calories and macros to smaller strings to avoid line wrapping
+  const round = (num, decimals = 1) => {
+    if (num === undefined || num === null) return 0;
+    const factor = Math.pow(10, decimals);
+    return Math.round(num * factor) / factor;
+  };
+
+  const formatCalories = (value, goal) => {
+    const consumed = Math.round(value);
+    if (goal !== undefined) {
+      const target = Math.round(goal);
+      return `${consumed} / ${target} kcal`;
+    }
+    return `${consumed} kcal`;
+  };
+
+  const formatMacro = (value, goal, unit) => {
+    const consumed = round(value, 1);
+    if (goal !== undefined) {
+      const target = round(goal, 1);
+      return `${consumed} / ${target}${unit}`;
+    }
+    return `${consumed}${unit}`;
+  };
+
+  return (
+    <View style={styles.balanceCard}>
+      {/* Calories */}
+      <Text style={styles.balanceTitle}>Calories</Text>
+      <Text style={styles.balanceAmount}>
+        {formatCalories(calories, calorieGoal)}
+      </Text>
+
+      {/* Macro breakdown */}
+      <View style={styles.balanceStats}>
+        {/* Protein */}
+        <View style={styles.balanceStatItem}>
+          <Text style={styles.balanceStatLabel}>Protein</Text>
+          <Text style={styles.balanceStatAmount}>
+            {formatMacro(protein, proteinGoal, " g")}
+          </Text>
+        </View>
+
+        <View style={styles.statDivider} />
+
+        {/* Carbs */}
+        <View style={styles.balanceStatItem}>
+          <Text style={styles.balanceStatLabel}>Carbs</Text>
+          <Text style={styles.balanceStatAmount}>
+            {formatMacro(carbs, carbsGoal, " g")}
+          </Text>
+        </View>
+
+        <View style={styles.statDivider} />
+
+        {/* Fat */}
+        <View style={styles.balanceStatItem}>
+          <Text style={styles.balanceStatLabel}>Fat</Text>
+          <Text style={styles.balanceStatAmount}>
+            {formatMacro(fat, fatGoal, " g")}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+};

@@ -1,7 +1,7 @@
 import { View, Text, Alert, TouchableOpacity } from "react-native";
 import { useUser } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
-import { API_URL } from "@/constants/api";
+import { FOOD_ENTRIES_API_URL } from "@/constants/api";
 import { useState } from "react";
 import { styles } from "@/assets/styles/create.styles";
 import { COLORS } from "@/constants/colors";
@@ -21,47 +21,45 @@ const CreateScreen = () => {
   const router = useRouter();
   const { user } = useUser();
 
-  const [title, setTitle] = useState("");
-  const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState("");
-  const [isExpense, setIsExpense] = useState(true);
+  const [foodName, setFoodName] = useState("");
+  const [calories, setCalories] = useState("");
+  const [protein, setProtein] = useState("");
+  const [carbs, setCarbs] = useState("");
+  const [fat, setFat] = useState("");
+  const [mealType, setMealType] = useState("Breakfast");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleCreate = async () => {
     // form validation
-    if (!title.trim()) return Alert.alert("Error", "Title is required");
-    if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0)
-      return Alert.alert("Error", "Amount must be a positive number");
-    if (!selectedCategory)
-      return Alert.alert("Error", "Please select a category");
+    if (!foodName.trim()) return Alert.alert("Error", "Food name is required");
+    if (!calories || isNaN(parseFloat(calories)) || parseFloat(calories) <= 0)
+      return Alert.alert("Error", "Calories must be a positive number");
     setIsLoading(true);
     try {
-      const formattedAmount = isExpense
-        ? -Math.abs(parseFloat(amount))
-        : Math.abs(parseFloat(amount));
-
-      const response = await fetch(`${API_URL}`, {
+      const response = await fetch(`${FOOD_ENTRIES_API_URL}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          userId: user.id,
-          title,
-          amount: formattedAmount,
-          category: selectedCategory,
+          food_name: foodName,
+          calories: Number(calories),
+          protein: protein ? Number(protein) : 0,
+          carbs: carbs ? Number(carbs) : 0,
+          fat: fat ? Number(fat) : 0,
+          meal_type: mealType,
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to create transaction");
+        throw new Error(errorData.message || "Failed to create food entry");
       }
 
       router.push("/");
     } catch (error) {
-      Alert.alert("Error", "Failed to create transaction");
-      console.error("Error creating transaction:", error);
+      Alert.alert("Error", "Failed to create food entry");
+      console.error("Error creating food entry:", error);
     } finally {
       setIsLoading(false);
     }
@@ -77,7 +75,7 @@ const CreateScreen = () => {
         >
           <Ionicons name="arrow-back" size={24} color={COLORS.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>New Transaction</Text>
+        <Text style={styles.headerTitle}>New Food Entry</Text>
         <TouchableOpacity
           style={[
             styles.saveButtonContainer,
