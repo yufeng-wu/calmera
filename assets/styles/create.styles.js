@@ -16,7 +16,7 @@ export const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
     color: COLORS.text,
   },
@@ -32,13 +32,14 @@ export const styles = StyleSheet.create({
     opacity: 0.5,
   },
   saveButton: {
-    fontSize: 16,
+    fontSize: 14,
     color: COLORS.primary,
     fontWeight: "600",
   },
   card: {
     backgroundColor: COLORS.card,
-    margin: 16,
+    marginHorizontal: 8,
+    marginVertical: 16,
     borderRadius: 16,
     padding: 16,
     shadowColor: "#000",
@@ -58,7 +59,7 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 12,
-    borderRadius: 25,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -71,7 +72,7 @@ export const styles = StyleSheet.create({
   },
   typeButtonText: {
     color: COLORS.text,
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: "500",
   },
   typeButtonTextActive: {
@@ -86,14 +87,14 @@ export const styles = StyleSheet.create({
     marginBottom: 20,
   },
   currencySymbol: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: "bold",
     color: COLORS.text,
     marginRight: 8,
   },
   amountInput: {
     flex: 1,
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: "bold",
     color: COLORS.text,
   },
@@ -113,15 +114,15 @@ export const styles = StyleSheet.create({
   input: {
     flex: 1,
     padding: 12,
-    fontSize: 16,
+    fontSize: 14,
     color: COLORS.text,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 14,
+    fontWeight: "500",
     color: COLORS.text,
-    marginBottom: 15,
-    marginTop: 10,
+    marginBottom: 10,
+    marginTop: 0,
     flexDirection: "row",
     alignItems: "center",
   },
@@ -149,7 +150,7 @@ export const styles = StyleSheet.create({
   },
   categoryButtonText: {
     color: COLORS.text,
-    fontSize: 14,
+    fontSize: 12,
   },
   categoryButtonTextActive: {
     color: COLORS.white,

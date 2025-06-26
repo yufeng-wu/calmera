@@ -1,0 +1,128 @@
+import { StyleSheet } from "react-native";
+import { COLORS } from "@/constants/colors";
+
+export const cameraStyles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: COLORS.background },
+  cameraWrapper: {
+    alignSelf: "center",
+    width: "96%",
+    aspectRatio: 1,
+    backgroundColor: "#000",
+    borderRadius: 20,
+    overflow: "hidden",
+    marginTop: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  camera: {
+    flex: 1,
+  },
+  controlsContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginVertical: 12,
+  },
+  controlBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: COLORS.primary,
+    marginHorizontal: 6,
+    marginVertical: 4,
+  },
+  controlBtnActive: {
+    opacity: 0.8,
+  },
+  endBtn: {
+    backgroundColor: "#d9534f",
+  },
+  startBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 8,
+    backgroundColor: COLORS.primary,
+    marginHorizontal: 6,
+  },
+  controlText: { color: "#fff", fontWeight: "600" },
+  logContainer: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  logTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 8,
+  },
+  logItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#ccc",
+  },
+  logFood: { fontSize: 14 },
+  logWeight: { fontSize: 14, fontWeight: "600" },
+  emptyText: {
+    textAlign: "center",
+    color: "#888",
+    marginTop: 20,
+  },
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  detectionOverlay: {
+    position: "absolute",
+    top: 16,
+    left: 16,
+    right: 16,
+    alignItems: "flex-start",
+  },
+  detectionIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 8,
+  },
+  detectionActive: {
+    backgroundColor: "rgba(76, 175, 80, 0.9)",
+  },
+  detectionText: {
+    color: "#ccc",
+    fontSize: 12,
+    fontWeight: "600",
+    marginLeft: 6,
+  },
+  detectionTextActive: {
+    color: "#fff",
+  },
+  weightIndicator: {
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  weightText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  confidenceText: {
+    color: "#ccc",
+    fontSize: 10,
+    marginTop: 2,
+  },
+});

@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,6 +14,8 @@ import { styles } from "@/assets/styles/create.styles";
 import { COLORS } from "@/constants/colors";
 import { FOOD_ENTRIES_API_URL } from "@/constants/api";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
+import { FoodEntryFormCard } from "@/components/FoodEntryFormCard";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 export default function EditFoodEntry() {
   const router = useRouter();
@@ -105,122 +108,63 @@ export default function EditFoodEntry() {
   }
 
   return (
-    <View style={styles.container}>
-      {/* HEADER */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Food Entry</Text>
-        <TouchableOpacity
-          style={[
-            styles.saveButtonContainer,
-            isLoading && styles.saveButtonDisabled,
-          ]}
-          onPress={handleUpdate}
-          disabled={isLoading}
-        >
-          <Text
-            style={[styles.saveButton, isLoading && styles.saveButtonDisabled]}
+    <KeyboardAwareScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
+      enableOnAndroid={true}
+      enableAutomaticScroll={true}
+      extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
+      keyboardShouldPersistTaps="handled"
+      enableResetScrollToCoords={false}
+    >
+      <View style={styles.container}>
+        {/* HEADER */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
           >
-            {isLoading ? "Saving..." : "Save"}
-          </Text>
-          {!isLoading && (
-            <Ionicons name="checkmark" size={18} color={COLORS.primary} />
-          )}
-        </TouchableOpacity>
+            <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Edit Food Entry</Text>
+          <TouchableOpacity
+            style={[
+              styles.saveButtonContainer,
+              isLoading && styles.saveButtonDisabled,
+            ]}
+            onPress={handleUpdate}
+            disabled={isLoading}
+          >
+            <Text
+              style={[
+                styles.saveButton,
+                isLoading && styles.saveButtonDisabled,
+              ]}
+            >
+              {isLoading ? "Saving..." : "Save"}
+            </Text>
+            {!isLoading && (
+              <Ionicons name="checkmark" size={18} color={COLORS.primary} />
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* FORM */}
+        <FoodEntryFormCard
+          foodName={foodName}
+          setFoodName={setFoodName}
+          calories={calories}
+          setCalories={setCalories}
+          protein={protein}
+          setProtein={setProtein}
+          carbs={carbs}
+          setCarbs={setCarbs}
+          fat={fat}
+          setFat={setFat}
+          mealType={mealType}
+          setMealType={setMealType}
+        />
       </View>
-
-      {/* SIMPLE FORM CARD */}
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Food Details</Text>
-        <View style={styles.inputContainer}>
-          <Ionicons
-            name="restaurant"
-            size={20}
-            color={COLORS.textLight}
-            style={styles.inputIcon}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Food name"
-            placeholderTextColor={COLORS.textLight}
-            value={foodName}
-            onChangeText={setFoodName}
-          />
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Ionicons
-            name="flame"
-            size={20}
-            color={COLORS.textLight}
-            style={styles.inputIcon}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Calories (kcal)"
-            placeholderTextColor={COLORS.textLight}
-            keyboardType="numeric"
-            value={calories}
-            onChangeText={setCalories}
-          />
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Ionicons
-            name="barbell"
-            size={20}
-            color={COLORS.textLight}
-            style={styles.inputIcon}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Protein (g)"
-            placeholderTextColor={COLORS.textLight}
-            keyboardType="numeric"
-            value={protein}
-            onChangeText={setProtein}
-          />
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Ionicons
-            name="nutrition"
-            size={20}
-            color={COLORS.textLight}
-            style={styles.inputIcon}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Carbs (g)"
-            placeholderTextColor={COLORS.textLight}
-            keyboardType="numeric"
-            value={carbs}
-            onChangeText={setCarbs}
-          />
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Ionicons
-            name="egg"
-            size={20}
-            color={COLORS.textLight}
-            style={styles.inputIcon}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Fat (g)"
-            placeholderTextColor={COLORS.textLight}
-            keyboardType="numeric"
-            value={fat}
-            onChangeText={setFat}
-          />
-        </View>
-      </View>
-    </View>
+    </KeyboardAwareScrollView>
   );
 }

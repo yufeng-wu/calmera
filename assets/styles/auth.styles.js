@@ -15,7 +15,7 @@ export const styles = StyleSheet.create({
     resizeMode: "contain",
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: "bold",
     color: COLORS.text,
     marginVertical: 15,
@@ -28,7 +28,7 @@ export const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
-    fontSize: 16,
+    fontSize: 14,
     color: COLORS.text,
   },
   errorInput: {
@@ -44,7 +44,7 @@ export const styles = StyleSheet.create({
   },
   buttonText: {
     color: COLORS.white,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
   },
   footerContainer: {
@@ -55,11 +55,11 @@ export const styles = StyleSheet.create({
   },
   footerText: {
     color: COLORS.text,
-    fontSize: 16,
+    fontSize: 14,
   },
   linkText: {
     color: COLORS.primary,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
   },
   verificationContainer: {
@@ -70,7 +70,7 @@ export const styles = StyleSheet.create({
     alignItems: "center",
   },
   verificationTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "bold",
     color: COLORS.text,
     marginBottom: 20,
@@ -83,7 +83,7 @@ export const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
-    fontSize: 16,
+    fontSize: 14,
     color: COLORS.text,
     width: "100%",
     textAlign: "center",
@@ -106,6 +106,6 @@ export const styles = StyleSheet.create({
     color: COLORS.text,
     marginLeft: 8,
     flex: 1,
-    fontSize: 14,
+    fontSize: 12,
   },
 });

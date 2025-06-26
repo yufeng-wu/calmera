@@ -1,4 +1,4 @@
-import { View, Text, Alert, TouchableOpacity } from "react-native";
+import { View, Text, Alert, TouchableOpacity, Platform } from "react-native";
 import { useUser } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
 import { FOOD_ENTRIES_API_URL } from "@/constants/api";
@@ -6,20 +6,15 @@ import { useState } from "react";
 import { styles } from "@/assets/styles/create.styles";
 import { COLORS } from "@/constants/colors";
 import { Ionicons } from "@expo/vector-icons";
-
-const CATEGORIES = [
-  { id: "food", name: "Food & Drinks", icon: "fast-food" },
-  { id: "shopping", name: "Shopping", icon: "cart" },
-  { id: "transportation", name: "Transportation", icon: "car" },
-  { id: "entertainment", name: "Entertainment", icon: "film" },
-  { id: "bills", name: "Bills", icon: "receipt" },
-  { id: "income", name: "Income", icon: "cash" },
-  { id: "other", name: "Other", icon: "ellipsis-horizontal" },
-];
+import { useRefreshSignal } from "@/context/EntriesRefreshContext";
+import { FoodEntryFormCard } from "@/components/FoodEntryFormCard";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { getLocalTimeWithOffset } from "@/lib/utils";
 
 const CreateScreen = () => {
   const router = useRouter();
   const { user } = useUser();
+  const { setShouldRefresh } = useRefreshSignal();
 
   const [foodName, setFoodName] = useState("");
   const [calories, setCalories] = useState("");
@@ -48,6 +43,7 @@ const CreateScreen = () => {
           carbs: carbs ? Number(carbs) : 0,
           fat: fat ? Number(fat) : 0,
           meal_type: mealType,
+          created_at: getLocalTimeWithOffset(),
         }),
       });
 
@@ -63,7 +59,9 @@ const CreateScreen = () => {
         throw new Error(errorMessage);
       }
 
-      router.push("/");
+      // Signal home screen to refresh entries, then navigate back home
+      setShouldRefresh(true);
+      router.back();
     } catch (error) {
       Alert.alert("Error", error.message);
       console.error("Error creating food entry:", error);
@@ -73,37 +71,64 @@ const CreateScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
-      {/* HEADER */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>New Food Entry</Text>
-        <TouchableOpacity
-          style={[
-            styles.saveButtonContainer,
-            isLoading && styles.saveButtonDisabled,
-          ]}
-          onPress={handleCreate}
-          disabled={isLoading}
-        >
-          <Text
-            style={[styles.saveButton, isLoading && styles.saveButtonDisabled]}
+    <KeyboardAwareScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
+      enableOnAndroid={true}
+      enableAutomaticScroll={true}
+      extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
+      keyboardShouldPersistTaps="handled"
+      enableResetScrollToCoords={false}
+    >
+      <View style={styles.container}>
+        {/* HEADER */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
           >
-            {isLoading ? "Saving..." : "Save"}
-          </Text>
-          {!isLoading && (
-            <Ionicons name="checkmark" size={18} color={COLORS.primary} />
-          )}
-        </TouchableOpacity>
-      </View>
+            <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>New Food Entry</Text>
+          <TouchableOpacity
+            style={[
+              styles.saveButtonContainer,
+              isLoading && styles.saveButtonDisabled,
+            ]}
+            onPress={handleCreate}
+            disabled={isLoading}
+          >
+            <Text
+              style={[
+                styles.saveButton,
+                isLoading && styles.saveButtonDisabled,
+              ]}
+            >
+              {isLoading ? "Saving..." : "Save"}
+            </Text>
+            {!isLoading && (
+              <Ionicons name="checkmark" size={18} color={COLORS.primary} />
+            )}
+          </TouchableOpacity>
+        </View>
 
-      {/* CARD */}
-    </View>
+        {/* FORM */}
+        <FoodEntryFormCard
+          foodName={foodName}
+          setFoodName={setFoodName}
+          calories={calories}
+          setCalories={setCalories}
+          protein={protein}
+          setProtein={setProtein}
+          carbs={carbs}
+          setCarbs={setCarbs}
+          fat={fat}
+          setFat={setFat}
+          mealType={mealType}
+          setMealType={setMealType}
+        />
+      </View>
+    </KeyboardAwareScrollView>
   );
 };
 

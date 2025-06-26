@@ -28,11 +28,15 @@ export const useDailyNutrition = (userId, date = new Date()) => {
   };
 
   const formattedDate = getLocalDateString(date);
+  // Determine the device's IANA timezone identifier (e.g., "America/Chicago")
+  const deviceTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const fetchSummaryForDate = useCallback(async () => {
     try {
       const response = await fetch(
-        `${FOOD_ENTRIES_API_URL}/summary-by-date/${formattedDate}`
+        `${FOOD_ENTRIES_API_URL}/summary-by-date/${formattedDate}?tz=${encodeURIComponent(
+          deviceTimeZone
+        )}`
       );
       if (!response.ok) {
         throw new Error("Failed to fetch nutrition summary of the day");
@@ -45,7 +49,7 @@ export const useDailyNutrition = (userId, date = new Date()) => {
       console.error(error);
       Alert.alert("Error", error.message);
     }
-  }, [formattedDate]);
+  }, [formattedDate, deviceTimeZone]);
 
   const loadData = useCallback(async () => {
     if (!userId) return;

@@ -32,12 +32,12 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   welcomeText: {
-    fontSize: 14,
+    fontSize: 12,
     color: COLORS.textLight,
     marginBottom: 2,
   },
   usernameText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     color: COLORS.text,
   },
@@ -47,7 +47,7 @@ export const styles = StyleSheet.create({
     gap: 12,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: "bold",
     color: COLORS.text,
   },
@@ -83,7 +83,7 @@ export const styles = StyleSheet.create({
     backgroundColor: COLORS.card,
     borderRadius: 20,
     padding: 20,
-    marginBottom: 30,
+    marginBottom: 15,
     shadowColor: COLORS.shadow,
     shadowOffset: {
       width: 0,
@@ -94,12 +94,12 @@ export const styles = StyleSheet.create({
     elevation: 3,
   },
   balanceTitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: COLORS.textLight,
     marginBottom: 8,
   },
   balanceAmount: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: "bold",
     color: COLORS.text,
     marginBottom: 20,
@@ -119,17 +119,17 @@ export const styles = StyleSheet.create({
     marginHorizontal: 12,
   },
   balanceStatLabel: {
-    fontSize: 14,
+    fontSize: 12,
     color: COLORS.textLight,
     marginBottom: 4,
   },
   balanceStatAmount: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
     textAlign: "left",
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
     color: COLORS.text,
     marginBottom: 15,
@@ -165,29 +165,30 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   transactionTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "500",
     color: COLORS.text,
-    marginBottom: 4,
+    marginBottom: 1,
   },
   macrosText: {
-    fontSize: 14,
+    fontSize: 12,
     color: COLORS.textLight,
+    marginTop: 0,
   },
   transactionCategory: {
-    fontSize: 14,
+    fontSize: 12,
     color: COLORS.textLight,
   },
   transactionRight: {
     alignItems: "flex-end",
   },
   transactionAmount: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     marginBottom: 4,
   },
   transactionDate: {
-    fontSize: 12,
+    fontSize: 10,
     color: COLORS.textLight,
   },
   deleteButton: {
@@ -219,7 +220,7 @@ export const styles = StyleSheet.create({
     paddingLeft: 10,
   },
   transactionsContainer: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 16,
     marginBottom: 20,
   },
   loadingContainer: {
@@ -245,14 +246,14 @@ export const styles = StyleSheet.create({
     marginBottom: 16,
   },
   emptyStateTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
     color: COLORS.text,
     marginBottom: 8,
   },
   emptyStateText: {
     color: COLORS.textLight,
-    fontSize: 14,
+    fontSize: 12,
     textAlign: "center",
     marginBottom: 20,
     lineHeight: 20,
@@ -278,7 +279,7 @@ export const styles = StyleSheet.create({
 
   transactionsList: {
     flex: 1,
-    paddingHorizontal: 6,
+    paddingHorizontal: 16,
   },
   transactionsListContent: {
     paddingBottom: 20,
@@ -287,18 +288,69 @@ export const styles = StyleSheet.create({
     marginBottom: 10,
   },
   mealGroupTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
     color: COLORS.text,
     marginBottom: 12,
   },
   dateText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "600",
     color: COLORS.text,
     marginBottom: 12,
   },
   headerContainer: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 16,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  fab: {
+    position: "absolute",
+    bottom: 40,
+    right: 20,
+    width: 80,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.primary,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  fabText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: "600",
+    marginLeft: 4,
+    numberOfLines: 1,
+    flexShrink: 0,
+  },
+  fabOption: {
+    position: "absolute",
+    right: 20,
+    minWidth: 100,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    justifyContent: "flex-start",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  fabOptionWide: {
+    width: 100,
+  },
+  fabExpanded: {
+    width: 56,
   },
 });
