@@ -174,8 +174,8 @@ export default function CameraScreen() {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          meal_type: selectedMeal,
-          ended_at: getLocalTimeWithOffset(),
+          mealType: selectedMeal,
+          endedAt: getLocalTimeWithOffset(),
         }),
       });
 

@@ -37,13 +37,13 @@ const CreateScreen = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          food_name: foodName,
+          foodName,
           calories: Number(calories),
           protein: protein ? Number(protein) : 0,
           carbs: carbs ? Number(carbs) : 0,
           fat: fat ? Number(fat) : 0,
-          meal_type: mealType,
-          created_at: getLocalTimeWithOffset(),
+          mealType,
+          createdAt: getLocalTimeWithOffset(),
         }),
       });
 
