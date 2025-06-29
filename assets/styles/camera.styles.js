@@ -30,13 +30,14 @@ export const cameraStyles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 20,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 20,
     backgroundColor: COLORS.primary,
     marginHorizontal: 6,
     marginVertical: 4,
+    opacity: 0.8,
   },
   controlBtnActive: {
-    opacity: 0.8,
+    // kept for backward-compatibility but no longer used
   },
   endBtn: {
     backgroundColor: "#d9534f",
@@ -47,9 +48,10 @@ export const cameraStyles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 24,
     paddingVertical: 14,
-    borderRadius: 8,
+    borderRadius: 20,
     backgroundColor: COLORS.primary,
     marginHorizontal: 6,
+    opacity: 0.8,
   },
   controlText: { color: "#fff", fontWeight: "600" },
   logContainer: {
@@ -82,9 +84,9 @@ export const cameraStyles = StyleSheet.create({
   },
   detectionOverlay: {
     position: "absolute",
-    top: 16,
-    left: 16,
-    right: 16,
+    top: 12,
+    left: 12,
+    right: 12,
     alignItems: "flex-start",
   },
   detectionIndicator: {
@@ -110,10 +112,11 @@ export const cameraStyles = StyleSheet.create({
   },
   weightIndicator: {
     backgroundColor: "rgba(0, 0, 0, 0.8)",
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 20,
     alignItems: "center",
+    flexDirection: "row",
   },
   weightText: {
     color: "#fff",
@@ -123,6 +126,20 @@ export const cameraStyles = StyleSheet.create({
   confidenceText: {
     color: "#ccc",
     fontSize: 10,
-    marginTop: 2,
+    marginTop: 4,
+  },
+  controlsOverlay: {
+    position: "absolute",
+    bottom: 12,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  liveIndicator: {
+    position: "absolute",
+    top: 10,
+    right: 10,
   },
 });

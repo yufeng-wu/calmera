@@ -10,12 +10,16 @@ import {
   Platform,
   UIManager,
   ActionSheetIOS,
+  Image,
+  Animated,
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as FileSystem from "expo-file-system";
 import * as ImageManipulator from "expo-image-manipulator";
+import { LinearGradient } from "expo-linear-gradient";
+import MaskedView from "@react-native-masked-view/masked-view";
 import {
   SESSIONS_API_URL,
   FRAME_UPLOAD_INTERVAL_MS,
@@ -25,6 +29,7 @@ import PageLoader from "@/components/PageLoader";
 import { cameraStyles } from "@/assets/styles/camera.styles";
 import { SessionLogCard } from "@/components/SessionLogCard";
 import { getLocalTimeWithOffset } from "@/lib/utils";
+import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 
 // Enable LayoutAnimation on Android for smooth/bouncy list updates
 if (
@@ -33,6 +38,8 @@ if (
 ) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
+
+const RAINBOW_COLORS = ["#7694f8", "#7094f8", "#ac70a2", "#da808d", "#a85863"];
 
 export default function CameraScreen() {
   const router = useRouter();
@@ -52,6 +59,11 @@ export default function CameraScreen() {
   const [detectionConfidence, setDetectionConfidence] = useState(null);
   const [cameraReady, setCameraReady] = useState(false);
   const isCapturingRef = useRef(false);
+  // Blinking animation for live indicator
+  const blinkAnim = useRef(new Animated.Value(0)).current;
+  const blinkLoopRef = useRef(null);
+  // Context to signal dashboard refresh after session ends
+  const { setShouldRefresh } = useRefreshSignal();
 
   // Request permission if not granted (first render)
   useEffect(() => {
@@ -71,6 +83,7 @@ export default function CameraScreen() {
 
   // When returning to this screen (after editing a log entry, for example),
   // fetch the latest log once.
+  // KEEP THIS
   useFocusEffect(
     useCallback(() => {
       if (sessionId) {
@@ -88,6 +101,56 @@ export default function CameraScreen() {
     return () => clearInterval(interval);
   }, [isRunning, sessionId]);
 
+  // Start/stop blinking based on running state
+  useEffect(() => {
+    if (isRunning) {
+      blinkAnim.setValue(0);
+      // Prevent multiple loops
+      if (blinkLoopRef.current) {
+        blinkLoopRef.current.stop();
+      }
+      blinkLoopRef.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(blinkAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(blinkAnim, {
+            toValue: 0,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      blinkLoopRef.current.start();
+    } else {
+      // Stop blinking and hide indicator
+      if (blinkLoopRef.current) {
+        blinkLoopRef.current.stop();
+        blinkLoopRef.current = null;
+      }
+      blinkAnim.setValue(0);
+    }
+
+    return () => {
+      if (blinkLoopRef.current) {
+        blinkLoopRef.current.stop();
+        blinkLoopRef.current = null;
+      }
+    };
+  }, [isRunning, blinkAnim]);
+
+  // Smoothly animate transitions between "Detecting" and "123 g" states
+  const animateWeightChange = () =>
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+
+  const updateDetectionState = (weight, confidence) => {
+    animateWeightChange();
+    setCurrentWeight(weight);
+    setDetectionConfidence(confidence);
+  };
+
   const startSession = async () => {
     try {
       setIsLoading(true);
@@ -95,6 +158,8 @@ export default function CameraScreen() {
       if (!res.ok) throw new Error("Unable to create session");
       const data = await res.json();
       setSessionId(data.sessionId);
+      // Smoothly animate the controls changing from "Start" to "Pause/End"
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setIsRunning(true);
     } catch (e) {
       console.error(e);
@@ -107,6 +172,7 @@ export default function CameraScreen() {
   const pauseSession = () => {
     if (isRunning) {
       // Pausing – immediately refresh the log once.
+      // TODO-EDIT: WHEN PAUSED, FETCH THE LOG EVEERY 5 SEC, FOR 4 TIMES MAX.
       setIsRunning(false);
       fetchSessionLog();
     } else {
@@ -124,7 +190,7 @@ export default function CameraScreen() {
     const handleSelected = (selectedMeal) => {
       // Second confirmation alert
       Alert.alert(
-        "End Session",
+        "End Live Session",
         `End session and import logs as ${selectedMeal}?`,
         [
           { text: "Cancel", style: "cancel" },
@@ -185,9 +251,12 @@ export default function CameraScreen() {
       }
 
       await res.json();
+      // Reset session state
       setSessionId(null);
       setLogEntries([]);
-      Alert.alert("Session ended", "Log imported successfully.");
+
+      // Signal the dashboard to refresh its data and navigate back
+      setShouldRefresh(true);
       router.back();
     } catch (e) {
       console.error(e);
@@ -201,41 +270,28 @@ export default function CameraScreen() {
     if (!cameraRef.current || !cameraReady || isCapturingRef.current) return;
     isCapturingRef.current = true;
     try {
-      // Grab the current video-frame as a JPEG.  Using `skipProcessing` makes
-      // the operation almost instantaneous and avoids triggering the
-      // still-photo pipeline that caused flicker.
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.3,
         skipProcessing: true,
         shutterSound: false,
       });
-      // Resize to 640×640 then compress before upload.
-      const saveOptions = {
-        compress: 0.3,
-        format: ImageManipulator.SaveFormat.JPEG,
-      };
 
-      let resizedUri;
-      // Prefer the newer chain-based API when available (Expo SDK 53+)
-      if (typeof ImageManipulator.manipulate === "function") {
-        const ctx = ImageManipulator.manipulate(photo.uri);
-        ctx.resize({ width: 640, height: 640 });
-        const imageRef = await ctx.renderAsync();
-        ({ uri: resizedUri } = await imageRef.saveAsync(saveOptions));
-      } else {
-        // Fallback for older SDKs
-        const result = await ImageManipulator.manipulateAsync(
-          photo.uri,
-          [{ resize: { width: 640, height: 640 } }],
-          saveOptions
-        );
-        resizedUri = result.uri;
-      }
+      // single pass: resize + compress
+      const { uri: resizedUri } = await ImageManipulator.manipulateAsync(
+        photo.uri,
+        [{ resize: { width: 640, height: 640 } }],
+        {
+          compress: 0.2, // lower quality for faster upload and LLM inference
+          format: ImageManipulator.SaveFormat.JPEG,
+        }
+      );
+
+      // Print the file size of the resized frame (bytes)
+      const fileInfo = await FileSystem.getInfoAsync(resizedUri);
+      console.log(`Captured frame size: ${fileInfo.size} bytes`);
 
       await uploadFrame(resizedUri);
       // Clean up temporary files
       FileSystem.deleteAsync(resizedUri, { idempotent: true }).catch(() => {});
-      FileSystem.deleteAsync(photo.uri, { idempotent: true }).catch(() => {});
     } catch (e) {
       if (e?.message?.includes("Camera unmounted")) {
         // Ignore benign race condition when the camera is shutting down.
@@ -279,14 +335,12 @@ export default function CameraScreen() {
         let minConf = null;
 
         if (frame.weight == null || isNaN(numericWeight)) {
-          // reject only null / undefined / NaN
-          setCurrentWeight(null);
-          setDetectionConfidence(null);
+          // Reject null / undefined / NaN
+          updateDetectionState(null, null);
         } else {
           // 0, positive or negative numbers are treated as valid
-          setCurrentWeight(numericWeight);
-
           const digitDetails = frame.metadata?.digitDetails ?? [];
+
           if (digitDetails.length) {
             // Determine overall confidence as the LOWEST confidence across all detected digits
             const confidences = digitDetails
@@ -295,13 +349,10 @@ export default function CameraScreen() {
 
             if (confidences.length) {
               minConf = Math.min(...confidences);
-              setDetectionConfidence(minConf);
-            } else {
-              setDetectionConfidence(null);
             }
-          } else {
-            setDetectionConfidence(null);
           }
+
+          updateDetectionState(numericWeight, minConf);
         }
       }
     } catch (e) {
@@ -392,82 +443,116 @@ export default function CameraScreen() {
           onCameraReady={() => setCameraReady(true)}
         />
 
+        {/* Live Star Indicator */}
+        {/* Live Star Indicator will now be embedded inside the weight indicator */}
+
         {/* Detection Status Overlay */}
         {sessionId && (
           <View style={cameraStyles.detectionOverlay}>
-            {currentWeight !== null ? (
-              <View style={cameraStyles.weightIndicator}>
+            <View style={cameraStyles.weightIndicator}>
+              {/* Embedded Live Star */}
+              <Animated.View
+                style={{
+                  opacity: isRunning ? blinkAnim : 0,
+                  marginRight: 4,
+                  marginTop: 2,
+                }}
+              >
+                <MaskedView
+                  style={{
+                    width: 24,
+                    height: 24,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  maskElement={
+                    <Ionicons name="sparkles" size={20} color="white" />
+                  }
+                >
+                  <LinearGradient
+                    colors={RAINBOW_COLORS}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={{ flex: 1, width: "100%" }}
+                  />
+                </MaskedView>
+              </Animated.View>
+
+              {currentWeight !== null ? (
+                <View style={{ alignItems: "flex-start" }}>
+                  <Text
+                    style={cameraStyles.weightText}
+                  >{`${currentWeight}g`}</Text>
+                  {detectionConfidence && (
+                    <Text style={cameraStyles.confidenceText}>
+                      {Math.round(detectionConfidence * 100)}% confident
+                    </Text>
+                  )}
+                </View>
+              ) : (
                 <Text
-                  style={cameraStyles.weightText}
-                >{`${currentWeight}g`}</Text>
-                {detectionConfidence && (
-                  <Text style={cameraStyles.confidenceText}>
-                    {Math.round(detectionConfidence * 100)}% confident
-                  </Text>
-                )}
-              </View>
-            ) : (
-              <View style={cameraStyles.weightIndicator}>
-                <Text style={cameraStyles.weightText}>
-                  Detecting kitchen scale...
+                  style={[
+                    cameraStyles.weightText,
+                    { fontSize: 12, textAlign: "left", lineHeight: 16.2 },
+                  ]}
+                >
+                  Detecting{"\n"}kitchen scale...
                 </Text>
-              </View>
-            )}
+              )}
+            </View>
           </View>
         )}
-      </View>
 
-      {/* Controls */}
-      <View style={cameraStyles.controlsContainer}>
-        {sessionId ? (
-          <>
+        {/* Controls Overlay */}
+        <View style={cameraStyles.controlsOverlay}>
+          {sessionId ? (
+            <>
+              <TouchableOpacity
+                style={cameraStyles.controlBtn}
+                onPress={pauseSession}
+                activeOpacity={0.5}
+                disabled={isLoading}
+              >
+                <Ionicons
+                  name={isRunning ? "pause" : "play"}
+                  size={14}
+                  color="#fff"
+                />
+                <Text style={cameraStyles.controlText}>
+                  {isRunning ? " Pause" : " Resume"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[cameraStyles.controlBtn, cameraStyles.endBtn]}
+                onPress={endSession}
+                activeOpacity={0.5}
+                disabled={isLoading}
+              >
+                <Text style={cameraStyles.controlText}>End & Save</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
             <TouchableOpacity
-              style={[
-                cameraStyles.controlBtn,
-                isRunning && cameraStyles.controlBtnActive,
-              ]}
-              onPress={pauseSession}
+              style={cameraStyles.startBtn}
+              onPress={startSession}
+              activeOpacity={0.5}
               disabled={isLoading}
             >
-              <Ionicons
-                name={isRunning ? "pause" : "play"}
-                size={24}
-                color="#fff"
-              />
-              <Text style={cameraStyles.controlText}>
-                {isRunning ? "Pause" : "Resume"}
-              </Text>
+              {isLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="play" size={14} color="#fff" />
+                  <Text style={cameraStyles.controlText}>Start</Text>
+                </>
+              )}
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[cameraStyles.controlBtn, cameraStyles.endBtn]}
-              onPress={endSession}
-              disabled={isLoading}
-            >
-              <Ionicons name="stop" size={24} color="#fff" />
-              <Text style={cameraStyles.controlText}>End</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <TouchableOpacity
-            style={cameraStyles.startBtn}
-            onPress={startSession}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="play" size={24} color="#fff" />
-                <Text style={cameraStyles.controlText}>Start</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        )}
+          )}
+        </View>
       </View>
 
       {/* Live Log */}
       <View style={cameraStyles.logContainer}>
-        <Text style={cameraStyles.logTitle}>Live Food Log</Text>
         <FlatList
           data={logEntries}
           keyExtractor={(item) => item.id}
