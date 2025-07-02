@@ -9,8 +9,8 @@ import { COLORS } from "@/constants/colors";
 export const FoodEntryFormCard = ({
   foodName,
   setFoodName,
-  weight,
-  setWeight,
+  quantity,
+  setQuantity,
   calories,
   setCalories,
   protein,
@@ -22,13 +22,16 @@ export const FoodEntryFormCard = ({
   mealType,
   setMealType,
   showMealType = true,
-  showWeight = false,
+  showEstimateButton = true,
+  onEstimateMacros,
+  isEstimating = false,
+  estimateDisabled = false,
+  showMacros = true,
 }) => {
   return (
-    <View style={styles.card}>
-      {/* Meal Type selector (optional) */}
+    <View style={styles.formContainer}>
       {showMealType && (
-        <>
+        <View style={styles.card}>
           <Text style={styles.sectionTitle}>Meal Type</Text>
           <View style={styles.typeSelector}>
             {["Breakfast", "Lunch", "Dinner", "Snack"].map((type) => (
@@ -51,125 +54,171 @@ export const FoodEntryFormCard = ({
               </TouchableOpacity>
             ))}
           </View>
-        </>
+        </View>
       )}
 
-      {/* Food name */}
-      <Text style={styles.sectionTitle}>Food Name</Text>
-      <View style={styles.inputContainer}>
-        <Ionicons
-          name="restaurant"
-          size={20}
-          color={COLORS.textLight}
-          style={styles.inputIcon}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Food name"
-          placeholderTextColor={COLORS.textLight}
-          value={foodName}
-          onChangeText={setFoodName}
-        />
+      {/* Food & Quantity + AI button */}
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Food Name</Text>
+        <View style={styles.inputContainer}>
+          <Ionicons
+            name="restaurant"
+            size={20}
+            color={COLORS.textLight}
+            style={styles.inputIcon}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Food name"
+            placeholderTextColor={COLORS.textLight}
+            value={foodName}
+            onChangeText={setFoodName}
+          />
+        </View>
+
+        <Text style={styles.sectionTitle}>Quantity</Text>
+        <View style={styles.inputContainer}>
+          <Ionicons
+            name="cube-outline"
+            size={20}
+            color={COLORS.textLight}
+            style={styles.inputIcon}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. 1 cup, 12 oz, 3 slices"
+            placeholderTextColor={COLORS.textLight}
+            value={quantity}
+            onChangeText={setQuantity}
+          />
+        </View>
+
+        {/* Estimate Button */}
+        {showEstimateButton && onEstimateMacros && (
+          <TouchableOpacity
+            style={[
+              styles.estimateButton,
+              (isEstimating || estimateDisabled) &&
+                styles.estimateButtonDisabled,
+            ]}
+            onPress={onEstimateMacros}
+            disabled={isEstimating || estimateDisabled}
+          >
+            <Text style={styles.estimateButtonText}>
+              {isEstimating ? "Estimating..." : "Estimate Macros with AI"}
+            </Text>
+            {isEstimating ? (
+              <Ionicons
+                name="hourglass-outline"
+                size={18}
+                color={COLORS.primary}
+              />
+            ) : (
+              <Ionicons
+                name="sparkles-outline"
+                size={18}
+                color={COLORS.white}
+              />
+            )}
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* Weight (optional) */}
-      {showWeight && (
-        <>
-          <Text style={styles.sectionTitle}>Weight (g)</Text>
-          <View style={styles.inputContainer}>
-            <Ionicons
-              name="resize-outline"
-              size={20}
-              color={COLORS.textLight}
-              style={styles.inputIcon}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Weight in grams"
-              placeholderTextColor={COLORS.textLight}
-              keyboardType="numeric"
-              value={weight}
-              onChangeText={setWeight}
-            />
+      {/* Macros Card */}
+      {showMacros && (
+        <View style={styles.card}>
+          <Text style={styles.helperText}>
+            You may manually edit these values.
+          </Text>
+          <View style={styles.macrosGridRow}>
+            {/* Calories */}
+            <View style={styles.macroCell}>
+              <Text style={styles.sectionTitle}>Calories (kcal)</Text>
+              <View style={styles.inputContainer}>
+                <Ionicons
+                  name="flame"
+                  size={20}
+                  color={COLORS.textLight}
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Calories"
+                  placeholderTextColor={COLORS.textLight}
+                  keyboardType="numeric"
+                  value={calories}
+                  onChangeText={setCalories}
+                />
+              </View>
+            </View>
+
+            {/* Protein */}
+            <View style={styles.macroCell}>
+              <Text style={styles.sectionTitle}>Protein (g)</Text>
+              <View style={styles.inputContainer}>
+                <Ionicons
+                  name="barbell"
+                  size={20}
+                  color={COLORS.textLight}
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Protein"
+                  placeholderTextColor={COLORS.textLight}
+                  keyboardType="numeric"
+                  value={protein}
+                  onChangeText={setProtein}
+                />
+              </View>
+            </View>
           </View>
-        </>
+
+          <View style={styles.macrosGridRow}>
+            {/* Carbs */}
+            <View style={styles.macroCell}>
+              <Text style={styles.sectionTitle}>Carbs (g)</Text>
+              <View style={styles.inputContainer}>
+                <Ionicons
+                  name="nutrition"
+                  size={20}
+                  color={COLORS.textLight}
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Carbs"
+                  placeholderTextColor={COLORS.textLight}
+                  keyboardType="numeric"
+                  value={carbs}
+                  onChangeText={setCarbs}
+                />
+              </View>
+            </View>
+
+            {/* Fat */}
+            <View style={styles.macroCell}>
+              <Text style={styles.sectionTitle}>Fat (g)</Text>
+              <View style={styles.inputContainer}>
+                <Ionicons
+                  name="egg"
+                  size={20}
+                  color={COLORS.textLight}
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Fat"
+                  placeholderTextColor={COLORS.textLight}
+                  keyboardType="numeric"
+                  value={fat}
+                  onChangeText={setFat}
+                />
+              </View>
+            </View>
+          </View>
+        </View>
       )}
-
-      {/* Calories */}
-      <Text style={styles.sectionTitle}>Calories (kcal)</Text>
-      <View style={styles.inputContainer}>
-        <Ionicons
-          name="flame"
-          size={20}
-          color={COLORS.textLight}
-          style={styles.inputIcon}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Calories"
-          placeholderTextColor={COLORS.textLight}
-          keyboardType="numeric"
-          value={calories}
-          onChangeText={setCalories}
-        />
-      </View>
-
-      {/* Protein */}
-      <Text style={styles.sectionTitle}>Protein (g)</Text>
-      <View style={styles.inputContainer}>
-        <Ionicons
-          name="barbell"
-          size={20}
-          color={COLORS.textLight}
-          style={styles.inputIcon}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Protein"
-          placeholderTextColor={COLORS.textLight}
-          keyboardType="numeric"
-          value={protein}
-          onChangeText={setProtein}
-        />
-      </View>
-
-      {/* Carbs */}
-      <Text style={styles.sectionTitle}>Carbs (g)</Text>
-      <View style={styles.inputContainer}>
-        <Ionicons
-          name="nutrition"
-          size={20}
-          color={COLORS.textLight}
-          style={styles.inputIcon}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Carbs"
-          placeholderTextColor={COLORS.textLight}
-          keyboardType="numeric"
-          value={carbs}
-          onChangeText={setCarbs}
-        />
-      </View>
-
-      {/* Fat */}
-      <Text style={styles.sectionTitle}>Fat (g)</Text>
-      <View style={styles.inputContainer}>
-        <Ionicons
-          name="egg"
-          size={20}
-          color={COLORS.textLight}
-          style={styles.inputIcon}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Fat"
-          placeholderTextColor={COLORS.textLight}
-          keyboardType="numeric"
-          value={fat}
-          onChangeText={setFat}
-        />
-      </View>
     </View>
   );
 };

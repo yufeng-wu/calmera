@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { styles } from "@/assets/styles/create.styles";
 import { COLORS } from "@/constants/colors";
 import { SESSIONS_API_URL } from "@/constants/api";
+import { ESTIMATE_MACROS_API_URL } from "@/constants/api";
 import { FoodEntryFormCard } from "@/components/FoodEntryFormCard";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
@@ -24,9 +25,15 @@ export default function EditSessionLogEntry() {
   const [protein, setProtein] = useState("");
   const [carbs, setCarbs] = useState("");
   const [fat, setFat] = useState("");
-  const [weight, setWeight] = useState("");
+  const [quantity, setQuantity] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
+  const [isEstimating, setIsEstimating] = useState(false);
+  const [lastEstimated, setLastEstimated] = useState({
+    foodName: "",
+    quantity: "",
+  });
+  const [showMacros, setShowMacros] = useState(true);
 
   // Fetch the specific log entry
   useEffect(() => {
@@ -45,7 +52,11 @@ export default function EditSessionLogEntry() {
         setProtein(String(ni.protein ?? ""));
         setCarbs(String(ni.carbs ?? ""));
         setFat(String(ni.fat ?? ""));
-        setWeight(String(entry.weight ?? ""));
+        setQuantity(String(entry.quantity ?? ""));
+        setLastEstimated({
+          foodName: entry.foodName ?? "",
+          quantity: entry.quantity ?? "",
+        });
       } catch (err) {
         Alert.alert("Error", err.message);
         router.back();
@@ -70,7 +81,7 @@ export default function EditSessionLogEntry() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             foodName: foodName,
-            weight: weight ? Number(weight) : undefined,
+            quantity: quantity ?? undefined,
             nutritionInfo: {
               calories: calories ? Number(calories) : undefined,
               protein: protein ? Number(protein) : undefined,
@@ -95,6 +106,46 @@ export default function EditSessionLogEntry() {
     }
   };
 
+  const handleEstimateMacros = async () => {
+    if (!foodName.trim() || !quantity.trim()) {
+      return Alert.alert(
+        "Error",
+        "Food name and quantity are required for estimation"
+      );
+    }
+    setIsEstimating(true);
+    try {
+      const resp = await fetch(ESTIMATE_MACROS_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ foodName, quantity }),
+      });
+      if (!resp.ok) {
+        const errData = await resp.json();
+        throw new Error(
+          errData.error || errData.message || "Estimation failed"
+        );
+      }
+      const data = await resp.json();
+      setCalories(String(data.calories ?? ""));
+      setProtein(String(data.protein ?? ""));
+      setCarbs(String(data.carbs ?? ""));
+      setFat(String(data.fat ?? ""));
+      setLastEstimated({ foodName, quantity });
+      setShowMacros(true);
+    } catch (err) {
+      Alert.alert("Error", err.message);
+    } finally {
+      setIsEstimating(false);
+    }
+  };
+
+  const estimateDisabled =
+    !foodName.trim() ||
+    !quantity.trim() ||
+    (foodName.trim() === lastEstimated.foodName &&
+      quantity.trim() === lastEstimated.quantity);
+
   if (isFetching) {
     return (
       <View style={styles.loadingContainer}>
@@ -106,7 +157,7 @@ export default function EditSessionLogEntry() {
   return (
     <KeyboardAwareScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
+      contentContainerStyle={{ flexGrow: 1, paddingBottom: 10 }}
       enableOnAndroid={true}
       enableAutomaticScroll={true}
       extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
@@ -146,8 +197,8 @@ export default function EditSessionLogEntry() {
         <FoodEntryFormCard
           foodName={foodName}
           setFoodName={setFoodName}
-          weight={weight}
-          setWeight={setWeight}
+          quantity={quantity}
+          setQuantity={setQuantity}
           calories={calories}
           setCalories={setCalories}
           protein={protein}
@@ -157,7 +208,11 @@ export default function EditSessionLogEntry() {
           fat={fat}
           setFat={setFat}
           showMealType={false}
-          showWeight={true}
+          showEstimateButton={true}
+          onEstimateMacros={handleEstimateMacros}
+          isEstimating={isEstimating}
+          estimateDisabled={estimateDisabled}
+          showMacros={showMacros}
         />
       </View>
     </KeyboardAwareScrollView>

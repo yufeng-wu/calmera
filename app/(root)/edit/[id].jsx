@@ -12,7 +12,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { styles } from "@/assets/styles/create.styles";
 import { COLORS } from "@/constants/colors";
-import { FOOD_ENTRIES_API_URL } from "@/constants/api";
+import { FOOD_ENTRIES_API_URL, ESTIMATE_MACROS_API_URL } from "@/constants/api";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { FoodEntryFormCard } from "@/components/FoodEntryFormCard";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
@@ -30,6 +30,13 @@ export default function EditFoodEntry() {
   const [mealType, setMealType] = useState("Breakfast");
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
+  const [quantity, setQuantity] = useState("");
+  const [isEstimating, setIsEstimating] = useState(false);
+  const [lastEstimated, setLastEstimated] = useState({
+    foodName: "",
+    quantity: "",
+  });
+  const [showMacros, setShowMacros] = useState(true);
 
   // Fetch existing entry data
   useEffect(() => {
@@ -46,6 +53,12 @@ export default function EditFoodEntry() {
         setCarbs(String(data.carbs ?? ""));
         setFat(String(data.fat ?? ""));
         setMealType(data.meal_type ?? "Breakfast");
+        setQuantity(data.quantity ?? "");
+        setLastEstimated({
+          foodName: data.food_name ?? "",
+          quantity: data.quantity ?? "",
+        });
+        setShowMacros(true);
       } catch (error) {
         Alert.alert("Error", error.message);
       } finally {
@@ -69,6 +82,7 @@ export default function EditFoodEntry() {
         },
         body: JSON.stringify({
           foodName: foodName,
+          quantity: quantity,
           calories: Number(calories),
           protein: protein ? Number(protein) : 0,
           carbs: carbs ? Number(carbs) : 0,
@@ -99,6 +113,46 @@ export default function EditFoodEntry() {
     }
   };
 
+  const handleEstimateMacros = async () => {
+    if (!foodName.trim() || !quantity.trim()) {
+      return Alert.alert(
+        "Error",
+        "Food name and quantity are required for estimation"
+      );
+    }
+    setIsEstimating(true);
+    try {
+      const resp = await fetch(ESTIMATE_MACROS_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ foodName, quantity }),
+      });
+      if (!resp.ok) {
+        const errData = await resp.json();
+        throw new Error(
+          errData.error || errData.message || "Estimation failed"
+        );
+      }
+      const data = await resp.json();
+      setCalories(String(data.calories ?? ""));
+      setProtein(String(data.protein ?? ""));
+      setCarbs(String(data.carbs ?? ""));
+      setFat(String(data.fat ?? ""));
+      setLastEstimated({ foodName, quantity });
+      setShowMacros(true);
+    } catch (err) {
+      Alert.alert("Error", err.message);
+    } finally {
+      setIsEstimating(false);
+    }
+  };
+
+  const estimateDisabled =
+    !foodName.trim() ||
+    !quantity.trim() ||
+    (foodName.trim() === lastEstimated.foodName &&
+      quantity.trim() === lastEstimated.quantity);
+
   if (isFetching) {
     return (
       <View style={styles.loadingContainer}>
@@ -110,7 +164,7 @@ export default function EditFoodEntry() {
   return (
     <KeyboardAwareScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
+      contentContainerStyle={{ flexGrow: 1, paddingBottom: 10 }}
       enableOnAndroid={true}
       enableAutomaticScroll={true}
       extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
@@ -153,6 +207,8 @@ export default function EditFoodEntry() {
         <FoodEntryFormCard
           foodName={foodName}
           setFoodName={setFoodName}
+          quantity={quantity}
+          setQuantity={setQuantity}
           calories={calories}
           setCalories={setCalories}
           protein={protein}
@@ -163,6 +219,10 @@ export default function EditFoodEntry() {
           setFat={setFat}
           mealType={mealType}
           setMealType={setMealType}
+          onEstimateMacros={handleEstimateMacros}
+          isEstimating={isEstimating}
+          estimateDisabled={estimateDisabled}
+          showMacros={showMacros}
         />
       </View>
     </KeyboardAwareScrollView>

@@ -23,7 +23,14 @@ if (
 export const FoodEntryItem = ({ item, onDelete }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const router = useRouter();
-  const { food_name, calories, protein, carbs, fat, created_at } = item;
+  const {
+    foodName = item.food_name,
+    calories,
+    protein,
+    carbs,
+    fat,
+    createdAt = item.created_at,
+  } = item;
 
   const macros = `Protein ${Number(protein)}g   Carbs ${Number(
     carbs
@@ -45,13 +52,13 @@ export const FoodEntryItem = ({ item, onDelete }) => {
           <Ionicons name="restaurant" size={22} color={COLORS.primary} />
         </View>
         <View style={styles.transactionLeft}>
-          <Text style={styles.transactionTitle}>{food_name}</Text>
+          <Text style={styles.transactionTitle}>{foodName}</Text>
         </View>
         <View style={styles.transactionRight}>
           <Text style={[styles.transactionAmount, { color: COLORS.primary }]}>
             {parseFloat(calories).toFixed(0)} kcal
           </Text>
-          <Text style={styles.transactionDate}>{formatTime(created_at)}</Text>
+          <Text style={styles.transactionDate}>{formatTime(createdAt)}</Text>
         </View>
         <View style={styles.indicatorContainer}>
           <Ionicons

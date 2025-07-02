@@ -11,6 +11,9 @@ export const USERS_API_URL = `${API_BASE_URL}/users`;
 // Endpoint for session-related requests
 export const SESSIONS_API_URL = `${API_BASE_URL}/sessions`;
 
+// Endpoint to estimate nutrition macros using AI
+export const ESTIMATE_MACROS_API_URL = `${API_BASE_URL}/food-entries/estimate`;
+
 // Camera timing constants
 export const FRAME_UPLOAD_INTERVAL_MS = 300; // How often to send frames to backend (ms)
 

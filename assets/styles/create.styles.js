@@ -39,7 +39,7 @@ export const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.card,
     marginHorizontal: 8,
-    marginVertical: 16,
+    marginVertical: 6,
     borderRadius: 16,
     padding: 16,
     shadowColor: "#000",
@@ -50,7 +50,7 @@ export const styles = StyleSheet.create({
   },
   typeSelector: {
     flexDirection: "row",
-    marginBottom: 20,
+    marginBottom: 8,
     gap: 10,
   },
   typeButton: {
@@ -104,8 +104,9 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 12,
-    padding: 4,
-    marginBottom: 20,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    marginBottom: 14,
     backgroundColor: COLORS.white,
   },
   inputIcon: {
@@ -113,7 +114,8 @@ export const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    padding: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     fontSize: 14,
     color: COLORS.text,
   },
@@ -159,5 +161,43 @@ export const styles = StyleSheet.create({
     padding: 20,
     alignItems: "center",
     justifyContent: "center",
+  },
+  estimateButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.primary,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginBottom: 12,
+    opacity: 1,
+  },
+  estimateButtonText: {
+    color: COLORS.white,
+    fontWeight: "600",
+    marginRight: 6,
+  },
+  estimateButtonDisabled: {
+    opacity: 0.5,
+  },
+  helperText: {
+    fontSize: 12,
+    color: COLORS.textLight,
+    textAlign: "center",
+    marginVertical: 8,
+    marginBottom: 20,
+  },
+  macrosGridRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 8,
+    marginBottom: 8,
+  },
+  macroCell: {
+    flex: 1,
+  },
+  formContainer: {
+    gap: 2,
+    paddingTop: 6,
   },
 });

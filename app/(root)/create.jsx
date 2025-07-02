@@ -1,7 +1,7 @@
 import { View, Text, Alert, TouchableOpacity, Platform } from "react-native";
 import { useUser } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
-import { FOOD_ENTRIES_API_URL } from "@/constants/api";
+import { FOOD_ENTRIES_API_URL, ESTIMATE_MACROS_API_URL } from "@/constants/api";
 import { useState } from "react";
 import { styles } from "@/assets/styles/create.styles";
 import { COLORS } from "@/constants/colors";
@@ -23,10 +23,23 @@ const CreateScreen = () => {
   const [fat, setFat] = useState("");
   const [mealType, setMealType] = useState("Breakfast");
   const [isLoading, setIsLoading] = useState(false);
+  const [quantity, setQuantity] = useState("");
+  const [isEstimating, setIsEstimating] = useState(false);
+  const [lastEstimated, setLastEstimated] = useState({
+    foodName: "",
+    quantity: "",
+  });
+  const [showMacros, setShowMacros] = useState(false);
 
   const handleCreate = async () => {
     // form validation
     if (!foodName.trim()) return Alert.alert("Error", "Food name is required");
+    if (!showMacros) {
+      return Alert.alert(
+        "Need Macros",
+        "Please estimate the macros with AI or enter them manually before saving."
+      );
+    }
     if (!calories || isNaN(parseFloat(calories)) || parseFloat(calories) <= 0)
       return Alert.alert("Error", "Calories must be a positive number");
     setIsLoading(true);
@@ -38,6 +51,7 @@ const CreateScreen = () => {
         },
         body: JSON.stringify({
           foodName,
+          quantity,
           calories: Number(calories),
           protein: protein ? Number(protein) : 0,
           carbs: carbs ? Number(carbs) : 0,
@@ -70,10 +84,50 @@ const CreateScreen = () => {
     }
   };
 
+  const handleEstimateMacros = async () => {
+    if (!foodName.trim() || !quantity.trim()) {
+      return Alert.alert(
+        "Error",
+        "Food name and quantity are required for estimation"
+      );
+    }
+    setIsEstimating(true);
+    try {
+      const resp = await fetch(ESTIMATE_MACROS_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ foodName, quantity }),
+      });
+      if (!resp.ok) {
+        const errData = await resp.json();
+        throw new Error(
+          errData.error || errData.message || "Estimation failed"
+        );
+      }
+      const data = await resp.json();
+      setCalories(String(data.calories ?? ""));
+      setProtein(String(data.protein ?? ""));
+      setCarbs(String(data.carbs ?? ""));
+      setFat(String(data.fat ?? ""));
+      setLastEstimated({ foodName, quantity });
+      setShowMacros(true);
+    } catch (err) {
+      Alert.alert("Error", err.message);
+    } finally {
+      setIsEstimating(false);
+    }
+  };
+
+  const estimateDisabled =
+    !foodName.trim() ||
+    !quantity.trim() ||
+    (foodName.trim() === lastEstimated.foodName &&
+      quantity.trim() === lastEstimated.quantity);
+
   return (
     <KeyboardAwareScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
+      contentContainerStyle={{ flexGrow: 1, paddingBottom: 10 }}
       enableOnAndroid={true}
       enableAutomaticScroll={true}
       extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
@@ -116,6 +170,8 @@ const CreateScreen = () => {
         <FoodEntryFormCard
           foodName={foodName}
           setFoodName={setFoodName}
+          quantity={quantity}
+          setQuantity={setQuantity}
           calories={calories}
           setCalories={setCalories}
           protein={protein}
@@ -126,6 +182,10 @@ const CreateScreen = () => {
           setFat={setFat}
           mealType={mealType}
           setMealType={setMealType}
+          onEstimateMacros={handleEstimateMacros}
+          isEstimating={isEstimating}
+          estimateDisabled={estimateDisabled}
+          showMacros={showMacros}
         />
       </View>
     </KeyboardAwareScrollView>

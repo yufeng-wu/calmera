@@ -165,7 +165,7 @@ export default function SummaryScreen() {
   }
 
   const groupedEntries = entries.reduce((acc, entry) => {
-    const meal = entry.meal_type;
+    const meal = entry.mealType;
     if (!acc[meal]) {
       acc[meal] = [];
     }
