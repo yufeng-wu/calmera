@@ -14,10 +14,12 @@ import { COLORS } from "@/constants/colors";
 import { Ionicons } from "@expo/vector-icons";
 import { styles as createStyles } from "@/assets/styles/create.styles";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
+import { useAuth } from "@clerk/clerk-expo";
 
 export default function EditGoals() {
   const router = useRouter();
   const { setShouldRefresh } = useRefreshSignal();
+  const { getToken } = useAuth();
   const [goals, setGoals] = useState({
     calorie_goal: "",
     protein_goal: "",
@@ -29,7 +31,13 @@ export default function EditGoals() {
   useEffect(() => {
     const fetchGoals = async () => {
       try {
-        const res = await fetch(`${USERS_API_URL}/get-user`);
+        const token = await getToken();
+        const res = await fetch(`${USERS_API_URL}/get-user`, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
         if (!res.ok) throw new Error("Failed to fetch user goals");
         const data = await res.json();
         setGoals({
@@ -44,7 +52,7 @@ export default function EditGoals() {
       }
     };
     fetchGoals();
-  }, []);
+  }, [getToken]);
 
   const handleChange = (field, value) => {
     // Only allow numeric values and optional decimal point
@@ -55,6 +63,7 @@ export default function EditGoals() {
   const handleSave = async () => {
     setLoading(true);
     try {
+      const token = await getToken();
       const body = {
         calorie_goal: goals.calorie_goal
           ? Number(goals.calorie_goal)
@@ -67,7 +76,10 @@ export default function EditGoals() {
       };
       const res = await fetch(`${USERS_API_URL}/update-user`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error("Failed to update goals");

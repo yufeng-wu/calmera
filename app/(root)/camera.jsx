@@ -185,6 +185,19 @@ export default function CameraScreen() {
   const endSession = () => {
     if (!sessionId) return;
 
+    // If no logs, end session directly without asking for meal type
+    if (logEntries.length === 0) {
+      Alert.alert("End Live Session", "No logs to save. End session?", [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "End",
+          style: "destructive",
+          onPress: () => discardSession(),
+        },
+      ]);
+      return;
+    }
+
     const MEAL_OPTIONS = ["Breakfast", "Lunch", "Dinner", "Snack"];
 
     const handleSelected = (selectedMeal) => {
@@ -195,8 +208,13 @@ export default function CameraScreen() {
         [
           { text: "Cancel", style: "cancel" },
           {
-            text: "End",
+            text: "Discard",
             style: "destructive",
+            onPress: () => discardSession(),
+          },
+          {
+            text: "Save",
+            style: "default",
             onPress: () => sendEndSession(selectedMeal),
           },
         ]
@@ -206,12 +224,29 @@ export default function CameraScreen() {
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: [...MEAL_OPTIONS, "Cancel"],
-          cancelButtonIndex: MEAL_OPTIONS.length,
+          options: [...MEAL_OPTIONS, "Discard", "Cancel"],
+          cancelButtonIndex: MEAL_OPTIONS.length + 1,
+          destructiveButtonIndex: MEAL_OPTIONS.length,
           title: "Select meal type",
         },
         (buttonIndex) => {
-          if (buttonIndex === MEAL_OPTIONS.length) return; // Cancel
+          if (buttonIndex === MEAL_OPTIONS.length + 1) return; // Cancel
+          if (buttonIndex === MEAL_OPTIONS.length) {
+            // Discard option
+            Alert.alert(
+              "Discard Session",
+              "Are you sure you want to discard all logs? This action cannot be undone.",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Discard",
+                  style: "destructive",
+                  onPress: () => discardSession(),
+                },
+              ]
+            );
+            return;
+          }
           handleSelected(MEAL_OPTIONS[buttonIndex]);
         }
       );
@@ -222,8 +257,49 @@ export default function CameraScreen() {
           text: mt,
           onPress: () => handleSelected(mt),
         })),
+        {
+          text: "Discard",
+          style: "destructive",
+          onPress: () => discardSession(),
+        },
         { text: "Cancel", style: "cancel" },
       ]);
+    }
+  };
+
+  // Discard session without saving logs
+  const discardSession = async () => {
+    try {
+      // Stop capture loop immediately to prevent extra uploads after deletion
+      setIsRunning(false);
+      setIsLoading(true);
+
+      const res = await fetch(`${SESSIONS_API_URL}/${sessionId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          discard: true,
+          endedAt: getLocalTimeWithOffset(),
+        }),
+      });
+
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(msg || "Failed to discard session");
+      }
+
+      await res.json();
+      // Reset session state
+      setSessionId(null);
+      setLogEntries([]);
+
+      // Navigate back without refreshing dashboard since we discarded
+      router.back();
+    } catch (e) {
+      console.error(e);
+      Alert.alert("Error", e.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -528,7 +604,7 @@ export default function CameraScreen() {
                 activeOpacity={0.5}
                 disabled={isLoading}
               >
-                <Text style={cameraStyles.controlText}>End & Save</Text>
+                <Text style={cameraStyles.controlText}>Finish</Text>
               </TouchableOpacity>
             </>
           ) : (

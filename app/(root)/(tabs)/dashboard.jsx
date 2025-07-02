@@ -23,6 +23,7 @@ import NoRecordYet from "@/components/NoRecordYet";
 import { USERS_API_URL } from "@/constants/api";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { COLORS } from "@/constants/colors";
+import { useAuth } from "@clerk/clerk-expo";
 
 const MealGroup = ({ title, entries, onDelete }) => {
   if (entries.length === 0) return null;
@@ -39,10 +40,12 @@ const MealGroup = ({ title, entries, onDelete }) => {
 
 export default function SummaryScreen() {
   const { user } = useUser();
+  const { getToken } = useAuth();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const { shouldRefresh, setShouldRefresh } = useRefreshSignal();
   const [goals, setGoals] = useState({});
+  const [username, setUsername] = useState("");
   const [fabExpanded, setFabExpanded] = useState(false);
 
   const FAB_BOTTOM = 40;
@@ -79,29 +82,39 @@ export default function SummaryScreen() {
     );
   };
 
-  // Fetch latest macro goals
+  // Stable reference: do NOT include getToken in deps to prevent identity change loops
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const fetchUserGoals = useCallback(async () => {
     try {
-      const response = await fetch(`${USERS_API_URL}/get-user`);
+      const token = await getToken();
+      const response = await fetch(`${USERS_API_URL}/get-user`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
       if (!response.ok) throw new Error("Failed to fetch user goals");
 
       const data = await response.json();
 
       setGoals({
-        calorie_goal: data.calorie_goal,
-        protein_goal: data.protein_goal,
-        carbs_goal: data.carbs_goal,
-        fat_goal: data.fat_goal,
+        calorieGoal: data.calorieGoal,
+        proteinGoal: data.proteinGoal,
+        carbsGoal: data.carbsGoal,
+        fatGoal: data.fatGoal,
       });
+
+      setUsername(data.username);
     } catch (error) {
-      console.error(error);
+      console.error("Error fetching user goals", error);
     }
   }, []);
 
-  // Initial fetch
+  // Initial fetch only once
   useEffect(() => {
     fetchUserGoals();
-  }, [fetchUserGoals]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Refetch goals when screen regains focus
   useFocusEffect(
@@ -188,9 +201,7 @@ export default function SummaryScreen() {
               />
               <View style={styles.welcomeContainer}>
                 <Text style={styles.welcomeText}>Welcome back,</Text>
-                <Text style={styles.usernameText}>
-                  {user?.emailAddresses[0].emailAddress}
-                </Text>
+                <Text style={styles.usernameText}>{username}</Text>
               </View>
             </View>
           </View>

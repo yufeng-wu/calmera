@@ -11,10 +11,10 @@ export const NutritionSummaryCard = ({ summary = {}, goals = {} }) => {
   const fat = Number(summary.fat ?? summary.dailyTotals?.fat ?? 0);
 
   // Extract goal values (fallback to undefined if not provided)
-  const calorieGoal = goals.calorie_goal ?? goals.calories;
-  const proteinGoal = goals.protein_goal ?? goals.protein;
-  const carbsGoal = goals.carbs_goal ?? goals.carbs;
-  const fatGoal = goals.fat_goal ?? goals.fat;
+  const calorieGoal = goals.calorieGoal ?? goals.calorie_goal ?? goals.calories;
+  const proteinGoal = goals.proteinGoal ?? goals.protein_goal ?? goals.protein;
+  const carbsGoal = goals.carbsGoal ?? goals.carbs_goal ?? goals.carbs;
+  const fatGoal = goals.fatGoal ?? goals.fat_goal ?? goals.fat;
 
   // Format calories and macros to smaller strings to avoid line wrapping
   const round = (num, decimals = 1) => {

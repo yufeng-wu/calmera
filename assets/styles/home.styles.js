@@ -17,7 +17,7 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 8,
     paddingHorizontal: 0,
-    paddingVertical: 12,
+    paddingVertical: 4,
   },
   headerLeft: {
     flex: 1,

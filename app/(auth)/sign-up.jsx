@@ -8,16 +8,18 @@ import {
   Keyboard,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import { useSignUp } from "@clerk/clerk-expo";
+import { useSignUp, useAuth } from "@clerk/clerk-expo";
 import { Link, useRouter } from "expo-router";
 import { styles } from "@/assets/styles/auth.styles.js";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "../../constants/colors.js";
 import { Image } from "expo-image";
+import { USERS_API_URL } from "../../constants/api.js";
 
 export default function SignUpScreen() {
   const { isLoaded, signUp, setActive } = useSignUp();
   const router = useRouter();
+  const { getToken } = useAuth();
 
   const [emailAddress, setEmailAddress] = useState("");
   const [password, setPassword] = useState("");
@@ -65,6 +67,25 @@ export default function SignUpScreen() {
       // and redirect the user
       if (signUpAttempt.status === "complete") {
         await setActive({ session: signUpAttempt.createdSessionId });
+
+        // Persist the new user in our own backend database
+        try {
+          const token = await getToken();
+          await fetch(`${USERS_API_URL}/create-user`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              email: emailAddress,
+              username: emailAddress.split("@")[0], // derive a simple username
+            }),
+          });
+        } catch (err) {
+          console.error("Error creating user in backend:", err);
+        }
+
         router.replace("/");
       } else {
         // If the status is not complete, check why. User may need to
