@@ -29,8 +29,10 @@ export const FoodEntryItem = ({ item, onDelete }) => {
     protein,
     carbs,
     fat,
-    createdAt = item.created_at,
+    localTime = item.local_time,
   } = item;
+
+  const displayTime = localTime;
 
   const macros = `Protein ${Number(protein)}g   Carbs ${Number(
     carbs
@@ -58,7 +60,7 @@ export const FoodEntryItem = ({ item, onDelete }) => {
           <Text style={[styles.transactionAmount, { color: COLORS.primary }]}>
             {parseFloat(calories).toFixed(0)} kcal
           </Text>
-          <Text style={styles.transactionDate}>{formatTime(createdAt)}</Text>
+          <Text style={styles.transactionDate}>{formatTime(displayTime)}</Text>
         </View>
         <View style={styles.indicatorContainer}>
           <Ionicons

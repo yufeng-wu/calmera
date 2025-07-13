@@ -1,5 +1,11 @@
 import React from "react";
-import { View, Text, TextInput, TouchableOpacity } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Keyboard,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { styles } from "@/assets/styles/create.styles";
 import { COLORS } from "@/constants/colors";
@@ -11,6 +17,7 @@ export const FoodEntryFormCard = ({
   setFoodName,
   quantity,
   setQuantity,
+  gramsOnly = false,
   calories,
   setCalories,
   protein,
@@ -86,12 +93,30 @@ export const FoodEntryFormCard = ({
           />
           <TextInput
             style={styles.input}
-            placeholder="e.g. 1 cup, 12 oz, 3 slices"
+            placeholder={gramsOnly ? "grams" : "e.g. 1 cup, 12 oz"}
             placeholderTextColor={COLORS.textLight}
-            value={quantity}
-            onChangeText={setQuantity}
+            keyboardType={gramsOnly ? "numeric" : "default"}
+            value={gramsOnly && quantity ? String(quantity) : quantity}
+            onChangeText={(text) => {
+              if (gramsOnly) {
+                const digits = text.replace(/[^0-9]/g, "");
+                setQuantity(digits);
+              } else {
+                setQuantity(text);
+              }
+            }}
           />
+          {gramsOnly && (
+            <Text style={{ marginRight: 6, color: COLORS.text }}>&nbsp;g</Text>
+          )}
         </View>
+
+        {showEstimateButton && (
+          <Text style={styles.helperText}>
+            If the detection is incorrect, please edit the food name or quantity
+            and tap the button below to re-estimate macros.
+          </Text>
+        )}
 
         {/* Estimate Button */}
         {showEstimateButton && onEstimateMacros && (
@@ -101,7 +126,10 @@ export const FoodEntryFormCard = ({
               (isEstimating || estimateDisabled) &&
                 styles.estimateButtonDisabled,
             ]}
-            onPress={onEstimateMacros}
+            onPress={() => {
+              Keyboard.dismiss();
+              onEstimateMacros();
+            }}
             disabled={isEstimating || estimateDisabled}
           >
             <Text style={styles.estimateButtonText}>

@@ -163,6 +163,7 @@ export const styles = StyleSheet.create({
   },
   transactionLeft: {
     flex: 1,
+    paddingRight: 4,
   },
   transactionTitle: {
     fontSize: 14,

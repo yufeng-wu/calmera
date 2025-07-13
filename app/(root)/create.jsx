@@ -1,5 +1,5 @@
 import { View, Text, Alert, TouchableOpacity, Platform } from "react-native";
-import { useUser } from "@clerk/clerk-expo";
+import { useUser, useAuth } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
 import { FOOD_ENTRIES_API_URL, ESTIMATE_MACROS_API_URL } from "@/constants/api";
 import { useState } from "react";
@@ -14,6 +14,7 @@ import { getLocalTimeWithOffset } from "@/lib/utils";
 const CreateScreen = () => {
   const router = useRouter();
   const { user } = useUser();
+  const { getToken } = useAuth();
   const { setShouldRefresh } = useRefreshSignal();
 
   const [foodName, setFoodName] = useState("");
@@ -40,14 +41,16 @@ const CreateScreen = () => {
         "Please estimate the macros with AI or enter them manually before saving."
       );
     }
-    if (!calories || isNaN(parseFloat(calories)) || parseFloat(calories) <= 0)
-      return Alert.alert("Error", "Calories must be a positive number");
+    if (!calories || isNaN(parseFloat(calories)) || parseFloat(calories) < 0)
+      return Alert.alert("Error", "Calories must be a non-negative number");
     setIsLoading(true);
     try {
+      const token = await getToken();
       const response = await fetch(`${FOOD_ENTRIES_API_URL}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           foodName,
@@ -93,9 +96,13 @@ const CreateScreen = () => {
     }
     setIsEstimating(true);
     try {
+      const token = await getToken();
       const resp = await fetch(ESTIMATE_MACROS_API_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ foodName, quantity }),
       });
       if (!resp.ok) {

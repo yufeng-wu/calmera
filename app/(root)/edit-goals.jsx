@@ -15,21 +15,24 @@ import { Ionicons } from "@expo/vector-icons";
 import { styles as createStyles } from "@/assets/styles/create.styles";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { useAuth } from "@clerk/clerk-expo";
+import PageLoader from "@/components/PageLoader";
 
 export default function EditGoals() {
   const router = useRouter();
-  const { setShouldRefresh } = useRefreshSignal();
+  const { setShouldRefresh, setShouldRefreshGoals } = useRefreshSignal();
   const { getToken } = useAuth();
   const [goals, setGoals] = useState({
-    calorie_goal: "",
-    protein_goal: "",
-    carbs_goal: "",
-    fat_goal: "",
+    calorieGoal: "",
+    proteinGoal: "",
+    carbsGoal: "",
+    fatGoal: "",
   });
   const [loading, setLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
 
   useEffect(() => {
     const fetchGoals = async () => {
+      setIsFetching(true);
       try {
         const token = await getToken();
         const res = await fetch(`${USERS_API_URL}/get-user`, {
@@ -41,18 +44,20 @@ export default function EditGoals() {
         if (!res.ok) throw new Error("Failed to fetch user goals");
         const data = await res.json();
         setGoals({
-          calorie_goal: String(data.calorie_goal ?? ""),
-          protein_goal: String(data.protein_goal ?? ""),
-          carbs_goal: String(data.carbs_goal ?? ""),
-          fat_goal: String(data.fat_goal ?? ""),
+          calorieGoal: String(data.calorieGoal ?? ""),
+          proteinGoal: String(data.proteinGoal ?? ""),
+          carbsGoal: String(data.carbsGoal ?? ""),
+          fatGoal: String(data.fatGoal ?? ""),
         });
       } catch (e) {
         console.error(e);
         Alert.alert("Error", "Unable to load goals");
+      } finally {
+        setIsFetching(false);
       }
     };
     fetchGoals();
-  }, [getToken]);
+  }, []);
 
   const handleChange = (field, value) => {
     // Only allow numeric values and optional decimal point
@@ -65,14 +70,10 @@ export default function EditGoals() {
     try {
       const token = await getToken();
       const body = {
-        calorie_goal: goals.calorie_goal
-          ? Number(goals.calorie_goal)
-          : undefined,
-        protein_goal: goals.protein_goal
-          ? Number(goals.protein_goal)
-          : undefined,
-        carbs_goal: goals.carbs_goal ? Number(goals.carbs_goal) : undefined,
-        fat_goal: goals.fat_goal ? Number(goals.fat_goal) : undefined,
+        calorieGoal: goals.calorieGoal ? Number(goals.calorieGoal) : undefined,
+        proteinGoal: goals.proteinGoal ? Number(goals.proteinGoal) : undefined,
+        carbsGoal: goals.carbsGoal ? Number(goals.carbsGoal) : undefined,
+        fatGoal: goals.fatGoal ? Number(goals.fatGoal) : undefined,
       };
       const res = await fetch(`${USERS_API_URL}/update-user`, {
         method: "PUT",
@@ -88,6 +89,7 @@ export default function EditGoals() {
           text: "OK",
           onPress: () => {
             setShouldRefresh(true);
+            setShouldRefreshGoals(true);
             router.back();
           },
         },
@@ -99,6 +101,11 @@ export default function EditGoals() {
       setLoading(false);
     }
   };
+
+  // Show global loader while fetching goals
+  if (isFetching) {
+    return <PageLoader />;
+  }
 
   return (
     <View style={createStyles.container}>
@@ -135,8 +142,8 @@ export default function EditGoals() {
           <TextInput
             style={styles.input}
             keyboardType="numeric"
-            value={goals.calorie_goal}
-            onChangeText={(v) => handleChange("calorie_goal", v)}
+            value={goals.calorieGoal}
+            onChangeText={(v) => handleChange("calorieGoal", v)}
             placeholder="e.g. 2000"
           />
         </View>
@@ -146,8 +153,8 @@ export default function EditGoals() {
           <TextInput
             style={styles.input}
             keyboardType="numeric"
-            value={goals.protein_goal}
-            onChangeText={(v) => handleChange("protein_goal", v)}
+            value={goals.proteinGoal}
+            onChangeText={(v) => handleChange("proteinGoal", v)}
             placeholder="e.g. 150"
           />
         </View>
@@ -157,8 +164,8 @@ export default function EditGoals() {
           <TextInput
             style={styles.input}
             keyboardType="numeric"
-            value={goals.carbs_goal}
-            onChangeText={(v) => handleChange("carbs_goal", v)}
+            value={goals.carbsGoal}
+            onChangeText={(v) => handleChange("carbsGoal", v)}
             placeholder="e.g. 250"
           />
         </View>
@@ -168,8 +175,8 @@ export default function EditGoals() {
           <TextInput
             style={styles.input}
             keyboardType="numeric"
-            value={goals.fat_goal}
-            onChangeText={(v) => handleChange("fat_goal", v)}
+            value={goals.fatGoal}
+            onChangeText={(v) => handleChange("fatGoal", v)}
             placeholder="e.g. 70"
           />
         </View>

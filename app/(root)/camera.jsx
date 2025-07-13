@@ -482,7 +482,7 @@ export default function CameraScreen() {
     if (isRunning) setIsRunning(false);
 
     router.push({
-      pathname: "/log-edit/[id]",
+      pathname: "/session-log-edit/[id]",
       params: { id: logId, sessionId },
     });
   };

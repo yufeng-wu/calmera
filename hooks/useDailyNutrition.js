@@ -1,6 +1,8 @@
 import { useCallback, useState } from "react";
 import { Alert } from "react-native";
+import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { FOOD_ENTRIES_API_URL } from "@/constants/api";
+import { useAuth } from "@clerk/clerk-expo";
 
 /**
  * React hook for fetching and managing a user's food entries and nutrition summary
@@ -10,6 +12,7 @@ import { FOOD_ENTRIES_API_URL } from "@/constants/api";
  * refreshing data & deleting an entry.
  */
 export const useDailyNutrition = (userId, date = new Date()) => {
+  const { getToken } = useAuth();
   const [entries, setEntries] = useState([]);
   const [summary, setSummary] = useState({
     dailyTotals: { calories: 0, protein: 0, carbs: 0, fat: 0 },
@@ -28,15 +31,18 @@ export const useDailyNutrition = (userId, date = new Date()) => {
   };
 
   const formattedDate = getLocalDateString(date);
-  // Determine the device's IANA timezone identifier (e.g., "America/Chicago")
-  const deviceTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const fetchSummaryForDate = useCallback(async () => {
     try {
+      const token = await getToken();
+      // build URL without tz
       const response = await fetch(
-        `${FOOD_ENTRIES_API_URL}/summary-by-date/${formattedDate}?tz=${encodeURIComponent(
-          deviceTimeZone
-        )}`
+        `${FOOD_ENTRIES_API_URL}/summary-by-date/${formattedDate}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
       if (!response.ok) {
         throw new Error("Failed to fetch nutrition summary of the day");
@@ -49,7 +55,7 @@ export const useDailyNutrition = (userId, date = new Date()) => {
       console.error(error);
       Alert.alert("Error", error.message);
     }
-  }, [formattedDate, deviceTimeZone]);
+  }, [formattedDate]);
 
   const loadData = useCallback(async () => {
     if (!userId) return;
@@ -61,15 +67,24 @@ export const useDailyNutrition = (userId, date = new Date()) => {
     }
   }, [userId, fetchSummaryForDate]);
 
+  const { setShouldRefresh } = useRefreshSignal();
+
   const deleteEntry = async (id) => {
     try {
+      const token = await getToken();
       const response = await fetch(`${FOOD_ENTRIES_API_URL}/${id}`, {
         method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
       if (!response.ok) throw new Error("Failed to delete entry");
 
-      // Refresh data after successful deletion
+      // Refresh data after successful deletion locally
       loadData();
+
+      // Notify other screens (e.g., History) to refresh
+      setShouldRefresh(true);
     } catch (error) {
       console.error("Error deleting entry:", error);
       Alert.alert("Error", error.message);

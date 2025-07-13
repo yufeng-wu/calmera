@@ -40,17 +40,27 @@ export const SessionLogCard = ({ entry, onEdit, onDelete }) => {
 
   const {
     id,
-    weight = 0,
+    absDeltaWeight,
     foodName = "Unknown",
     nutritionInfo = {},
-    timestamp,
   } = entry || {};
+
+  console.log("entry", entry);
 
   const { calories = 0, protein = 0, carbs = 0, fat = 0 } = nutritionInfo;
 
   const macrosLine = `${Number(calories).toFixed(0)} kcal   Protein ${Number(
     protein
   )}g   Carbs ${Number(carbs)}g   Fat ${Number(fat)}g`;
+
+  const dispWeight = Number(absDeltaWeight);
+
+  // Helper to fold macros line if too long
+  const MAX_MACROS_LINE = 32;
+  const isFolded = macrosLine.length > MAX_MACROS_LINE && !expanded;
+  const foldedMacros = isFolded
+    ? macrosLine.slice(0, MAX_MACROS_LINE - 3) + "..."
+    : macrosLine;
 
   const toggleExpand = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -74,12 +84,12 @@ export const SessionLogCard = ({ entry, onEdit, onDelete }) => {
             {foodName}
           </Text>
           <Text style={[styles.macrosText, { marginTop: 0 }]} numberOfLines={1}>
-            {macrosLine}
+            {foldedMacros}
           </Text>
         </View>
         <View style={styles.transactionRight}>
           <Text style={[styles.transactionAmount, { color: COLORS.primary }]}>
-            {Number(weight)} g
+            {dispWeight} g
           </Text>
         </View>
         <View style={styles.indicatorContainer}>
@@ -94,6 +104,8 @@ export const SessionLogCard = ({ entry, onEdit, onDelete }) => {
       {/* EXPANDED DETAILS */}
       {expanded && (
         <View style={[styles.expandedContent, { paddingTop: 2 }]}>
+          {/* Show full macros line in second row if it was folded */}
+          {isFolded && <Text style={styles.macrosText}>{macrosLine}</Text>}
           <View style={[styles.iconButtonsContainer, { marginLeft: "auto" }]}>
             <TouchableOpacity
               style={styles.editButtonExpanded}

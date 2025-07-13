@@ -8,6 +8,7 @@ import {
   Platform,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { useAuth } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import { styles } from "@/assets/styles/create.styles";
 import { COLORS } from "@/constants/colors";
@@ -19,6 +20,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 export default function EditSessionLogEntry() {
   const router = useRouter();
   const { id, sessionId } = useLocalSearchParams();
+  const { getToken } = useAuth();
 
   const [foodName, setFoodName] = useState("");
   const [calories, setCalories] = useState("");
@@ -29,6 +31,7 @@ export default function EditSessionLogEntry() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
   const [isEstimating, setIsEstimating] = useState(false);
+  const [direction, setDirection] = useState("add");
   const [lastEstimated, setLastEstimated] = useState({
     foodName: "",
     quantity: "",
@@ -40,7 +43,12 @@ export default function EditSessionLogEntry() {
     const fetchEntry = async () => {
       if (!sessionId || !id) return;
       try {
-        const resp = await fetch(`${SESSIONS_API_URL}/${sessionId}`);
+        const token = await getToken();
+        const resp = await fetch(`${SESSIONS_API_URL}/${sessionId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         if (!resp.ok) throw new Error("Failed to fetch session info");
         const data = await resp.json();
         const entry = data.log ? data.log[id] : null;
@@ -52,10 +60,18 @@ export default function EditSessionLogEntry() {
         setProtein(String(ni.protein ?? ""));
         setCarbs(String(ni.carbs ?? ""));
         setFat(String(ni.fat ?? ""));
-        setQuantity(String(entry.quantity ?? ""));
+        const defaultQtyRaw =
+          entry.quantity ??
+          (entry.absDeltaWeight !== undefined && !isNaN(entry.absDeltaWeight)
+            ? `${entry.absDeltaWeight} g`
+            : "");
+        const numericMatch = String(defaultQtyRaw).match(/\d+/);
+        const defaultQty = numericMatch ? numericMatch[0] : "";
+        setQuantity(defaultQty);
+        setDirection(entry.direction ?? "add");
         setLastEstimated({
           foodName: entry.foodName ?? "",
-          quantity: entry.quantity ?? "",
+          quantity: defaultQty,
         });
       } catch (err) {
         Alert.alert("Error", err.message);
@@ -74,14 +90,19 @@ export default function EditSessionLogEntry() {
 
     setIsLoading(true);
     try {
+      const token = await getToken();
       const response = await fetch(
         `${SESSIONS_API_URL}/${sessionId}/log/${id}`,
         {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
           body: JSON.stringify({
-            foodName: foodName,
-            quantity: quantity ?? undefined,
+            absDeltaWeight: quantity ? Number(quantity) : undefined,
+            direction,
+            foodName,
             nutritionInfo: {
               calories: calories ? Number(calories) : undefined,
               protein: protein ? Number(protein) : undefined,
@@ -115,10 +136,14 @@ export default function EditSessionLogEntry() {
     }
     setIsEstimating(true);
     try {
+      const token = await getToken();
       const resp = await fetch(ESTIMATE_MACROS_API_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ foodName, quantity }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ foodName, quantity: `${quantity} g` }),
       });
       if (!resp.ok) {
         const errData = await resp.json();
@@ -173,7 +198,7 @@ export default function EditSessionLogEntry() {
           >
             <Ionicons name="arrow-back" size={24} color={COLORS.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Edit Session Entry</Text>
+          <Text style={styles.headerTitle}>Edit Food Entry</Text>
           <TouchableOpacity
             style={styles.saveButtonContainer}
             onPress={handleUpdate}
@@ -199,6 +224,7 @@ export default function EditSessionLogEntry() {
           setFoodName={setFoodName}
           quantity={quantity}
           setQuantity={setQuantity}
+          gramsOnly={true}
           calories={calories}
           setCalories={setCalories}
           protein={protein}

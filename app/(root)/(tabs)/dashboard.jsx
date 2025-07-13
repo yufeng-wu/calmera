@@ -16,7 +16,7 @@ import PageLoader from "@/components/PageLoader";
 import { styles } from "@/assets/styles/home.styles";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter } from "expo-router";
 import { NutritionSummaryCard } from "@/components/NutritionSummaryCard";
 import { FoodEntryItem } from "@/components/FoodEntryItem";
 import NoRecordYet from "@/components/NoRecordYet";
@@ -43,7 +43,12 @@ export default function SummaryScreen() {
   const { getToken } = useAuth();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
-  const { shouldRefresh, setShouldRefresh } = useRefreshSignal();
+  const {
+    shouldRefresh,
+    setShouldRefresh,
+    shouldRefreshGoals,
+    setShouldRefreshGoals,
+  } = useRefreshSignal();
   const [goals, setGoals] = useState({});
   const [username, setUsername] = useState("");
   const [fabExpanded, setFabExpanded] = useState(false);
@@ -52,6 +57,9 @@ export default function SummaryScreen() {
   const FAB_HEIGHT = 56;
   const OPTION_HEIGHT = 56;
   const OPTION_SPACING = 12;
+
+  // bottom padding for ScrollView content so last cards aren't hidden behind the FAB
+  const SCROLL_BOTTOM_PADDING = FAB_BOTTOM + FAB_HEIGHT + 20;
 
   // Derived bottom positions
   const manualBottom = FAB_BOTTOM + FAB_HEIGHT + OPTION_SPACING;
@@ -116,12 +124,13 @@ export default function SummaryScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Refetch goals when screen regains focus
-  useFocusEffect(
-    useCallback(() => {
+  // Refresh goals when goal refresh signal is triggered
+  useEffect(() => {
+    if (shouldRefreshGoals) {
       fetchUserGoals();
-    }, [fetchUserGoals])
-  );
+      setShouldRefreshGoals(false);
+    }
+  }, [shouldRefreshGoals, fetchUserGoals, setShouldRefreshGoals]);
 
   useEffect(() => {
     loadData();
@@ -187,6 +196,7 @@ export default function SummaryScreen() {
     <View style={styles.container}>
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={{ paddingBottom: SCROLL_BOTTOM_PADDING }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -229,11 +239,7 @@ export default function SummaryScreen() {
       {fabExpanded && (
         <>
           <TouchableOpacity
-            style={[
-              styles.fabOption,
-              styles.fabOptionWide,
-              { bottom: cameraBottom },
-            ]}
+            style={[styles.fabOption, { bottom: cameraBottom }]}
             onPress={handleCameraAdd}
             activeOpacity={0.8}
           >
@@ -247,7 +253,7 @@ export default function SummaryScreen() {
             activeOpacity={0.8}
           >
             <Ionicons name="create-outline" size={16} color={COLORS.white} />
-            <Text style={styles.fabText}>Manual</Text>
+            <Text style={styles.fabText}>Quick Add</Text>
           </TouchableOpacity>
         </>
       )}

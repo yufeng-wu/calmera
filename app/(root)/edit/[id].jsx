@@ -9,6 +9,7 @@ import {
   Platform,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { useAuth } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import { styles } from "@/assets/styles/create.styles";
 import { COLORS } from "@/constants/colors";
@@ -20,6 +21,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 export default function EditFoodEntry() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { getToken } = useAuth();
   const { setShouldRefresh } = useRefreshSignal();
 
   const [foodName, setFoodName] = useState("");
@@ -44,7 +46,12 @@ export default function EditFoodEntry() {
       console.log("fetching entry", id);
       if (!id) return;
       try {
-        const resp = await fetch(`${FOOD_ENTRIES_API_URL}/${id}`);
+        const token = await getToken();
+        const resp = await fetch(`${FOOD_ENTRIES_API_URL}/${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         if (!resp.ok) throw new Error("Failed to fetch food entry");
         const data = await resp.json();
         setFoodName(data.food_name ?? "");
@@ -70,15 +77,17 @@ export default function EditFoodEntry() {
 
   const handleUpdate = async () => {
     if (!foodName.trim()) return Alert.alert("Error", "Food name is required");
-    if (!calories || isNaN(parseFloat(calories)) || Number(calories) <= 0)
-      return Alert.alert("Error", "Calories must be a positive number");
+    if (!calories || isNaN(parseFloat(calories)) || Number(calories) < 0)
+      return Alert.alert("Error", "Calories must be a non-negative number");
 
     setIsLoading(true);
     try {
+      const token = await getToken();
       const response = await fetch(`${FOOD_ENTRIES_API_URL}/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           foodName: foodName,
@@ -122,9 +131,13 @@ export default function EditFoodEntry() {
     }
     setIsEstimating(true);
     try {
+      const token = await getToken();
       const resp = await fetch(ESTIMATE_MACROS_API_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ foodName, quantity }),
       });
       if (!resp.ok) {

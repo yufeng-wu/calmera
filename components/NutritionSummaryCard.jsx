@@ -1,5 +1,7 @@
 import { View, Text } from "react-native";
 import { styles } from "../assets/styles/home.styles";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { COLORS } from "../constants/colors";
 
 export const NutritionSummaryCard = ({ summary = {}, goals = {} }) => {
   // Extract consumed values (fallback to 0 if not provided)
@@ -15,6 +17,9 @@ export const NutritionSummaryCard = ({ summary = {}, goals = {} }) => {
   const proteinGoal = goals.proteinGoal ?? goals.protein_goal ?? goals.protein;
   const carbsGoal = goals.carbsGoal ?? goals.carbs_goal ?? goals.carbs;
   const fatGoal = goals.fatGoal ?? goals.fat_goal ?? goals.fat;
+
+  // Determine if the calorie goal is exceeded (for status indicator)
+  const exceeded = calorieGoal !== undefined && calories > calorieGoal;
 
   // Format calories and macros to smaller strings to avoid line wrapping
   const round = (num, decimals = 1) => {
@@ -45,9 +50,22 @@ export const NutritionSummaryCard = ({ summary = {}, goals = {} }) => {
     <View style={styles.balanceCard}>
       {/* Calories */}
       <Text style={styles.balanceTitle}>Calories</Text>
-      <Text style={styles.balanceAmount}>
-        {formatCalories(calories, calorieGoal)}
-      </Text>
+      {/* Calories value with status indicator */}
+      <View
+        style={{ flexDirection: "row", alignItems: "center", marginBottom: 20 }}
+      >
+        <Text style={[styles.balanceAmount, { marginBottom: 0 }]}>
+          {formatCalories(calories, calorieGoal)}
+        </Text>
+        {calorieGoal !== undefined && calories > 0 && (
+          <Ionicons
+            name={exceeded ? "arrow-up" : "checkmark"}
+            size={20}
+            color={exceeded ? COLORS.expense : COLORS.income}
+            style={{ marginLeft: 6 }}
+          />
+        )}
+      </View>
 
       {/* Macro breakdown */}
       <View style={styles.balanceStats}>
