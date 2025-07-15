@@ -109,6 +109,7 @@ export default function UpdateGoals() {
         proteinGoal: goals.proteinGoal ? Number(goals.proteinGoal) : undefined,
         carbsGoal: goals.carbsGoal ? Number(goals.carbsGoal) : undefined,
         fatGoal: goals.fatGoal ? Number(goals.fatGoal) : undefined,
+        localDate: new Date().toLocaleDateString("en-CA"),
       };
       const res = await fetch(`${USERS_API_URL}/update-user`, {
         method: "PUT",

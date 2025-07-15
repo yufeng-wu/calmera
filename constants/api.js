@@ -1,6 +1,6 @@
 // Base API URL for the backend
-export const API_BASE_URL = "https://react-app-api-mos5.onrender.com/api";
-// export const API_BASE_URL = "http://localhost:5001/api";
+// export const API_BASE_URL = "https://react-app-api-mos5.onrender.com/api";
+export const API_BASE_URL = "http://localhost:5001/api";
 
 // Endpoint for food-entry–related requests
 export const FOOD_ENTRIES_API_URL = `${API_BASE_URL}/food-entries`;
@@ -22,3 +22,7 @@ export const FRAME_UPLOAD_INTERVAL_MS = 300; // How often to send frames to back
 
 // Polling intervals (in seconds)
 export const LOG_POLL_INTERVAL_SEC = 0.35; // How often to fetch the session log when running (sec)
+
+// Sign-up completion polling
+export const VERIFY_USER_CREATION_RETRY_COUNT = 10; // Number of times to poll for user existence
+export const VERIFY_USER_CREATION_RETRY_INTERVAL_MS = 300; // Delay between retries (ms)

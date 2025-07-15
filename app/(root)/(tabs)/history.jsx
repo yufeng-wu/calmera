@@ -107,16 +107,21 @@ const MonthCalendar = ({
     // Determine status color (only for days with entries)
     let indicatorColor = "transparent";
     const cached = dataByDate[dateStr];
-    if (
-      cached &&
-      cached.entries &&
-      cached.entries.length > 0 &&
-      calorieGoal != null
-    ) {
+    if (cached && cached.entries && cached.entries.length > 0) {
       const consumed = Number(
         cached.summary?.calories ?? cached.summary?.dailyTotals?.calories ?? 0
       );
-      indicatorColor = consumed > calorieGoal ? COLORS.expense : COLORS.income;
+
+      // Prefer the historical goal for this date if the backend provided it
+      const goalForDate =
+        cached.summary?.goals?.calorieGoal != null
+          ? cached.summary.goals.calorieGoal
+          : calorieGoal; // fallback to current goal
+
+      if (goalForDate != null) {
+        indicatorColor =
+          consumed > goalForDate ? COLORS.expense : COLORS.income;
+      }
     }
 
     const onPress = () => {
@@ -271,10 +276,23 @@ export default function HistoryScreen() {
   // Refresh goals when goal refresh signal is triggered
   useEffect(() => {
     if (shouldRefreshGoals) {
+      // 1) Refresh the latest goals (affects dot coloring going forward)
       fetchUserGoals();
+
+      // 2) Refresh only TODAY's summary (the only one affected by a new goal)
+      const today = new Date();
+      fetchDailyData(today);
+
+      // 3) Clear the flag so it doesn't loop
       setShouldRefreshGoals(false);
     }
-  }, [shouldRefreshGoals, fetchUserGoals, setShouldRefreshGoals]);
+    // Intentionally exclude fetchAllSummaries here for performance
+  }, [
+    shouldRefreshGoals,
+    fetchUserGoals,
+    fetchDailyData,
+    setShouldRefreshGoals,
+  ]);
 
   // Helper to fetch daily summary & entries
   const fetchDailyData = useCallback(
@@ -454,7 +472,10 @@ export default function HistoryScreen() {
             signUpDate={signUpDate}
           />
           {entries.length > 0 && (
-            <NutritionSummaryCard summary={summary} goals={goals} />
+            <NutritionSummaryCard
+              summary={summary}
+              goals={summary.goals || goals} // TODO: 1. what is || goal for ? 2. performance optimization: when the user updates goals, we only need to update today's goal and rerender today's summary card.
+            />
           )}
         </View>
 

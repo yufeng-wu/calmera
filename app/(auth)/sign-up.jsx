@@ -6,6 +6,7 @@ import {
   View,
   Platform,
   Keyboard,
+  ActivityIndicator,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { useSignUp, useAuth } from "@clerk/clerk-expo";
@@ -14,7 +15,11 @@ import { styles } from "@/assets/styles/auth.styles.js";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "../../constants/colors.js";
 import { Image } from "expo-image";
-import { USERS_API_URL } from "../../constants/api.js";
+import {
+  USERS_API_URL,
+  VERIFY_USER_CREATION_RETRY_COUNT,
+  VERIFY_USER_CREATION_RETRY_INTERVAL_MS,
+} from "../../constants/api.js";
 
 export default function SignUpScreen() {
   const { isLoaded, signUp, setActive } = useSignUp();
@@ -26,6 +31,7 @@ export default function SignUpScreen() {
   const [pendingVerification, setPendingVerification] = useState(false);
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
 
   // Handle submission of sign-up form
   const onSignUpPress = async () => {
@@ -68,9 +74,10 @@ export default function SignUpScreen() {
       if (signUpAttempt.status === "complete") {
         await setActive({ session: signUpAttempt.createdSessionId });
 
-        // Persist the new user in our own backend database
+        setIsCreatingUser(true);
         try {
           const token = await getToken();
+          // 1) Persist the new user in our own backend database
           await fetch(`${USERS_API_URL}/create-user`, {
             method: "POST",
             headers: {
@@ -79,14 +86,41 @@ export default function SignUpScreen() {
             },
             body: JSON.stringify({
               email: emailAddress,
-              username: emailAddress.split("@")[0], // derive a simple username
+              username: emailAddress.split("@")[0],
+              localDate: new Date().toLocaleDateString("en-CA"),
             }),
           });
+
+          // 2) Poll backend until user is retrievable
+          const wait = (ms) =>
+            new Promise((resolve) => setTimeout(resolve, ms));
+          let created = false;
+          for (let i = 0; i < VERIFY_USER_CREATION_RETRY_COUNT; i++) {
+            const res = await fetch(`${USERS_API_URL}/get-user`, {
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+            });
+            if (res.ok) {
+              created = true;
+              break;
+            }
+            await wait(VERIFY_USER_CREATION_RETRY_INTERVAL_MS);
+          }
+
+          if (!created) {
+            throw new Error("User not available after creation retries");
+          }
+
+          // 3) Navigate to dashboard
+          router.replace("/");
         } catch (err) {
           console.error("Error creating user in backend:", err);
+          setError("Failed to create user. Please try again.");
+        } finally {
+          setIsCreatingUser(false);
         }
-
-        router.replace("/");
       } else {
         // If the status is not complete, check why. User may need to
         // complete further steps.
@@ -102,29 +136,40 @@ export default function SignUpScreen() {
   if (pendingVerification) {
     return (
       <View style={styles.verificationContainer}>
-        <Text style={styles.verificationTitle}>Verify your email</Text>
+        {/* Show loader while waiting for backend confirmation */}
+        {isCreatingUser ? (
+          <ActivityIndicator size="large" color={COLORS.success} />
+        ) : (
+          <>
+            <Text style={styles.verificationTitle}>Verify your email</Text>
 
-        {error ? (
-          <View style={styles.errorBox}>
-            <Ionicons name="alert-circle" size={20} color={COLORS.expense} />
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity onPress={() => setError("")}>
-              <Ionicons name="close" size={20} color={COLORS.textLight} />
+            {error ? (
+              <View style={styles.errorBox}>
+                <Ionicons
+                  name="alert-circle"
+                  size={20}
+                  color={COLORS.expense}
+                />
+                <Text style={styles.errorText}>{error}</Text>
+                <TouchableOpacity onPress={() => setError("")}>
+                  <Ionicons name="close" size={20} color={COLORS.textLight} />
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
+            <TextInput
+              style={[styles.verificationInput, error && styles.errorInput]}
+              value={code}
+              placeholder="Enter your verification code"
+              placeholderTextColor={COLORS.textLight}
+              onChangeText={(code) => setCode(code)}
+            />
+
+            <TouchableOpacity onPress={onVerifyPress} style={styles.button}>
+              <Text style={styles.buttonText}>Verify</Text>
             </TouchableOpacity>
-          </View>
-        ) : null}
-
-        <TextInput
-          style={[styles.verificationInput, error && styles.errorInput]}
-          value={code}
-          placeholder="Enter your verification code"
-          placeholderTextColor={COLORS.textLight}
-          onChangeText={(code) => setCode(code)}
-        />
-
-        <TouchableOpacity onPress={onVerifyPress} style={styles.button}>
-          <Text style={styles.buttonText}>Verify</Text>
-        </TouchableOpacity>
+          </>
+        )}
       </View>
     );
   }

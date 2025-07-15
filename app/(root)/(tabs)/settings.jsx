@@ -37,7 +37,9 @@ export default function SettingsScreen() {
           onPress={handleUpdateGoals}
         >
           <Ionicons name="create-outline" size={20} color={COLORS.text} />
-          <Text style={styles.optionText}>Update Daily Macro Goals</Text>
+          <Text style={styles.optionText}>
+            Update Daily Macro Goals / Get Personalized Recommendations
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.optionButton} onPress={handleLogout}>
