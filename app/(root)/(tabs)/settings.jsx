@@ -21,8 +21,8 @@ export default function SettingsScreen() {
     ]);
   };
 
-  const handleEditGoals = () => {
-    router.push("/edit-goals");
+  const handleUpdateGoals = () => {
+    router.push("/update-goals");
   };
 
   return (
@@ -32,9 +32,12 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.contentWrapper}>
-        <TouchableOpacity style={styles.optionButton} onPress={handleEditGoals}>
+        <TouchableOpacity
+          style={styles.optionButton}
+          onPress={handleUpdateGoals}
+        >
           <Ionicons name="create-outline" size={20} color={COLORS.text} />
-          <Text style={styles.optionText}>Edit Daily Macro Goals</Text>
+          <Text style={styles.optionText}>Update Daily Macro Goals</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.optionButton} onPress={handleLogout}>
@@ -55,7 +58,7 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   profileHeader: {
     alignItems: "center",
-    marginTop: 40,
+    marginTop: 16,
   },
   profileTitle: {
     marginTop: 8,

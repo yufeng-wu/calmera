@@ -96,13 +96,12 @@ export const styles = StyleSheet.create({
   balanceTitle: {
     fontSize: 14,
     color: COLORS.textLight,
-    marginBottom: 8,
+    marginBottom: 2,
   },
   balanceAmount: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: "bold",
     color: COLORS.text,
-    marginBottom: 20,
   },
   balanceStats: {
     flexDirection: "row",
@@ -134,9 +133,9 @@ export const styles = StyleSheet.create({
     color: COLORS.text,
     marginBottom: 15,
   },
-  transactionCard: {
+  foodEntryCard: {
     backgroundColor: COLORS.card,
-    borderRadius: 12,
+    borderRadius: 28,
     marginBottom: 10,
     shadowColor: COLORS.shadow,
     shadowOffset: {
@@ -232,7 +231,7 @@ export const styles = StyleSheet.create({
   },
   emptyState: {
     backgroundColor: COLORS.card,
-    borderRadius: 16,
+    borderRadius: 28,
     padding: 30,
     alignItems: "center",
     justifyContent: "center",

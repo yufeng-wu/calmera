@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -7,8 +7,11 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
+  LayoutAnimation,
+  UIManager,
+  Platform,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { USERS_API_URL } from "@/constants/api";
 import { COLORS } from "@/constants/colors";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,8 +20,40 @@ import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { useAuth } from "@clerk/clerk-expo";
 import PageLoader from "@/components/PageLoader";
 
-export default function EditGoals() {
+export default function UpdateGoals() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+
+  // Enable LayoutAnimation for Android
+  useEffect(() => {
+    if (
+      Platform.OS === "android" &&
+      UIManager.setLayoutAnimationEnabledExperimental
+    ) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }, []);
+
+  // Animate goal fields when we return from the survey with recommended params
+  const hasAnimated = useRef(false);
+
+  useEffect(() => {
+    if (!isFetching && params?.recCal && !hasAnimated.current) {
+      hasAnimated.current = true;
+
+      const newGoals = {
+        calorieGoal: String(params.recCal),
+        proteinGoal: String(params.recProt),
+        carbsGoal: String(params.recCarbs),
+        fatGoal: String(params.recFat),
+      };
+
+      // Simple flip/scroll effect using LayoutAnimation
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setGoals((prev) => ({ ...prev, ...newGoals }));
+    }
+  }, [isFetching, params]);
+
   const { setShouldRefresh, setShouldRefreshGoals } = useRefreshSignal();
   const { getToken } = useAuth();
   const [goals, setGoals] = useState({
@@ -116,7 +151,7 @@ export default function EditGoals() {
         >
           <Ionicons name="arrow-back" size={24} color={COLORS.text} />
         </TouchableOpacity>
-        <Text style={createStyles.headerTitle}>Edit Macro Goals</Text>
+        <Text style={createStyles.headerTitle}>Update Macro Goals</Text>
         <TouchableOpacity
           style={createStyles.saveButtonContainer}
           onPress={handleSave}
@@ -180,6 +215,26 @@ export default function EditGoals() {
             placeholder="e.g. 70"
           />
         </View>
+
+        {/* AI Recommendation Survey Link */}
+        <View style={styles.surveyLinkContainer}>
+          <Text
+            style={[
+              styles.surveyLinkText,
+              { color: COLORS.text },
+              { textDecorationLine: "none" },
+            ]}
+          >
+            Not sure what should be your goal?{"\n"}Fill out our{" "}
+            <Text
+              style={styles.surveyLinkText}
+              onPress={() => router.push("/goals-survey")}
+            >
+              survey
+            </Text>{" "}
+            and get personalized recommendation!
+          </Text>
+        </View>
       </ScrollView>
     </View>
   );
@@ -211,5 +266,16 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 14,
     color: COLORS.text,
+  },
+  surveyLinkContainer: {
+    marginTop: 20,
+    alignItems: "center",
+  },
+  surveyLinkText: {
+    fontSize: 14,
+    color: COLORS.primary,
+    textAlign: "center",
+    lineHeight: 20,
+    textDecorationLine: "underline",
   },
 });

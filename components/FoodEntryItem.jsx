@@ -45,7 +45,7 @@ export const FoodEntryItem = ({ item, onDelete }) => {
 
   return (
     <TouchableOpacity
-      style={styles.transactionCard}
+      style={styles.foodEntryCard}
       onPress={toggleExpand}
       activeOpacity={0.9}
     >

@@ -1,6 +1,6 @@
 // Base API URL for the backend
-// export const API_BASE_URL = "https://react-app-api-mos5.onrender.com/api";
-export const API_BASE_URL = "http://localhost:5001/api";
+export const API_BASE_URL = "https://react-app-api-mos5.onrender.com/api";
+// export const API_BASE_URL = "http://localhost:5001/api";
 
 // Endpoint for food-entry–related requests
 export const FOOD_ENTRIES_API_URL = `${API_BASE_URL}/food-entries`;
@@ -13,6 +13,9 @@ export const SESSIONS_API_URL = `${API_BASE_URL}/sessions`;
 
 // Endpoint to estimate nutrition macros using AI
 export const ESTIMATE_MACROS_API_URL = `${API_BASE_URL}/food-entries/estimate`;
+
+// Endpoint to recommend goals
+export const RECOMMEND_GOALS_API_URL = `${API_BASE_URL}/users/recommend-goals`;
 
 // Camera timing constants
 export const FRAME_UPLOAD_INTERVAL_MS = 300; // How often to send frames to backend (ms)

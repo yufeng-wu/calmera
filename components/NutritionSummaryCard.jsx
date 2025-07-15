@@ -52,19 +52,34 @@ export const NutritionSummaryCard = ({ summary = {}, goals = {} }) => {
       <Text style={styles.balanceTitle}>Calories</Text>
       {/* Calories value with status indicator */}
       <View
-        style={{ flexDirection: "row", alignItems: "center", marginBottom: 20 }}
+        style={{ flexDirection: "row", alignItems: "center", marginBottom: 18 }}
       >
         <Text style={[styles.balanceAmount, { marginBottom: 0 }]}>
           {formatCalories(calories, calorieGoal)}
         </Text>
-        {calorieGoal !== undefined && calories > 0 && (
-          <Ionicons
-            name={exceeded ? "arrow-up" : "checkmark"}
-            size={20}
-            color={exceeded ? COLORS.expense : COLORS.income}
-            style={{ marginLeft: 6 }}
-          />
-        )}
+        {calorieGoal !== undefined &&
+          calories > 0 &&
+          (exceeded ? (
+            <View
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: 10,
+                backgroundColor: COLORS.expense,
+                marginLeft: 6,
+              }}
+            />
+          ) : (
+            <View
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: 10,
+                backgroundColor: COLORS.income,
+                marginLeft: 6,
+              }}
+            />
+          ))}
       </View>
 
       {/* Macro breakdown */}

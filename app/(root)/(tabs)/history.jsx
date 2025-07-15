@@ -493,7 +493,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    marginTop: 12,
+    marginBottom: 20,
   },
   navButton: {
     padding: 4,
