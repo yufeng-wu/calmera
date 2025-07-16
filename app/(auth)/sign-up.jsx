@@ -113,7 +113,7 @@ export default function SignUpScreen() {
             throw new Error("User not available after creation retries");
           }
 
-          // 3) Navigate to dashboard
+          // 3) Navigate to the main app after backend confirmed user creation
           router.replace("/");
         } catch (err) {
           console.error("Error creating user in backend:", err);

@@ -3,14 +3,16 @@ import {
   Text,
   TouchableOpacity,
   View,
-  LayoutAnimation,
   Platform,
   UIManager,
   ScrollView,
   RefreshControl,
   Alert,
+  Animated,
+  Easing,
+  Dimensions,
 } from "react-native";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useDailyNutrition } from "../../../hooks/useDailyNutrition";
 import PageLoader from "@/components/PageLoader";
 import { styles } from "@/assets/styles/home.styles";
@@ -24,6 +26,10 @@ import { USERS_API_URL } from "@/constants/api";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { COLORS } from "@/constants/colors";
 import { useAuth } from "@clerk/clerk-expo";
+import { Audio } from "expo-av";
+
+// Animated Touchable wrapper
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 const MealGroup = ({ title, entries, onDelete }) => {
   if (entries.length === 0) return null;
@@ -40,7 +46,7 @@ const MealGroup = ({ title, entries, onDelete }) => {
 
 export default function SummaryScreen() {
   const { user } = useUser();
-  const { getToken } = useAuth();
+  const { getToken, isLoaded } = useAuth();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const {
@@ -52,6 +58,28 @@ export default function SummaryScreen() {
   const [goals, setGoals] = useState({});
   const [username, setUsername] = useState("");
   const [fabExpanded, setFabExpanded] = useState(false);
+  const [recording, setRecording] = useState(null);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [analyzing, setAnalyzing] = useState(false);
+  const longPressTriggered = useRef(false);
+  const voiceWidthAnim = useRef(new Animated.Value(110)).current;
+  const timerRef = useRef(null);
+  const recordingRef = useRef(null);
+  // removed isLongPressing; we'll control start/stop directly via handlers
+  const fabAnim = useRef(new Animated.Value(0)).current;
+  // Animated width for main FAB
+  const fabWidthAnim = useRef(new Animated.Value(80)).current; // starts at expanded width
+  const analyzingTimeoutRef = useRef(null);
+
+  // Opacity interpolations for Add vs Close content
+  const addOpacity = fabAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0],
+  });
+  const closeOpacity = fabAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
 
   const FAB_BOTTOM = 40;
   const FAB_HEIGHT = 56;
@@ -62,7 +90,8 @@ export default function SummaryScreen() {
   const SCROLL_BOTTOM_PADDING = FAB_BOTTOM + FAB_HEIGHT + 20;
 
   // Derived bottom positions
-  const manualBottom = FAB_BOTTOM + FAB_HEIGHT + OPTION_SPACING;
+  const voiceBottom = FAB_BOTTOM + FAB_HEIGHT + OPTION_SPACING; // closest to FAB
+  const manualBottom = voiceBottom + OPTION_HEIGHT + OPTION_SPACING;
   const cameraBottom = manualBottom + OPTION_HEIGHT + OPTION_SPACING;
 
   // user.id comes from Clerk
@@ -93,8 +122,10 @@ export default function SummaryScreen() {
   // Stable reference: do NOT include getToken in deps to prevent identity change loops
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const fetchUserGoals = useCallback(async () => {
+    // Avoid unauthenticated request if Clerk session not ready yet
+    const token = await getToken();
+    if (!token) return;
     try {
-      const token = await getToken();
       const response = await fetch(`${USERS_API_URL}/get-user`, {
         headers: {
           "Content-Type": "application/json",
@@ -118,31 +149,34 @@ export default function SummaryScreen() {
     }
   }, []);
 
-  // Initial fetch only once
+  // Initial fetch only once when Clerk is ready
   useEffect(() => {
+    if (!isLoaded) return;
     fetchUserGoals();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isLoaded]);
 
   // Refresh goals when goal refresh signal is triggered
   useEffect(() => {
+    if (!isLoaded) return;
     if (shouldRefreshGoals) {
       fetchUserGoals();
       setShouldRefreshGoals(false);
     }
-  }, [shouldRefreshGoals, fetchUserGoals, setShouldRefreshGoals]);
+  }, [isLoaded, shouldRefreshGoals, fetchUserGoals, setShouldRefreshGoals]);
 
   useEffect(() => {
+    if (!isLoaded) return;
     loadData();
-  }, [loadData]);
+  }, [isLoaded, loadData]);
 
   // Refresh list when edit screen signals update
   useEffect(() => {
+    if (!isLoaded) return;
     if (shouldRefresh) {
       loadData();
       setShouldRefresh(false);
     }
-  }, [shouldRefresh, loadData, setShouldRefresh]);
+  }, [isLoaded, shouldRefresh, loadData, setShouldRefresh]);
 
   useEffect(() => {
     // Enable LayoutAnimation on Android
@@ -155,9 +189,50 @@ export default function SummaryScreen() {
   }, []);
 
   const handleFabToggle = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setFabExpanded((prev) => !prev);
+    if (fabExpanded) {
+      // Collapse: animate out, then unmount
+      if (analyzingTimeoutRef.current) {
+        clearTimeout(analyzingTimeoutRef.current);
+        analyzingTimeoutRef.current = null;
+        setAnalyzing(false);
+      }
+      Animated.timing(fabAnim, {
+        toValue: 0,
+        duration: 200,
+        easing: Easing.ease,
+        useNativeDriver: true,
+      }).start(() => {
+        setFabExpanded(false);
+      });
+    } else {
+      // Expand: mount, then animate in
+      setFabExpanded(true);
+      Animated.timing(fabAnim, {
+        toValue: 1,
+        duration: 250,
+        easing: Easing.ease,
+        useNativeDriver: true,
+      }).start();
+    }
+
+    // Animate main fab width
+    Animated.timing(fabWidthAnim, {
+      toValue: fabExpanded ? 80 : 56,
+      duration: 200,
+      easing: Easing.ease,
+      useNativeDriver: false,
+    }).start();
   };
+
+  // Ensure width anim sync with state on mount changes (in case of quick toggles)
+  useEffect(() => {
+    Animated.timing(fabWidthAnim, {
+      toValue: fabExpanded ? 56 : 80,
+      duration: 200,
+      easing: Easing.ease,
+      useNativeDriver: false,
+    }).start();
+  }, [fabExpanded]);
 
   const handleManualAdd = () => {
     setFabExpanded(false);
@@ -167,6 +242,142 @@ export default function SummaryScreen() {
   const handleCameraAdd = () => {
     setFabExpanded(false);
     router.push("/camera"); // TODO: implement camera screen
+  };
+
+  // ---------------- Voice Log handlers ----------------
+  const startRecording = async () => {
+    if (recordingRef.current) {
+      console.warn("Recording already in progress");
+      return;
+    }
+    try {
+      const { status } = await Audio.requestPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission required",
+          "Microphone permission is required to record audio."
+        );
+        return null;
+      }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      const rec = new Audio.Recording();
+      recordingRef.current = rec; // set ref immediately
+      setRecording(rec); // set state for UI re-render
+
+      await rec.prepareToRecordAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      await rec.startAsync();
+
+      // Phase 1: Immediate jump to 160px
+      voiceWidthAnim.setValue(120);
+      Animated.timing(voiceWidthAnim, {
+        toValue: 160,
+        duration: 250,
+        useNativeDriver: false,
+      }).start(() => {
+        // Phase 2: Linear growth to 200px over 30 seconds
+        const screenWidth = Dimensions.get("window").width;
+        const maxButtonWidth = screenWidth * 0.7;
+        Animated.timing(voiceWidthAnim, {
+          toValue: maxButtonWidth,
+          duration: 30000,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: false,
+        }).start();
+      });
+
+      // reset seconds & start interval counter
+      setRecordingSeconds(0);
+      timerRef.current && clearInterval(timerRef.current);
+      timerRef.current = setInterval(() => {
+        setRecordingSeconds((s) => s + 1);
+      }, 1000);
+
+      // Automatically stop after 30 seconds
+      setTimeout(async () => {
+        // ensure it hasn't already been stopped
+        if (recordingRef.current === rec) {
+          stopRecording();
+        }
+      }, 30000);
+      return rec;
+    } catch (err) {
+      console.error("Failed to start recording", err);
+      Alert.alert("Error", "Failed to start recording.");
+      recordingRef.current = null;
+      setRecording(null);
+      return null;
+    }
+  };
+
+  const stopRecording = async () => {
+    if (!recordingRef.current) return;
+
+    try {
+      const rec = recordingRef.current;
+      await rec.stopAndUnloadAsync();
+      const uri = rec.getURI();
+      console.log("Recorded file:", uri);
+      recordingRef.current = null;
+      setRecording(null);
+
+      // clear interval first
+      timerRef.current && clearInterval(timerRef.current);
+      timerRef.current = null;
+
+      // animate width back to original quickly
+      Animated.timing(voiceWidthAnim, {
+        toValue: 110,
+        duration: 250,
+        useNativeDriver: false,
+      }).start();
+
+      // show analyzing placeholder
+      setAnalyzing(true);
+      setRecordingSeconds(0);
+      if (analyzingTimeoutRef.current) {
+        clearTimeout(analyzingTimeoutRef.current);
+      }
+      analyzingTimeoutRef.current = setTimeout(() => {
+        setAnalyzing(false);
+        analyzingTimeoutRef.current = null;
+      }, 3000);
+      // TODO: send file to backend in future implementation
+    } catch (err) {
+      console.error("Failed to stop recording", err);
+    }
+  };
+
+  // useEffect removed – we now start/stop directly in handlers
+
+  const handleVoiceShortPress = () => {
+    if (longPressTriggered.current) {
+      longPressTriggered.current = false; // reset flag so short press isn't fired after long press
+      return;
+    }
+    Alert.alert(
+      "How to use voice log?",
+      "Hold down this button to record your voice (up to 30 seconds). We'll transcribe it and log your food entries automatically."
+    );
+  };
+
+  const handleVoiceLongPress = () => {
+    if (recordingRef.current || analyzing) return; // already recording or analyzing
+    longPressTriggered.current = true;
+    startRecording();
+  };
+
+  const handleVoicePressOut = () => {
+    if (recordingRef.current) {
+      stopRecording();
+    }
+    longPressTriggered.current = false;
   };
 
   if (isLoading && !refreshing) {
@@ -238,41 +449,211 @@ export default function SummaryScreen() {
       {/* Floating Action Button Options */}
       {fabExpanded && (
         <>
-          <TouchableOpacity
-            style={[styles.fabOption, { bottom: cameraBottom }]}
-            onPress={handleCameraAdd}
-            activeOpacity={0.8}
+          {/* Voice Log Option */}
+          <Animated.View
+            style={[
+              styles.fabOptionContainer,
+              {
+                bottom: voiceBottom,
+                opacity: fabAnim,
+                transform: [
+                  {
+                    translateY: fabAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [20, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
           >
-            <Ionicons name="sparkles" size={16} color={COLORS.white} />
-            <Text style={styles.fabText}>Calmera AI</Text>
-          </TouchableOpacity>
+            <AnimatedTouchable
+              style={[
+                styles.fabOption,
+                {
+                  width: voiceWidthAnim,
+                },
+              ]}
+              onPress={handleVoiceShortPress}
+              onLongPress={handleVoiceLongPress}
+              onPressOut={handleVoicePressOut}
+              activeOpacity={0.8}
+              disabled={analyzing}
+            >
+              {/* Timer on left */}
+              {recording && !analyzing && (
+                <Text
+                  style={{
+                    position: "absolute",
+                    left: 16,
+                    color: COLORS.white,
+                    fontWeight: "600",
+                    alignSelf: "center",
+                  }}
+                >
+                  {recordingSeconds}s
+                </Text>
+              )}
+              {/* Icon and Text view, absolute on the right */}
+              <View
+                style={{
+                  position: "absolute",
+                  right: 16,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  alignSelf: "center",
+                }}
+              >
+                {!analyzing && (
+                  <Ionicons name="mic-outline" size={16} color={COLORS.white} />
+                )}
+                <Text style={styles.fabText}>
+                  {analyzing ? "Analyzing..." : "Voice Log"}
+                </Text>
+              </View>
+            </AnimatedTouchable>
+          </Animated.View>
 
-          <TouchableOpacity
-            style={[styles.fabOption, { bottom: manualBottom }]}
-            onPress={handleManualAdd}
-            activeOpacity={0.8}
+          {/* Calmera AI Option */}
+          <Animated.View
+            style={[
+              styles.fabOptionContainer,
+              {
+                bottom: cameraBottom,
+                opacity: fabAnim,
+                transform: [
+                  {
+                    translateY: fabAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [20, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
           >
-            <Ionicons name="create-outline" size={16} color={COLORS.white} />
-            <Text style={styles.fabText}>Quick Add</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.fabOption}
+              onPress={handleCameraAdd}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="sparkles" size={16} color={COLORS.white} />
+              <Text style={styles.fabText}>Calmera AI</Text>
+            </TouchableOpacity>
+          </Animated.View>
+
+          {/* Quick Add Option */}
+          <Animated.View
+            style={[
+              styles.fabOptionContainer,
+              {
+                bottom: manualBottom,
+                opacity: fabAnim,
+                transform: [
+                  {
+                    translateY: fabAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [20, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.fabOption}
+              onPress={handleManualAdd}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="create-outline" size={16} color={COLORS.white} />
+              <Text style={styles.fabText}>Quick Add</Text>
+            </TouchableOpacity>
+          </Animated.View>
         </>
       )}
 
+      {/* Voice Log button when recording or analyzing (separate from FAB options) */}
+      {(recording || analyzing) && !fabExpanded && (
+        <AnimatedTouchable
+          style={[
+            styles.fabOption,
+            {
+              bottom: voiceBottom,
+              width: voiceWidthAnim,
+              justifyContent: "flex-end",
+            },
+          ]}
+          onPress={handleVoiceShortPress}
+          onLongPress={handleVoiceLongPress}
+          onPressOut={handleVoicePressOut}
+          activeOpacity={0.8}
+          disabled={analyzing}
+        >
+          {/* Timer on left */}
+          {recording && !analyzing && (
+            <Text
+              style={{
+                position: "absolute",
+                left: 16,
+                color: COLORS.white,
+                fontWeight: "600",
+                alignSelf: "center",
+              }}
+            >
+              {recordingSeconds}s
+            </Text>
+          )}
+
+          {/* Icon and Text view, absolute on the right */}
+          <View
+            style={{
+              position: "absolute",
+              right: 16,
+              flexDirection: "row",
+              alignItems: "center",
+              alignSelf: "center",
+            }}
+          >
+            {!analyzing && (
+              <Ionicons name="mic-outline" size={16} color={COLORS.white} />
+            )}
+            <Text style={styles.fabText}>
+              {analyzing ? "Analyzing..." : "Voice Log"}
+            </Text>
+          </View>
+        </AnimatedTouchable>
+      )}
+
       {/* Main Floating Action Button */}
-      <TouchableOpacity
-        style={[styles.fab, fabExpanded && styles.fabExpanded]}
+      <AnimatedTouchable
+        style={[styles.fab, { width: fabWidthAnim }]}
         onPress={handleFabToggle}
         activeOpacity={1}
       >
-        {fabExpanded ? (
+        {/* Add content */}
+        <Animated.View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            opacity: addOpacity,
+          }}
+          pointerEvents="none"
+        >
+          <Ionicons name="add" size={16} color={COLORS.white} />
+          <Text style={styles.fabText}>Add</Text>
+        </Animated.View>
+
+        {/* Close icon */}
+        <Animated.View
+          style={{
+            position: "absolute",
+            opacity: closeOpacity,
+          }}
+          pointerEvents="none"
+        >
           <Ionicons name="close" size={16} color={COLORS.white} />
-        ) : (
-          <>
-            <Ionicons name="add" size={16} color={COLORS.white} />
-            <Text style={styles.fabText}>Add</Text>
-          </>
-        )}
-      </TouchableOpacity>
+        </Animated.View>
+      </AnimatedTouchable>
     </View>
   );
 }

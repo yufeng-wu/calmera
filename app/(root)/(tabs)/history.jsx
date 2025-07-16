@@ -100,7 +100,9 @@ const MonthCalendar = ({
     const isSelected = dateStr === getLocalDateString(selectedDate);
     const isFuture =
       day > today && year === today.getFullYear() && month === today.getMonth();
-    const isBeforeSignup = signUpDate && day < signUpDate;
+    // Compare dates only (ignore time) to avoid timezone issues
+    const signupLocal = signUpDate ? getLocalDateString(signUpDate) : null;
+    const isBeforeSignup = signupLocal && dateStr < signupLocal;
 
     const dateNumber = day.getDate();
 
@@ -176,7 +178,7 @@ const MonthCalendar = ({
 
 export default function HistoryScreen() {
   const { user } = useUser();
-  const signUpDate = user?.createdAt ? new Date(user.createdAt) : null;
+  const [signUpDate, setSignUpDate] = useState(null);
   const { getToken } = useAuth();
   const {
     shouldRefresh,
@@ -218,6 +220,12 @@ export default function HistoryScreen() {
       });
       if (!response.ok) throw new Error("Failed to fetch user goals");
       const data = await response.json();
+      // Set signup date from backend data
+      if (data.createdAtLocalDate) {
+        // Ensure we interpret the date in local timezone at midnight to avoid UTC shift
+        const dateOnlyStr = data.createdAtLocalDate.split("T")[0]; // e.g. '2025-07-15'
+        setSignUpDate(new Date(`${dateOnlyStr}T00:00:00`));
+      }
       const goalObj = {
         calorieGoal: data.calorieGoal ?? data.calorie_goal ?? data.calories,
         proteinGoal: data.proteinGoal ?? data.protein_goal ?? data.protein,

@@ -331,8 +331,6 @@ export const styles = StyleSheet.create({
     flexShrink: 0,
   },
   fabOption: {
-    position: "absolute",
-    right: 20,
     minWidth: 100,
     height: 56,
     borderRadius: 28,
@@ -352,5 +350,10 @@ export const styles = StyleSheet.create({
   },
   fabExpanded: {
     width: 56,
+  },
+  fabOptionContainer: {
+    position: "absolute",
+    right: 20,
+    alignItems: "flex-end",
   },
 });

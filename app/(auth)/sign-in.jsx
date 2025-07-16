@@ -44,10 +44,15 @@ export default function Page() {
         console.error(JSON.stringify(signInAttempt, null, 2));
       }
     } catch (err) {
-      if (err.errors?.[0]?.code === "form_password_incorrect") {
+      const errorCode = err.errors?.[0]?.code;
+      if (errorCode === "form_identifier_not_found") {
+        // User not registered
+        setError("No account found for this email address.");
+      } else if (errorCode === "form_password_incorrect") {
+        // Wrong password for existing account
         setError("Invalid password. Please try again.");
       } else {
-        setError("An error occurred. Please try again.");
+        setError("An unexpected error occurred. Please try again.");
       }
     }
   };

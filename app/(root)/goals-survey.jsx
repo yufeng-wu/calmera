@@ -459,6 +459,7 @@ export default function GoalsSurvey() {
           proteinGoal: recommendation.proteinGoal,
           carbsGoal: recommendation.carbsGoal,
           fatGoal: recommendation.fatGoal,
+          localDate: new Date().toLocaleDateString("en-CA"),
         }),
       });
       if (!resp.ok) throw new Error("Failed to update goals");
@@ -467,7 +468,7 @@ export default function GoalsSurvey() {
       Alert.alert("Success", "Macro goals updated successfully.", [
         {
           text: "OK",
-          onPress: () => router.replace("/(tabs)/dashboard"),
+          onPress: () => router.replace("/(tabs)/settings"),
         },
       ]);
     } catch (err) {
