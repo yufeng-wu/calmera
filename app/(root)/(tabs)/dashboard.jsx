@@ -27,6 +27,7 @@ import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { COLORS } from "@/constants/colors";
 import { useAuth } from "@clerk/clerk-expo";
 import { Audio } from "expo-av";
+import { VOICE_LOG_API_URL } from "@/constants/api";
 
 // Animated Touchable wrapper
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -69,7 +70,6 @@ export default function SummaryScreen() {
   const fabAnim = useRef(new Animated.Value(0)).current;
   // Animated width for main FAB
   const fabWidthAnim = useRef(new Animated.Value(80)).current; // starts at expanded width
-  const analyzingTimeoutRef = useRef(null);
 
   // Opacity interpolations for Add vs Close content
   const addOpacity = fabAnim.interpolate({
@@ -191,9 +191,8 @@ export default function SummaryScreen() {
   const handleFabToggle = () => {
     if (fabExpanded) {
       // Collapse: animate out, then unmount
-      if (analyzingTimeoutRef.current) {
-        clearTimeout(analyzingTimeoutRef.current);
-        analyzingTimeoutRef.current = null;
+      // If analyzing is ongoing, cancel it when collapsing FAB
+      if (analyzing) {
         setAnalyzing(false);
       }
       Animated.timing(fabAnim, {
@@ -277,8 +276,8 @@ export default function SummaryScreen() {
       // Phase 1: Immediate jump to 160px
       voiceWidthAnim.setValue(120);
       Animated.timing(voiceWidthAnim, {
-        toValue: 160,
-        duration: 250,
+        toValue: 150,
+        duration: 100,
         useNativeDriver: false,
       }).start(() => {
         // Phase 2: Linear growth to 200px over 30 seconds
@@ -323,7 +322,7 @@ export default function SummaryScreen() {
       const rec = recordingRef.current;
       await rec.stopAndUnloadAsync();
       const uri = rec.getURI();
-      console.log("Recorded file:", uri);
+      console.log("uri:::", uri);
       recordingRef.current = null;
       setRecording(null);
 
@@ -338,17 +337,47 @@ export default function SummaryScreen() {
         useNativeDriver: false,
       }).start();
 
-      // show analyzing placeholder
+      // ---- NEW: send audio to backend ----
       setAnalyzing(true);
       setRecordingSeconds(0);
-      if (analyzingTimeoutRef.current) {
-        clearTimeout(analyzingTimeoutRef.current);
-      }
-      analyzingTimeoutRef.current = setTimeout(() => {
+      try {
+        const token = await getToken();
+        const formData = new FormData();
+        formData.append("audio", {
+          uri,
+          name: "voice-log.m4a",
+          type: "audio/m4a",
+        });
+
+        console.log("formData:::", formData.get("audio"));
+
+        const response = await fetch(VOICE_LOG_API_URL, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        });
+        console.log("response:::", response);
+        const data = await response.json();
+        console.log("data:::", data);
+        if (!response.ok) {
+          if (data?.errorCode === "FOOD_NAME_NOT_DETECTED") {
+            Alert.alert("Oops", "Food name not detected");
+          } else {
+            Alert.alert("Error", data?.error || "Voice analysis failed");
+          }
+        } else {
+          // Success – refresh today's data
+          await loadData();
+          setShouldRefresh(true); // notify other screens
+        }
+      } catch (err) {
+        console.error("Voice log API error", err);
+        Alert.alert("Error", "Failed to analyze voice log");
+      } finally {
         setAnalyzing(false);
-        analyzingTimeoutRef.current = null;
-      }, 3000);
-      // TODO: send file to backend in future implementation
+      }
     } catch (err) {
       console.error("Failed to stop recording", err);
     }
@@ -363,10 +392,9 @@ export default function SummaryScreen() {
     }
     Alert.alert(
       "How to use voice log?",
-      "Hold down this button to record your voice (up to 30 seconds). We'll transcribe it and log your food entries automatically."
+      "\n*Hold down* this button and start speaking (up to 30 seconds): \n\ne.g. 'I had a 16 oz iced latte with oatmilk for breakfast.'\n\n✨ AI will analyze and log it automatically."
     );
   };
-
   const handleVoiceLongPress = () => {
     if (recordingRef.current || analyzing) return; // already recording or analyzing
     longPressTriggered.current = true;
