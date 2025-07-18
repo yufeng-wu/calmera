@@ -365,6 +365,65 @@ export default function HistoryScreen() {
           text: "Delete",
           style: "destructive",
           onPress: async () => {
+            const entryToDelete = entries.find((e) => e.id === id);
+            if (!entryToDelete) return;
+
+            // Animate row removal
+            LayoutAnimation.configureNext(
+              LayoutAnimation.Presets.easeInEaseOut
+            );
+
+            // Optimistically update local cache
+            const dateKey = getLocalDateString(selectedDate);
+            setDataByDate((prev) => {
+              const dayData = prev[dateKey];
+              if (!dayData) return prev;
+
+              const subtract = (totals = {}) => ({
+                calories:
+                  Number(totals.calories || 0) -
+                  Number(entryToDelete.calories || 0),
+                protein:
+                  Number(totals.protein || 0) -
+                  Number(entryToDelete.protein || 0),
+                carbs:
+                  Number(totals.carbs || 0) - Number(entryToDelete.carbs || 0),
+                fat: Number(totals.fat || 0) - Number(entryToDelete.fat || 0),
+              });
+
+              const updatedEntries = dayData.entries.filter((e) => e.id !== id);
+
+              const mealType =
+                entryToDelete.mealType || entryToDelete.meal_type;
+              let updatedMealTotals = dayData.summary.mealTotals;
+              if (
+                mealType &&
+                updatedMealTotals &&
+                updatedMealTotals[mealType]
+              ) {
+                updatedMealTotals = {
+                  ...updatedMealTotals,
+                  [mealType]: subtract(updatedMealTotals[mealType]),
+                };
+              }
+
+              const updatedSummary = {
+                ...dayData.summary,
+                dailyTotals: subtract(dayData.summary.dailyTotals || {}),
+                mealTotals: updatedMealTotals,
+              };
+
+              return {
+                ...prev,
+                [dateKey]: {
+                  ...dayData,
+                  entries: updatedEntries,
+                  summary: updatedSummary,
+                },
+              };
+            });
+
+            // Make API request; rollback on failure
             try {
               const token = await getToken();
               const response = await fetch(`${FOOD_ENTRIES_API_URL}/${id}`, {
@@ -375,12 +434,12 @@ export default function HistoryScreen() {
               });
               if (!response.ok) throw new Error("Failed to delete entry");
 
-              // Refresh only current day data locally and signal other screens
-              await fetchDailyData(selectedDate);
-              setShouldRefresh(true);
+              // Optionally notify other screens – skipped to avoid self-reload
             } catch (error) {
               console.error(error);
               Alert.alert("Error", error.message);
+              // Roll back by refetching latest data
+              fetchDailyData(selectedDate);
             }
           },
         },

@@ -13,6 +13,7 @@ import {
   Dimensions,
 } from "react-native";
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import { useDailyNutrition } from "../../../hooks/useDailyNutrition";
 import PageLoader from "@/components/PageLoader";
 import { styles } from "@/assets/styles/home.styles";
@@ -28,6 +29,7 @@ import { COLORS } from "@/constants/colors";
 import { useAuth } from "@clerk/clerk-expo";
 import { Audio } from "expo-av";
 import { VOICE_LOG_API_URL } from "@/constants/api";
+import { getLocalTimeWithOffset } from "@/lib/utils";
 
 // Animated Touchable wrapper
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -64,12 +66,50 @@ export default function SummaryScreen() {
   const [analyzing, setAnalyzing] = useState(false);
   const longPressTriggered = useRef(false);
   const voiceWidthAnim = useRef(new Animated.Value(110)).current;
+
+  // rainbow animation for voice-log AI analyzing state
+  // use the same rainbow palette as Camera's star animation
+  const RAINBOW_COLORS = [
+    "#7694f8",
+    "#7094f8",
+    "#ac70a2",
+    "#da808d",
+    "#a85863",
+  ];
+
+  const rainbowAnim = useRef(new Animated.Value(0)).current;
+  const rainbowBorderColor = rainbowAnim.interpolate({
+    inputRange: [0, 0.2, 0.4, 0.6, 0.8, 1], // 5 colors + loop back to first
+    outputRange: [...RAINBOW_COLORS, RAINBOW_COLORS[0]],
+  });
   const timerRef = useRef(null);
   const recordingRef = useRef(null);
   // removed isLongPressing; we'll control start/stop directly via handlers
   const fabAnim = useRef(new Animated.Value(0)).current;
   // Animated width for main FAB
   const fabWidthAnim = useRef(new Animated.Value(80)).current; // starts at expanded width
+
+  // NEW: start / stop rainbow border loop when analyzing toggles
+  useEffect(() => {
+    let animation;
+    if (analyzing && fabExpanded) {
+      rainbowAnim.setValue(0);
+      animation = Animated.loop(
+        Animated.timing(rainbowAnim, {
+          toValue: 1,
+          duration: 2000,
+          easing: Easing.linear,
+          useNativeDriver: false,
+        })
+      );
+      animation.start();
+    } else {
+      rainbowAnim.stopAnimation && rainbowAnim.stopAnimation();
+    }
+    return () => {
+      animation && animation.stop();
+    };
+  }, [analyzing, fabExpanded]);
 
   // Opacity interpolations for Add vs Close content
   const addOpacity = fabAnim.interpolate({
@@ -169,14 +209,22 @@ export default function SummaryScreen() {
     loadData();
   }, [isLoaded, loadData]);
 
-  // Refresh list when edit screen signals update
+  // Refresh list when other screens signal update (silent fetch, no loader)
   useEffect(() => {
     if (!isLoaded) return;
     if (shouldRefresh) {
-      loadData();
+      loadData(true); // silent update
       setShouldRefresh(false);
     }
   }, [isLoaded, shouldRefresh, loadData, setShouldRefresh]);
+
+  // Always refresh data silently when the Dashboard screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (!isLoaded) return;
+      loadData(true); // silent fetch (no loader)
+    }, [isLoaded, loadData])
+  );
 
   useEffect(() => {
     // Enable LayoutAnimation on Android
@@ -190,11 +238,7 @@ export default function SummaryScreen() {
 
   const handleFabToggle = () => {
     if (fabExpanded) {
-      // Collapse: animate out, then unmount
-      // If analyzing is ongoing, cancel it when collapsing FAB
-      if (analyzing) {
-        setAnalyzing(false);
-      }
+      // Collapse: animate out, then unmount (do not cancel ongoing analysis)
       Animated.timing(fabAnim, {
         toValue: 0,
         duration: 200,
@@ -233,15 +277,36 @@ export default function SummaryScreen() {
     }).start();
   }, [fabExpanded]);
 
-  const handleManualAdd = () => {
-    setFabExpanded(false);
-    router.push("/create");
+  // Helper to gracefully collapse FAB and then navigate
+  const collapseFabThenNavigate = (path) => {
+    // If FAB already collapsed, navigate immediately
+    if (!fabExpanded) {
+      router.push(path);
+      return;
+    }
+
+    Animated.parallel([
+      Animated.timing(fabAnim, {
+        toValue: 0,
+        duration: 200,
+        easing: Easing.ease,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fabWidthAnim, {
+        toValue: 80,
+        duration: 200,
+        easing: Easing.ease,
+        useNativeDriver: false,
+      }),
+    ]).start(() => {
+      setFabExpanded(false);
+      router.push(path);
+    });
   };
 
-  const handleCameraAdd = () => {
-    setFabExpanded(false);
-    router.push("/camera"); // TODO: implement camera screen
-  };
+  const handleManualAdd = () => collapseFabThenNavigate("/create");
+
+  const handleCameraAdd = () => collapseFabThenNavigate("/camera");
 
   // ---------------- Voice Log handlers ----------------
   const startRecording = async () => {
@@ -322,7 +387,6 @@ export default function SummaryScreen() {
       const rec = recordingRef.current;
       await rec.stopAndUnloadAsync();
       const uri = rec.getURI();
-      console.log("uri:::", uri);
       recordingRef.current = null;
       setRecording(null);
 
@@ -348,8 +412,7 @@ export default function SummaryScreen() {
           name: "voice-log.m4a",
           type: "audio/m4a",
         });
-
-        console.log("formData:::", formData.get("audio"));
+        formData.append("createdAt", getLocalTimeWithOffset());
 
         const response = await fetch(VOICE_LOG_API_URL, {
           method: "POST",
@@ -358,12 +421,10 @@ export default function SummaryScreen() {
           },
           body: formData,
         });
-        console.log("response:::", response);
         const data = await response.json();
-        console.log("data:::", data);
         if (!response.ok) {
           if (data?.errorCode === "FOOD_NAME_NOT_DETECTED") {
-            Alert.alert("Oops", "Food name not detected");
+            Alert.alert("Oops", "Food name not detected in your voice log.");
           } else {
             Alert.alert("Error", data?.error || "Voice analysis failed");
           }
@@ -392,7 +453,7 @@ export default function SummaryScreen() {
     }
     Alert.alert(
       "How to use voice log?",
-      "\n*Hold down* this button and start speaking (up to 30 seconds): \n\ne.g. 'I had a 16 oz iced latte with oatmilk for breakfast.'\n\n✨ AI will analyze and log it automatically."
+      "\n*Hold down* this button and start speaking (up to 30 seconds): \n\ne.g. 'I had a 16 oz iced latte with oatmilk for breakfast.'\n\n✨ AI will analyze and log it automatically. \n\nNote: if you don't include meal type, it will be logged as a snack. Your audio will be deleted after analysis."
     );
   };
   const handleVoiceLongPress = () => {
@@ -405,7 +466,7 @@ export default function SummaryScreen() {
     if (recordingRef.current) {
       stopRecording();
     }
-    longPressTriggered.current = false;
+    // Do NOT reset longPressTriggered here; let handleVoiceShortPress clear it.
   };
 
   if (isLoading && !refreshing) {
@@ -500,6 +561,8 @@ export default function SummaryScreen() {
                 styles.fabOption,
                 {
                   width: voiceWidthAnim,
+                  borderWidth: analyzing ? 3 : 0,
+                  borderColor: analyzing ? rainbowBorderColor : "transparent",
                 },
               ]}
               onPress={handleVoiceShortPress}
@@ -600,15 +663,19 @@ export default function SummaryScreen() {
         </>
       )}
 
-      {/* Voice Log button when recording or analyzing (separate from FAB options) */}
-      {(recording || analyzing) && !fabExpanded && (
+      {/* Voice Log button visible only while recording (hidden during analysis when FAB collapsed) */}
+      {recording && !fabExpanded && (
         <AnimatedTouchable
           style={[
             styles.fabOption,
             {
+              position: "absolute",
+              right: 20,
               bottom: voiceBottom,
               width: voiceWidthAnim,
               justifyContent: "flex-end",
+              borderWidth: analyzing ? 2 : 0,
+              borderColor: analyzing ? rainbowBorderColor : "transparent",
             },
           ]}
           onPress={handleVoiceShortPress}
@@ -617,8 +684,8 @@ export default function SummaryScreen() {
           activeOpacity={0.8}
           disabled={analyzing}
         >
-          {/* Timer on left */}
-          {recording && !analyzing && (
+          {/* Timer – visible only while recording */}
+          {recording && (
             <Text
               style={{
                 position: "absolute",
@@ -642,12 +709,8 @@ export default function SummaryScreen() {
               alignSelf: "center",
             }}
           >
-            {!analyzing && (
-              <Ionicons name="mic-outline" size={16} color={COLORS.white} />
-            )}
-            <Text style={styles.fabText}>
-              {analyzing ? "Analyzing..." : "Voice Log"}
-            </Text>
+            <Ionicons name="mic-outline" size={16} color={COLORS.white} />
+            <Text style={styles.fabText}>Voice Log</Text>
           </View>
         </AnimatedTouchable>
       )}
