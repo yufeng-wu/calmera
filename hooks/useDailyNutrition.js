@@ -50,6 +50,23 @@ export const useDailyNutrition = (userId, date = new Date()) => {
       const data = await response.json();
       console.log("data", data);
 
+      // Sort entries to ensure a deterministic order.
+      // We sort by localTime (string HH:MM:SS) ASC then by id ASC.
+      // Using string comparison works because the time strings are zero-padded.
+      if (data.foodEntries && data.foodEntries.length > 0) {
+        data.foodEntries.sort((a, b) => {
+          const tA = (a.localTime || a.local_time || "").toString();
+          const tB = (b.localTime || b.local_time || "").toString();
+
+          if (tA !== tB) {
+            return tA.localeCompare(tB); // earlier time first
+          }
+
+          // Tie-breaker: lower id (older entry) first for stability
+          return a.id - b.id;
+        });
+      }
+
       // Smoothly animate any list changes (insertion/deletion) & summary resize
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
