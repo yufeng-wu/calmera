@@ -146,11 +146,65 @@ export const useDailyNutrition = (userId, date = new Date()) => {
     }
   };
 
+  const addEntries = useCallback((newEntries) => {
+    if (!newEntries || newEntries.length === 0) return;
+
+    // 1) UI update with smooth animation
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setEntries((prev) => [...prev, ...newEntries]);
+
+    // 2) Update summary totals locally
+    setSummary((prev) => {
+      const updated = JSON.parse(JSON.stringify(prev)); // deep copy
+
+      // Ensure totals objects exist before updating
+      if (!updated.dailyTotals) {
+        updated.dailyTotals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+      }
+      if (!updated.mealTotals) {
+        updated.mealTotals = {};
+      }
+
+      newEntries.forEach((entry) => {
+        const { calories, protein, carbs, fat, mealType } = entry;
+        const numCalories = Number(calories) || 0;
+        const numProtein = Number(protein) || 0;
+        const numCarbs = Number(carbs) || 0;
+        const numFat = Number(fat) || 0;
+
+        // Add to daily totals
+        updated.dailyTotals.calories += numCalories;
+        updated.dailyTotals.protein += numProtein;
+        updated.dailyTotals.carbs += numCarbs;
+        updated.dailyTotals.fat += numFat;
+
+        // Add to per-meal totals, initializing if mealType is new
+        if (mealType) {
+          if (!updated.mealTotals[mealType]) {
+            updated.mealTotals[mealType] = {
+              calories: 0,
+              protein: 0,
+              carbs: 0,
+              fat: 0,
+            };
+          }
+          updated.mealTotals[mealType].calories += numCalories;
+          updated.mealTotals[mealType].protein += numProtein;
+          updated.mealTotals[mealType].carbs += numCarbs;
+          updated.mealTotals[mealType].fat += numFat;
+        }
+      });
+
+      return updated;
+    });
+  }, []);
+
   return {
     entries,
     summary,
     isLoading,
     loadData,
     deleteEntry,
+    addEntries,
   };
 };

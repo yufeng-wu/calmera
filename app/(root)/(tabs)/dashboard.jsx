@@ -154,7 +154,7 @@ export default function SummaryScreen() {
   const cameraBottom = manualBottom + OPTION_HEIGHT + OPTION_SPACING;
 
   // user.id comes from Clerk
-  const { entries, summary, isLoading, loadData, deleteEntry } =
+  const { entries, summary, isLoading, loadData, deleteEntry, addEntries } =
     useDailyNutrition(user.id);
 
   const onRefresh = async () => {
@@ -463,8 +463,13 @@ export default function SummaryScreen() {
             Alert.alert("Error", data?.error || "Voice analysis failed");
           }
         } else {
-          // Success – refresh today's data
-          await loadData();
+          // Success – add entries to the list with an animation
+          const entriesToAdd = Array.isArray(data.savedEntries)
+            ? data.savedEntries
+            : data.savedEntries
+            ? [data.savedEntries]
+            : [];
+          addEntries(entriesToAdd);
           setShouldRefresh(true); // notify other screens
         }
       } catch (err) {
