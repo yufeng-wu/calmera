@@ -40,7 +40,7 @@ const MealGroup = ({ title, entries, onDelete }) => {
 
   return (
     <View style={styles.mealGroupContainer}>
-      <Text style={styles.mealGroupTitle}> {title}</Text>
+      <Text style={styles.mealGroupTitle}>{title}</Text>
       {entries.map((item) => (
         <FoodEntryItem key={item.id} item={item} onDelete={onDelete} />
       ))}

@@ -491,9 +491,19 @@ export default function HistoryScreen() {
 
   const dateStr = getLocalDateString(selectedDate);
   const entries = dataByDate[dateStr]?.entries || [];
+  // Sort entries the same deterministic way as Dashboard (localTime ASC, id ASC)
+  const sortedEntries = [...entries].sort((a, b) => {
+    const tA = (a.localTime || a.local_time || "").toString();
+    const tB = (b.localTime || b.local_time || "").toString();
+    if (tA !== tB) {
+      return tA.localeCompare(tB); // earlier time first
+    }
+    return a.id - b.id; // tie-breaker: older entry first
+  });
+
   const summary = dataByDate[dateStr]?.summary || {};
 
-  const groupedEntries = entries.reduce((acc, entry) => {
+  const groupedEntries = sortedEntries.reduce((acc, entry) => {
     const meal = entry.mealType || entry.meal_type;
     if (!acc[meal]) acc[meal] = [];
     acc[meal].push(entry);
@@ -594,13 +604,13 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
   mealGroupContainer: {
-    marginBottom: 24,
+    marginBottom: 10,
   },
   mealGroupTitle: {
     fontSize: 16,
     fontWeight: "600",
     color: COLORS.text,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   transactionsContainer: {
     paddingHorizontal: 16,
