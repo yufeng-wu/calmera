@@ -16,6 +16,13 @@ export default function TabLayout() {
         tabBarLabelStyle: {
           marginBottom: 4,
         },
+        // Prevent flying icons by disabling animations
+        tabBarHideOnKeyboard: false,
+        tabBarAnimation: "none",
+        tabBarIconStyle: {
+          // Ensure icons stay in place
+          transform: [{ translateX: 0 }, { translateY: 0 }],
+        },
       }}
     >
       <Tabs.Screen

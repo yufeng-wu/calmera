@@ -11,6 +11,7 @@ import {
   Animated,
   Easing,
   Dimensions,
+  Linking,
 } from "react-native";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useFocusEffect } from "@react-navigation/native";
@@ -65,7 +66,12 @@ export default function SummaryScreen() {
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [analyzing, setAnalyzing] = useState(false);
   const longPressTriggered = useRef(false);
-  const voiceWidthAnim = useRef(new Animated.Value(110)).current;
+  const INITIAL_VOICE_WIDTH = 120;
+  const voiceWidthAnim = useRef(
+    new Animated.Value(INITIAL_VOICE_WIDTH)
+  ).current;
+  // No translation needed; button is anchored to right so it grows leftwards
+  const voiceLogContentOpacity = useRef(new Animated.Value(1)).current;
 
   // rainbow animation for voice-log AI analyzing state
   // use the same rainbow palette as Camera's star animation
@@ -110,6 +116,19 @@ export default function SummaryScreen() {
       animation && animation.stop();
     };
   }, [analyzing, fabExpanded]);
+
+  // NEW: Fade-in animation for "Voice Log" text after analysis
+  useEffect(() => {
+    if (!analyzing) {
+      voiceLogContentOpacity.setValue(0);
+      Animated.timing(voiceLogContentOpacity, {
+        toValue: 1,
+        duration: 400,
+        easing: Easing.ease,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [analyzing]);
 
   // Opacity interpolations for Add vs Close content
   const addOpacity = fabAnim.interpolate({
@@ -315,11 +334,26 @@ export default function SummaryScreen() {
       return;
     }
     try {
+      // First try to request permission
       const { status } = await Audio.requestPermissionsAsync();
       if (status !== "granted") {
         Alert.alert(
-          "Permission required",
-          "Microphone permission is required to record audio."
+          "Microphone Access Required",
+          "To use voice logging, please grant microphone permission in your device settings.",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Open Settings",
+              onPress: () => {
+                // Open device settings for the app
+                if (Platform.OS === "ios") {
+                  Linking.openURL("app-settings:");
+                } else {
+                  Linking.openSettings();
+                }
+              },
+            },
+          ]
         );
         return null;
       }
@@ -341,8 +375,8 @@ export default function SummaryScreen() {
       // Phase 1: Immediate jump to 160px
       voiceWidthAnim.setValue(120);
       Animated.timing(voiceWidthAnim, {
-        toValue: 150,
-        duration: 100,
+        toValue: 160,
+        duration: 200,
         useNativeDriver: false,
       }).start(() => {
         // Phase 2: Linear growth to 200px over 30 seconds
@@ -396,7 +430,7 @@ export default function SummaryScreen() {
 
       // animate width back to original quickly
       Animated.timing(voiceWidthAnim, {
-        toValue: 110,
+        toValue: 120,
         duration: 250,
         useNativeDriver: false,
       }).start();
@@ -466,7 +500,7 @@ export default function SummaryScreen() {
     if (recordingRef.current) {
       stopRecording();
     }
-    // Do NOT reset longPressTriggered here; let handleVoiceShortPress clear it.
+    longPressTriggered.current = false;
   };
 
   if (isLoading && !refreshing) {
@@ -589,18 +623,29 @@ export default function SummaryScreen() {
               <View
                 style={{
                   position: "absolute",
-                  right: 16,
+                  right: 20,
                   flexDirection: "row",
                   alignItems: "center",
-                  alignSelf: "center",
                 }}
               >
-                {!analyzing && (
-                  <Ionicons name="mic-outline" size={16} color={COLORS.white} />
+                {analyzing ? (
+                  <Text style={styles.fabText}>Analyzing...</Text>
+                ) : (
+                  <Animated.View
+                    style={{
+                      opacity: voiceLogContentOpacity,
+                      flexDirection: "row",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Ionicons
+                      name="mic-outline"
+                      size={16}
+                      color={COLORS.white}
+                    />
+                    <Text style={styles.fabText}>Voice Log</Text>
+                  </Animated.View>
                 )}
-                <Text style={styles.fabText}>
-                  {analyzing ? "Analyzing..." : "Voice Log"}
-                </Text>
               </View>
             </AnimatedTouchable>
           </Animated.View>
@@ -673,7 +718,7 @@ export default function SummaryScreen() {
               right: 20,
               bottom: voiceBottom,
               width: voiceWidthAnim,
-              justifyContent: "flex-end",
+              justifyContent: "center",
               borderWidth: analyzing ? 2 : 0,
               borderColor: analyzing ? rainbowBorderColor : "transparent",
             },
@@ -703,10 +748,9 @@ export default function SummaryScreen() {
           <View
             style={{
               position: "absolute",
-              right: 16,
+              right: 20,
               flexDirection: "row",
               alignItems: "center",
-              alignSelf: "center",
             }}
           >
             <Ionicons name="mic-outline" size={16} color={COLORS.white} />

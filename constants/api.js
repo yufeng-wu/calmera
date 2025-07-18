@@ -1,6 +1,6 @@
 // Base API URL for the backend
-// export const API_BASE_URL = "https://react-app-api-mos5.onrender.com/api";
-export const API_BASE_URL = "http://localhost:5001/api";
+export const API_BASE_URL = "https://react-app-api-mos5.onrender.com/api";
+// export const API_BASE_URL = "http://localhost:5001/api";
 
 // Endpoint for food-entry–related requests
 export const FOOD_ENTRIES_API_URL = `${API_BASE_URL}/food-entries`;
