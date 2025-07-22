@@ -28,7 +28,7 @@ import { SessionLogCard } from "@/components/SessionLogCard";
 import { getLocalTimeWithOffset } from "@/lib/utils";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 
-const FRAME_UPLOAD_INTERVAL_MS = 500; // How often to send frames to backend (ms)
+const FRAME_UPLOAD_INTERVAL_MS = 400; // How often to send frames to backend (ms)
 const BLANK_FRAME_COUNT_THRESHOLD = 4; // Number of consecutive frames that have no valid weight reading to show "Detecting Scale Reading..." message
 const PAUSE_POLL_INTERVAL_MS = 1000; // How often to poll session log during pause (ms)
 const MAX_PAUSE_POLLS = 8; // Maximum number of polls during pause period (reset to 0 once the session resumes)
