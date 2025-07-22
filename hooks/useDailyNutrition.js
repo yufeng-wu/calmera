@@ -48,7 +48,6 @@ export const useDailyNutrition = (userId, date = new Date()) => {
         throw new Error("Failed to fetch nutrition summary of the day");
       }
       const data = await response.json();
-      console.log("data", data);
 
       // Sort entries to ensure a deterministic order.
       // We sort by localTime (string HH:MM:SS) ASC then by id ASC.

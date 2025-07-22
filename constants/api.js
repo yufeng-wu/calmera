@@ -20,12 +20,6 @@ export const RECOMMEND_GOALS_API_URL = `${API_BASE_URL}/users/recommend-goals`;
 // Endpoint for voice log
 export const VOICE_LOG_API_URL = `${API_BASE_URL}/voice/log`;
 
-// Camera timing constants
-export const FRAME_UPLOAD_INTERVAL_MS = 300; // How often to send frames to backend (ms)
-
-// Polling intervals (in seconds)
-export const LOG_POLL_INTERVAL_SEC = 0.35; // How often to fetch the session log when running (sec)
-
 // Sign-up completion polling
 export const VERIFY_USER_CREATION_RETRY_COUNT = 10; // Number of times to poll for user existence
 export const VERIFY_USER_CREATION_RETRY_INTERVAL_MS = 300; // Delay between retries (ms)

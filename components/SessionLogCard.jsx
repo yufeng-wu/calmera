@@ -45,8 +45,6 @@ export const SessionLogCard = ({ entry, onEdit, onDelete }) => {
     nutritionInfo = {},
   } = entry || {};
 
-  console.log("entry", entry);
-
   const { calories = 0, protein = 0, carbs = 0, fat = 0 } = nutritionInfo;
 
   const macrosLine = `${Number(calories).toFixed(0)} kcal   Protein ${Number(
@@ -69,7 +67,7 @@ export const SessionLogCard = ({ entry, onEdit, onDelete }) => {
 
   return (
     <TouchableOpacity
-      style={styles.transactionCard}
+      style={styles.foodEntryCard}
       activeOpacity={0.9}
       onPress={toggleExpand}
     >

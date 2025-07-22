@@ -20,16 +20,20 @@ import * as FileSystem from "expo-file-system";
 import * as ImageManipulator from "expo-image-manipulator";
 import { LinearGradient } from "expo-linear-gradient";
 import MaskedView from "@react-native-masked-view/masked-view";
-import {
-  SESSIONS_API_URL,
-  FRAME_UPLOAD_INTERVAL_MS,
-  LOG_POLL_INTERVAL_SEC,
-} from "@/constants/api";
+import { useAuth } from "@clerk/clerk-expo";
+import { SESSIONS_API_URL } from "@/constants/api";
 import PageLoader from "@/components/PageLoader";
 import { cameraStyles } from "@/assets/styles/camera.styles";
 import { SessionLogCard } from "@/components/SessionLogCard";
 import { getLocalTimeWithOffset } from "@/lib/utils";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
+
+const FRAME_UPLOAD_INTERVAL_MS = 500; // How often to send frames to backend (ms)
+const BLANK_FRAME_COUNT_THRESHOLD = 4; // Number of consecutive frames that have no valid weight reading to show "Detecting Scale Reading..." message
+const PAUSE_POLL_INTERVAL_MS = 1000; // How often to poll session log during pause (ms)
+const MAX_PAUSE_POLLS = 8; // Maximum number of polls during pause period (reset to 0 once the session resumes)
+const FRAME_RESIZE_DIMENSIONS = 450; // Frame resize width and height (px)
+const FRAME_COMPRESSION_QUALITY = 0.3; // Frame compression quality (0-1, lower = more compression)
 
 // Enable LayoutAnimation on Android for smooth/bouncy list updates
 if (
@@ -50,8 +54,9 @@ export default function CameraScreen() {
   // Session states
   const [sessionId, setSessionId] = useState(null);
   const [isRunning, setIsRunning] = useState(false); // capturing frames
-  const [isFetchingLog, setIsFetchingLog] = useState(false);
   const [logEntries, setLogEntries] = useState([]);
+  // Ref to track how many post-pause polls have been performed (<= MAX_PAUSE_POLLS)
+  const pausePollCountRef = useRef(0);
   const [mealType, setMealType] = useState("Dinner"); // updated when user selects during end-session flow
   const [isLoading, setIsLoading] = useState(false);
   // Detection states
@@ -59,11 +64,16 @@ export default function CameraScreen() {
   const [detectionConfidence, setDetectionConfidence] = useState(null);
   const [cameraReady, setCameraReady] = useState(false);
   const isCapturingRef = useRef(false);
+  // Counts consecutive frames that have no valid weight reading.
+  const blankFrameCountRef = useRef(0);
   // Blinking animation for live indicator
   const blinkAnim = useRef(new Animated.Value(0)).current;
   const blinkLoopRef = useRef(null);
   // Context to signal dashboard refresh after session ends
   const { setShouldRefresh } = useRefreshSignal();
+
+  // Clerk authentication helper for attaching the bearer token to protected API calls
+  const { getToken } = useAuth();
 
   // Request permission if not granted (first render)
   useEffect(() => {
@@ -71,26 +81,6 @@ export default function CameraScreen() {
       requestPermission();
     }
   }, [permission, requestPermission]);
-
-  // Poll session info every X seconds only while the session is actively running
-  useEffect(() => {
-    if (!sessionId || !isRunning) return;
-
-    const poller = setInterval(fetchSessionLog, LOG_POLL_INTERVAL_SEC * 1000);
-
-    return () => clearInterval(poller);
-  }, [sessionId, isRunning]);
-
-  // When returning to this screen (after editing a log entry, for example),
-  // fetch the latest log once.
-  // KEEP THIS
-  useFocusEffect(
-    useCallback(() => {
-      if (sessionId) {
-        fetchSessionLog();
-      }
-    }, [sessionId])
-  );
 
   // Capture & upload loop
   useEffect(() => {
@@ -171,12 +161,10 @@ export default function CameraScreen() {
 
   const pauseSession = () => {
     if (isRunning) {
-      // Pausing – immediately refresh the log once.
-      // TODO-EDIT: WHEN PAUSED, FETCH THE LOG EVEERY 5 SEC, FOR 4 TIMES MAX.
+      // Pausing – simply stop the capture loop. Periodic polling handled via useEffect above.
       setIsRunning(false);
-      fetchSessionLog();
     } else {
-      // Resuming capture
+      // Resuming capture – polling interval will auto-cleanup via dependency change.
       setIsRunning(true);
     }
   };
@@ -200,25 +188,9 @@ export default function CameraScreen() {
 
     const MEAL_OPTIONS = ["Breakfast", "Lunch", "Dinner", "Snack"];
 
+    // User has picked a meal type – immediately end the session without extra confirmation
     const handleSelected = (selectedMeal) => {
-      // Second confirmation alert
-      Alert.alert(
-        "End Live Session",
-        `End session and import logs as ${selectedMeal}?`,
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Discard",
-            style: "destructive",
-            onPress: () => discardSession(),
-          },
-          {
-            text: "Save",
-            style: "default",
-            onPress: () => sendEndSession(selectedMeal),
-          },
-        ]
-      );
+      sendEndSession(selectedMeal);
     };
 
     if (Platform.OS === "ios") {
@@ -274,9 +246,13 @@ export default function CameraScreen() {
       setIsRunning(false);
       setIsLoading(true);
 
+      const token = await getToken();
       const res = await fetch(`${SESSIONS_API_URL}/${sessionId}`, {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           discard: true,
           endedAt: getLocalTimeWithOffset(),
@@ -312,9 +288,13 @@ export default function CameraScreen() {
 
       setMealType(selectedMeal); // keep state consistent
 
+      const token = await getToken();
       const res = await fetch(`${SESSIONS_API_URL}/${sessionId}`, {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           mealType: selectedMeal,
           endedAt: getLocalTimeWithOffset(),
@@ -354,9 +334,16 @@ export default function CameraScreen() {
       // single pass: resize + compress
       const { uri: resizedUri } = await ImageManipulator.manipulateAsync(
         photo.uri,
-        [{ resize: { width: 640, height: 640 } }],
+        [
+          {
+            resize: {
+              width: FRAME_RESIZE_DIMENSIONS,
+              height: FRAME_RESIZE_DIMENSIONS,
+            },
+          },
+        ],
         {
-          compress: 0.2, // lower quality for faster upload and LLM inference
+          compress: FRAME_COMPRESSION_QUALITY, // lower quality for faster upload and LLM inference
           format: ImageManipulator.SaveFormat.JPEG,
         }
       );
@@ -401,9 +388,9 @@ export default function CameraScreen() {
         return;
       }
 
-      // The backend returns an object { frame: { ... } }
+      // The backend returns { frame, log }
       const json = await res.json();
-      const frame = json?.frame;
+      const { frame, log } = json || {};
 
       // Update the UI immediately with the latest weight/confidence.
       if (frame) {
@@ -411,9 +398,16 @@ export default function CameraScreen() {
         let minConf = null;
 
         if (frame.weight == null || isNaN(numericWeight)) {
-          // Reject null / undefined / NaN
-          updateDetectionState(null, null);
+          // Invalid reading ─ bump the blank-frame counter.  Only after
+          // three consecutive blanks do we clear the weight on-screen.
+          blankFrameCountRef.current += 1;
+          if (blankFrameCountRef.current >= BLANK_FRAME_COUNT_THRESHOLD) {
+            updateDetectionState(null, null);
+          }
         } else {
+          // Got a valid reading: reset the blank-frame counter
+          blankFrameCountRef.current = 0;
+
           // 0, positive or negative numbers are treated as valid
           const digitDetails = frame.metadata?.digitDetails ?? [];
 
@@ -431,28 +425,64 @@ export default function CameraScreen() {
           updateDetectionState(numericWeight, minConf);
         }
       }
+
+      // Update the log list with the server-provided snapshot.
+      if (log) {
+        const entriesArray = Array.isArray(log) ? log : Object.values(log);
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setLogEntries(entriesArray);
+      }
     } catch (e) {
       console.error("Upload error", e);
     }
   };
 
-  const fetchSessionLog = async () => {
+  // ------------------------------------------------------------
+  // Fetch helpers – used sparingly for the two explicit cases below
+  // ------------------------------------------------------------
+  const fetchSessionLog = useCallback(async () => {
+    console.log("Inside fetchSessionLog()");
     if (!sessionId) return;
-    setIsFetchingLog(true);
     try {
       const res = await fetch(`${SESSIONS_API_URL}/${sessionId}`);
-      if (!res.ok) throw new Error("Failed to fetch session info");
-
+      if (!res.ok) return;
       const data = await res.json();
-
+      const entries = data?.log ? Object.values(data.log) : [];
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      setLogEntries(data.log ? Object.values(data.log) : []);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsFetchingLog(false);
+      setLogEntries(entries);
+    } catch (err) {
+      console.error("fetchSessionLog error", err);
     }
-  };
+  }, [sessionId]);
+
+  // Case 1: When navigating back from the edit screen, pull the latest log once.
+  useFocusEffect(
+    useCallback(() => {
+      if (sessionId) fetchSessionLog();
+    }, [sessionId, fetchSessionLog])
+  );
+
+  // Case 2: When the session is paused, poll every second *up to* MAX_PAUSE_POLLS times.
+  useEffect(() => {
+    if (!sessionId) return;
+
+    if (!isRunning) {
+      // Reset counter at the start of each pause period
+      pausePollCountRef.current = 0;
+
+      const interval = setInterval(async () => {
+        if (pausePollCountRef.current >= MAX_PAUSE_POLLS) {
+          clearInterval(interval);
+          return;
+        }
+        await fetchSessionLog();
+        pausePollCountRef.current += 1;
+      }, PAUSE_POLL_INTERVAL_MS);
+
+      // Cleanup if component unmounts or session resumes
+      return () => clearInterval(interval);
+    }
+  }, [isRunning, sessionId, fetchSessionLog]);
 
   // Delete a single log entry inside the active session
   const deleteLogEntry = async (logId) => {
