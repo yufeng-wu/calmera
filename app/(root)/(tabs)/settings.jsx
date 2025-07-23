@@ -42,6 +42,15 @@ export default function SettingsScreen() {
           </Text>
         </TouchableOpacity>
 
+        {/* Local TFJS test */}
+        <TouchableOpacity
+          style={styles.optionButton}
+          onPress={() => router.push("/model-test")}
+        >
+          <Ionicons name="flask-outline" size={20} color={COLORS.text} />
+          <Text style={styles.optionText}>Run on-device model test</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.optionButton} onPress={handleLogout}>
           <Ionicons
             name="log-out-outline"
