@@ -49,17 +49,20 @@ const _pending: Partial<Record<ModelName, Promise<tf.GraphModel>>> = {};
 const _warmed: Partial<Record<ModelName, boolean>> = {};
 
 async function _loadOnce(name: ModelName, options: LoadOptions = {}) {
+  await tf.ready(); // make sure backend is ready
   // If model is already in memory we may still need to warm it.
   if (_cache[name]) {
     const model = _cache[name]!;
     if (!options.skipWarmup && !_warmed[name]) {
       try {
-        const inputShape = model.inputs[0].shape ?? [1, 640, 640, 3];
+        const inputShape = [...(model.inputs[0].shape ?? [1, 640, 640, 3])].map(
+          (d) => d ?? 1
+        ) as number[];
         console.log(
           `[tfModels] Warming cached ${name} with zeros ${inputShape}`
         );
         const zeros = tf.zeros(inputShape);
-        const out = model.execute(zeros);
+        const out = await model.executeAsync(zeros);
         Array.isArray(out) ? tf.dispose(out) : out?.dispose?.();
         zeros.dispose();
         console.log(`[tfModels] ${name} warm-up done`);
@@ -77,12 +80,14 @@ async function _loadOnce(name: ModelName, options: LoadOptions = {}) {
     if (!options.skipWarmup && !_warmed[name]) {
       return existingPromise.then(async (m) => {
         try {
-          const inputShape = m.inputs[0].shape ?? [1, 640, 640, 3];
+          const inputShape = [...(m.inputs[0].shape ?? [1, 640, 640, 3])].map(
+            (d) => d ?? 1
+          ) as number[];
           console.log(
             `[tfModels] Warming ${name} (post-load) with zeros ${inputShape}`
           );
           const zeros = tf.zeros(inputShape);
-          const out = m.execute(zeros);
+          const out = await m.executeAsync(zeros);
           Array.isArray(out) ? tf.dispose(out) : out?.dispose?.();
           zeros.dispose();
           console.log(`[tfModels] ${name} warm-up done`);
@@ -100,7 +105,7 @@ async function _loadOnce(name: ModelName, options: LoadOptions = {}) {
   const bundle = bundles[name];
   const p = tf
     .loadGraphModel(
-      bundleResourceIO(bundle.json, [...bundle.bins] as unknown as number[])
+      bundleResourceIO(bundle.json, bundle.bins as unknown as number[])
     )
     .then(async (m) => {
       _cache[name] = m;
@@ -111,10 +116,12 @@ async function _loadOnce(name: ModelName, options: LoadOptions = {}) {
         // heavy (especially for ROI: 640×640).  We allow callers to skip it
         // when doing background pre-loading to avoid blocking the UI.
         try {
-          const inputShape = m.inputs[0].shape ?? [1, 640, 640, 3];
+          const inputShape = [...(m.inputs[0].shape ?? [1, 640, 640, 3])].map(
+            (d) => d ?? 1
+          ) as number[];
           console.log(`[tfModels] Warming ${name} with zeros ${inputShape}`);
           const zeros = tf.zeros(inputShape);
-          const out = m.execute(zeros);
+          const out = await m.executeAsync(zeros);
           Array.isArray(out) ? tf.dispose(out) : out?.dispose?.();
           zeros.dispose();
           console.log(`[tfModels] ${name} warm-up done`);

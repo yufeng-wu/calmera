@@ -8,9 +8,6 @@ export const FOOD_ENTRIES_API_URL = `${API_BASE_URL}/food-entries`;
 // Endpoint for user-related requests
 export const USERS_API_URL = `${API_BASE_URL}/users`;
 
-// Endpoint for session-related requests
-export const SESSIONS_API_URL = `${API_BASE_URL}/sessions`;
-
 // Endpoint to estimate nutrition macros using AI
 export const ESTIMATE_MACROS_API_URL = `${API_BASE_URL}/food-entries/estimate`;
 
@@ -19,6 +16,9 @@ export const RECOMMEND_GOALS_API_URL = `${API_BASE_URL}/users/recommend-goals`;
 
 // Endpoint for voice log
 export const VOICE_LOG_API_URL = `${API_BASE_URL}/voice/log`;
+
+// Endpoint for vision-related requests
+export const VISION_API_URL = `${API_BASE_URL}/vision`;
 
 // Sign-up completion polling
 export const VERIFY_USER_CREATION_RETRY_COUNT = 10; // Number of times to poll for user existence

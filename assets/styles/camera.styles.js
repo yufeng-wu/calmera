@@ -40,7 +40,7 @@ export const cameraStyles = StyleSheet.create({
     // kept for backward-compatibility but no longer used
   },
   endBtn: {
-    backgroundColor: "#d9534f",
+    backgroundColor: "#5cb85c", // A shade of green
   },
   startBtn: {
     flexDirection: "row",
