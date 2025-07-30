@@ -56,7 +56,7 @@ export const cameraStyles = StyleSheet.create({
   controlText: { color: "#fff", fontWeight: "600" },
   logContainer: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
   },
   logTitle: {
     fontSize: 16,
@@ -67,7 +67,7 @@ export const cameraStyles = StyleSheet.create({
   logCard: {
     backgroundColor: "#fff",
     borderRadius: 28,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 12,
     marginVertical: 6,
     // iOS shadow

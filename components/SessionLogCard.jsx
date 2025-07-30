@@ -21,6 +21,7 @@ if (
 }
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
+const AnimatedView = Animated.createAnimatedComponent(View);
 
 /**
  * Card component for displaying a single session log entry during an active camera session.
@@ -78,7 +79,7 @@ export const SessionLogCard = ({ entry, onEdit, onDelete }) => {
         <Text
           style={{
             flex: 1,
-            fontSize: 12,
+            fontSize: 13,
             fontWeight: "bold",
             color: COLORS.text,
           }}
@@ -125,7 +126,11 @@ export const SessionLogCard = ({ entry, onEdit, onDelete }) => {
 
       {/* EXPANDED DETAILS */}
       {expanded && (
-        <View style={[styles.logCardRow, { marginTop: 2 }]}>
+        <AnimatedView
+          entering={FadeIn.duration(200)}
+          exiting={FadeOut.duration(150)}
+          style={[styles.logCardRow, { marginTop: 2 }]}
+        >
           <Text style={{ color: COLORS.textLight, fontSize: 12, flex: 1 }}>
             {macrosLine}
           </Text>
@@ -148,7 +153,7 @@ export const SessionLogCard = ({ entry, onEdit, onDelete }) => {
               <Ionicons name="trash-outline" size={22} color={COLORS.expense} />
             </TouchableOpacity>
           </View>
-        </View>
+        </AnimatedView>
       )}
     </AnimatedTouchable>
   );
