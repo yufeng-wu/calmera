@@ -12,119 +12,96 @@ import { useAuth } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import { styles } from "@/assets/styles/create.styles";
 import { COLORS } from "@/constants/colors";
-import { SESSIONS_API_URL } from "@/constants/api";
 import { ESTIMATE_MACROS_API_URL } from "@/constants/api";
+import {
+  getLogEntryById,
+  updateLogEntryById,
+} from "@/lib/scale/sessionManager";
 import { FoodEntryFormCard } from "@/components/FoodEntryFormCard";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 export default function EditSessionLogEntry() {
   const router = useRouter();
-  const { id, sessionId } = useLocalSearchParams();
+  const { id } = useLocalSearchParams();
   const { getToken } = useAuth();
 
+  const [isFetching, setIsFetching] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Local editable state
   const [foodName, setFoodName] = useState("");
+  const [quantity, setQuantity] = useState("");
   const [calories, setCalories] = useState("");
   const [protein, setProtein] = useState("");
   const [carbs, setCarbs] = useState("");
   const [fat, setFat] = useState("");
-  const [quantity, setQuantity] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [isFetching, setIsFetching] = useState(true);
-  const [isEstimating, setIsEstimating] = useState(false);
   const [direction, setDirection] = useState("add");
+
+  // AI estimation helpers
+  const [isEstimating, setIsEstimating] = useState(false);
   const [lastEstimated, setLastEstimated] = useState({
     foodName: "",
     quantity: "",
   });
   const [showMacros, setShowMacros] = useState(true);
 
-  // Fetch the specific log entry
+  // Fetch entry from the in-memory session log
   useEffect(() => {
-    const fetchEntry = async () => {
-      if (!sessionId || !id) return;
-      try {
-        const token = await getToken();
-        const resp = await fetch(`${SESSIONS_API_URL}/${sessionId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (!resp.ok) throw new Error("Failed to fetch session info");
-        const data = await resp.json();
-        const entry = data.log ? data.log[id] : null;
-        if (!entry) throw new Error("Log entry not found");
-
-        setFoodName(entry.foodName ?? "");
-        const ni = entry.nutritionInfo || {};
-        setCalories(String(ni.calories ?? ""));
-        setProtein(String(ni.protein ?? ""));
-        setCarbs(String(ni.carbs ?? ""));
-        setFat(String(ni.fat ?? ""));
-        const defaultQtyRaw =
-          entry.quantity ??
-          (entry.absDeltaWeight !== undefined && !isNaN(entry.absDeltaWeight)
-            ? `${entry.absDeltaWeight} g`
-            : "");
-        const numericMatch = String(defaultQtyRaw).match(/\d+/);
-        const defaultQty = numericMatch ? numericMatch[0] : "";
-        setQuantity(defaultQty);
-        setDirection(entry.direction ?? "add");
-        setLastEstimated({
-          foodName: entry.foodName ?? "",
-          quantity: defaultQty,
-        });
-      } catch (err) {
-        Alert.alert("Error", err.message);
-        router.back();
-      } finally {
-        setIsFetching(false);
-      }
-    };
-    fetchEntry();
-  }, [sessionId, id]);
-
-  const handleUpdate = async () => {
-    if (!foodName.trim()) return Alert.alert("Error", "Food name is required");
-    if (!calories || isNaN(parseFloat(calories)) || Number(calories) < 0)
-      return Alert.alert("Error", "Calories must be a non-negative number");
-
-    setIsLoading(true);
-    try {
-      const token = await getToken();
-      const response = await fetch(
-        `${SESSIONS_API_URL}/${sessionId}/log/${id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            absDeltaWeight: quantity ? Number(quantity) : undefined,
-            direction,
-            foodName,
-            nutritionInfo: {
-              calories: calories ? Number(calories) : undefined,
-              protein: protein ? Number(protein) : undefined,
-              carbs: carbs ? Number(carbs) : undefined,
-              fat: fat ? Number(fat) : undefined,
-            },
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || errData.message || "Update failed");
-      }
-
-      // go back to camera screen
+    if (!id) {
+      Alert.alert("Error", "Invalid log entry id");
       router.back();
-    } catch (err) {
-      Alert.alert("Error", err.message);
-    } finally {
-      setIsLoading(false);
+      return;
     }
+
+    const entry = getLogEntryById(String(id));
+    if (!entry) {
+      Alert.alert("Error", "Log entry not found in current session");
+      router.back();
+      return;
+    }
+
+    // Populate UI state
+    setFoodName(entry.foodName ?? "");
+    setCalories(String(entry.nutritionInfo?.calories ?? ""));
+    setProtein(String(entry.nutritionInfo?.protein ?? ""));
+    setCarbs(String(entry.nutritionInfo?.carbs ?? ""));
+    setFat(String(entry.nutritionInfo?.fat ?? ""));
+    setQuantity(String(entry.absDeltaWeight ?? ""));
+    setDirection(entry.direction ?? "add");
+    setLastEstimated({
+      foodName: entry.foodName ?? "",
+      quantity: String(entry.absDeltaWeight ?? ""),
+    });
+
+    setIsFetching(false);
+  }, [id]);
+
+  const handleSave = () => {
+    if (!foodName.trim()) return Alert.alert("Error", "Food name is required");
+    if (!calories || isNaN(parseFloat(calories)) || Number(calories) < 0) {
+      return Alert.alert("Error", "Calories must be a non-negative number");
+    }
+
+    setIsSaving(true);
+    const success = updateLogEntryById(String(id), {
+      foodName: foodName.trim(),
+      absDeltaWeight: quantity ? Number(quantity) : undefined,
+      direction,
+      nutritionInfo: {
+        calories: calories ? Number(calories) : undefined,
+        protein: protein ? Number(protein) : undefined,
+        carbs: carbs ? Number(carbs) : undefined,
+        fat: fat ? Number(fat) : undefined,
+      },
+    });
+
+    setIsSaving(false);
+    if (!success) {
+      Alert.alert("Error", "Failed to update entry – session may have ended");
+      return;
+    }
+
+    router.back();
   };
 
   const handleEstimateMacros = async () => {
@@ -134,6 +111,7 @@ export default function EditSessionLogEntry() {
         "Food name and quantity are required for estimation"
       );
     }
+
     setIsEstimating(true);
     try {
       const token = await getToken();
@@ -146,10 +124,8 @@ export default function EditSessionLogEntry() {
         body: JSON.stringify({ foodName, quantity: `${quantity} g` }),
       });
       if (!resp.ok) {
-        const errData = await resp.json();
-        throw new Error(
-          errData.error || errData.message || "Estimation failed"
-        );
+        const err = await resp.json();
+        throw new Error(err.message || "Estimation failed");
       }
       const data = await resp.json();
       setCalories(String(data.calories ?? ""));
@@ -198,21 +174,21 @@ export default function EditSessionLogEntry() {
           >
             <Ionicons name="arrow-back" size={24} color={COLORS.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Edit Food Entry</Text>
+          <Text style={styles.headerTitle}>Edit Item</Text>
           <TouchableOpacity
-            style={styles.saveButtonContainer}
-            onPress={handleUpdate}
-            disabled={isLoading}
+            style={[
+              styles.saveButtonContainer,
+              isSaving && styles.saveButtonDisabled,
+            ]}
+            onPress={handleSave}
+            disabled={isSaving}
           >
             <Text
-              style={[
-                styles.saveButton,
-                isLoading && styles.saveButtonDisabled,
-              ]}
+              style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
             >
-              {isLoading ? "Saving..." : "Save"}
+              {isSaving ? "Saving..." : "Save"}
             </Text>
-            {!isLoading && (
+            {!isSaving && (
               <Ionicons name="checkmark" size={18} color={COLORS.primary} />
             )}
           </TouchableOpacity>

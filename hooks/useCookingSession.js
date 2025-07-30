@@ -2,6 +2,10 @@ import { useCallback, useRef, useState, useEffect } from "react";
 import { Session } from "@/lib/scale/classes";
 import { Frame, LogEntry } from "@/lib/scale/classes";
 import { detectNewState, addLogEntry } from "@/lib/scale/stateManager";
+import {
+  setActiveSession,
+  clearActiveSession,
+} from "@/lib/scale/sessionManager";
 import { FRAME_BUFFER_SIZE } from "@/lib/scale/constants";
 import { detectWeightFromImage } from "@/lib/scale/weightDetector";
 import { VISION_API_URL, FOOD_ENTRIES_API_URL } from "@/constants/api";
@@ -40,6 +44,7 @@ export function useCookingSession() {
     // Also clear files from any previous (cleanup-failed) session
     cleanupFiles();
     sessionRef.current.clear();
+    setActiveSession(sessionRef.current);
     setLogEntries([]);
     setIsRunning(true);
     setIsPaused(false);
@@ -104,6 +109,7 @@ export function useCookingSession() {
 
     await cleanupFiles();
     setIsSaving(false);
+    clearActiveSession();
   };
 
   const processFrame = useCallback(async (jpegUri) => {
