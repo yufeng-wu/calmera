@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -11,27 +11,20 @@ import {
   UIManager,
   ActionSheetIOS,
   Animated,
-  useWindowDimensions,
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import * as FileSystem from "expo-file-system";
 import * as ImageManipulator from "expo-image-manipulator";
 import { LinearGradient } from "expo-linear-gradient";
 import MaskedView from "@react-native-masked-view/masked-view";
-import { useAuth } from "@clerk/clerk-expo";
-import { SESSIONS_API_URL } from "@/constants/api";
 import PageLoader from "@/components/PageLoader";
 import { cameraStyles } from "@/assets/styles/camera.styles";
 import { SessionLogCard } from "@/components/SessionLogCard";
-import { getLocalTimeWithOffset } from "@/lib/utils";
-import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { useCookingSession } from "@/hooks/useCookingSession";
+import { RAINBOW_COLORS } from "@/constants/colors";
 
 const FRAME_UPLOAD_INTERVAL_MS = 500; // How often to send frames to backend (ms)
-const PAUSE_POLL_INTERVAL_MS = 1000; // How often to poll session log during pause (ms)
-const MAX_PAUSE_POLLS = 8; // Maximum number of polls during pause period (reset to 0 once the session resumes)
 const FRAME_RESIZE_DIMENSIONS = 640; // Frame resize width and height (px)
 const FRAME_COMPRESSION_QUALITY = 0.5; // Frame compression quality (0-1, lower = more compression)
 
@@ -43,19 +36,17 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const RAINBOW_COLORS = ["#7694f8", "#7094f8", "#ac70a2", "#da808d", "#a85863"];
-
 export default function CameraScreen() {
   const router = useRouter();
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const cameraRef = useRef(null);
   const [permission, requestPermission] = useCameraPermissions();
   const hasPermission = permission?.granted;
 
-  // Session logic moved to frontend – handled by custom hook
+  // Session logic handled by custom hook
   const {
     isRunning,
     isPaused,
+    isSaving,
     startSession,
     pauseSession: togglePause,
     endSession,
@@ -63,27 +54,16 @@ export default function CameraScreen() {
     logEntries,
     currentWeight,
     detectionConfidence,
-
   } = useCookingSession();
-  // legacy local refs remain for blinking etc.
-  // Ref to track how many post-pause polls have been performed (<= MAX_PAUSE_POLLS)
-  const pausePollCountRef = useRef(0);
-  const [mealType, setMealType] = useState("Dinner"); // updated when user selects during end-session flow
+
   const [isLoading, setIsLoading] = useState(false);
-  // Detection states
-  // currentWeight & detectionConfidence now come from hook
   const [cameraReady, setCameraReady] = useState(false);
+  const [sessionEnded, setSessionEnded] = useState(false);
   const isCapturingRef = useRef(false);
-  // Counts consecutive frames that have no valid weight reading.
-  const blankFrameCountRef = useRef(0);
+
   // Blinking animation for live indicator
   const blinkAnim = useRef(new Animated.Value(0)).current;
   const blinkLoopRef = useRef(null);
-  // Context to signal dashboard refresh after session ends
-  const { setShouldRefresh } = useRefreshSignal();
-
-  // Clerk authentication helper for attaching the bearer token to protected API calls
-  const { getToken } = useAuth();
 
   // Request permission if not granted (first render)
   useEffect(() => {
@@ -113,7 +93,7 @@ export default function CameraScreen() {
         Animated.sequence([
           Animated.timing(blinkAnim, {
             toValue: 1,
-            duration: 800,
+            duration: 700,
             useNativeDriver: true,
           }),
           Animated.timing(blinkAnim, {
@@ -145,24 +125,21 @@ export default function CameraScreen() {
     };
   }, [isRunning, isPaused, blinkAnim]);
 
-  // Smoothly animate transitions between "Detecting" and "123 g" states
-  const animateWeightChange = () =>
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+  // Navigate to dashboard when session ends
+  useEffect(() => {
+    if (sessionEnded && !isSaving) {
+      router.replace("/(root)/(tabs)/dashboard");
+    }
+  }, [sessionEnded, isSaving, router]);
 
-  const updateDetectionState = () => {}; // no-op – handled inside hook
-
-  // startSession now delegated to hook
   const handleStartSession = async () => {
     try {
       setIsLoading(true);
+      setSessionEnded(false);
       startSession();
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const pauseSession = () => {
-    togglePause();
   };
 
   // Prompt user to pick a meal type before confirming end-session
@@ -173,7 +150,10 @@ export default function CameraScreen() {
         {
           text: "End",
           style: "destructive",
-          onPress: () => endSession(false), // don't save
+          onPress: async () => {
+            await endSession(false); // don't save
+            setSessionEnded(true);
+          },
         },
       ]);
       return;
@@ -182,9 +162,9 @@ export default function CameraScreen() {
     const MEAL_OPTIONS = ["Breakfast", "Lunch", "Dinner", "Snack"];
 
     // User has picked a meal type – immediately end the session without extra confirmation
-    const handleSelected = (selectedMeal) => {
-      // Here you could pass the mealType to the endSession hook if needed
-      endSession(true); // save
+    const handleSelected = async (selectedMeal) => {
+      await endSession(true, selectedMeal); // save with selected meal type
+      setSessionEnded(true);
     };
 
     if (Platform.OS === "ios") {
@@ -207,7 +187,10 @@ export default function CameraScreen() {
                 {
                   text: "Discard",
                   style: "destructive",
-                  onPress: () => endSession(false), // don't save
+                  onPress: async () => {
+                    await endSession(false); // don't save
+                    setSessionEnded(true);
+                  },
                 },
               ]
             );
@@ -226,16 +209,18 @@ export default function CameraScreen() {
         {
           text: "Discard",
           style: "destructive",
-          onPress: () => endSession(false), // don't save
+          onPress: async () => {
+            await endSession(false); // don't save
+            setSessionEnded(true);
+          },
         },
         { text: "Cancel", style: "cancel" },
       ]);
     }
   };
 
-  // Remove discardSession & sendEndSession implementations – now unused
-
   const captureAndProcessFrame = async () => {
+    // When the camera is still capturing (i.e., when isCapturingRef.current is true), we don't capture another frame
     if (!cameraRef.current || !cameraReady || isCapturingRef.current) return;
     isCapturingRef.current = true;
     try {
@@ -244,27 +229,22 @@ export default function CameraScreen() {
         shutterSound: false,
       });
 
-      // single pass: resize + compress
+      // Decide which edge is longer and resize accordingly while preserving aspect ratio
+      const resizeAction =
+        photo.width >= photo.height
+          ? { resize: { width: FRAME_RESIZE_DIMENSIONS } }
+          : { resize: { height: FRAME_RESIZE_DIMENSIONS } };
+
+      // Resize + compress
       const { uri: resizedUri } = await ImageManipulator.manipulateAsync(
         photo.uri,
-        [
-          {
-            resize: {
-              width: FRAME_RESIZE_DIMENSIONS,
-              height: FRAME_RESIZE_DIMENSIONS,
-            },
-          },
-        ],
+        [resizeAction],
         {
           compress: FRAME_COMPRESSION_QUALITY,
           format: ImageManipulator.SaveFormat.JPEG,
         }
       );
 
-      const fileInfo = await FileSystem.getInfoAsync(resizedUri);
-      console.log(`Captured frame size: ${fileInfo.size} bytes`);
-
-      // The hook now manages the file lifecycle. We don't delete it here.
       await processFrame(resizedUri);
     } catch (e) {
       if (e?.message?.includes("Camera unmounted")) {
@@ -273,79 +253,16 @@ export default function CameraScreen() {
         console.error("Capture error", e);
       }
     } finally {
+      // Reset capturing state
       isCapturingRef.current = false;
     }
   };
 
-  // uploadFrame no longer needed – business logic moved to processFrame.
-
-  // ------------------------------------------------------------
-  // Fetch helpers – used sparingly for the two explicit cases below
-  // ------------------------------------------------------------
-  const fetchSessionLog = useCallback(async () => {
-    console.log("Inside fetchSessionLog()");
-    // sessionId is now managed by useCookingSession hook
-    // if (!sessionId) return;
-    try {
-      // const res = await fetch(`${SESSIONS_API_URL}/${sessionId}`);
-      // if (!res.ok) return;
-      // const data = await res.json();
-      // const entries = data?.log ? Object.values(data.log) : [];
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      // setLogEntries(entries);
-    } catch (err) {
-      console.error("fetchSessionLog error", err);
-    }
-  }, []); // Removed sessionId from dependency array
-
-  // Case 1: When navigating back from the edit screen, pull the latest log once.
-  useFocusEffect(
-    useCallback(() => {
-      // sessionId is now managed by useCookingSession hook
-      // if (sessionId) fetchSessionLog();
-    }, []) // Removed sessionId from dependency array
-  );
-
-  // Case 2: When the session is paused, poll every second *up to* MAX_PAUSE_POLLS times.
-  useEffect(() => {
-    // sessionId is now managed by useCookingSession hook
-    // if (!sessionId) return;
-
-    if (isPaused) {
-      // Reset counter at the start of each pause period
-      pausePollCountRef.current = 0;
-
-      const interval = setInterval(async () => {
-        if (pausePollCountRef.current >= MAX_PAUSE_POLLS) {
-          clearInterval(interval);
-          return;
-        }
-        // fetchSessionLog(); // This will now trigger a re-render of the hook, which will refetch
-        pausePollCountRef.current += 1;
-      }, PAUSE_POLL_INTERVAL_MS);
-
-      // Cleanup if component unmounts or session resumes
-      return () => clearInterval(interval);
-    }
-  }, [isPaused]); // Removed sessionId from dependency array
-
   // Delete a single log entry inside the active session
   const deleteLogEntry = async (logId) => {
-    // sessionId is now managed by useCookingSession hook
-    // if (!sessionId || !logId) return;
     try {
-      // const res = await fetch(`${SESSIONS_API_URL}/${sessionId}/log/${logId}`, {
-      //   method: "DELETE",
-      // });
-
-      // if (!res.ok) {
-      //   console.warn("Failed to delete log entry", await res.text());
-      //   return;
-      // }
-
-      // Optimistically remove the entry from local state with animation
+      // TODO: Implement delete functionality in useCookingSession hook
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      // setLogEntries((prev) => prev.filter((e) => e.id !== logId));
     } catch (err) {
       console.error("Delete log entry error", err);
     }
@@ -353,17 +270,12 @@ export default function CameraScreen() {
 
   // Navigate to the edit screen for this log entry and automatically pause
   const editLogEntry = (logId) => {
-    // logId is now managed by useCookingSession hook
-    // if (!logId) return;
-    // Pause capture loop while user is editing
-    // if (isRunning) setIsRunning(false);
-
     router.push({
       pathname: "/session-log-edit/[id]",
       params: {
         id: logId,
         sessionId: logEntries.find((e) => e.id === logId)?.sessionId,
-      }, // Pass sessionId from logEntries
+      },
     });
   };
 
@@ -398,9 +310,6 @@ export default function CameraScreen() {
           videoStabilizationMode="off"
           onCameraReady={() => setCameraReady(true)}
         />
-
-        {/* Live Star Indicator */}
-        {/* Live Star Indicator will now be embedded inside the weight indicator */}
 
         {/* Detection Status Overlay */}
         {isRunning && (
@@ -505,6 +414,16 @@ export default function CameraScreen() {
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Saving Overlay */}
+        {isSaving && (
+          <View style={cameraStyles.savingOverlay}>
+            <View style={cameraStyles.savingContent}>
+              <ActivityIndicator size="large" color="#fff" />
+              <Text style={cameraStyles.savingText}>Saving session...</Text>
+            </View>
+          </View>
+        )}
       </View>
 
       {/* Live Log */}

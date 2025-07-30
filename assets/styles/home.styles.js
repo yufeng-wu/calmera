@@ -202,7 +202,7 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 15,
     paddingBottom: 15,
-    paddingTop: 5,
+    paddingTop: 0,
   },
   deleteButtonExpanded: {
     paddingLeft: 15,

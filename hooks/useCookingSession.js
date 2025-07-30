@@ -1,10 +1,10 @@
 import { useCallback, useRef, useState, useEffect } from "react";
 import { Session } from "@/lib/scale/classes";
 import { Frame, LogEntry } from "@/lib/scale/classes";
-import { detectNewState, addLogEntryHelper } from "@/lib/scale/stateManager";
+import { detectNewState, addLogEntry } from "@/lib/scale/stateManager";
 import { FRAME_BUFFER_SIZE } from "@/lib/scale/constants";
 import { detectWeightFromImage } from "@/lib/scale/weightDetector";
-import { VISION_API_URL } from "@/constants/api";
+import { VISION_API_URL, FOOD_ENTRIES_API_URL } from "@/constants/api";
 import * as FileSystem from "expo-file-system";
 
 /**
@@ -12,9 +12,10 @@ import * as FileSystem from "expo-file-system";
  * stable state detection and nutrition look-up via the backend.
  */
 export function useCookingSession() {
-  const sessionRef = useRef(new Session(FRAME_BUFFER_SIZE));
+  const sessionRef = useRef(new Session(FRAME_BUFFER_SIZE)); // TODO: what is sessionRef.current?
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const isProcessing = useRef(false);
   // Keep track of all frame URIs created in this session
   const fileUrisRef = useRef(new Set());
@@ -29,7 +30,6 @@ export function useCookingSession() {
 
   const cleanupFiles = async () => {
     const uris = Array.from(fileUrisRef.current);
-    console.log(`Cleaning up ${uris.length} files...`);
     await Promise.all(
       uris.map((uri) => FileSystem.deleteAsync(uri, { idempotent: true }))
     );
@@ -47,9 +47,10 @@ export function useCookingSession() {
 
   const pauseSession = () => setIsPaused((prev) => !prev);
 
-  const endSession = async (shouldSave = true) => {
+  const endSession = async (shouldSave = true, mealType = "Snack") => {
     setIsRunning(false);
     setIsPaused(false);
+    setIsSaving(true);
 
     // Wait for any pending frame processing to complete
     await new Promise((resolve) => {
@@ -63,16 +64,46 @@ export function useCookingSession() {
 
     if (shouldSave) {
       try {
-        await fetch(`${SESSIONS_API_URL}/save`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ log: Object.values(sessionRef.current.log) }),
+        const entries = Object.values(sessionRef.current.log);
+
+        // Create a promise that resolves when all entries are saved or times out
+        const savePromise = Promise.all(
+          entries.map(async (entry) => {
+            if (entry.direction === "add") {
+              const foodEntryData = {
+                foodName: entry.foodName,
+                quantity: `${entry.absDeltaWeight} g`,
+                calories: entry.nutritionInfo.calories,
+                protein: entry.nutritionInfo.protein,
+                carbs: entry.nutritionInfo.carbs,
+                fat: entry.nutritionInfo.fat,
+                mealType: mealType,
+                createdAt: entry.timestamp,
+              };
+
+              return fetch(FOOD_ENTRIES_API_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(foodEntryData),
+              });
+            }
+          })
+        );
+
+        // Add timeout of 5 seconds
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("Save timeout")), 5000);
         });
+
+        // Race between save and timeout
+        await Promise.race([savePromise, timeoutPromise]);
       } catch (err) {
-        console.warn("Failed to save session log", err);
+        console.warn("Failed to save food entries or timeout occurred", err);
       }
     }
+
     await cleanupFiles();
+    setIsSaving(false);
   };
 
   const processFrame = useCallback(async (jpegUri) => {
@@ -91,12 +122,6 @@ export function useCookingSession() {
     );
 
     // 2. Push frame into local buffer
-    console.log(
-      `Session frame buffer size: ${sessionRef.current.frameBuffer.length}, ` +
-        `Current state: ${sessionRef.current.currentState?.type}, ` +
-        `Log entries: ${Object.keys(sessionRef.current.log).length}`
-    );
-
     const frame = new Frame({
       timestamp: new Date().toISOString(),
       imagePath: jpegUri,
@@ -165,7 +190,7 @@ export function useCookingSession() {
         foodName,
         nutritionInfo: nutrition,
       });
-      addLogEntryHelper(sessionRef.current, entry);
+      addLogEntry(sessionRef.current, entry);
       setLogEntries(Object.values(sessionRef.current.log));
     }
     isProcessing.current = false;
@@ -181,6 +206,7 @@ export function useCookingSession() {
   return {
     isRunning,
     isPaused,
+    isSaving,
     startSession,
     pauseSession,
     endSession,

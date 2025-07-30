@@ -26,25 +26,31 @@ import { FoodEntryItem } from "@/components/FoodEntryItem";
 import NoRecordYet from "@/components/NoRecordYet";
 import { USERS_API_URL } from "@/constants/api";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
-import { COLORS } from "@/constants/colors";
+import { COLORS, RAINBOW_COLORS } from "@/constants/colors";
 import { useAuth } from "@clerk/clerk-expo";
 import { Audio } from "expo-av";
 import { VOICE_LOG_API_URL } from "@/constants/api";
 import { getLocalTimeWithOffset } from "@/lib/utils";
+import AnimatedRe, { Layout as ReLayout } from "react-native-reanimated";
 
 // Animated Touchable wrapper
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
+
+const AnimatedMealGroupContainer = AnimatedRe.createAnimatedComponent(View);
 
 const MealGroup = ({ title, entries, onDelete }) => {
   if (entries.length === 0) return null;
 
   return (
-    <View style={styles.mealGroupContainer}>
+    <AnimatedMealGroupContainer
+      style={styles.mealGroupContainer}
+      layout={ReLayout.springify().damping(15)}
+    >
       <Text style={styles.mealGroupTitle}>{title}</Text>
       {entries.map((item) => (
         <FoodEntryItem key={item.id} item={item} onDelete={onDelete} />
       ))}
-    </View>
+    </AnimatedMealGroupContainer>
   );
 };
 
@@ -72,16 +78,6 @@ export default function SummaryScreen() {
   ).current;
   // No translation needed; button is anchored to right so it grows leftwards
   const voiceLogContentOpacity = useRef(new Animated.Value(1)).current;
-
-  // rainbow animation for voice-log AI analyzing state
-  // use the same rainbow palette as Camera's star animation
-  const RAINBOW_COLORS = [
-    "#7694f8",
-    "#7094f8",
-    "#ac70a2",
-    "#da808d",
-    "#a85863",
-  ];
 
   const rainbowAnim = useRef(new Animated.Value(0)).current;
   const rainbowBorderColor = rainbowAnim.interpolate({

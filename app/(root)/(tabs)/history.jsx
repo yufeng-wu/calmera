@@ -10,8 +10,10 @@ import {
   Alert,
   Pressable,
 } from "react-native";
+// Removed reanimated for meal group container to avoid date-switch animations
 import { useState, useEffect, useCallback } from "react";
 import { useUser, useAuth } from "@clerk/clerk-expo";
+import AnimatedRe, { Layout as ReLayout } from "react-native-reanimated";
 
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { NutritionSummaryCard } from "@/components/NutritionSummaryCard";
@@ -44,15 +46,29 @@ const ArrowButton = ({ direction, disabled, onPress }) => (
   </Pressable>
 );
 
-const MealGroup = ({ title, entries, onDelete }) => {
+const AnimatedMealGroupContainer = AnimatedRe.createAnimatedComponent(View);
+const AnimatedContent = AnimatedRe.createAnimatedComponent(View);
+
+const MealGroup = ({ title, entries, onDelete, shouldAnimate }) => {
   if (!entries || entries.length === 0) return null;
+  const layoutAnim = shouldAnimate
+    ? ReLayout.springify().damping(15)
+    : undefined;
   return (
-    <View style={styles.mealGroupContainer}>
+    <AnimatedMealGroupContainer
+      style={styles.mealGroupContainer}
+      layout={layoutAnim}
+    >
       <Text style={styles.mealGroupTitle}>{title}</Text>
       {entries.map((item) => (
-        <FoodEntryItem key={item.id} item={item} onDelete={onDelete} />
+        <FoodEntryItem
+          key={item.id}
+          item={item}
+          onDelete={onDelete}
+          enableLayout={shouldAnimate}
+        />
       ))}
-    </View>
+    </AnimatedMealGroupContainer>
   );
 };
 
@@ -188,6 +204,15 @@ export default function HistoryScreen() {
   } = useRefreshSignal();
 
   const [selectedDate, setSelectedDate] = useState(new Date());
+  // Temporarily suppress group layout animation immediately after a date switch
+  const [suppressGroupAnim, setSuppressGroupAnim] = useState(false);
+
+  useEffect(() => {
+    // Suppress for the first frame after changing the date
+    setSuppressGroupAnim(true);
+    const id = setTimeout(() => setSuppressGroupAnim(false), 50); // ~1 frame at 60fps
+    return () => clearTimeout(id);
+  }, [selectedDate]);
   const [dataByDate, setDataByDate] = useState({}); // Cache per date
   const [loading, setLoading] = useState(false);
   const [goals, setGoals] = useState({});
@@ -556,7 +581,12 @@ export default function HistoryScreen() {
           )}
         </View>
 
-        <View style={styles.transactionsContainer}>
+        <AnimatedContent
+          key={dateStr}
+          style={styles.transactionsContainer}
+          // Disable layout animation completely for container on date switch
+          layout={ReLayout.duration(0)}
+        >
           {entries.length > 0 ? (
             mealOrder.map((meal) => (
               <MealGroup
@@ -564,12 +594,13 @@ export default function HistoryScreen() {
                 title={meal}
                 entries={groupedEntries[meal] || []}
                 onDelete={handleDelete}
+                shouldAnimate={!suppressGroupAnim}
               />
             ))
           ) : (
             <Text style={styles.emptyText}>No entries for this date.</Text>
           )}
-        </View>
+        </AnimatedContent>
       </ScrollView>
     </View>
   );

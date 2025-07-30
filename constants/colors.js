@@ -60,3 +60,12 @@ export const THEMES = {
 
 // 👇 change this to switch theme
 export const COLORS = THEMES.coffee;
+
+// Rainbow colors for the live AI indicator animation
+export const RAINBOW_COLORS = [
+  "#7694f8",
+  "#7094f8",
+  "#ac70a2",
+  "#da808d",
+  "#a85863",
+];

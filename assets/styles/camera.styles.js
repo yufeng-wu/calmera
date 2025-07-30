@@ -63,6 +63,29 @@ export const cameraStyles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 8,
   },
+  // Rounded card for a single food log entry
+  logCard: {
+    backgroundColor: "#fff",
+    borderRadius: 28,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginVertical: 6,
+    // iOS shadow
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    // Android elevation
+    elevation: 2,
+  },
+  // Generic horizontal row inside a log card
+  logCardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
   logItem: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -141,5 +164,26 @@ export const cameraStyles = StyleSheet.create({
     position: "absolute",
     top: 10,
     right: 10,
+  },
+  savingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  savingContent: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  savingText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+    marginTop: 12,
+    textAlign: "center",
   },
 });

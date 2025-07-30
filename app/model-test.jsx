@@ -128,7 +128,7 @@ async function runYolo(srcModule, filename, model, kind) {
     tensors.push(imgTensor);
 
     // 2) Forward pass
-    const outs = await model.executeAsync(imgTensor);
+    const outs = model.execute(imgTensor);
     console.log("outs length:", Array.isArray(outs) ? outs.length : 1);
     const arr = Array.isArray(outs) ? outs : [outs];
     console.log(

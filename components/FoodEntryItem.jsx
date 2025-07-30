@@ -6,6 +6,8 @@ import {
   UIManager,
   Platform,
 } from "react-native";
+// Reanimated for robust layout animations (works in the New Architecture)
+import Animated, { Layout, FadeIn, FadeOut } from "react-native-reanimated";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { styles } from "../assets/styles/home.styles";
 import { COLORS } from "../constants/colors";
@@ -20,7 +22,10 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-export const FoodEntryItem = ({ item, onDelete }) => {
+// Create an animated version of TouchableOpacity
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
+
+export const FoodEntryItem = ({ item, onDelete, enableLayout = true }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const router = useRouter();
   const {
@@ -44,7 +49,8 @@ export const FoodEntryItem = ({ item, onDelete }) => {
   };
 
   return (
-    <TouchableOpacity
+    <AnimatedTouchable
+      layout={enableLayout ? Layout.springify().damping(15) : undefined}
       style={styles.foodEntryCard}
       onPress={toggleExpand}
       activeOpacity={0.9}
@@ -71,7 +77,11 @@ export const FoodEntryItem = ({ item, onDelete }) => {
         </View>
       </View>
       {isExpanded && (
-        <View style={styles.expandedContent}>
+        <Animated.View
+          entering={FadeIn.duration(130)}
+          exiting={FadeOut.duration(120)}
+          style={styles.expandedContent}
+        >
           <Text style={styles.macrosText}>{macros}</Text>
           <View style={styles.iconButtonsContainer}>
             <TouchableOpacity
@@ -91,8 +101,8 @@ export const FoodEntryItem = ({ item, onDelete }) => {
               <Ionicons name="trash-outline" size={18} color={COLORS.expense} />
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
       )}
-    </TouchableOpacity>
+    </AnimatedTouchable>
   );
 };

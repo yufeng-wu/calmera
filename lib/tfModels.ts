@@ -62,7 +62,7 @@ async function _loadOnce(name: ModelName, options: LoadOptions = {}) {
           `[tfModels] Warming cached ${name} with zeros ${inputShape}`
         );
         const zeros = tf.zeros(inputShape);
-        const out = await model.executeAsync(zeros);
+        const out = model.execute(zeros);
         Array.isArray(out) ? tf.dispose(out) : out?.dispose?.();
         zeros.dispose();
         console.log(`[tfModels] ${name} warm-up done`);
@@ -87,7 +87,8 @@ async function _loadOnce(name: ModelName, options: LoadOptions = {}) {
             `[tfModels] Warming ${name} (post-load) with zeros ${inputShape}`
           );
           const zeros = tf.zeros(inputShape);
-          const out = await m.executeAsync(zeros);
+
+          const out = m.execute(zeros);
           Array.isArray(out) ? tf.dispose(out) : out?.dispose?.();
           zeros.dispose();
           console.log(`[tfModels] ${name} warm-up done`);
@@ -121,7 +122,7 @@ async function _loadOnce(name: ModelName, options: LoadOptions = {}) {
           ) as number[];
           console.log(`[tfModels] Warming ${name} with zeros ${inputShape}`);
           const zeros = tf.zeros(inputShape);
-          const out = await m.executeAsync(zeros);
+          const out = m.execute(zeros);
           Array.isArray(out) ? tf.dispose(out) : out?.dispose?.();
           zeros.dispose();
           console.log(`[tfModels] ${name} warm-up done`);
