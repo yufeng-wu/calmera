@@ -2,7 +2,6 @@ import { ClerkProvider } from "@clerk/clerk-expo";
 import { tokenCache } from "@clerk/clerk-expo/token-cache";
 import { Slot } from "expo-router";
 import SafeScreen from "@/components/SafeScreen";
-import ModelPreloader from "@/components/ModelPreloader";
 import { StatusBar } from "expo-status-bar";
 
 export default function RootLayout() {
@@ -11,7 +10,6 @@ export default function RootLayout() {
       <SafeScreen>
         <Slot />
       </SafeScreen>
-      <ModelPreloader />
       <StatusBar style="auto" />
     </ClerkProvider>
   );

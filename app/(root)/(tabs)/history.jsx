@@ -11,7 +11,7 @@ import {
   Pressable,
 } from "react-native";
 // Removed reanimated for meal group container to avoid date-switch animations
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useUser, useAuth } from "@clerk/clerk-expo";
 import AnimatedRe, { Layout as ReLayout } from "react-native-reanimated";
 
@@ -217,6 +217,26 @@ export default function HistoryScreen() {
   const [loading, setLoading] = useState(false);
   const [goals, setGoals] = useState({});
   const [calorieGoal, setCalorieGoal] = useState(null);
+
+  // Store the last selected day for each month so we can return to it when navigating
+  const lastSelectedPerMonth = useRef({}); // { '2025-6': Date }
+
+  // Helper to determine if a given date can be tapped/selected
+  const isDateSelectable = useCallback(
+    (date) => {
+      const today = new Date();
+      if (date > today) return false;
+      if (signUpDate && date < signUpDate) return false;
+      return true;
+    },
+    [signUpDate]
+  );
+
+  // Remember the most recently selected day for its month
+  useEffect(() => {
+    const key = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}`;
+    lastSelectedPerMonth.current[key] = selectedDate;
+  }, [selectedDate]);
 
   // helper to compare months relative to signup date
   const isBeforeSignupMonth = (date) => {
@@ -476,26 +496,55 @@ export default function HistoryScreen() {
   const changeMonth = (delta) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setSelectedDate((prev) => {
-      const newDate = new Date(prev);
-      newDate.setMonth(prev.getMonth() + delta);
-
       const today = new Date();
+
+      // Move to the first day of the target month to avoid overflow (e.g. 31 → 30)
+      let target = new Date(prev.getFullYear(), prev.getMonth() + delta, 1);
+
       // Prevent navigating into future months
-      if (newDate > today) return today;
-
-      // Prevent navigating before signup month
-      if (isBeforeSignupMonth(newDate)) return new Date(signUpDate);
-
-      // Clamp day-of-month if previous date was 31 but new month has fewer days
-      const daysInNewMonth = new Date(
-        newDate.getFullYear(),
-        newDate.getMonth() + 1,
-        0
-      ).getDate();
-      if (newDate.getDate() > daysInNewMonth) {
-        newDate.setDate(daysInNewMonth);
+      if (
+        target.getFullYear() > today.getFullYear() ||
+        (target.getFullYear() === today.getFullYear() &&
+          target.getMonth() > today.getMonth())
+      ) {
+        return today; // current date is the furthest in the future we allow
       }
-      return newDate;
+
+      // Prevent navigating before the signup month
+      if (isBeforeSignupMonth(target)) {
+        // Snap to the signup month (day will be adjusted below)
+        target = new Date(signUpDate.getFullYear(), signUpDate.getMonth(), 1);
+      }
+
+      // 1️⃣ Try to restore the previously selected day for this month
+      const monthKey = `${target.getFullYear()}-${target.getMonth()}`;
+      const remembered = lastSelectedPerMonth.current[monthKey];
+      if (remembered && isDateSelectable(remembered)) {
+        return new Date(remembered);
+      }
+
+      // 2️⃣ Otherwise fall back to the last selectable day of the month
+      let lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0);
+
+      // Clamp to today if we are looking at the current month
+      if (
+        lastDay.getFullYear() === today.getFullYear() &&
+        lastDay.getMonth() === today.getMonth()
+      ) {
+        lastDay = today;
+      }
+
+      // Clamp to signup date if this is the signup month and signup day is after lastDay (shouldn't normally happen)
+      if (
+        signUpDate &&
+        lastDay.getFullYear() === signUpDate.getFullYear() &&
+        lastDay.getMonth() === signUpDate.getMonth() &&
+        lastDay < signUpDate
+      ) {
+        lastDay = new Date(signUpDate);
+      }
+
+      return lastDay;
     });
   };
 

@@ -31,6 +31,7 @@ import { useAuth } from "@clerk/clerk-expo";
 import { Audio } from "expo-av";
 import { VOICE_LOG_API_URL } from "@/constants/api";
 import { getLocalTimeWithOffset } from "@/lib/utils";
+import { isModelLoaded, isModelWarmed } from "@/lib/tfModels";
 import AnimatedRe, { Layout as ReLayout } from "react-native-reanimated";
 
 // Animated Touchable wrapper
@@ -321,7 +322,16 @@ export default function SummaryScreen() {
 
   const handleManualAdd = () => collapseFabThenNavigate("/create");
 
-  const handleCameraAdd = () => collapseFabThenNavigate("/camera");
+  const handleCameraAdd = () => {
+    const roiReady = isModelLoaded("roi") && isModelWarmed("roi");
+    const digitReady = isModelLoaded("digit") && isModelWarmed("digit");
+
+    if (roiReady && digitReady) {
+      collapseFabThenNavigate("/camera");
+    } else {
+      collapseFabThenNavigate("/camera-loading");
+    }
+  };
 
   // ---------------- Voice Log handlers ----------------
   const startRecording = async () => {

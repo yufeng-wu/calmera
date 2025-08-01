@@ -23,10 +23,12 @@ import { cameraStyles } from "@/assets/styles/camera.styles";
 import { SessionLogCard } from "@/components/SessionLogCard";
 import { useCookingSession } from "@/hooks/useCookingSession";
 import { RAINBOW_COLORS } from "@/constants/colors";
+import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 
 const FRAME_UPLOAD_INTERVAL_MS = 500; // How often to send frames to backend (ms)
-const FRAME_RESIZE_DIMENSIONS = 640; // Frame resize width and height (px)
-const FRAME_COMPRESSION_QUALITY = 0.5; // Frame compression quality (0-1, lower = more compression)
+const FRAME_RESIZE_DIMENSIONS = 640; // Must match model input size
+const FRAME_COMPRESSION_QUALITY = 0.3; // Frame compression quality (0-1, lower = more compression)
+const BLANK_FRAME_TOLERANCE = 2; // Number of consecutive blank frames before we consider the scale undetected
 
 // Enable LayoutAnimation on Android for smooth/bouncy list updates
 if (
@@ -54,7 +56,31 @@ export default function CameraScreen() {
     logEntries,
     currentWeight,
     detectionConfidence,
+    deleteLogEntry,
   } = useCookingSession();
+
+  // Displayed weight/confidence with 2-blank-frame tolerance
+  const [displayedWeight, setDisplayedWeight] = useState(null);
+  const [displayedConfidence, setDisplayedConfidence] = useState(null);
+  const blankCountRef = useRef(0);
+
+  // Update visible weight based on consecutive blank frames
+  useEffect(() => {
+    if (currentWeight !== null) {
+      blankCountRef.current = 0;
+      setDisplayedWeight(currentWeight);
+      setDisplayedConfidence(detectionConfidence);
+    } else {
+      blankCountRef.current += 1;
+      if (blankCountRef.current >= BLANK_FRAME_TOLERANCE) {
+        setDisplayedWeight(null);
+        setDisplayedConfidence(null);
+      }
+    }
+  }, [currentWeight, detectionConfidence]);
+
+  // Signal other screens (Dashboard, History) to refresh after session ends
+  const { setShouldRefresh } = useRefreshSignal();
 
   const [isLoading, setIsLoading] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
@@ -128,7 +154,17 @@ export default function CameraScreen() {
   // Navigate to dashboard when session ends
   useEffect(() => {
     if (sessionEnded && !isSaving) {
-      router.replace("/(root)/(tabs)/dashboard");
+      // Notify other screens to reload their data
+      setShouldRefresh(true);
+      // Pop the Camera screen off the stack so there is no previous screen
+      // left to swipe back to. If, for some reason, the stack is already
+      // empty (e.g. user opened Camera directly via deep-link), fall back
+      // to a replace.
+      if (router.canGoBack?.()) {
+        router.back();
+      } else {
+        router.replace("/(root)/(tabs)/dashboard");
+      }
     }
   }, [sessionEnded, isSaving, router]);
 
@@ -236,16 +272,14 @@ export default function CameraScreen() {
           : { resize: { height: FRAME_RESIZE_DIMENSIONS } };
 
       // Resize + compress
-      const { uri: resizedUri } = await ImageManipulator.manipulateAsync(
-        photo.uri,
-        [resizeAction],
-        {
+      const { uri: resizedUri, base64: resizedBase64 } =
+        await ImageManipulator.manipulateAsync(photo.uri, [resizeAction], {
           compress: FRAME_COMPRESSION_QUALITY,
           format: ImageManipulator.SaveFormat.JPEG,
-        }
-      );
+          base64: true,
+        });
 
-      await processFrame(resizedUri);
+      await processFrame(resizedUri, resizedBase64);
     } catch (e) {
       if (e?.message?.includes("Camera unmounted")) {
         // Ignore benign race condition
@@ -259,13 +293,30 @@ export default function CameraScreen() {
   };
 
   // Delete a single log entry inside the active session
-  const deleteLogEntry = async (logId) => {
-    try {
-      // TODO: Implement delete functionality in useCookingSession hook
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    } catch (err) {
-      console.error("Delete log entry error", err);
-    }
+  const handleDeleteLogEntry = (logId) => {
+    const entry = logEntries.find((e) => e.id === logId);
+
+    Alert.alert(
+      "Delete Log Entry",
+      `Are you sure you want to delete \"${entry?.foodName || "this item"}\"?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            try {
+              LayoutAnimation.configureNext(
+                LayoutAnimation.Presets.easeInEaseOut
+              );
+              deleteLogEntry(logId);
+            } catch (err) {
+              console.error("Delete log entry error", err);
+            }
+          },
+        },
+      ]
+    );
   };
 
   // Navigate to the edit screen for this log entry and automatically pause
@@ -343,14 +394,14 @@ export default function CameraScreen() {
                 </MaskedView>
               </Animated.View>
 
-              {currentWeight !== null ? (
+              {displayedWeight !== null ? (
                 <View style={{ alignItems: "flex-start" }}>
                   <Text
                     style={cameraStyles.weightText}
-                  >{`${currentWeight}g`}</Text>
-                  {detectionConfidence && (
+                  >{`${displayedWeight}g`}</Text>
+                  {displayedConfidence && (
                     <Text style={cameraStyles.confidenceText}>
-                      {Math.round(detectionConfidence * 100)}% confident
+                      {Math.round(displayedConfidence * 100)}% confident
                     </Text>
                   )}
                 </View>
@@ -434,7 +485,7 @@ export default function CameraScreen() {
           renderItem={({ item }) => (
             <SessionLogCard
               entry={item}
-              onDelete={deleteLogEntry}
+              onDelete={handleDeleteLogEntry}
               onEdit={editLogEntry}
             />
           )}
