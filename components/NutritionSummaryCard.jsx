@@ -1,7 +1,8 @@
 import { View, Text } from "react-native";
 import { styles } from "../assets/styles/home.styles";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { COLORS } from "../constants/colors";
+import { COLORS, RAINBOW_COLORS } from "../constants/colors";
+import ProgressRing from "./ProgressRing";
 
 export const NutritionSummaryCard = ({ summary = {}, goals = {} }) => {
   // Extract consumed values (fallback to 0 if not provided)
@@ -18,8 +19,9 @@ export const NutritionSummaryCard = ({ summary = {}, goals = {} }) => {
   const carbsGoal = goals.carbsGoal ?? goals.carbs_goal ?? goals.carbs;
   const fatGoal = goals.fatGoal ?? goals.fat_goal ?? goals.fat;
 
-  // Determine if the calorie goal is exceeded (for status indicator)
+  // Determine if the calorie goal is exceeded (for status indicator) and choose ring color
   const exceeded = calorieGoal !== undefined && calories > calorieGoal;
+  const calorieRingColor = exceeded ? COLORS.expense : COLORS.income;
 
   // Format calories and macros to smaller strings to avoid line wrapping
   const round = (num, decimals = 1) => {
@@ -46,47 +48,75 @@ export const NutritionSummaryCard = ({ summary = {}, goals = {} }) => {
     return `${consumed}${unit}`;
   };
 
+  const ringColors = RAINBOW_COLORS || [
+    "#ff3b30",
+    "#ff9500",
+    "#007aff",
+    "#34c759",
+  ];
+
   return (
     <View style={styles.balanceCard}>
-      {/* Calories */}
-      <Text style={styles.balanceTitle}>Calories</Text>
-      {/* Calories value with status indicator */}
+      {/* Calories row: left stack, right ring */}
       <View
-        style={{ flexDirection: "row", alignItems: "center", marginBottom: 18 }}
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 16,
+        }}
       >
-        <Text style={[styles.balanceAmount, { marginBottom: 0 }]}>
-          {formatCalories(calories, calorieGoal)}
-        </Text>
-        {calorieGoal !== undefined &&
-          calories > 0 &&
-          (exceeded ? (
-            <View
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: 10,
-                backgroundColor: COLORS.expense,
-                marginLeft: 6,
-              }}
+        <View>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              paddingBottom: 2,
+            }}
+          >
+            <Text style={styles.balanceTitle}>Calories </Text>
+            <ProgressRing
+              size={18}
+              strokeWidth={3.8}
+              value={calories}
+              goal={calorieGoal}
+              color={calorieRingColor}
             />
-          ) : (
-            <View
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: 10,
-                backgroundColor: COLORS.income,
-                marginLeft: 6,
-              }}
-            />
-          ))}
+            {/* {calorieGoal !== undefined && calories > 0 && (
+              <View
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: 10,
+                  backgroundColor: exceeded ? COLORS.expense : COLORS.income,
+                  marginLeft: 6,
+                }}
+              />
+            )} */}
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Text style={styles.balanceAmount}>
+              {formatCalories(calories, calorieGoal)}
+            </Text>
+          </View>
+        </View>
       </View>
 
       {/* Macro breakdown */}
       <View style={styles.balanceStats}>
         {/* Protein */}
         <View style={styles.balanceStatItem}>
-          <Text style={styles.balanceStatLabel}>Protein</Text>
+          <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+            <Text style={styles.balanceStatLabel}>Protein </Text>
+            <ProgressRing
+              size={18}
+              strokeWidth={3.8}
+              value={protein}
+              goal={proteinGoal}
+              color={ringColors[1]}
+              style={{ marginLeft: 6 }}
+            />
+          </View>
           <Text style={styles.balanceStatAmount}>
             {formatMacro(protein, proteinGoal, " g")}
           </Text>
@@ -96,7 +126,17 @@ export const NutritionSummaryCard = ({ summary = {}, goals = {} }) => {
 
         {/* Carbs */}
         <View style={styles.balanceStatItem}>
-          <Text style={styles.balanceStatLabel}>Carbs</Text>
+          <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+            <Text style={styles.balanceStatLabel}>Carbs </Text>
+            <ProgressRing
+              size={18}
+              strokeWidth={3.8}
+              value={carbs}
+              goal={carbsGoal}
+              color={ringColors[2]}
+              style={{ marginLeft: 6 }}
+            />
+          </View>
           <Text style={styles.balanceStatAmount}>
             {formatMacro(carbs, carbsGoal, " g")}
           </Text>
@@ -106,7 +146,17 @@ export const NutritionSummaryCard = ({ summary = {}, goals = {} }) => {
 
         {/* Fat */}
         <View style={styles.balanceStatItem}>
-          <Text style={styles.balanceStatLabel}>Fat</Text>
+          <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+            <Text style={styles.balanceStatLabel}>Fat </Text>
+            <ProgressRing
+              size={18}
+              strokeWidth={3.8}
+              value={fat}
+              goal={fatGoal}
+              color={ringColors[3]}
+              style={{ marginLeft: 6 }}
+            />
+          </View>
           <Text style={styles.balanceStatAmount}>
             {formatMacro(fat, fatGoal, " g")}
           </Text>

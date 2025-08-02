@@ -44,6 +44,8 @@ export function useCookingSession() {
   };
 
   const startSession = () => {
+    // Reset createdAt to now for a fresh session
+    sessionRef.current.createdAt = new Date();
     // Also clear files from any previous (cleanup-failed) session
     cleanupFiles();
     sessionRef.current.clear();
@@ -89,7 +91,10 @@ export function useCookingSession() {
               carbs: entry.nutritionInfo.carbs,
               fat: entry.nutritionInfo.fat,
               mealType: mealType,
-              createdAt: getLocalTimeWithOffset(new Date(entry.timestamp)),
+              // Use consistent timestamp = session start time
+              createdAt: getLocalTimeWithOffset(
+                new Date(sessionRef.current.createdAt)
+              ),
             };
 
             return fetch(FOOD_ENTRIES_API_URL, {
