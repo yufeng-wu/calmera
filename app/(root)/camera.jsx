@@ -187,91 +187,41 @@ export default function CameraScreen() {
 
   // Swipable macros card component
   const MacrosSwiper = () => {
-    const CARD_WIDTH = windowWidth * 0.96; // align with camera wrapper width
+    const { width: windowWidth } = useWindowDimensions();
+
+    // Define gaps and card width based on screen size
+    const SIDE_GAP = windowWidth * 0.02; // 2% margin on each side
+    const GAP_BETWEEN_CARDS = SIDE_GAP * 2; // 4% gap between cards
+    const CARD_WIDTH = windowWidth - 2 * SIDE_GAP;
+
     const [page, setPage] = useState(0);
     const data = [sessionTotals, dailyTotals];
 
-    // Helper component for multi-ring circular progress (daily page only)
-    const MultiRingProgress = ({ totals }) => {
-      const SIZE = 140;
-      const STROKE_WIDTH = 10;
-      const GAP = 3;
-      const baseRadius = SIZE / 2 - STROKE_WIDTH / 2;
-
-      const metrics = [
-        {
-          key: "calories",
-          value: totals.calories,
-          goal: goals.calorieGoal,
-          color: "#ff3b30", // red
-        },
-        {
-          key: "protein",
-          value: totals.protein,
-          goal: goals.proteinGoal,
-          color: "#ff9500", // orange
-        },
-        {
-          key: "carbs",
-          value: totals.carbs,
-          goal: goals.carbsGoal,
-          color: "#007aff", // blue
-        },
-        {
-          key: "fat",
-          value: totals.fat,
-          goal: goals.fatGoal,
-          color: "#34c759", // green
-        },
-      ];
-
-      return (
-        <Svg width={SIZE} height={SIZE}>
-          {metrics.map((m, idx) => {
-            const r = baseRadius - idx * (STROKE_WIDTH + GAP);
-            if (r <= 0) return null;
-            const circ = 2 * Math.PI * r;
-            const progress = m.goal > 0 ? Math.min(m.value / m.goal, 1) : 0;
-            return (
-              <React.Fragment key={m.key}>
-                <Circle
-                  cx={SIZE / 2}
-                  cy={SIZE / 2}
-                  r={r}
-                  stroke="#eee"
-                  strokeWidth={STROKE_WIDTH}
-                  fill="none"
-                />
-                <Circle
-                  cx={SIZE / 2}
-                  cy={SIZE / 2}
-                  r={r}
-                  stroke={m.color}
-                  strokeWidth={STROKE_WIDTH}
-                  strokeDasharray={circ}
-                  strokeDashoffset={circ * (1 - progress)}
-                  strokeLinecap="round"
-                  fill="none"
-                  transform={`rotate(-90 ${SIZE / 2} ${SIZE / 2})`}
-                />
-              </React.Fragment>
-            );
-          })}
-        </Svg>
-      );
-    };
-
     return (
-      <View style={{ width: "96%", alignSelf: "center", marginBottom: 16 }}>
+      <View style={{ marginBottom: 16 }}>
         <FlatList
           data={data}
           horizontal
-          pagingEnabled
           showsHorizontalScrollIndicator={false}
           keyExtractor={(_, idx) => String(idx)}
+          // Custom snapping behavior
+          snapToInterval={CARD_WIDTH + GAP_BETWEEN_CARDS}
+          snapToAlignment="start"
+          decelerationRate="fast"
+          // Set horizontal padding for side gaps
+          contentContainerStyle={{
+            paddingHorizontal: SIDE_GAP,
+          }}
+          // Add space between cards
+          ItemSeparatorComponent={() => (
+            <View style={{ width: GAP_BETWEEN_CARDS }} />
+          )}
+          // Update page index on scroll
           onMomentumScrollEnd={(e) => {
-            const idx = Math.round(e.nativeEvent.contentOffset.x / CARD_WIDTH);
-            setPage(idx);
+            const newPage = Math.round(
+              e.nativeEvent.contentOffset.x / (CARD_WIDTH + GAP_BETWEEN_CARDS)
+            );
+            setPage(newPage);
           }}
           renderItem={({ item, index }) => {
             const ringColors = RAINBOW_COLORS || [
@@ -287,10 +237,10 @@ export default function CameraScreen() {
                   width: CARD_WIDTH,
                   backgroundColor: "#fff",
                   borderRadius: 20,
-                  paddingVertical: 14,
-                  paddingHorizontal: 20,
+                  paddingVertical: 12,
+                  paddingHorizontal: 10,
                   flexDirection: "column",
-                  justifyContent: "space-between",
+                  justifyContent: "flex-start",
                   alignItems: "center",
                   // Shadow
                   shadowColor: "#000",
@@ -305,39 +255,86 @@ export default function CameraScreen() {
             );
 
             if (index === 0) {
-              // Session summary layout (no rings)
+              // Session total card
               return (
                 <CardContainer>
                   <Text
                     style={{
-                      alignSelf: "flex-start",
+                      alignSelf: "center",
                       fontSize: 14,
-                      fontWeight: "600",
-                      marginBottom: 8,
+                      fontWeight: "500",
+                      marginBottom: 12,
                     }}
                   >
-                    Session Summary
-                  </Text>
-                  <Text style={{ fontWeight: "700", fontSize: 16 }}>
-                    {item.calories.toFixed(0)} kcal
+                    Session Total
                   </Text>
                   <View
                     style={{
                       flexDirection: "row",
-                      justifyContent: "space-between",
+                      justifyContent: "space-around",
                       width: "100%",
-                      marginTop: 6,
                     }}
                   >
-                    <Text style={{ fontWeight: "600", fontSize: 14 }}>
-                      {item.protein.toFixed(1)} Protein
-                    </Text>
-                    <Text style={{ fontWeight: "600", fontSize: 14 }}>
-                      {item.carbs.toFixed(1)} Carbs
-                    </Text>
-                    <Text style={{ fontWeight: "600", fontSize: 14 }}>
-                      {item.fat.toFixed(1)} Fat
-                    </Text>
+                    <View style={{ alignItems: "center" }}>
+                      <Text
+                        style={{
+                          fontWeight: "600",
+                          fontSize: 14,
+                        }}
+                      >
+                        {Math.round(item.protein)}g
+                      </Text>
+                      <Text
+                        style={{ fontSize: 12, color: "#555", marginTop: 4 }}
+                      >
+                        Protein
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: "center" }}>
+                      <Text
+                        style={{
+                          fontWeight: "600",
+                          fontSize: 14,
+                        }}
+                      >
+                        {Math.round(item.carbs)}g
+                      </Text>
+                      <Text
+                        style={{ fontSize: 12, color: "#555", marginTop: 4 }}
+                      >
+                        Carbs
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: "center" }}>
+                      <Text
+                        style={{
+                          fontWeight: "600",
+                          fontSize: 14,
+                        }}
+                      >
+                        {Math.round(item.fat)}g
+                      </Text>
+                      <Text
+                        style={{ fontSize: 12, color: "#555", marginTop: 4 }}
+                      >
+                        Fat
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: "center" }}>
+                      <Text
+                        style={{
+                          fontWeight: "600",
+                          fontSize: 14,
+                        }}
+                      >
+                        {Math.round(item.calories)} kcal
+                      </Text>
+                      <Text
+                        style={{ fontSize: 12, color: "#555", marginTop: 4 }}
+                      >
+                        Calories
+                      </Text>
+                    </View>
                   </View>
                 </CardContainer>
               );
@@ -348,96 +345,74 @@ export default function CameraScreen() {
               <CardContainer>
                 <Text
                   style={{
-                    alignSelf: "flex-start",
+                    alignSelf: "center",
                     fontSize: 14,
-                    fontWeight: "600",
-                    marginBottom: 8,
-                  }}
-                >
-                  Daily Summary
-                </Text>
-
-                {/* Calories row */}
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
+                    fontWeight: "500",
                     marginBottom: 12,
                   }}
                 >
-                  <Text style={{ fontWeight: "700", fontSize: 16 }}>
-                    {item.calories.toFixed(0)} kcal
-                  </Text>
-                  <ProgressRing
-                    size={18}
-                    strokeWidth={4}
-                    value={item.calories}
-                    goal={goals.calorieGoal}
-                    color={ringColors[0]}
-                    style={{ marginLeft: 6 }}
-                  />
-                </View>
-
-                {/* Macros row with separators */}
+                  Today's Total
+                </Text>
                 <View
                   style={{
                     flexDirection: "row",
-                    justifyContent: "space-between",
+                    justifyContent: "space-around",
                     width: "100%",
+                    alignItems: "center",
                   }}
                 >
-                  {[
-                    {
-                      label: "Protein",
-                      val: item.protein,
-                      goal: goals.proteinGoal,
-                      color: ringColors[1],
-                    },
-                    {
-                      label: "Carbs",
-                      val: item.carbs,
-                      goal: goals.carbsGoal,
-                      color: ringColors[2],
-                    },
-                    {
-                      label: "Fat",
-                      val: item.fat,
-                      goal: goals.fatGoal,
-                      color: ringColors[3],
-                    },
-                  ].map((m, idx) => (
-                    <View
-                      key={m.label}
-                      style={{
-                        flex: 1,
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Text style={{ fontWeight: "600", fontSize: 12 }}>
-                        {m.val.toFixed(1)} {m.label}
-                      </Text>
-                      <ProgressRing
-                        size={14}
-                        strokeWidth={3}
-                        value={m.val}
-                        goal={m.goal}
-                        color={m.color}
-                        style={{ marginLeft: 4 }}
-                      />
-                      {idx < 2 && (
-                        <View
-                          style={{
-                            borderRightWidth: 1,
-                            borderColor: "#ddd",
-                            height: 24,
-                            marginHorizontal: 6,
-                          }}
-                        />
-                      )}
-                    </View>
-                  ))}
+                  <View style={{ alignItems: "center" }}>
+                    <ProgressRing
+                      size={20}
+                      strokeWidth={4}
+                      value={item.calories}
+                      goal={goals.calorieGoal}
+                      color={ringColors[0]}
+                      style={{ marginTop: 4 }}
+                    />
+                    <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
+                      Calories
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: "center" }}>
+                    <ProgressRing
+                      size={20}
+                      strokeWidth={4}
+                      value={item.protein}
+                      goal={goals.proteinGoal}
+                      color={ringColors[1]}
+                      style={{ marginTop: 4 }}
+                    />
+                    <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
+                      Protein
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: "center" }}>
+                    <ProgressRing
+                      size={20}
+                      strokeWidth={4}
+                      value={item.carbs}
+                      goal={goals.carbsGoal}
+                      color={ringColors[2]}
+                      style={{ marginTop: 4 }}
+                    />
+                    <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
+                      Carbs
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: "center" }}>
+                    <ProgressRing
+                      size={20}
+                      strokeWidth={4}
+                      value={item.fat}
+                      goal={goals.fatGoal}
+                      color={ringColors[3]}
+                      style={{ marginTop: 4 }}
+                    />
+                    <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
+                      Fat
+                    </Text>
+                  </View>
                 </View>
               </CardContainer>
             );
