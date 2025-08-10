@@ -37,18 +37,7 @@ export default function SettingsScreen() {
           onPress={handleUpdateGoals}
         >
           <Ionicons name="create-outline" size={20} color={COLORS.text} />
-          <Text style={styles.optionText}>
-            Update Daily Macro Goals / Get Personalized Recommendations
-          </Text>
-        </TouchableOpacity>
-
-        {/* Local TFJS test */}
-        <TouchableOpacity
-          style={styles.optionButton}
-          onPress={() => router.push("/model-test")}
-        >
-          <Ionicons name="flask-outline" size={20} color={COLORS.text} />
-          <Text style={styles.optionText}>Run on-device model test</Text>
+          <Text style={styles.optionText}>Edit Nutrition Goals</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.optionButton} onPress={handleLogout}>
@@ -88,7 +77,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.card,
     paddingVertical: 16,
     paddingHorizontal: 16,
-    borderRadius: 12,
+    borderRadius: 20,
     shadowColor: COLORS.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,

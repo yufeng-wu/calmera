@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -13,7 +13,6 @@ import {
   Animated,
   useWindowDimensions,
 } from "react-native";
-import Svg, { Circle } from "react-native-svg"; // leftover for other use, may remove later
 import ProgressRing from "@/components/ProgressRing";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useRouter } from "expo-router";
@@ -29,12 +28,11 @@ import { useDailyNutrition } from "@/hooks/useDailyNutrition";
 import { useUser } from "@clerk/clerk-expo";
 import { useAuth } from "@clerk/clerk-expo";
 import { USERS_API_URL } from "@/constants/api";
-import { RAINBOW_COLORS } from "@/constants/colors";
+import { COLORS, RAINBOW_COLORS } from "@/constants/colors";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
-import React from "react";
 
-const FRAME_UPLOAD_INTERVAL_MS = 500; // How often to send frames to backend (ms)
-const FRAME_RESIZE_DIMENSIONS = 640; // Must match model input size
+const FRAME_UPLOAD_INTERVAL_MS = 1000; // How often to send frames to backend (ms)
+const FRAME_RESIZE_DIMENSIONS = 320; // Must match model input size
 const FRAME_COMPRESSION_QUALITY = 0.3; // Frame compression quality (0-1, lower = more compression)
 const BLANK_FRAME_TOLERANCE = 2; // Number of consecutive blank frames before we consider the scale undetected
 
@@ -49,11 +47,261 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
+// =====================
+// Macros Swiper Component (extracted to preserve state across re-renders)
+// =====================
+const MacrosSwiper = React.memo(function MacrosSwiper({
+  sessionTotals,
+  dailyTotals,
+  goals,
+}) {
+  const { width: windowWidth } = useWindowDimensions();
+
+  // Define gaps and card width based on screen size
+  const SIDE_GAP = windowWidth * 0.02; // 2% margin on each side
+  const GAP_BETWEEN_CARDS = SIDE_GAP * 2; // 4% gap between cards
+  const CARD_WIDTH = windowWidth - 2 * SIDE_GAP;
+
+  const [page, setPage] = useState(0);
+  const data = [sessionTotals, dailyTotals];
+
+  const CardContainer = ({ children }) => (
+    <View
+      style={{
+        width: CARD_WIDTH,
+        backgroundColor: "#fff",
+        borderRadius: 20,
+        paddingVertical: 12,
+        paddingHorizontal: 10,
+        flexDirection: "column",
+        justifyContent: "flex-start",
+        alignItems: "center",
+        // Shadow
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 2,
+      }}
+    >
+      {children}
+    </View>
+  );
+
+  return (
+    <View style={{ marginBottom: 16 }}>
+      <FlatList
+        data={data}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyExtractor={(_, idx) => String(idx)}
+        snapToInterval={CARD_WIDTH + GAP_BETWEEN_CARDS}
+        snapToAlignment="start"
+        decelerationRate="fast"
+        contentContainerStyle={{ paddingHorizontal: SIDE_GAP }}
+        ItemSeparatorComponent={() => (
+          <View style={{ width: GAP_BETWEEN_CARDS }} />
+        )}
+        onMomentumScrollEnd={(e) => {
+          const newPage = Math.round(
+            e.nativeEvent.contentOffset.x / (CARD_WIDTH + GAP_BETWEEN_CARDS)
+          );
+          setPage(newPage);
+        }}
+        renderItem={({ item, index }) => {
+          if (index === 0) {
+            // ------ Session Totals Card ------
+            return (
+              <CardContainer>
+                <Text
+                  style={{
+                    alignSelf: "center",
+                    fontSize: 14,
+                    fontWeight: "500",
+                    marginBottom: 12,
+                  }}
+                >
+                  Session Total
+                </Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-around",
+                    width: "100%",
+                  }}
+                >
+                  {/* Calories */}
+                  <View style={{ alignItems: "center" }}>
+                    <Text style={{ fontWeight: "600", fontSize: 14 }}>
+                      {item.calories % 1 === 0
+                        ? Math.round(item.calories)
+                        : item.calories.toFixed(1)}{" "}
+                      kcal
+                    </Text>
+                    <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
+                      Calories
+                    </Text>
+                  </View>
+                  {/* Protein */}
+                  <View style={{ alignItems: "center" }}>
+                    <Text style={{ fontWeight: "600", fontSize: 14 }}>
+                      {item.protein % 1 === 0
+                        ? Math.round(item.protein)
+                        : item.protein.toFixed(1)}{" "}
+                      g
+                    </Text>
+                    <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
+                      Protein
+                    </Text>
+                  </View>
+                  {/* Carbs */}
+                  <View style={{ alignItems: "center" }}>
+                    <Text style={{ fontWeight: "600", fontSize: 14 }}>
+                      {item.carbs % 1 === 0
+                        ? Math.round(item.carbs)
+                        : item.carbs.toFixed(1)}{" "}
+                      g
+                    </Text>
+                    <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
+                      Carbs
+                    </Text>
+                  </View>
+                  {/* Fat */}
+                  <View style={{ alignItems: "center" }}>
+                    <Text style={{ fontWeight: "600", fontSize: 14 }}>
+                      {item.fat % 1 === 0
+                        ? Math.round(item.fat)
+                        : item.fat.toFixed(1)}{" "}
+                      g
+                    </Text>
+                    <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
+                      Fat
+                    </Text>
+                  </View>
+                </View>
+              </CardContainer>
+            );
+          }
+
+          // ------ Today's Total Card ------
+          const calorieColor =
+            goals.calorieGoal > 0 && item.calories > goals.calorieGoal
+              ? COLORS.expense // red over goal
+              : COLORS.income; // green within goal
+
+          return (
+            <CardContainer>
+              <Text
+                style={{
+                  alignSelf: "center",
+                  fontSize: 14,
+                  fontWeight: "500",
+                  marginBottom: 12,
+                }}
+              >
+                Today's Total
+              </Text>
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-around",
+                  width: "100%",
+                  alignItems: "center",
+                }}
+              >
+                {/* Calories */}
+                <View style={{ alignItems: "center" }}>
+                  <ProgressRing
+                    size={20}
+                    strokeWidth={4}
+                    value={item.calories}
+                    goal={goals.calorieGoal}
+                    color={calorieColor}
+                    style={{ marginTop: 4 }}
+                  />
+                  <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
+                    Calories
+                  </Text>
+                </View>
+                {/* Protein */}
+                <View style={{ alignItems: "center" }}>
+                  <ProgressRing
+                    size={20}
+                    strokeWidth={4}
+                    value={item.protein}
+                    goal={goals.proteinGoal}
+                    color={RAINBOW_COLORS[1]}
+                    style={{ marginTop: 4 }}
+                  />
+                  <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
+                    Protein
+                  </Text>
+                </View>
+                {/* Carbs */}
+                <View style={{ alignItems: "center" }}>
+                  <ProgressRing
+                    size={20}
+                    strokeWidth={4}
+                    value={item.carbs}
+                    goal={goals.carbsGoal}
+                    color={RAINBOW_COLORS[2]}
+                    style={{ marginTop: 4 }}
+                  />
+                  <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
+                    Carbs
+                  </Text>
+                </View>
+                {/* Fat */}
+                <View style={{ alignItems: "center" }}>
+                  <ProgressRing
+                    size={20}
+                    strokeWidth={4}
+                    value={item.fat}
+                    goal={goals.fatGoal}
+                    color={RAINBOW_COLORS[3]}
+                    style={{ marginTop: 4 }}
+                  />
+                  <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
+                    Fat
+                  </Text>
+                </View>
+              </View>
+            </CardContainer>
+          );
+        }}
+      />
+
+      {/* Page indicators */}
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "center",
+          marginTop: 6,
+        }}
+      >
+        {[0, 1].map((i) => (
+          <View
+            key={i}
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: 3,
+              marginHorizontal: 3,
+              backgroundColor: i === page ? "#333" : "#bbb",
+            }}
+          />
+        ))}
+      </View>
+    </View>
+  );
+});
+
 export default function CameraScreen() {
   const router = useRouter();
   const cameraRef = useRef(null);
   const [permission, requestPermission] = useCameraPermissions();
   const hasPermission = permission?.granted;
+  const frameCounterRef = useRef(0);
 
   // Session logic handled by custom hook
   const {
@@ -185,264 +433,6 @@ export default function CameraScreen() {
   // Dimensions
   const { width: windowWidth } = useWindowDimensions();
 
-  // Swipable macros card component
-  const MacrosSwiper = () => {
-    const { width: windowWidth } = useWindowDimensions();
-
-    // Define gaps and card width based on screen size
-    const SIDE_GAP = windowWidth * 0.02; // 2% margin on each side
-    const GAP_BETWEEN_CARDS = SIDE_GAP * 2; // 4% gap between cards
-    const CARD_WIDTH = windowWidth - 2 * SIDE_GAP;
-
-    const [page, setPage] = useState(0);
-    const data = [sessionTotals, dailyTotals];
-
-    return (
-      <View style={{ marginBottom: 16 }}>
-        <FlatList
-          data={data}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(_, idx) => String(idx)}
-          // Custom snapping behavior
-          snapToInterval={CARD_WIDTH + GAP_BETWEEN_CARDS}
-          snapToAlignment="start"
-          decelerationRate="fast"
-          // Set horizontal padding for side gaps
-          contentContainerStyle={{
-            paddingHorizontal: SIDE_GAP,
-          }}
-          // Add space between cards
-          ItemSeparatorComponent={() => (
-            <View style={{ width: GAP_BETWEEN_CARDS }} />
-          )}
-          // Update page index on scroll
-          onMomentumScrollEnd={(e) => {
-            const newPage = Math.round(
-              e.nativeEvent.contentOffset.x / (CARD_WIDTH + GAP_BETWEEN_CARDS)
-            );
-            setPage(newPage);
-          }}
-          renderItem={({ item, index }) => {
-            const ringColors = RAINBOW_COLORS || [
-              "#ff3b30",
-              "#ff9500",
-              "#007aff",
-              "#34c759",
-            ];
-
-            const CardContainer = ({ children }) => (
-              <View
-                style={{
-                  width: CARD_WIDTH,
-                  backgroundColor: "#fff",
-                  borderRadius: 20,
-                  paddingVertical: 12,
-                  paddingHorizontal: 10,
-                  flexDirection: "column",
-                  justifyContent: "flex-start",
-                  alignItems: "center",
-                  // Shadow
-                  shadowColor: "#000",
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: 0.05,
-                  shadowRadius: 2,
-                  elevation: 2,
-                }}
-              >
-                {children}
-              </View>
-            );
-
-            if (index === 0) {
-              // Session total card
-              return (
-                <CardContainer>
-                  <Text
-                    style={{
-                      alignSelf: "center",
-                      fontSize: 14,
-                      fontWeight: "500",
-                      marginBottom: 12,
-                    }}
-                  >
-                    Session Total
-                  </Text>
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      justifyContent: "space-around",
-                      width: "100%",
-                    }}
-                  >
-                    <View style={{ alignItems: "center" }}>
-                      <Text
-                        style={{
-                          fontWeight: "600",
-                          fontSize: 14,
-                        }}
-                      >
-                        {Math.round(item.protein)}g
-                      </Text>
-                      <Text
-                        style={{ fontSize: 12, color: "#555", marginTop: 4 }}
-                      >
-                        Protein
-                      </Text>
-                    </View>
-                    <View style={{ alignItems: "center" }}>
-                      <Text
-                        style={{
-                          fontWeight: "600",
-                          fontSize: 14,
-                        }}
-                      >
-                        {Math.round(item.carbs)}g
-                      </Text>
-                      <Text
-                        style={{ fontSize: 12, color: "#555", marginTop: 4 }}
-                      >
-                        Carbs
-                      </Text>
-                    </View>
-                    <View style={{ alignItems: "center" }}>
-                      <Text
-                        style={{
-                          fontWeight: "600",
-                          fontSize: 14,
-                        }}
-                      >
-                        {Math.round(item.fat)}g
-                      </Text>
-                      <Text
-                        style={{ fontSize: 12, color: "#555", marginTop: 4 }}
-                      >
-                        Fat
-                      </Text>
-                    </View>
-                    <View style={{ alignItems: "center" }}>
-                      <Text
-                        style={{
-                          fontWeight: "600",
-                          fontSize: 14,
-                        }}
-                      >
-                        {Math.round(item.calories)} kcal
-                      </Text>
-                      <Text
-                        style={{ fontSize: 12, color: "#555", marginTop: 4 }}
-                      >
-                        Calories
-                      </Text>
-                    </View>
-                  </View>
-                </CardContainer>
-              );
-            }
-
-            // Daily summary layout with small inline rings
-            return (
-              <CardContainer>
-                <Text
-                  style={{
-                    alignSelf: "center",
-                    fontSize: 14,
-                    fontWeight: "500",
-                    marginBottom: 12,
-                  }}
-                >
-                  Today's Total
-                </Text>
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-around",
-                    width: "100%",
-                    alignItems: "center",
-                  }}
-                >
-                  <View style={{ alignItems: "center" }}>
-                    <ProgressRing
-                      size={20}
-                      strokeWidth={4}
-                      value={item.calories}
-                      goal={goals.calorieGoal}
-                      color={ringColors[0]}
-                      style={{ marginTop: 4 }}
-                    />
-                    <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
-                      Calories
-                    </Text>
-                  </View>
-                  <View style={{ alignItems: "center" }}>
-                    <ProgressRing
-                      size={20}
-                      strokeWidth={4}
-                      value={item.protein}
-                      goal={goals.proteinGoal}
-                      color={ringColors[1]}
-                      style={{ marginTop: 4 }}
-                    />
-                    <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
-                      Protein
-                    </Text>
-                  </View>
-                  <View style={{ alignItems: "center" }}>
-                    <ProgressRing
-                      size={20}
-                      strokeWidth={4}
-                      value={item.carbs}
-                      goal={goals.carbsGoal}
-                      color={ringColors[2]}
-                      style={{ marginTop: 4 }}
-                    />
-                    <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
-                      Carbs
-                    </Text>
-                  </View>
-                  <View style={{ alignItems: "center" }}>
-                    <ProgressRing
-                      size={20}
-                      strokeWidth={4}
-                      value={item.fat}
-                      goal={goals.fatGoal}
-                      color={ringColors[3]}
-                      style={{ marginTop: 4 }}
-                    />
-                    <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
-                      Fat
-                    </Text>
-                  </View>
-                </View>
-              </CardContainer>
-            );
-          }}
-        />
-        {/* Page indicators */}
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "center",
-            marginTop: 6,
-          }}
-        >
-          {[0, 1].map((i) => (
-            <View
-              key={i}
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: 3,
-                marginHorizontal: 3,
-                backgroundColor: i === page ? "#333" : "#bbb",
-              }}
-            />
-          ))}
-        </View>
-      </View>
-    );
-  };
-
   // Request permission if not granted (first render)
   useEffect(() => {
     if (permission === null) {
@@ -454,6 +444,7 @@ export default function CameraScreen() {
   useEffect(() => {
     let interval;
     if (isRunning && !isPaused) {
+      console.log("[Camera] Starting capture loop");
       interval = setInterval(captureAndProcessFrame, FRAME_UPLOAD_INTERVAL_MS);
     }
     return () => clearInterval(interval);
@@ -524,6 +515,7 @@ export default function CameraScreen() {
     try {
       setIsLoading(true);
       setSessionEnded(false);
+      console.log("[Camera] Start button pressed");
       startSession();
     } finally {
       setIsLoading(false);
@@ -532,6 +524,7 @@ export default function CameraScreen() {
 
   // Prompt user to pick a meal type before confirming end-session
   const endSessionFlow = () => {
+    console.log("[Camera] Finish button pressed");
     if (!logEntries.length) {
       Alert.alert("End Live Session", "No logs to save. End session?", [
         { text: "Cancel", style: "cancel" },
@@ -612,6 +605,9 @@ export default function CameraScreen() {
     if (!cameraRef.current || !cameraReady || isCapturingRef.current) return;
     isCapturingRef.current = true;
     try {
+      const seq = ++frameCounterRef.current;
+      const t0 = Date.now();
+      console.log(`[Camera] Capturing frame #${seq}`);
       const photo = await cameraRef.current.takePictureAsync({
         skipProcessing: true,
         shutterSound: false,
@@ -631,7 +627,15 @@ export default function CameraScreen() {
           base64: true,
         });
 
+      console.log(
+        `[Camera] → processFrame(#${seq}) uri=${resizedUri?.slice(
+          -12
+        )} base64=${resizedBase64 ? "yes" : "no"}`
+      );
       await processFrame(resizedUri, resizedBase64);
+      console.log(
+        `[Camera] ← processFrame(#${seq}) done in ${Date.now() - t0}ms`
+      );
     } catch (e) {
       if (e?.message?.includes("Camera unmounted")) {
         // Ignore benign race condition
@@ -750,7 +754,7 @@ export default function CameraScreen() {
                 <View style={{ alignItems: "flex-start" }}>
                   <Text
                     style={cameraStyles.weightText}
-                  >{`${displayedWeight}g`}</Text>
+                  >{`${displayedWeight} g`}</Text>
                   {displayedConfidence && (
                     <Text style={cameraStyles.confidenceText}>
                       {Math.round(displayedConfidence * 100)}% confident
@@ -830,7 +834,11 @@ export default function CameraScreen() {
       </View>
 
       {/* Macros Swiper */}
-      <MacrosSwiper />
+      <MacrosSwiper
+        sessionTotals={sessionTotals}
+        dailyTotals={dailyTotals}
+        goals={goals}
+      />
 
       {/* Live Log */}
       <View style={cameraStyles.logContainer}>

@@ -48,13 +48,6 @@ export const NutritionSummaryCard = ({ summary = {}, goals = {} }) => {
     return `${consumed}${unit}`;
   };
 
-  const ringColors = RAINBOW_COLORS || [
-    "#ff3b30",
-    "#ff9500",
-    "#007aff",
-    "#34c759",
-  ];
-
   return (
     <View style={styles.balanceCard}>
       {/* Calories row: left stack, right ring */}
@@ -113,7 +106,7 @@ export const NutritionSummaryCard = ({ summary = {}, goals = {} }) => {
               strokeWidth={3.8}
               value={protein}
               goal={proteinGoal}
-              color={ringColors[1]}
+              color={RAINBOW_COLORS[1]}
               style={{ marginLeft: 6 }}
             />
           </View>
@@ -133,7 +126,7 @@ export const NutritionSummaryCard = ({ summary = {}, goals = {} }) => {
               strokeWidth={3.8}
               value={carbs}
               goal={carbsGoal}
-              color={ringColors[2]}
+              color={RAINBOW_COLORS[2]}
               style={{ marginLeft: 6 }}
             />
           </View>
@@ -153,7 +146,7 @@ export const NutritionSummaryCard = ({ summary = {}, goals = {} }) => {
               strokeWidth={3.8}
               value={fat}
               goal={fatGoal}
-              color={ringColors[3]}
+              color={RAINBOW_COLORS[3]}
               style={{ marginLeft: 6 }}
             />
           </View>
