@@ -43,34 +43,18 @@ export default function CameraLoadingScreen() {
           },
         },
         {
-          label: "Downloading core models…",
+          label: "Downloading one-step model…",
           run: async () => {
-            if (!isModelLoaded("roi")) {
-              await loadModel("roi", { skipWarmup: true });
+            if (!isModelLoaded("oneStep")) {
+              await loadModel("oneStep", { skipWarmup: true });
             }
           },
         },
         {
-          label: "Downloading backup models…",
+          label: "Warming up model…",
           run: async () => {
-            if (!isModelLoaded("digit")) {
-              await loadModel("digit", { skipWarmup: true });
-            }
-          },
-        },
-        {
-          label: "Warming up core models…",
-          run: async () => {
-            if (!isModelWarmed("roi")) {
-              await loadModel("roi");
-            }
-          },
-        },
-        {
-          label: "Warming up backup models…",
-          run: async () => {
-            if (!isModelWarmed("digit")) {
-              await loadModel("digit");
+            if (!isModelWarmed("oneStep")) {
+              await loadModel("oneStep");
             }
           },
         },

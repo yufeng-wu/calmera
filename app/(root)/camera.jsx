@@ -32,7 +32,7 @@ import { COLORS, RAINBOW_COLORS } from "@/constants/colors";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 
 const FRAME_UPLOAD_INTERVAL_MS = 1000; // How often to send frames to backend (ms)
-const FRAME_RESIZE_DIMENSIONS = 320; // Must match model input size
+const FRAME_RESIZE_DIMENSIONS = 400; // Must match model input size
 const FRAME_COMPRESSION_QUALITY = 0.3; // Frame compression quality (0-1, lower = more compression)
 const BLANK_FRAME_TOLERANCE = 2; // Number of consecutive blank frames before we consider the scale undetected
 

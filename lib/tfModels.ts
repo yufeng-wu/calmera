@@ -8,28 +8,16 @@ import { bundleResourceIO } from "@tensorflow/tfjs-react-native";
 
 // Pre-resolved bundles for each model inside assets/models/**
 const bundles = {
-  roi: {
+  oneStep: {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    json: require("../assets/models/roi/model.json"),
+    json: require("../assets/models/one-step/model.json"),
     bins: [
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      require("../assets/models/roi/group1-shard1of3.bin"),
+      require("../assets/models/one-step/group1-shard1of3.bin"),
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      require("../assets/models/roi/group1-shard2of3.bin"),
+      require("../assets/models/one-step/group1-shard2of3.bin"),
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      require("../assets/models/roi/group1-shard3of3.bin"),
-    ],
-  },
-  digit: {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    json: require("../assets/models/digit/model.json"),
-    bins: [
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      require("../assets/models/digit/group1-shard1of3.bin"),
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      require("../assets/models/digit/group1-shard2of3.bin"),
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      require("../assets/models/digit/group1-shard3of3.bin"),
+      require("../assets/models/one-step/group1-shard3of3.bin"),
     ],
   },
 } as const;
