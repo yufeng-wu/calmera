@@ -178,7 +178,7 @@ export function useCookingSession() {
       fileUrisRef.current.add(jpegUri);
       addRef(jpegUri);
 
-      // 1. Local weight detection (ROI + digits)
+      // 1. Local weight detection
       const t0 = Date.now();
       const weightInfo = await detectWeightFromImage(jpegUri, base64Data);
       const t1 = Date.now();
@@ -192,9 +192,9 @@ export function useCookingSession() {
         minConf
       );
       console.log(
-        `[Session] Frame processed locally in ${t1 - t0}ms -> weight=${
+        `[Perf][Session] detectLocalMs=${t1 - t0} weight=${
           Number.isNaN(numericWeight) ? "NaN" : numericWeight
-        }, minDigitConf=${minConf ?? "n/a"}`
+        } minDigitConf=${minConf ?? "n/a"}`
       );
 
       // 2. Push frame into local buffer (with manual eviction tracking)
@@ -221,7 +221,12 @@ export function useCookingSession() {
       // 3. Stable-state detection – protect the frame image while we decide
       addRef(jpegUri); // temporary ref for state evaluation
 
+      const t2 = Date.now();
       const newState = detectNewState(sessionRef.current, frame);
+      const t3 = Date.now();
+      console.log(
+        `[Perf][Session] bufferPushMs=${t2 - t1} stableCheckMs=${t3 - t2}`
+      );
 
       if (!newState) {
         // Not a new stable state → drop the temporary ref
@@ -257,7 +262,10 @@ export function useCookingSession() {
       let foodName = "N/A";
       let nutrition = {};
 
+      let compareElapsedMs = null;
+      let compareNetworkMs = null;
       try {
+        const tCompareStart = Date.now();
         const form = new FormData();
         form.append("newImage", {
           uri: newState.imagePath,
@@ -279,10 +287,12 @@ export function useCookingSession() {
         console.log(
           `[Session] → POST ${VISION_API_URL}/compare (Δ=${absDeltaWeight}g)`
         );
+        const netStart = Date.now();
         const res = await fetch(`${VISION_API_URL}/compare`, {
           method: "POST",
           body: form,
         });
+        compareNetworkMs = Date.now() - netStart;
         if (res.ok) {
           const json = await res.json();
           foodName = json.foodName;
@@ -298,8 +308,14 @@ export function useCookingSession() {
           const errText = await res.text();
           console.warn("[Session] /compare error", res.status, errText);
         }
+        compareElapsedMs = Date.now() - tCompareStart;
       } catch (err) {
         console.warn("[Session] /compare request failed", err);
+      }
+      if (compareElapsedMs !== null) {
+        console.log(
+          `[Perf][Session] compareTotalMs=${compareElapsedMs} compareNetworkMs=${compareNetworkMs}`
+        );
       }
 
       // The previous state's image is no longer needed after the compare request
@@ -308,6 +324,7 @@ export function useCookingSession() {
       }
 
       // 5. Create log entry and update session log
+      const tLog0 = Date.now();
       if (foodName !== "N/A") {
         const entry = new LogEntry({
           timestamp: newState.timestamp,
@@ -322,6 +339,8 @@ export function useCookingSession() {
           `[Session] Log entry added: ${direction} ${absDeltaWeight}g of "${foodName}"`
         );
       }
+      const tLog1 = Date.now();
+      console.log(`[Perf][Session] logUpdateMs=${tLog1 - tLog0}`);
     } finally {
       // Always reset processing flag so endSession can continue
       isProcessing.current = false;

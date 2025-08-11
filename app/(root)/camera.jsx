@@ -322,9 +322,11 @@ export default function CameraScreen() {
   const [displayedWeight, setDisplayedWeight] = useState(null);
   const [displayedConfidence, setDisplayedConfidence] = useState(null);
   const blankCountRef = useRef(0);
+  const [frameTick, setFrameTick] = useState(0);
 
   // Update visible weight based on consecutive blank frames
   useEffect(() => {
+    console.log("currentWeight", currentWeight);
     if (currentWeight !== null) {
       blankCountRef.current = 0;
       setDisplayedWeight(currentWeight);
@@ -336,7 +338,7 @@ export default function CameraScreen() {
         setDisplayedConfidence(null);
       }
     }
-  }, [currentWeight, detectionConfidence]);
+  }, [frameTick, currentWeight, detectionConfidence]);
 
   // Signal other screens (Dashboard, History) to refresh after session ends
   const { setShouldRefresh } = useRefreshSignal();
@@ -444,7 +446,6 @@ export default function CameraScreen() {
   useEffect(() => {
     let interval;
     if (isRunning && !isPaused) {
-      console.log("[Camera] Starting capture loop");
       interval = setInterval(captureAndProcessFrame, FRAME_UPLOAD_INTERVAL_MS);
     }
     return () => clearInterval(interval);
@@ -515,7 +516,6 @@ export default function CameraScreen() {
     try {
       setIsLoading(true);
       setSessionEnded(false);
-      console.log("[Camera] Start button pressed");
       startSession();
     } finally {
       setIsLoading(false);
@@ -524,7 +524,6 @@ export default function CameraScreen() {
 
   // Prompt user to pick a meal type before confirming end-session
   const endSessionFlow = () => {
-    console.log("[Camera] Finish button pressed");
     if (!logEntries.length) {
       Alert.alert("End Live Session", "No logs to save. End session?", [
         { text: "Cancel", style: "cancel" },
@@ -607,7 +606,6 @@ export default function CameraScreen() {
     try {
       const seq = ++frameCounterRef.current;
       const t0 = Date.now();
-      console.log(`[Camera] Capturing frame #${seq}`);
       const photo = await cameraRef.current.takePictureAsync({
         skipProcessing: true,
         shutterSound: false,
@@ -627,15 +625,8 @@ export default function CameraScreen() {
           base64: true,
         });
 
-      console.log(
-        `[Camera] → processFrame(#${seq}) uri=${resizedUri?.slice(
-          -12
-        )} base64=${resizedBase64 ? "yes" : "no"}`
-      );
       await processFrame(resizedUri, resizedBase64);
-      console.log(
-        `[Camera] ← processFrame(#${seq}) done in ${Date.now() - t0}ms`
-      );
+      setFrameTick((t) => t + 1);
     } catch (e) {
       if (e?.message?.includes("Camera unmounted")) {
         // Ignore benign race condition
