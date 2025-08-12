@@ -28,9 +28,9 @@ export const cameraStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: 20,
+    borderRadius: 26,
     backgroundColor: COLORS.primary,
     marginHorizontal: 6,
     marginVertical: 4,
@@ -46,17 +46,18 @@ export const cameraStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 26,
     backgroundColor: COLORS.primary,
     marginHorizontal: 6,
+    marginVertical: 4,
     opacity: 0.8,
   },
   controlText: { color: "#fff", fontWeight: "600" },
   logContainer: {
     flex: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
   },
   logTitle: {
     fontSize: 16,
@@ -66,16 +67,14 @@ export const cameraStyles = StyleSheet.create({
   // Rounded card for a single food log entry
   logCard: {
     backgroundColor: "#fff",
-    borderRadius: 28,
-    paddingHorizontal: 12,
+    borderRadius: 30,
+    paddingHorizontal: 18,
     paddingVertical: 12,
     marginVertical: 6,
-    // iOS shadow
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
-    // Android elevation
     elevation: 2,
   },
   // Generic horizontal row inside a log card

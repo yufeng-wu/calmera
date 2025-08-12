@@ -52,7 +52,8 @@ export default function Page() {
         // Wrong password for existing account
         setError("Invalid password. Please try again.");
       } else {
-        setError("An unexpected error occurred. Please try again.");
+        // Show Clerk error code when we don't have a specific handler
+        setError(`Error: ${errorCode || err.message || "Unknown error"}`);
       }
     }
   };
@@ -99,6 +100,12 @@ export default function Page() {
           placeholderTextColor={COLORS.textLight}
           onChangeText={(password) => setPassword(password)}
         />
+        {/* Forgot Password Link */}
+        <View style={{ alignSelf: "flex-end", marginBottom: 10 }}>
+          <Link href="/forgot-password">
+            <Text style={styles.linkText}>Forgot password?</Text>
+          </Link>
+        </View>
 
         <TouchableOpacity onPress={onSignInPress} style={styles.button}>
           <Text style={styles.buttonText}>Sign In</Text>

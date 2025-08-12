@@ -31,9 +31,9 @@ import { USERS_API_URL } from "@/constants/api";
 import { COLORS, RAINBOW_COLORS } from "@/constants/colors";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 
-const FRAME_UPLOAD_INTERVAL_MS = 1000; // How often to send frames to backend (ms)
-const FRAME_RESIZE_DIMENSIONS = 400; // Must match model input size
-const FRAME_COMPRESSION_QUALITY = 0.3; // Frame compression quality (0-1, lower = more compression)
+const FRAME_UPLOAD_INTERVAL_MS = 700; // How often to send frames to backend (ms)
+const FRAME_RESIZE_DIMENSIONS = 500; // Must match model input size
+const FRAME_COMPRESSION_QUALITY = 0.05; // Frame compression quality (0-1, lower = more compression)
 const BLANK_FRAME_TOLERANCE = 2; // Number of consecutive blank frames before we consider the scale undetected
 
 // Small helper to zero-fill macro objects
@@ -89,7 +89,7 @@ const MacrosSwiper = React.memo(function MacrosSwiper({
   );
 
   return (
-    <View style={{ marginBottom: 16 }}>
+    <View style={{ marginBottom: 6 }}>
       <FlatList
         data={data}
         horizontal
@@ -326,7 +326,6 @@ export default function CameraScreen() {
 
   // Update visible weight based on consecutive blank frames
   useEffect(() => {
-    console.log("currentWeight", currentWeight);
     if (currentWeight !== null) {
       blankCountRef.current = 0;
       setDisplayedWeight(currentWeight);
@@ -604,8 +603,6 @@ export default function CameraScreen() {
     if (!cameraRef.current || !cameraReady || isCapturingRef.current) return;
     isCapturingRef.current = true;
     try {
-      const seq = ++frameCounterRef.current;
-      const t0 = Date.now();
       const photo = await cameraRef.current.takePictureAsync({
         skipProcessing: true,
         shutterSound: false,
@@ -791,7 +788,7 @@ export default function CameraScreen() {
                 activeOpacity={0.5}
                 disabled={isLoading}
               >
-                <Text style={cameraStyles.controlText}>Finish</Text>
+                <Text style={cameraStyles.controlText}>Done</Text>
               </TouchableOpacity>
             </>
           ) : (
@@ -805,8 +802,8 @@ export default function CameraScreen() {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <>
-                  <Ionicons name="play" size={14} color="#fff" />
-                  <Text style={cameraStyles.controlText}>Start</Text>
+                  <Ionicons name="play" size={12} color="#fff" />
+                  <Text style={cameraStyles.controlText}> Start </Text>
                 </>
               )}
             </TouchableOpacity>
