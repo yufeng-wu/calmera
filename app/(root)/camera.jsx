@@ -31,7 +31,7 @@ import { USERS_API_URL } from "@/constants/api";
 import { COLORS, RAINBOW_COLORS } from "@/constants/colors";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 
-const FRAME_UPLOAD_INTERVAL_MS = 600; // How often to send frames to backend (ms)
+const FRAME_UPLOAD_INTERVAL_MS = 500; // How often to send frames to backend (ms)
 const FRAME_RESIZE_DIM_FOR_WEIGHT_DETECTION = 640; // Must match model input size
 const FRAME_COMPRESSION_QUALITY = 0.1; // Frame compression quality (0-1, lower = more compression), but after a certain point, the size won't shrink anymore.
 const BLANK_FRAME_TOLERANCE = 2; // Number of consecutive blank frames before we consider the scale undetected
