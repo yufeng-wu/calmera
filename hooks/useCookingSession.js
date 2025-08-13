@@ -10,7 +10,7 @@ import { FRAME_BUFFER_SIZE } from "@/lib/scale/constants";
 import { detectWeightFromImage } from "@/lib/scale/weightDetector";
 import { VISION_API_URL, FOOD_ENTRIES_API_URL } from "@/constants/api";
 import { useAuth } from "@clerk/clerk-expo";
-import { getLocalTimeWithOffset } from "@/lib/utils";
+import { getLocalTimeWithOffset, fetchWithTimeout } from "@/lib/utils";
 import * as FileSystem from "expo-file-system";
 import { DeviceEventEmitter } from "react-native";
 
@@ -77,7 +77,7 @@ export function useCookingSession() {
         const token = await getToken();
 
         // Create a promise that resolves when all entries are saved or times out
-        const savePromise = Promise.all(
+        await Promise.all(
           entries.map(async (entry) => {
             const foodEntryData = {
               foodName: entry.foodName,
@@ -93,25 +93,21 @@ export function useCookingSession() {
               ),
             };
 
-            const res = await fetch(FOOD_ENTRIES_API_URL, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
+            const res = await fetchWithTimeout(
+              FOOD_ENTRIES_API_URL,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(foodEntryData),
               },
-              body: JSON.stringify(foodEntryData),
-            });
+              8000
+            );
             return res;
           })
         );
-
-        // Add timeout of 8 seconds
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error("Save timeout")), 8000);
-        });
-
-        // Race between save and timeout
-        await Promise.race([savePromise, timeoutPromise]);
       } catch (err) {
         console.warn("Failed to save food entries or timeout occurred", err);
       }
@@ -197,11 +193,14 @@ export function useCookingSession() {
           )
         );
 
-        // TODO: consider adding a timeout to the fetch request
-        const res = await fetch(`${VISION_API_URL}/compare`, {
-          method: "POST",
-          body: form,
-        });
+        const res = await fetchWithTimeout(
+          `${VISION_API_URL}/compare`,
+          {
+            method: "POST",
+            body: form,
+          },
+          8000
+        );
 
         if (res.ok) {
           const json = await res.json();
@@ -212,7 +211,11 @@ export function useCookingSession() {
           console.warn("[Session] /compare error", res.status, errText);
         }
       } catch (err) {
-        console.warn("[Session] /compare request failed", err);
+        if (err.name === "AbortError") {
+          console.warn("[Session] /compare request timed out...");
+        } else {
+          console.warn("[Session] /compare request failed...", err);
+        }
       }
 
       // Clean up the previous state's image asynchronously
