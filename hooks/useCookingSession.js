@@ -20,15 +20,11 @@ import { DeviceEventEmitter } from "react-native";
  */
 export function useCookingSession() {
   const { getToken } = useAuth();
-  const sessionRef = useRef(new Session(FRAME_BUFFER_SIZE)); // TODO: what is sessionRef.current?
+  const sessionRef = useRef(new Session(FRAME_BUFFER_SIZE));
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const isProcessing = useRef(false);
-  // Keep track of all frame URIs created in this session
-  const fileUrisRef = useRef(new Set());
-  // Map<uri, number> – simple ref-count so we don't delete a file while still in use
-  const fileRefCountsRef = useRef({});
   const [currentWeight, setCurrentWeight] = useState(null);
   const [detectionConfidence, setDetectionConfidence] = useState(null);
   const [logEntries, setLogEntries] = useState([]);
@@ -38,46 +34,17 @@ export function useCookingSession() {
     setDetectionConfidence(conf);
   };
 
-  const addRef = (uri) => {
+  const releaseImage = (uri) => {
     if (!uri) return;
-    fileRefCountsRef.current[uri] = (fileRefCountsRef.current[uri] || 0) + 1;
-  };
 
-  /**
-   * Decrements the ref-count for a uri and deletes the underlying file once the
-   * count reaches 0.  Errors from deleteAsync are swallowed because files may
-   * already be removed by the OS or another cleanup pass (idempotent).
-   */
-  const releaseRef = (uri) => {
-    if (!uri || !fileRefCountsRef.current[uri]) return;
-    fileRefCountsRef.current[uri] -= 1;
-    if (fileRefCountsRef.current[uri] <= 0) {
-      delete fileRefCountsRef.current[uri];
-      // Fire-and-forget – we don't want to block the main flow for deletes.
-      FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
-    }
-  };
-
-  /**
-   * Release all refs held (typically when a session ends or the component
-   * unmounts).  This will delete every remaining cached file.
-   */
-  const cleanupFiles = async () => {
-    const uris = Object.keys(fileRefCountsRef.current);
-    for (const u of uris) {
-      while (fileRefCountsRef.current[u] && fileRefCountsRef.current[u] > 0) {
-        releaseRef(u);
-      }
-    }
-    fileUrisRef.current.clear();
+    // Notes:
+    // idempotent: true means that if the file doesn't exist, it will not throw an error;
+    // catch(() => {}) will swallow any error silently;
+    FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
   };
 
   const startSession = () => {
-    // Reset createdAt to now for a fresh session
-    sessionRef.current.createdAt = new Date();
-    // Also clear files from any previous (cleanup-failed) session
-    cleanupFiles();
-    sessionRef.current.clear();
+    sessionRef.current.clear(); // initialization: clear the frame buffer and current state
     setActiveSession(sessionRef.current);
     setLogEntries([]);
     setIsRunning(true);
@@ -138,9 +105,9 @@ export function useCookingSession() {
           })
         );
 
-        // Add timeout of 5 seconds
+        // Add timeout of 8 seconds
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error("Save timeout")), 5000);
+          setTimeout(() => reject(new Error("Save timeout")), 8000);
         });
 
         // Race between save and timeout
@@ -150,9 +117,11 @@ export function useCookingSession() {
       }
     }
 
-    await cleanupFiles();
     setIsSaving(false);
     clearActiveSession();
+    // Clean up the current state's image
+    releaseImage(sessionRef.current.currentState.imagePath);
+    sessionRef.current.clear();
   };
 
   // Delete a log entry from the current session by id
@@ -166,12 +135,8 @@ export function useCookingSession() {
     isProcessing.current = true;
 
     try {
-      // Add new URI to the set so it can be cleaned up later
-      fileUrisRef.current.add(jpegUri);
-      addRef(jpegUri);
-
-      // 1. Local weight detection
-      const weightInfo = await detectWeightFromImage(jpegUri, base64Data);
+      // 1. Local weight detection on user's device
+      const weightInfo = await detectWeightFromImage(base64Data);
       const numericWeight = Number(weightInfo.weight);
       const digitConfs = (weightInfo.digitDetails || []).map(
         (d) => d.confidence
@@ -182,44 +147,27 @@ export function useCookingSession() {
         minConf
       );
 
-      // 2. Push frame into local buffer (with manual eviction tracking)
-      let evictedImageUri = null;
-      if (sessionRef.current.frameBuffer.length >= FRAME_BUFFER_SIZE) {
-        // The frame about to be evicted is at index 0 (oldest)
-        evictedImageUri = sessionRef.current.frameBuffer[0].imagePath;
-      }
-
+      // 2. Push frame into local buffer
       const frame = new Frame({
-        timestamp: new Date().toISOString(),
-        imagePath: jpegUri,
         weight: numericWeight,
         metadata: weightInfo,
       });
       sessionRef.current.addFrame(frame);
 
-      if (evictedImageUri) {
-        // Frame was evicted from buffer so release its ref
-        releaseRef(evictedImageUri);
-        fileUrisRef.current.delete(evictedImageUri);
-      }
-
-      // 3. Stable-state detection – protect the frame image while we decide
-      addRef(jpegUri); // temporary ref for state evaluation
-
-      const newState = detectNewState(sessionRef.current, frame);
+      // 3. Stable-state detection
+      const newState = detectNewState(sessionRef.current, frame, jpegUri);
 
       if (!newState) {
-        // Not a new stable state → drop the temporary ref
-        releaseRef(jpegUri);
         return;
       }
 
-      // prevState still points to the old object at the moment
-      // which we can use to releaseRef later.
+      // grab the previous state, update the current state to the new state
       const prevState = sessionRef.current.currentState;
       sessionRef.current.currentState = newState;
 
-      if (!prevState) return; // first state, nothing to compare
+      // If we are detecting the very first state, we don't have a previous state to compare to.
+      // So we return.
+      if (!prevState) return;
 
       const absDeltaWeight = Math.abs(newState.weight - prevState.weight);
       if (absDeltaWeight === 0) return;
@@ -248,10 +196,13 @@ export function useCookingSession() {
             Object.values(sessionRef.current.log).map((e) => e.foodName)
           )
         );
+
+        // TODO: consider adding a timeout to the fetch request
         const res = await fetch(`${VISION_API_URL}/compare`, {
           method: "POST",
           body: form,
         });
+
         if (res.ok) {
           const json = await res.json();
           foodName = json.foodName;
@@ -264,9 +215,9 @@ export function useCookingSession() {
         console.warn("[Session] /compare request failed", err);
       }
 
-      // The previous state's image is no longer needed after the compare request
+      // Clean up the previous state's image asynchronously
       if (prevState?.imagePath) {
-        releaseRef(prevState.imagePath);
+        releaseImage(prevState.imagePath);
       }
 
       // 5. Create log entry and update session log
@@ -282,16 +233,9 @@ export function useCookingSession() {
         setLogEntries(Object.values(sessionRef.current.log));
       }
     } finally {
-      // Always reset processing flag so endSession can continue
+      // reset processing flag so endSession can continue
       isProcessing.current = false;
     }
-  }, []);
-
-  // Make sure we clean up if the user navigates away mid-session
-  useEffect(() => {
-    return () => {
-      cleanupFiles();
-    };
   }, []);
 
   // Listen for external log entry updates (e.g., edits from another screen)

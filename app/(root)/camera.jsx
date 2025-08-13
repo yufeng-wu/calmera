@@ -34,7 +34,7 @@ import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 // TODO
 // issue: sometimes the Gemini detection is not perfect with 416 x 416, need more testing.
 const FRAME_UPLOAD_INTERVAL_MS = 700; // How often to send frames to backend (ms)
-const FRAME_RESIZE_DIMENSIONS = 416; // Must match model input size
+const FRAME_RESIZE_DIM_FOR_WEIGHT_DETECTION = 300; // Must match model input size
 const FRAME_COMPRESSION_QUALITY = 0.1; // Frame compression quality (0-1, lower = more compression), but after a certain point, the size won't shrink anymore.
 const BLANK_FRAME_TOLERANCE = 2; // Number of consecutive blank frames before we consider the scale undetected
 
@@ -303,7 +303,6 @@ export default function CameraScreen() {
   const cameraRef = useRef(null);
   const [permission, requestPermission] = useCameraPermissions();
   const hasPermission = permission?.granted;
-  const frameCounterRef = useRef(0);
 
   // Session logic handled by custom hook
   const {
@@ -613,12 +612,16 @@ export default function CameraScreen() {
       // Decide which edge is longer and resize accordingly while preserving aspect ratio
       const resizeAction =
         photo.width >= photo.height
-          ? { resize: { width: FRAME_RESIZE_DIMENSIONS } }
-          : { resize: { height: FRAME_RESIZE_DIMENSIONS } };
+          ? { resize: { width: FRAME_RESIZE_DIM_FOR_WEIGHT_DETECTION } }
+          : { resize: { height: FRAME_RESIZE_DIM_FOR_WEIGHT_DETECTION } };
 
       // Resize + compress
+      // Use new ImageManipulator contextual API (avoids deprecated manipulateAsync)
+      const context = ImageManipulator.ImageManipulator.manipulate(photo.uri);
+      context.resize(resizeAction.resize);
+      const imageRef = await context.renderAsync();
       const { uri: resizedUri, base64: resizedBase64 } =
-        await ImageManipulator.manipulateAsync(photo.uri, [resizeAction], {
+        await imageRef.saveAsync({
           compress: FRAME_COMPRESSION_QUALITY,
           format: ImageManipulator.SaveFormat.JPEG,
           base64: true,
@@ -633,7 +636,6 @@ export default function CameraScreen() {
         console.error("Capture error", e);
       }
     } finally {
-      // Reset capturing state
       isCapturingRef.current = false;
     }
   };
