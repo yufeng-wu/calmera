@@ -31,10 +31,8 @@ import { USERS_API_URL } from "@/constants/api";
 import { COLORS, RAINBOW_COLORS } from "@/constants/colors";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 
-// TODO
-// issue: sometimes the Gemini detection is not perfect with 416 x 416, need more testing.
-const FRAME_UPLOAD_INTERVAL_MS = 700; // How often to send frames to backend (ms)
-const FRAME_RESIZE_DIM_FOR_WEIGHT_DETECTION = 300; // Must match model input size
+const FRAME_UPLOAD_INTERVAL_MS = 600; // How often to send frames to backend (ms)
+const FRAME_RESIZE_DIM_FOR_WEIGHT_DETECTION = 640; // Must match model input size
 const FRAME_COMPRESSION_QUALITY = 0.1; // Frame compression quality (0-1, lower = more compression), but after a certain point, the size won't shrink anymore.
 const BLANK_FRAME_TOLERANCE = 2; // Number of consecutive blank frames before we consider the scale undetected
 
@@ -622,15 +620,14 @@ export default function CameraScreen() {
       );
       context.resize(resizeAction.resize);
       const imageRef = await context.renderAsync();
-      const { base64: resizedBase64 } = await imageRef.saveAsync({
-        compress: FRAME_COMPRESSION_QUALITY,
-        format: ImageManipulator.SaveFormat.JPEG,
-        base64: true,
-      });
+      const { uri: resizedUri, base64: resizedBase64 } =
+        await imageRef.saveAsync({
+          compress: FRAME_COMPRESSION_QUALITY,
+          format: ImageManipulator.SaveFormat.JPEG,
+          base64: true,
+        });
 
-      // use resizedBase64 (lower resolution) for local weight detection (for speed)
-      // use captured.uri (1080p) for vision API comparison (for accuracy)
-      await processFrame(resizedBase64, captured.uri);
+      await processFrame(resizedBase64, resizedUri);
 
       setFrameTick((t) => t + 1);
     } catch (e) {

@@ -127,10 +127,7 @@ export function useCookingSession() {
     setLogEntries(Object.values(sessionRef.current.log));
   };
 
-  /*
-   * we use capturedUri for vision API comparison (for accuracy) and resizedBase64 for local weight detection (for speed).
-   */
-  const processFrame = useCallback(async (resizedBase64, capturedUri) => {
+  const processFrame = useCallback(async (resizedBase64, imageUri) => {
     isProcessing.current = true;
 
     try {
@@ -154,7 +151,7 @@ export function useCookingSession() {
       sessionRef.current.addFrame(frame);
 
       // 3. Stable-state detection
-      const newState = detectNewState(sessionRef.current, frame, capturedUri);
+      const newState = detectNewState(sessionRef.current, frame, imageUri);
 
       if (!newState) {
         return;
