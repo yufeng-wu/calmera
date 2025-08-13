@@ -127,12 +127,15 @@ export function useCookingSession() {
     setLogEntries(Object.values(sessionRef.current.log));
   };
 
-  const processFrame = useCallback(async (jpegUri, base64Data) => {
+  /*
+   * we use capturedUri for vision API comparison (for accuracy) and resizedBase64 for local weight detection (for speed).
+   */
+  const processFrame = useCallback(async (resizedBase64, capturedUri) => {
     isProcessing.current = true;
 
     try {
       // 1. Local weight detection on user's device
-      const weightInfo = await detectWeightFromImage(base64Data);
+      const weightInfo = await detectWeightFromImage(resizedBase64);
       const numericWeight = Number(weightInfo.weight);
       const digitConfs = (weightInfo.digitDetails || []).map(
         (d) => d.confidence
@@ -151,7 +154,7 @@ export function useCookingSession() {
       sessionRef.current.addFrame(frame);
 
       // 3. Stable-state detection
-      const newState = detectNewState(sessionRef.current, frame, jpegUri);
+      const newState = detectNewState(sessionRef.current, frame, capturedUri);
 
       if (!newState) {
         return;

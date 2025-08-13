@@ -604,30 +604,34 @@ export default function CameraScreen() {
     if (!cameraRef.current || !cameraReady || isCapturingRef.current) return;
     isCapturingRef.current = true;
     try {
-      const photo = await cameraRef.current.takePictureAsync({
+      const captured = await cameraRef.current.takePictureAsync({
         skipProcessing: true,
         shutterSound: false,
       });
 
       // Decide which edge is longer and resize accordingly while preserving aspect ratio
       const resizeAction =
-        photo.width >= photo.height
+        captured.width >= captured.height
           ? { resize: { width: FRAME_RESIZE_DIM_FOR_WEIGHT_DETECTION } }
           : { resize: { height: FRAME_RESIZE_DIM_FOR_WEIGHT_DETECTION } };
 
       // Resize + compress
       // Use new ImageManipulator contextual API (avoids deprecated manipulateAsync)
-      const context = ImageManipulator.ImageManipulator.manipulate(photo.uri);
+      const context = ImageManipulator.ImageManipulator.manipulate(
+        captured.uri
+      );
       context.resize(resizeAction.resize);
       const imageRef = await context.renderAsync();
-      const { uri: resizedUri, base64: resizedBase64 } =
-        await imageRef.saveAsync({
-          compress: FRAME_COMPRESSION_QUALITY,
-          format: ImageManipulator.SaveFormat.JPEG,
-          base64: true,
-        });
+      const { base64: resizedBase64 } = await imageRef.saveAsync({
+        compress: FRAME_COMPRESSION_QUALITY,
+        format: ImageManipulator.SaveFormat.JPEG,
+        base64: true,
+      });
 
-      await processFrame(resizedUri, resizedBase64);
+      // use resizedBase64 (lower resolution) for local weight detection (for speed)
+      // use captured.uri (1080p) for vision API comparison (for accuracy)
+      await processFrame(resizedBase64, captured.uri);
+
       setFrameTick((t) => t + 1);
     } catch (e) {
       if (e?.message?.includes("Camera unmounted")) {
