@@ -40,6 +40,16 @@ export default function SettingsScreen() {
           <Text style={styles.optionText}>Edit Nutrition Goals</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={styles.optionButton}
+          onPress={() => router.push("/update-scale-type")}
+        >
+          <Ionicons name="speedometer-outline" size={20} color={COLORS.text} />
+          <Text style={styles.optionText}>
+            Update Scale Type (for Calmera AI)
+          </Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.optionButton} onPress={handleLogout}>
           <Ionicons
             name="log-out-outline"

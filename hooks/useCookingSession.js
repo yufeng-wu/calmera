@@ -18,7 +18,7 @@ import { DeviceEventEmitter } from "react-native";
  * Centralised hook that owns live cooking session state, including frame buffer,
  * stable state detection and nutrition look-up via the backend.
  */
-export function useCookingSession() {
+export function useCookingSession(scaleType) {
   const { getToken } = useAuth();
   const sessionRef = useRef(new Session(FRAME_BUFFER_SIZE));
   const [isRunning, setIsRunning] = useState(false);
@@ -115,8 +115,10 @@ export function useCookingSession() {
 
     setIsSaving(false);
     clearActiveSession();
-    // Clean up the current state's image
-    releaseImage(sessionRef.current.currentState.imagePath);
+    // Clean up the current state's image (if any)
+    if (sessionRef.current.currentState?.imagePath) {
+      releaseImage(sessionRef.current.currentState.imagePath);
+    }
     sessionRef.current.clear();
   };
 
@@ -127,119 +129,125 @@ export function useCookingSession() {
     setLogEntries(Object.values(sessionRef.current.log));
   };
 
-  const processFrame = useCallback(async (resizedBase64, imageUri) => {
-    isProcessing.current = true;
-
-    try {
-      // 1. Local weight detection on user's device
-      const weightInfo = await detectWeightFromImage(resizedBase64);
-      const numericWeight = Number(weightInfo.weight);
-      const digitConfs = (weightInfo.digitDetails || []).map(
-        (d) => d.confidence
-      );
-      const minConf = digitConfs.length ? Math.min(...digitConfs) : null;
-      updateDetectionState(
-        Number.isNaN(numericWeight) ? null : numericWeight,
-        minConf
-      );
-
-      // 2. Push frame into local buffer
-      const frame = new Frame({
-        weight: numericWeight,
-        metadata: weightInfo,
-      });
-      sessionRef.current.addFrame(frame);
-
-      // 3. Stable-state detection
-      const newState = detectNewState(sessionRef.current, frame, imageUri);
-
-      if (!newState) {
-        return;
-      }
-
-      // grab the previous state, update the current state to the new state
-      const prevState = sessionRef.current.currentState;
-      sessionRef.current.currentState = newState;
-
-      // If we are detecting the very first state, we don't have a previous state to compare to.
-      // So we return.
-      if (!prevState) return;
-
-      const absDeltaWeight = Math.abs(newState.weight - prevState.weight);
-      if (absDeltaWeight === 0) return;
-      const direction = newState.weight > prevState.weight ? "add" : "remove";
-
-      // 4. Remote nutrition lookup via backend API
-      let foodName = "N/A";
-      let nutrition = {};
+  const processFrame = useCallback(
+    async (resizedBase64, imageUri) => {
+      isProcessing.current = true;
 
       try {
-        const form = new FormData();
-        form.append("prevImage", {
-          uri: prevState.imagePath,
-          name: "prev.jpg",
-          type: "image/jpeg",
-        });
-        form.append("newImage", {
-          uri: newState.imagePath,
-          name: "new.jpg",
-          type: "image/jpeg",
-        });
-        form.append("absDeltaWeight", String(absDeltaWeight));
-        form.append(
-          "existingFoodNames",
-          JSON.stringify(
-            Object.values(sessionRef.current.log).map((e) => e.foodName)
-          )
+        // 1. Local weight detection on user's device
+        const weightInfo = await detectWeightFromImage(
+          resizedBase64,
+          scaleType
+        );
+        const numericWeight = Number(weightInfo.weight);
+        const digitConfs = (weightInfo.digitDetails || []).map(
+          (d) => d.confidence
+        );
+        const minConf = digitConfs.length ? Math.min(...digitConfs) : null;
+        updateDetectionState(
+          Number.isNaN(numericWeight) ? null : numericWeight,
+          minConf
         );
 
-        const res = await fetchWithTimeout(
-          `${VISION_API_URL}/compare`,
-          {
-            method: "POST",
-            body: form,
-          },
-          8000
-        );
-
-        if (res.ok) {
-          const json = await res.json();
-          foodName = json.foodName;
-          nutrition = json.nutrition;
-        } else {
-          const errText = await res.text();
-          console.warn("[Session] /compare error", res.status, errText);
-        }
-      } catch (err) {
-        if (err.name === "AbortError") {
-          console.warn("[Session] /compare request timed out...");
-        } else {
-          console.warn("[Session] /compare request failed...", err);
-        }
-      }
-
-      // Clean up the previous state's image asynchronously
-      if (prevState?.imagePath) {
-        releaseImage(prevState.imagePath);
-      }
-
-      // 5. Create log entry and update session log
-      if (foodName !== "N/A") {
-        const entry = new LogEntry({
-          timestamp: newState.timestamp,
-          absDeltaWeight,
-          direction,
-          foodName,
-          nutritionInfo: nutrition,
+        // 2. Push frame into local buffer
+        const frame = new Frame({
+          weight: numericWeight,
+          metadata: weightInfo,
         });
-        addLogEntry(sessionRef.current, entry);
-        setLogEntries(Object.values(sessionRef.current.log));
+        sessionRef.current.addFrame(frame);
+
+        // 3. Stable-state detection
+        const newState = detectNewState(sessionRef.current, frame, imageUri);
+
+        if (!newState) {
+          return;
+        }
+
+        // grab the previous state, update the current state to the new state
+        const prevState = sessionRef.current.currentState;
+        sessionRef.current.currentState = newState;
+
+        // If we are detecting the very first state, we don't have a previous state to compare to.
+        // So we return.
+        if (!prevState) return;
+
+        const absDeltaWeight = Math.abs(newState.weight - prevState.weight);
+        if (absDeltaWeight === 0) return;
+        const direction = newState.weight > prevState.weight ? "add" : "remove";
+
+        // 4. Remote nutrition lookup via backend API
+        let foodName = "N/A";
+        let nutrition = {};
+
+        try {
+          const form = new FormData();
+          form.append("prevImage", {
+            uri: prevState.imagePath,
+            name: "prev.jpg",
+            type: "image/jpeg",
+          });
+          form.append("newImage", {
+            uri: newState.imagePath,
+            name: "new.jpg",
+            type: "image/jpeg",
+          });
+          form.append("absDeltaWeight", String(absDeltaWeight));
+          form.append(
+            "existingFoodNames",
+            JSON.stringify(
+              Object.values(sessionRef.current.log).map((e) => e.foodName)
+            )
+          );
+
+          const res = await fetchWithTimeout(
+            `${VISION_API_URL}/compare`,
+            {
+              method: "POST",
+              body: form,
+            },
+            8000
+          );
+
+          if (res.ok) {
+            const json = await res.json();
+            foodName = json.foodName;
+            nutrition = json.nutrition;
+          } else {
+            const errText = await res.text();
+            console.warn("[Session] /compare error", res.status, errText);
+          }
+        } catch (err) {
+          if (err.name === "AbortError") {
+            console.warn("[Session] /compare request timed out...");
+          } else {
+            console.warn("[Session] /compare request failed...", err);
+          }
+        }
+
+        // Clean up the previous state's image asynchronously
+        if (prevState?.imagePath) {
+          releaseImage(prevState.imagePath);
+        }
+
+        // 5. Create log entry and update session log
+        if (foodName !== "N/A") {
+          const entry = new LogEntry({
+            timestamp: newState.timestamp,
+            absDeltaWeight,
+            direction,
+            foodName,
+            nutritionInfo: nutrition,
+          });
+          addLogEntry(sessionRef.current, entry);
+          setLogEntries(Object.values(sessionRef.current.log));
+        }
+      } finally {
+        // reset processing flag so endSession can continue
+        isProcessing.current = false;
       }
-    } finally {
-      // reset processing flag so endSession can continue
-      isProcessing.current = false;
-    }
-  }, []);
+    },
+    [scaleType]
+  );
 
   // Listen for external log entry updates (e.g., edits from another screen)
   useEffect(() => {

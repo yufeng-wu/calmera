@@ -13,6 +13,7 @@ import {
   Animated,
   useWindowDimensions,
 } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 import ProgressRing from "@/components/ProgressRing";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useRouter } from "expo-router";
@@ -297,10 +298,14 @@ const MacrosSwiper = React.memo(function MacrosSwiper({
 });
 
 export default function CameraScreen() {
+  const navigation = useNavigation();
   const router = useRouter();
   const cameraRef = useRef(null);
   const [permission, requestPermission] = useCameraPermissions();
   const hasPermission = permission?.granted;
+
+  // User's kitchen scale type ("integer", "1-decimal", "2-decimal")
+  const [scaleType, setScaleType] = useState("integer");
 
   // Session logic handled by custom hook
   const {
@@ -315,7 +320,7 @@ export default function CameraScreen() {
     currentWeight,
     detectionConfidence,
     deleteLogEntry,
-  } = useCookingSession();
+  } = useCookingSession(scaleType);
 
   // Displayed weight/confidence with 2-blank-frame tolerance
   const [displayedWeight, setDisplayedWeight] = useState(null);
@@ -363,7 +368,6 @@ export default function CameraScreen() {
     carbsGoal: 0,
     fatGoal: 0,
   });
-
   // Fetch goals once user is available
   useEffect(() => {
     const fetchGoals = async () => {
@@ -384,6 +388,10 @@ export default function CameraScreen() {
           carbsGoal: data.carbsGoal || 0,
           fatGoal: data.fatGoal || 0,
         });
+        // Save scale type if available
+        if (data.scaleType) {
+          setScaleType(data.scaleType);
+        }
       } catch (err) {
         console.warn("Failed to fetch user goals", err);
       }
@@ -439,6 +447,13 @@ export default function CameraScreen() {
       requestPermission();
     }
   }, [permission, requestPermission]);
+
+  // Disable swipe-back gesture during an active session to prevent accidental navigation
+  useEffect(() => {
+    if (navigation?.setOptions) {
+      navigation.setOptions({ gestureEnabled: !isRunning });
+    }
+  }, [isRunning, navigation]);
 
   // Capture & upload loop
   useEffect(() => {
@@ -590,6 +605,7 @@ export default function CameraScreen() {
           onPress: async () => {
             await endSession(false); // don't save
             setSessionEnded(true);
+            router.replace("/(root)/(tabs)/dashboard");
           },
         },
         { text: "Cancel", style: "cancel" },
