@@ -130,15 +130,12 @@ export function useCookingSession(scaleType) {
   };
 
   const processFrame = useCallback(
-    async (resizedBase64, imageUri) => {
+    async (imageBytes, imageUri) => {
       isProcessing.current = true;
 
       try {
         // 1. Local weight detection on user's device
-        const weightInfo = await detectWeightFromImage(
-          resizedBase64,
-          scaleType
-        );
+        const weightInfo = await detectWeightFromImage(imageBytes, scaleType);
         const numericWeight = Number(weightInfo.weight);
         const digitConfs = (weightInfo.digitDetails || []).map(
           (d) => d.confidence
@@ -205,7 +202,7 @@ export function useCookingSession(scaleType) {
               method: "POST",
               body: form,
             },
-            8000
+            10000
           );
 
           if (res.ok) {

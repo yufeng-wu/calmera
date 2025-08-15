@@ -32,7 +32,7 @@ import { USERS_API_URL } from "@/constants/api";
 import { COLORS, RAINBOW_COLORS } from "@/constants/colors";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 
-const FRAME_UPLOAD_INTERVAL_MS = 500; // How often to send frames to backend (ms)
+const FRAME_UPLOAD_INTERVAL_MS = 1000; // How often to send frames to backend (ms)
 const FRAME_RESIZE_DIM_FOR_WEIGHT_DETECTION = 640; // Must match model input size
 const FRAME_COMPRESSION_QUALITY = 0.1; // Frame compression quality (0-1, lower = more compression), but after a certain point, the size won't shrink anymore.
 const BLANK_FRAME_TOLERANCE = 2; // Number of consecutive blank frames before we consider the scale undetected
@@ -618,6 +618,7 @@ export default function CameraScreen() {
     if (!cameraRef.current || !cameraReady || isCapturingRef.current) return;
     isCapturingRef.current = true;
     try {
+      const t0 = Date.now();
       const captured = await cameraRef.current.takePictureAsync({
         skipProcessing: true,
         shutterSound: false,
@@ -636,14 +637,20 @@ export default function CameraScreen() {
       );
       context.resize(resizeAction.resize);
       const imageRef = await context.renderAsync();
-      const { uri: resizedUri, base64: resizedBase64 } =
-        await imageRef.saveAsync({
-          compress: FRAME_COMPRESSION_QUALITY,
-          format: ImageManipulator.SaveFormat.JPEG,
-          base64: true,
-        });
+      const { uri: resizedUri } = await imageRef.saveAsync({
+        compress: FRAME_COMPRESSION_QUALITY,
+        format: ImageManipulator.SaveFormat.JPEG,
+        base64: false,
+      });
 
-      await processFrame(resizedBase64, resizedUri);
+      const response = await fetch(resizedUri);
+      const arrayBuffer = await response.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+
+      await processFrame(bytes, resizedUri);
+
+      const bytesMs = Date.now() - t0;
+      console.log(`[Perf] capture to processed=${bytesMs}ms`);
 
       setFrameTick((t) => t + 1);
     } catch (e) {
