@@ -157,6 +157,8 @@ export function useCookingSession(scaleType) {
         const newState = detectNewState(sessionRef.current, frame, imageUri);
 
         if (!newState) {
+          // No stable state formed – delete the temporary frame immediately to save space
+          releaseImage(imageUri);
           return;
         }
 
@@ -238,6 +240,10 @@ export function useCookingSession(scaleType) {
           addLogEntry(sessionRef.current, entry);
           setLogEntries(Object.values(sessionRef.current.log));
         }
+      } catch (err) {
+        // Ensure temp image is not leaked on any error
+        releaseImage(imageUri);
+        throw err; // re-throw so upstream can handle/log
       } finally {
         // reset processing flag so endSession can continue
         isProcessing.current = false;
