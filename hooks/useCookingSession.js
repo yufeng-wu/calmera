@@ -27,6 +27,7 @@ export function useCookingSession(scaleType) {
   const isProcessing = useRef(false);
   const [currentWeight, setCurrentWeight] = useState(null);
   const [detectionConfidence, setDetectionConfidence] = useState(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [logEntries, setLogEntries] = useState([]);
 
   const updateDetectionState = (w, conf) => {
@@ -179,6 +180,7 @@ export function useCookingSession(scaleType) {
         let nutrition = {};
 
         try {
+          setIsAnalyzing(true);
           const form = new FormData();
           form.append("prevImage", {
             uri: prevState.imagePath,
@@ -198,6 +200,8 @@ export function useCookingSession(scaleType) {
             )
           );
 
+          // TODO: whenver we send a request to vision api, we should show a "analyzing..." animation on the top right
+          // corner of the camera view to tell user that they will expect an answer soon.
           const res = await fetchWithTimeout(
             `${VISION_API_URL}/compare`,
             {
@@ -221,6 +225,8 @@ export function useCookingSession(scaleType) {
           } else {
             console.warn("[Session] /compare request failed...", err);
           }
+        } finally {
+          setIsAnalyzing(false);
         }
 
         // Clean up the previous state's image asynchronously
@@ -271,6 +277,7 @@ export function useCookingSession(scaleType) {
     logEntries,
     currentWeight,
     detectionConfidence,
+    isAnalyzing,
     deleteLogEntry,
   };
 }

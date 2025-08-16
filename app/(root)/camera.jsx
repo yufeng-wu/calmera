@@ -320,6 +320,7 @@ export default function CameraScreen() {
     currentWeight,
     detectionConfidence,
     deleteLogEntry,
+    isAnalyzing,
   } = useCookingSession(scaleType);
 
   // Displayed weight/confidence with 2-blank-frame tolerance
@@ -788,6 +789,37 @@ export default function CameraScreen() {
                 </Text>
               )}
             </View>
+          </View>
+        )}
+        {isAnalyzing && (
+          <View
+            style={{
+              position: "absolute",
+              top: 12,
+              right: 12,
+              flexDirection: "row",
+              alignItems: "center",
+              backgroundColor: "rgba(0,0,0,0.7)",
+              borderRadius: 20,
+              paddingHorizontal: 10,
+              paddingVertical: 6,
+            }}
+          >
+            <ActivityIndicator
+              size="small"
+              color="#fff"
+              style={{ transform: [{ scale: 0.75 }] }}
+            />
+            <Text
+              style={{
+                color: "#fff",
+                marginLeft: 4,
+                fontSize: 12,
+                fontWeight: "bold",
+              }}
+            >
+              Analyzing...
+            </Text>
           </View>
         )}
 
