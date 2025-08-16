@@ -32,10 +32,11 @@ import { useAuth } from "@clerk/clerk-expo";
 import { USERS_API_URL } from "@/constants/api";
 import { COLORS, RAINBOW_COLORS } from "@/constants/colors";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
-
-const FRAME_RESIZE_DIM_FOR_WEIGHT_DETECTION = 520; // Must match model input size
-const FRAME_COMPRESSION_QUALITY = 0.2; // Frame compression quality (0-1, lower = more compression), but after a certain point, the size won't shrink anymore.
-const BLANK_FRAME_TOLERANCE = 2; // Number of consecutive blank frames before we consider the scale undetected
+import {
+  FRAME_RESIZE_DIM_FOR_WEIGHT_DETECTION,
+  FRAME_COMPRESSION_QUALITY,
+  BLANK_FRAME_TOLERANCE,
+} from "@/lib/scale/constants";
 
 // Small helper to zero-fill macro objects
 const zeroMacros = () => ({ calories: 0, protein: 0, carbs: 0, fat: 0 });
