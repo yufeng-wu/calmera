@@ -657,7 +657,6 @@ export default function CameraScreen() {
     if (!cameraRef.current || !cameraReady || isCapturingRef.current) return;
     isCapturingRef.current = true;
     try {
-      const t0 = Date.now();
       const captured = await cameraRef.current.takePictureAsync({
         skipProcessing: true,
         shutterSound: false,
@@ -687,9 +686,6 @@ export default function CameraScreen() {
       const bytes = new Uint8Array(arrayBuffer);
 
       await processFrame(bytes, resizedUri);
-
-      const bytesMs = Date.now() - t0;
-      console.log(`[Perf] capture to processed=${bytesMs}ms`);
 
       setFrameTick((t) => t + 1);
     } catch (e) {
