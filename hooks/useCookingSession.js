@@ -6,21 +6,21 @@ import {
   setActiveSession,
   clearActiveSession,
 } from "@/lib/scale/sessionManager";
-import { FRAME_BUFFER_SIZE } from "@/lib/scale/constants";
+import { WEIGHT_BUFFER_SIZE, IMAGE_BUFFER_SIZE } from "@/lib/scale/constants";
 import { detectWeightFromImage } from "@/lib/scale/weightDetector";
 import { VISION_API_URL, FOOD_ENTRIES_API_URL } from "@/constants/api";
 import { useAuth } from "@clerk/clerk-expo";
 import { getLocalTimeWithOffset, fetchWithTimeout } from "@/lib/utils";
-import * as FileSystem from "expo-file-system";
 import { DeviceEventEmitter } from "react-native";
+import { releaseImage } from "@/lib/utils";
 
-/**
+/*
  * Centralised hook that owns live cooking session state, including frame buffer,
  * stable state detection and nutrition look-up via the backend.
  */
 export function useCookingSession(scaleType) {
   const { getToken } = useAuth();
-  const sessionRef = useRef(new Session(FRAME_BUFFER_SIZE));
+  const sessionRef = useRef(new Session(WEIGHT_BUFFER_SIZE, IMAGE_BUFFER_SIZE));
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -33,15 +33,6 @@ export function useCookingSession(scaleType) {
   const updateDetectionState = (w, conf) => {
     setCurrentWeight(w);
     setDetectionConfidence(conf);
-  };
-
-  const releaseImage = (uri) => {
-    if (!uri) return;
-
-    // Notes:
-    // idempotent: true means that if the file doesn't exist, it will not throw an error;
-    // catch(() => {}) will swallow any error silently;
-    FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
   };
 
   const startSession = () => {
@@ -147,10 +138,11 @@ export function useCookingSession(scaleType) {
           minConf
         );
 
-        // 2. Push frame into local buffer
+        // 2. Push frame into local buffer (done in addFrame)
+        //    ReleaseImage and memory management is done in addFrame
         const frame = new Frame({
           weight: numericWeight,
-          metadata: weightInfo,
+          uri: imageUri,
         });
         sessionRef.current.addFrame(frame);
 
@@ -158,8 +150,6 @@ export function useCookingSession(scaleType) {
         const newState = detectNewState(sessionRef.current, frame, imageUri);
 
         if (!newState) {
-          // No stable state formed – delete the temporary frame immediately to save space
-          releaseImage(imageUri);
           return;
         }
 
@@ -200,8 +190,6 @@ export function useCookingSession(scaleType) {
             )
           );
 
-          // TODO: whenver we send a request to vision api, we should show a "analyzing..." animation on the top right
-          // corner of the camera view to tell user that they will expect an answer soon.
           const res = await fetchWithTimeout(
             `${VISION_API_URL}/compare`,
             {
