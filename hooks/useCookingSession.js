@@ -172,11 +172,35 @@ export function useCookingSession(scaleType) {
         try {
           setIsAnalyzing(true);
           const form = new FormData();
+          // Determine whether to include an intermediate image (midImage).
+          // If the prevState image is no longer inside the frameBuffer (i.e., it's old),
+          // we'll send the oldest retained frame as a midImage to help the model.
+          let midImagePath = null;
+          const prevStillInBuffer = sessionRef.current.frameBuffer.some(
+            (f) => f?.uri === prevState.imagePath
+          );
+          const buffer = sessionRef.current.frameBuffer;
+          if (
+            !prevStillInBuffer &&
+            buffer.length > sessionRef.current.imageBufferSize
+          ) {
+            // The oldest frame within the image buffer window retains its URI.
+            midImagePath =
+              buffer[buffer.length - sessionRef.current.imageBufferSize]?.uri;
+          }
+
           form.append("prevImage", {
             uri: prevState.imagePath,
             name: "prev.jpg",
             type: "image/jpeg",
           });
+          if (midImagePath) {
+            form.append("midImage", {
+              uri: midImagePath,
+              name: "mid.jpg",
+              type: "image/jpeg",
+            });
+          }
           form.append("newImage", {
             uri: newState.imagePath,
             name: "new.jpg",
