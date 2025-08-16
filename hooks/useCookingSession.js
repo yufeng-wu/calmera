@@ -145,6 +145,15 @@ export function useCookingSession(scaleType) {
           uri: imageUri,
         });
         sessionRef.current.addFrame(frame);
+        // DEBUG: Print a concise view of the frame buffer (weight & uri availability)
+        console.log(
+          "[Session] frameBuffer:",
+          sessionRef.current.frameBuffer.map((f, idx) => ({
+            idx,
+            weight: f.weight,
+            hasUri: Boolean(f.uri),
+          }))
+        );
 
         // 3. Stable-state detection
         const newState = detectNewState(sessionRef.current, frame, imageUri);
