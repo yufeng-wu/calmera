@@ -12,7 +12,7 @@ import { VISION_API_URL, FOOD_ENTRIES_API_URL } from "@/constants/api";
 import { useAuth } from "@clerk/clerk-expo";
 import { getLocalTimeWithOffset, fetchWithTimeout } from "@/lib/utils";
 import { DeviceEventEmitter } from "react-native";
-import { releaseImage } from "@/lib/utils";
+import { releaseImage } from "@/lib/scale/imageManager";
 
 /*
  * Centralised hook that owns live cooking session state, including frame buffer,
@@ -21,7 +21,7 @@ import { releaseImage } from "@/lib/utils";
 export function useCookingSession(scaleType) {
   const { getToken } = useAuth();
   const sessionRef = useRef(new Session(WEIGHT_BUFFER_SIZE, IMAGE_BUFFER_SIZE));
-  const [isRunning, setIsRunning] = useState(false);
+  const [isSessionActive, setIsSessionActive] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const isProcessing = useRef(false);
@@ -29,6 +29,8 @@ export function useCookingSession(scaleType) {
   const [detectionConfidence, setDetectionConfidence] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [logEntries, setLogEntries] = useState([]);
+  // DELETE LATER: stores the images (uri + label) sent to the vision backend for debugging
+  const [debugImages, setDebugImages] = useState([]);
 
   const updateDetectionState = (w, conf) => {
     setCurrentWeight(w);
@@ -39,14 +41,14 @@ export function useCookingSession(scaleType) {
     sessionRef.current.clear(); // initialization: clear the frame buffer and current state
     setActiveSession(sessionRef.current);
     setLogEntries([]);
-    setIsRunning(true);
+    setIsSessionActive(true);
     setIsPaused(false);
   };
 
   const pauseSession = () => setIsPaused((prev) => !prev);
 
   const endSession = async (shouldSave = true, mealType = "Snack") => {
-    setIsRunning(false);
+    setIsSessionActive(false);
     setIsPaused(false);
     setIsSaving(true);
 
@@ -145,15 +147,6 @@ export function useCookingSession(scaleType) {
           uri: imageUri,
         });
         sessionRef.current.addFrame(frame);
-        // DEBUG: Print a concise view of the frame buffer (weight & uri availability)
-        console.log(
-          "[Session] frameBuffer:",
-          sessionRef.current.frameBuffer.map((f, idx) => ({
-            idx,
-            weight: f.weight,
-            hasUri: Boolean(f.uri),
-          }))
-        );
 
         // 3. Stable-state detection
         const newState = detectNewState(sessionRef.current, frame, imageUri);
@@ -197,7 +190,15 @@ export function useCookingSession(scaleType) {
             midImagePath =
               buffer[buffer.length - sessionRef.current.imageBufferSize]?.uri;
           }
+          // Log the number of images and their URIs being sent to the vision backend
+          const imageEntries = [
+            { uri: prevState.imagePath, label: "prev" },
+            midImagePath ? { uri: midImagePath, label: "mid" } : null,
+            { uri: newState.imagePath, label: "new" },
+          ].filter(Boolean);
 
+          // DELETE LATER: update debug state so UI can display these images
+          setDebugImages(imageEntries);
           form.append("prevImage", {
             uri: prevState.imagePath,
             name: "prev.jpg",
@@ -288,7 +289,7 @@ export function useCookingSession(scaleType) {
   }, []);
 
   return {
-    isRunning,
+    isSessionActive,
     isPaused,
     isSaving,
     startSession,
@@ -300,5 +301,7 @@ export function useCookingSession(scaleType) {
     detectionConfidence,
     isAnalyzing,
     deleteLogEntry,
+    // DELETE LATER: expose debug images info
+    debugImages,
   };
 }

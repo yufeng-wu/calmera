@@ -12,6 +12,7 @@ import {
   ActionSheetIOS,
   Animated,
   useWindowDimensions,
+  Image, // DELETE LATER: for displaying debug images
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import ProgressRing from "@/components/ProgressRing";
@@ -32,9 +33,8 @@ import { USERS_API_URL } from "@/constants/api";
 import { COLORS, RAINBOW_COLORS } from "@/constants/colors";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 
-const FRAME_UPLOAD_INTERVAL_MS = 1000; // How often to send frames to backend (ms)
-const FRAME_RESIZE_DIM_FOR_WEIGHT_DETECTION = 640; // Must match model input size
-const FRAME_COMPRESSION_QUALITY = 0.8; // Frame compression quality (0-1, lower = more compression), but after a certain point, the size won't shrink anymore.
+const FRAME_RESIZE_DIM_FOR_WEIGHT_DETECTION = 520; // Must match model input size
+const FRAME_COMPRESSION_QUALITY = 0.2; // Frame compression quality (0-1, lower = more compression), but after a certain point, the size won't shrink anymore.
 const BLANK_FRAME_TOLERANCE = 2; // Number of consecutive blank frames before we consider the scale undetected
 
 // Small helper to zero-fill macro objects
@@ -309,7 +309,7 @@ export default function CameraScreen() {
 
   // Session logic handled by custom hook
   const {
-    isRunning,
+    isSessionActive,
     isPaused,
     isSaving,
     startSession,
@@ -321,6 +321,7 @@ export default function CameraScreen() {
     detectionConfidence,
     deleteLogEntry,
     isAnalyzing,
+    debugImages, // DELETE LATER: debug images
   } = useCookingSession(scaleType);
 
   // Displayed weight/confidence with 2-blank-frame tolerance
@@ -452,22 +453,39 @@ export default function CameraScreen() {
   // Disable swipe-back gesture during an active session to prevent accidental navigation
   useEffect(() => {
     if (navigation?.setOptions) {
-      navigation.setOptions({ gestureEnabled: !isRunning });
+      navigation.setOptions({ gestureEnabled: !isSessionActive });
     }
-  }, [isRunning, navigation]);
+  }, [isSessionActive, navigation]);
 
-  // Capture & upload loop
+  // Capture & upload loop – start a new capture immediately after the previous
   useEffect(() => {
-    let interval;
-    if (isRunning && !isPaused) {
-      interval = setInterval(captureAndProcessFrame, FRAME_UPLOAD_INTERVAL_MS);
+    let cancelled = false;
+
+    const loop = async () => {
+      // Stop the loop if the effect has been cleaned up or session paused/stopped
+      if (cancelled || !isSessionActive || isPaused) return;
+
+      // Await capture; captureAndProcessFrame already guards against concurrent
+      // invocations with isCapturingRef.
+      await captureAndProcessFrame();
+
+      // Schedule the next capture in the next event loop tick so React can
+      // process any state updates first.
+      setTimeout(loop, 0);
+    };
+
+    if (isSessionActive && !isPaused) {
+      loop();
     }
-    return () => clearInterval(interval);
-  }, [isRunning, isPaused]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isSessionActive, isPaused]);
 
   // Start/stop blinking based on running state
   useEffect(() => {
-    if (isRunning && !isPaused) {
+    if (isSessionActive && !isPaused) {
       blinkAnim.setValue(0);
       // Prevent multiple loops
       if (blinkLoopRef.current) {
@@ -496,7 +514,7 @@ export default function CameraScreen() {
       if (isPaused) {
         // Stop the animation and freeze the star at its current opacity
         blinkAnim.stopAnimation();
-      } else if (!isRunning) {
+      } else if (!isSessionActive) {
         // Hide indicator only when session ends
         blinkAnim.setValue(0);
       }
@@ -508,7 +526,7 @@ export default function CameraScreen() {
         blinkLoopRef.current = null;
       }
     };
-  }, [isRunning, isPaused, blinkAnim]);
+  }, [isSessionActive, isPaused, blinkAnim]);
 
   // Navigate to dashboard when session ends
   useEffect(() => {
@@ -756,7 +774,7 @@ export default function CameraScreen() {
         />
 
         {/* Detection Status Overlay */}
-        {isRunning && (
+        {isSessionActive && (
           <View style={cameraStyles.detectionOverlay}>
             <View style={cameraStyles.weightIndicator}>
               {/* Embedded Live Star */}
@@ -843,9 +861,55 @@ export default function CameraScreen() {
           </View>
         )}
 
+        {/* DELETE LATER: Debug overlay showing images being sent to vision backend */}
+        {debugImages?.length > 0 && (
+          <View
+            style={{
+              position: "absolute",
+              bottom: 100, // above control buttons
+              left: 10,
+              flexDirection: "row",
+              backgroundColor: "rgba(0,0,0,0.3)",
+              padding: 4,
+              borderRadius: 6,
+            }}
+          >
+            {debugImages.map(({ uri, label }, idx) => (
+              <View
+                key={idx}
+                style={{
+                  alignItems: "center",
+                  marginRight: idx !== debugImages.length - 1 ? 4 : 0,
+                }}
+              >
+                <Image
+                  source={{ uri }}
+                  style={{
+                    width: 60,
+                    height: 60,
+                    borderColor: "#fff",
+                    borderWidth: 1,
+                  }}
+                />
+                <Text
+                  style={{
+                    color: "#fff",
+                    fontSize: 10,
+                    marginTop: 2,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {label}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+        {/* DELETE LATER END */}
+
         {/* Controls Overlay */}
         <View style={cameraStyles.controlsOverlay}>
-          {isRunning ? (
+          {isSessionActive ? (
             <>
               <TouchableOpacity
                 style={cameraStyles.controlBtn}
