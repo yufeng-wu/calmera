@@ -34,7 +34,7 @@ import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 
 const FRAME_UPLOAD_INTERVAL_MS = 1000; // How often to send frames to backend (ms)
 const FRAME_RESIZE_DIM_FOR_WEIGHT_DETECTION = 640; // Must match model input size
-const FRAME_COMPRESSION_QUALITY = 0.1; // Frame compression quality (0-1, lower = more compression), but after a certain point, the size won't shrink anymore.
+const FRAME_COMPRESSION_QUALITY = 0.8; // Frame compression quality (0-1, lower = more compression), but after a certain point, the size won't shrink anymore.
 const BLANK_FRAME_TOLERANCE = 2; // Number of consecutive blank frames before we consider the scale undetected
 
 // Small helper to zero-fill macro objects
@@ -477,12 +477,12 @@ export default function CameraScreen() {
         Animated.sequence([
           Animated.timing(blinkAnim, {
             toValue: 1,
-            duration: 700,
+            duration: 500,
             useNativeDriver: true,
           }),
           Animated.timing(blinkAnim, {
             toValue: 0,
-            duration: 600,
+            duration: 400,
             useNativeDriver: true,
           }),
         ])
@@ -494,7 +494,8 @@ export default function CameraScreen() {
         blinkLoopRef.current.stop();
       }
       if (isPaused) {
-        blinkAnim.setValue(1); // Keep star visible but static when paused
+        // Stop the animation and freeze the star at its current opacity
+        blinkAnim.stopAnimation();
       } else if (!isRunning) {
         // Hide indicator only when session ends
         blinkAnim.setValue(0);
@@ -526,7 +527,26 @@ export default function CameraScreen() {
     }
   }, [sessionEnded, isSaving, router]);
 
+  // --- Control Buttons Animation Helpers ---
+  const animateControls = () =>
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+
+  // Animate on pause/resume toggle to avoid abrupt shift
+  const handlePauseToggle = () => {
+    animateControls();
+    // If currently running (not paused), stop the blinking animation instantly
+    if (!isPaused) {
+      if (blinkLoopRef.current) {
+        blinkLoopRef.current.stop();
+      }
+      blinkAnim.stopAnimation();
+    }
+    togglePause();
+  };
+
+  // Animate the transition between Start ↔ Pause/Done
   const handleStartSession = async () => {
+    animateControls();
     try {
       setIsLoading(true);
       setSessionEnded(false);
@@ -829,7 +849,7 @@ export default function CameraScreen() {
             <>
               <TouchableOpacity
                 style={cameraStyles.controlBtn}
-                onPress={togglePause}
+                onPress={handlePauseToggle}
                 activeOpacity={0.5}
                 disabled={isLoading}
               >
