@@ -686,7 +686,10 @@ export default function CameraScreen() {
       const arrayBuffer = await response.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
 
-      await processFrame(bytes, resizedUri);
+      // Note:
+      // the second paramter can either be resizedUri or captured.uri
+      // resizedUri is the compressed image, captured.uri is the original image
+      await processFrame(bytes, captured.uri);
 
       setFrameTick((t) => t + 1);
     } catch (e) {

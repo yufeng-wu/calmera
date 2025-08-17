@@ -10,7 +10,8 @@ export default function RootLayout() {
       <SafeScreen>
         <Slot />
       </SafeScreen>
-      <StatusBar style="auto" />
+      {/* Force dark status-bar content (black text/icons) regardless of system theme */}
+      <StatusBar style="dark" />
     </ClerkProvider>
   );
 }
