@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { styles as createStyles } from "@/assets/styles/create.styles";
 import { useRouter } from "expo-router";
+import { useNavigation, StackActions } from "@react-navigation/native";
 import { COLORS } from "@/constants/colors";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@clerk/clerk-expo";
@@ -230,6 +231,7 @@ const SlideUpModalWrapper = ({ children }) => {
 
 export default function GoalsSurvey() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { getToken } = useAuth();
   const { setShouldRefreshGoals } = useRefreshSignal();
 
@@ -468,7 +470,11 @@ export default function GoalsSurvey() {
       Alert.alert("Success", "Macro goals updated successfully.", [
         {
           text: "OK",
-          onPress: () => router.replace("/(tabs)/settings"),
+          onPress: () => {
+            // Reset the navigation stack so the survey (and Update Goals) pages are removed,
+            // preventing the user from swiping back to them.
+            navigation.dispatch(StackActions.popToTop());
+          },
         },
       ]);
     } catch (err) {

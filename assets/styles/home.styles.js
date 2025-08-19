@@ -25,23 +25,27 @@ export const styles = StyleSheet.create({
     alignItems: "center",
   },
   headerLogo: {
-    width: 65,
-    height: 65,
+    width: 50,
+    height: 50,
+    marginLeft: 10, // add spacing from text
   },
   welcomeContainer: {
     flex: 1,
-    marginTop: 11,
+    marginTop: 8, // reduce top margin to align horizontally with logo
     marginLeft: 6,
+    alignItems: "flex-end", // right-align the content
   },
   welcomeText: {
     fontSize: 12,
     color: COLORS.textLight,
     marginBottom: 2,
+    textAlign: "right", // right-align text
   },
   usernameText: {
     fontSize: 14,
     fontWeight: "600",
     color: COLORS.text,
+    textAlign: "right", // right-align text
   },
   headerRight: {
     flexDirection: "row",

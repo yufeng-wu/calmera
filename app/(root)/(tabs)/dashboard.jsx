@@ -549,15 +549,15 @@ export default function SummaryScreen() {
         <View style={styles.headerContainer}>
           <View style={styles.header}>
             <View style={styles.headerLeft}>
+              <View style={styles.welcomeContainer}>
+                <Text style={styles.welcomeText}>Welcome back,</Text>
+                <Text style={styles.usernameText}>{username}</Text>
+              </View>
               <Image
                 source={require("../../../assets/images/logo.png")}
                 style={styles.headerLogo}
                 resizeMode="contain"
               />
-              <View style={styles.welcomeContainer}>
-                <Text style={styles.welcomeText}>Welcome back,</Text>
-                <Text style={styles.usernameText}>{username}</Text>
-              </View>
             </View>
           </View>
           <Text style={styles.dateText}> {formattedDate}</Text>
