@@ -862,7 +862,7 @@ export default function CameraScreen() {
         )}
 
         {/* DELETE LATER: Debug overlay showing images being sent to vision backend */}
-        {debugImages?.length > 0 && (
+        {/* {debugImages?.length > 0 && (
           <View
             style={{
               position: "absolute",
@@ -904,7 +904,7 @@ export default function CameraScreen() {
               </View>
             ))}
           </View>
-        )}
+        )} */}
         {/* DELETE LATER END */}
 
         {/* Controls Overlay */}

@@ -6,7 +6,11 @@ import {
   setActiveSession,
   clearActiveSession,
 } from "@/lib/scale/sessionManager";
-import { WEIGHT_BUFFER_SIZE, IMAGE_BUFFER_SIZE } from "@/lib/scale/constants";
+import {
+  WEIGHT_BUFFER_SIZE,
+  IMAGE_BUFFER_SIZE,
+  LOW_CONFIDENCE_THRESHOLD,
+} from "@/lib/scale/constants";
 import { detectWeightFromImage } from "@/lib/scale/weightDetector";
 import { VISION_API_URL, FOOD_ENTRIES_API_URL } from "@/constants/api";
 import { useAuth } from "@clerk/clerk-expo";
@@ -135,15 +139,20 @@ export function useCookingSession(scaleType) {
           (d) => d.confidence
         );
         const minConf = digitConfs.length ? Math.min(...digitConfs) : null;
+
+        // Ignore detections with low confidence
+        const finalWeight =
+          minConf < LOW_CONFIDENCE_THRESHOLD ? NaN : numericWeight;
+
         updateDetectionState(
-          Number.isNaN(numericWeight) ? null : numericWeight,
+          Number.isNaN(finalWeight) ? null : finalWeight,
           minConf
         );
 
         // 2. Push frame into local buffer (done in addFrame)
         //    ReleaseImage and memory management is done in addFrame
         const frame = new Frame({
-          weight: numericWeight,
+          weight: finalWeight,
           uri: imageUri,
         });
         sessionRef.current.addFrame(frame);
