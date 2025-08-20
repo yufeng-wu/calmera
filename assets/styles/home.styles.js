@@ -27,18 +27,19 @@ export const styles = StyleSheet.create({
   headerLogo: {
     width: 50,
     height: 50,
-    marginLeft: 10, // add spacing from text
+    marginLeft: 15, // add spacing from text
+    marginRight: 5,
   },
   welcomeContainer: {
     flex: 1,
-    marginTop: 8, // reduce top margin to align horizontally with logo
+    marginTop: 6, // reduce top margin to align horizontally with logo
     marginLeft: 6,
     alignItems: "flex-end", // right-align the content
   },
   welcomeText: {
     fontSize: 12,
     color: COLORS.textLight,
-    marginBottom: 2,
+    marginBottom: 3,
     textAlign: "right", // right-align text
   },
   usernameText: {
