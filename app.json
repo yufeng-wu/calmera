@@ -7,13 +7,16 @@
     "icon": "./assets/images/icon.png",
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
+      "buildNumber": "8",
       "supportsTablet": true,
       "infoPlist": {
-        "NSSpeechRecognitionUsageDescription": "Allow $(PRODUCT_NAME) to use speech recognition.",
-        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to use the microphone.",
-        "ITSAppUsesNonExemptEncryption": false
+        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to use the microphone for voice logging.",
+        "NSSpeechRecognitionUsageDescription": "This app uses speech recognition to process your voice logs, but your audio data is not stored on our servers.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Allow $(PRODUCT_NAME) to use the camera to capture meal photos and read scale displays.",
+        "NSPhotoLibraryUsageDescription": "Allow $(PRODUCT_NAME) to access your photo library to load/import meal photos.",
+        "NSPhotoLibraryAddUsageDescription": "Allow $(PRODUCT_NAME) to save captured photos to your photo library."
       },
       "bundleIdentifier": "com.yfwu02.mobile"
     },
@@ -23,9 +26,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ]
+      "permissions": ["android.permission.RECORD_AUDIO"]
     },
     "web": {
       "bundler": "metro",
@@ -42,8 +43,7 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ],
-      "expo-speech-recognition"
+      ]
     ],
     "experiments": {
       "typedRoutes": true
