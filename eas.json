@@ -19,6 +19,10 @@
     },
     "production": {
       "autoIncrement": true
+    },
+    "dev-sideload": {
+      "developmentClient": true,
+      "distribution": "internal"
     }
   },
   "submit": {
