@@ -12,7 +12,7 @@ import {
   ActionSheetIOS,
   Animated,
   useWindowDimensions,
-  Image, // DELETE LATER: for displaying debug images
+  Image,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import ProgressRing from "@/components/ProgressRing";
@@ -322,7 +322,6 @@ export default function CameraScreen() {
     detectionConfidence,
     deleteLogEntry,
     isAnalyzing,
-    debugImages, // DELETE LATER: debug images
   } = useCookingSession(scaleType);
 
   // Displayed weight/confidence with 2-blank-frame tolerance
@@ -689,7 +688,8 @@ export default function CameraScreen() {
       // Note:
       // the second paramter can either be resizedUri or captured.uri
       // resizedUri is the compressed image, captured.uri is the original image
-      await processFrame(bytes, captured.uri);
+      // await processFrame(bytes, captured.uri); // save the original image for each Frame
+      await processFrame(bytes, resizedUri); // save the compressed image for each Frame
 
       setFrameTick((t) => t + 1);
     } catch (e) {

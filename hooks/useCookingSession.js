@@ -34,7 +34,7 @@ export function useCookingSession(scaleType) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [logEntries, setLogEntries] = useState([]);
   // DELETE LATER: stores the images (uri + label) sent to the vision backend for debugging
-  const [debugImages, setDebugImages] = useState([]);
+  // const [debugImages, setDebugImages] = useState([]);
 
   const updateDetectionState = (w, conf) => {
     setCurrentWeight(w);
@@ -186,40 +186,40 @@ export function useCookingSession(scaleType) {
           // Determine whether to include an intermediate image (midImage).
           // If the prevState image is no longer inside the frameBuffer (i.e., it's old),
           // we'll send the oldest retained frame as a midImage to help the model.
-          let midImagePath = null;
-          const prevStillInBuffer = sessionRef.current.frameBuffer.some(
-            (f) => f?.uri === prevState.imagePath
-          );
-          const buffer = sessionRef.current.frameBuffer;
-          if (
-            !prevStillInBuffer &&
-            buffer.length > sessionRef.current.imageBufferSize
-          ) {
-            // The oldest frame within the image buffer window retains its URI.
-            midImagePath =
-              buffer[buffer.length - sessionRef.current.imageBufferSize]?.uri;
-          }
-          // Log the number of images and their URIs being sent to the vision backend
+          // let midImagePath = null;
+          // const prevStillInBuffer = sessionRef.current.frameBuffer.some(
+          //   (f) => f?.uri === prevState.imagePath
+          // );
+          // const buffer = sessionRef.current.frameBuffer;
+          // if (
+          //   !prevStillInBuffer &&
+          //   buffer.length > sessionRef.current.imageBufferSize
+          // ) {
+          //   // The oldest frame within the image buffer window retains its URI.
+          //   midImagePath =
+          //     buffer[buffer.length - sessionRef.current.imageBufferSize]?.uri;
+          // }
+          // // Log the number of images and their URIs being sent to the vision backend
           const imageEntries = [
             { uri: prevState.imagePath, label: "prev" },
-            midImagePath ? { uri: midImagePath, label: "mid" } : null,
             { uri: newState.imagePath, label: "new" },
-          ].filter(Boolean);
+          ];
 
           // DELETE LATER: update debug state so UI can display these images
-          setDebugImages(imageEntries);
+          // setDebugImages(imageEntries);
+
           form.append("prevImage", {
             uri: prevState.imagePath,
             name: "prev.jpg",
             type: "image/jpeg",
           });
-          if (midImagePath) {
-            form.append("midImage", {
-              uri: midImagePath,
-              name: "mid.jpg",
-              type: "image/jpeg",
-            });
-          }
+          // if (midImagePath) {
+          //   form.append("midImage", {
+          //     uri: midImagePath,
+          //     name: "mid.jpg",
+          //     type: "image/jpeg",
+          //   });
+          // }
           form.append("newImage", {
             uri: newState.imagePath,
             name: "new.jpg",
@@ -311,6 +311,6 @@ export function useCookingSession(scaleType) {
     isAnalyzing,
     deleteLogEntry,
     // DELETE LATER: expose debug images info
-    debugImages,
+    // debugImages,
   };
 }
