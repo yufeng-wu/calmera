@@ -498,7 +498,7 @@ export default function SummaryScreen() {
     }
     Alert.alert(
       "How to use voice log?",
-      "\n*Hold down* this button and start speaking (up to 30 seconds): \n\ne.g. 'I had a 16 oz iced latte with oatmilk for breakfast.'\n\n✨ AI will analyze and log it automatically. \n\nNote: if you don't include meal type, it will be logged as a snack. Your audio will be deleted after analysis."
+      '\n*Hold down* this button and start speaking (up to 30s): \n\n "I had a 16 oz iced latte\nwith oatmilk for breakfast."\n\n"I had a chichen salad\nfor lunch that\'s 600 calories."\n\n✨ AI will analyze and log it automatically. \n\nNote: if you don\'t include meal type, it will be logged as a snack. If you include calories information, we\'ll use that instead of estimating. Your audio will be deleted after analysis.'
     );
   };
   const handleVoiceLongPress = () => {

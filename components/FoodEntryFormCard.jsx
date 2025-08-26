@@ -94,7 +94,7 @@ export const FoodEntryFormCard = ({
           <TextInput
             style={styles.input}
             placeholder={
-              gramsOnly ? "grams" : "e.g. 1 cup, 12 oz, 150g, 1 piece"
+              gramsOnly ? "grams" : "Examples: 1, 12 oz, 150g, 2 slices"
             }
             placeholderTextColor={COLORS.textLight}
             keyboardType={gramsOnly ? "numeric" : "default"}
