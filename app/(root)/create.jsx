@@ -112,11 +112,22 @@ const CreateScreen = () => {
         );
       }
       const data = await resp.json();
+
+      // If backend normalized the quantity (e.g., added "count(s)") reflect that in the UI
+      if (data.normalizedQuantity) {
+        setQuantity(data.normalizedQuantity);
+      }
+
       setCalories(String(data.calories ?? ""));
       setProtein(String(data.protein ?? ""));
       setCarbs(String(data.carbs ?? ""));
       setFat(String(data.fat ?? ""));
-      setLastEstimated({ foodName, quantity });
+
+      // Store the values that were actually estimated (post-normalization for quantity)
+      setLastEstimated({
+        foodName,
+        quantity: data.normalizedQuantity || quantity,
+      });
       setShowMacros(true);
     } catch (err) {
       Alert.alert("Error", err.message);
