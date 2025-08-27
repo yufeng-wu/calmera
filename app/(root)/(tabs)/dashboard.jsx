@@ -71,6 +71,8 @@ export default function SummaryScreen() {
   const [fabExpanded, setFabExpanded] = useState(false);
   const [recording, setRecording] = useState(null);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
+  // Track microphone permission to avoid prompting during a long-press gesture
+  const [hasMicPermission, setHasMicPermission] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const longPressTriggered = useRef(false);
   const INITIAL_VOICE_WIDTH = 120;
@@ -252,6 +254,28 @@ export default function SummaryScreen() {
     }
   }, []);
 
+  // --------------------------------------------------
+  // Request microphone permission ONCE when component mounts.
+  // Doing this proactively prevents the OS permission dialog from
+  // interrupting a long-press gesture which previously led to the
+  // first-time recording failure described.
+  // --------------------------------------------------
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Audio.getPermissionsAsync();
+        if (status === "granted") {
+          setHasMicPermission(true);
+          return;
+        }
+        const request = await Audio.requestPermissionsAsync();
+        setHasMicPermission(request.status === "granted");
+      } catch (err) {
+        console.warn("Microphone permission check failed", err);
+      }
+    })();
+  }, []);
+
   const handleFabToggle = () => {
     if (fabExpanded) {
       // Collapse: animate out, then unmount (do not cancel ongoing analysis)
@@ -335,6 +359,14 @@ export default function SummaryScreen() {
 
   // ---------------- Voice Log handlers ----------------
   const startRecording = async () => {
+    // Abort early if we still don't have permission (e.g. user denied).
+    if (!hasMicPermission) {
+      Alert.alert(
+        "Microphone Access Required",
+        "Please grant microphone access in your device settings to use voice logging."
+      );
+      return null;
+    }
     if (recordingRef.current) {
       console.warn("Recording already in progress");
       return;
