@@ -652,6 +652,14 @@ export default function CameraScreen() {
     }
   };
 
+  // --- NEW: Open Guide ---
+  const openGuide = () => {
+    if (isSessionActive && !isPaused) {
+      togglePause();
+    }
+    router.push("/(root)/calmera-guide");
+  };
+
   const captureAndProcessFrame = async () => {
     // When the camera is still capturing (i.e., when isCapturingRef.current is true), we don't capture another frame
     if (!cameraRef.current || !cameraReady || isCapturingRef.current) return;
@@ -985,10 +993,20 @@ export default function CameraScreen() {
             />
           )}
           ListEmptyComponent={
-            <Text style={cameraStyles.emptyText}>
-              No entries yet.{"\n\n"}AI detection may lag a few seconds.{"\n\n"}
-              Using a phone stand to stabilize the phone is recommended.
-            </Text>
+            <View style={{ alignItems: "center" }}>
+              <Text style={cameraStyles.emptyText}>
+                {"\n\n"}No entries yet{"\n\n"}
+              </Text>
+              <TouchableOpacity
+                style={cameraStyles.guideBtn}
+                onPress={openGuide}
+                activeOpacity={0.7}
+              >
+                <Text style={{ color: "#fff", fontWeight: "600" }}>
+                  How to use calmera?
+                </Text>
+              </TouchableOpacity>
+            </View>
           }
         />
       </View>

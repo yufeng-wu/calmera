@@ -147,11 +147,18 @@ export default function EditFoodEntry() {
         );
       }
       const data = await resp.json();
+      // If backend normalized the quantity (e.g., added "count(s)") reflect that in UI
+      if (data.normalizedQuantity) {
+        setQuantity(data.normalizedQuantity);
+      }
       setCalories(String(data.calories ?? ""));
       setProtein(String(data.protein ?? ""));
       setCarbs(String(data.carbs ?? ""));
       setFat(String(data.fat ?? ""));
-      setLastEstimated({ foodName, quantity });
+      setLastEstimated({
+        foodName,
+        quantity: data.normalizedQuantity || quantity,
+      });
       setShowMacros(true);
     } catch (err) {
       Alert.alert("Error", err.message);

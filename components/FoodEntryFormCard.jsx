@@ -113,13 +113,6 @@ export const FoodEntryFormCard = ({
           )}
         </View>
 
-        {showEstimateButton && (
-          <Text style={styles.helperText}>
-            If the detection is incorrect, please edit the food name or quantity
-            and tap the button below to re-estimate macros.
-          </Text>
-        )}
-
         {/* Estimate Button */}
         {showEstimateButton && onEstimateMacros && (
           <TouchableOpacity

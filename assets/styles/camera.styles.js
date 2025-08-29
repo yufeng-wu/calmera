@@ -185,4 +185,11 @@ export const cameraStyles = StyleSheet.create({
     marginTop: 12,
     textAlign: "center",
   },
+  guideBtn: {
+    marginTop: 12,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 24,
+  },
 });

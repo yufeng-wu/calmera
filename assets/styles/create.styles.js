@@ -169,7 +169,8 @@ export const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingVertical: 10,
     borderRadius: 10,
-    marginBottom: 12,
+    marginBottom: 6,
+    marginTop: 6,
     opacity: 1,
   },
   estimateButtonText: {
