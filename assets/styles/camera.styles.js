@@ -3,6 +3,17 @@ import { COLORS } from "@/constants/colors";
 
 export const cameraStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
+  topBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 0,
+    paddingBottom: 14,
+  },
+  navBtn: {
+    padding: 0,
+  },
   cameraWrapper: {
     alignSelf: "center",
     width: "96%",
@@ -10,8 +21,7 @@ export const cameraStyles = StyleSheet.create({
     backgroundColor: "#000",
     borderRadius: 20,
     overflow: "hidden",
-    marginTop: 8,
-    marginBottom: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: "#ddd",
   },
@@ -28,13 +38,13 @@ export const cameraStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 26,
+    width: 40,
+    height: 40,
+    borderRadius: 18,
     backgroundColor: COLORS.primary,
     marginHorizontal: 6,
     marginVertical: 4,
-    opacity: 0.8,
+    opacity: 0.7,
   },
   controlBtnActive: {
     // kept for backward-compatibility but no longer used

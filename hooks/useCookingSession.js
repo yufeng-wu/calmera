@@ -17,6 +17,7 @@ import { useAuth } from "@clerk/clerk-expo";
 import { getLocalTimeWithOffset, fetchWithTimeout } from "@/lib/utils";
 import { DeviceEventEmitter } from "react-native";
 import { releaseImage } from "@/lib/scale/imageManager";
+import { STATUS } from "@/constants/statusBar";
 
 /*
  * Centralised hook that owns live cooking session state, including frame buffer,
@@ -31,10 +32,9 @@ export function useCookingSession(scaleType) {
   const isProcessing = useRef(false);
   const [currentWeight, setCurrentWeight] = useState(null);
   const [detectionConfidence, setDetectionConfidence] = useState(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [logEntries, setLogEntries] = useState([]);
-  // DELETE LATER: stores the images (uri + label) sent to the vision backend for debugging
-  // const [debugImages, setDebugImages] = useState([]);
+  const [statusBar, setStatusBar] = useState(null);
+  const [statusMeta, setStatusMeta] = useState({});
 
   const updateDetectionState = (w, conf) => {
     setCurrentWeight(w);
@@ -47,6 +47,9 @@ export function useCookingSession(scaleType) {
     setLogEntries([]);
     setIsSessionActive(true);
     setIsPaused(false);
+    // Show initializing state after user pressed Start
+    setStatusBar(STATUS.INIT);
+    setStatusMeta({});
   };
 
   const pauseSession = () => setIsPaused((prev) => !prev);
@@ -118,6 +121,8 @@ export function useCookingSession(scaleType) {
       releaseImage(sessionRef.current.currentState.imagePath);
     }
     sessionRef.current.clear();
+    // Hide status bar when session ends
+    setStatusBar(null);
   };
 
   // Delete a log entry from the current session by id
@@ -157,6 +162,26 @@ export function useCookingSession(scaleType) {
         });
         sessionRef.current.addFrame(frame);
 
+        console.log("frameBuffer", sessionRef.current.frameBuffer);
+        console.log("initialized", sessionRef.current.isInitialized);
+        console.log("currentState", sessionRef.current.currentState);
+        console.log("--------------------------------");
+
+        // initialization check: require ≥2 ~0 g frames (|w|<1) in last 5 and no positive weight
+        if (!sessionRef.current.isInitialized) {
+          const WINDOW = 3;
+          const recent = sessionRef.current.frameBuffer.slice(-WINDOW);
+          const isZero = (w) => Number.isFinite(w) && Math.abs(w) < 1;
+          const zeroCount = recent.filter((f) => isZero(f.weight)).length;
+          const hasPositive = recent.some(
+            (f) => Number.isFinite(f.weight) && f.weight >= 1
+          );
+          if (zeroCount >= 2 && !hasPositive) {
+            sessionRef.current.isInitialized = true;
+            setStatusBar(STATUS.READY);
+          }
+        }
+
         // 3. Stable-state detection
         const newState = detectNewState(sessionRef.current, frame, imageUri);
 
@@ -168,58 +193,46 @@ export function useCookingSession(scaleType) {
         const prevState = sessionRef.current.currentState;
         sessionRef.current.currentState = newState;
 
-        // If we are detecting the very first state, we don't have a previous state to compare to.
-        // So we return.
-        if (!prevState) return;
+        // If this is the first detected stable state after initialisation, prevState is null.
+        // Treat the previous weight as 0g so the very first food addition/removal is captured.
+        const effectivePrevState = prevState || {
+          weight: 0,
+          imagePath: null,
+          timestamp: newState.timestamp,
+        };
 
-        const absDeltaWeight = Math.abs(newState.weight - prevState.weight);
+        const absDeltaWeight = Math.abs(
+          newState.weight - effectivePrevState.weight
+        );
         if (absDeltaWeight === 0) return;
-        const direction = newState.weight > prevState.weight ? "add" : "remove";
+        const direction =
+          newState.weight > effectivePrevState.weight ? "add" : "remove";
+
+        // If not initialized yet, ignore weight changes
+        if (!sessionRef.current.isInitialized) {
+          return;
+        }
+
+        // Update status for weight change
+        setStatusBar(STATUS.WEIGHT_CHANGED);
+        setStatusMeta({
+          deltaStr: `${direction === "add" ? "+" : "-"}${absDeltaWeight}g`,
+        });
 
         // 4. Remote nutrition lookup via backend API
+
         let foodName = "N/A";
         let nutrition = {};
 
         try {
-          setIsAnalyzing(true);
           const form = new FormData();
-          // Determine whether to include an intermediate image (midImage).
-          // If the prevState image is no longer inside the frameBuffer (i.e., it's old),
-          // we'll send the oldest retained frame as a midImage to help the model.
-          // let midImagePath = null;
-          // const prevStillInBuffer = sessionRef.current.frameBuffer.some(
-          //   (f) => f?.uri === prevState.imagePath
-          // );
-          // const buffer = sessionRef.current.frameBuffer;
-          // if (
-          //   !prevStillInBuffer &&
-          //   buffer.length > sessionRef.current.imageBufferSize
-          // ) {
-          //   // The oldest frame within the image buffer window retains its URI.
-          //   midImagePath =
-          //     buffer[buffer.length - sessionRef.current.imageBufferSize]?.uri;
-          // }
-          // // Log the number of images and their URIs being sent to the vision backend
-          const imageEntries = [
-            { uri: prevState.imagePath, label: "prev" },
-            { uri: newState.imagePath, label: "new" },
-          ];
-
-          // DELETE LATER: update debug state so UI can display these images
-          // setDebugImages(imageEntries);
-
-          form.append("prevImage", {
-            uri: prevState.imagePath,
-            name: "prev.jpg",
-            type: "image/jpeg",
-          });
-          // if (midImagePath) {
-          //   form.append("midImage", {
-          //     uri: midImagePath,
-          //     name: "mid.jpg",
-          //     type: "image/jpeg",
-          //   });
-          // }
+          if (effectivePrevState.imagePath) {
+            form.append("prevImage", {
+              uri: effectivePrevState.imagePath,
+              name: "prev.jpg",
+              type: "image/jpeg",
+            });
+          }
           form.append("newImage", {
             uri: newState.imagePath,
             name: "new.jpg",
@@ -256,13 +269,25 @@ export function useCookingSession(scaleType) {
           } else {
             console.warn("[Session] /compare request failed...", err);
           }
-        } finally {
-          setIsAnalyzing(false);
         }
 
-        // Clean up the previous state's image asynchronously
-        if (prevState?.imagePath) {
-          releaseImage(prevState.imagePath);
+        // Status bar update based on result
+        if (foodName !== "N/A") {
+          setStatusBar(STATUS.FOOD_LOGGED);
+          const foodLines = `${
+            direction === "add" ? "+" : "-"
+          } ${absDeltaWeight}g ${foodName}`;
+          setStatusMeta({ foodLines });
+        } else {
+          setStatusBar(STATUS.WEIGHT_CHANGE_IGNORED);
+          setStatusMeta({
+            deltaStr: `${direction === "add" ? "+" : "-"}${absDeltaWeight}g`,
+          });
+        }
+
+        // Clean up the previous state's image asynchronously (if we actually had one)
+        if (effectivePrevState?.imagePath) {
+          releaseImage(effectivePrevState.imagePath);
         }
 
         // 5. Create log entry and update session log
@@ -277,6 +302,8 @@ export function useCookingSession(scaleType) {
           addLogEntry(sessionRef.current, entry);
           setLogEntries(Object.values(sessionRef.current.log));
         }
+
+        return; // early return after handling first state logic
       } catch (err) {
         // Ensure temp image is not leaked on any error
         releaseImage(imageUri);
@@ -308,9 +335,8 @@ export function useCookingSession(scaleType) {
     logEntries,
     currentWeight,
     detectionConfidence,
-    isAnalyzing,
     deleteLogEntry,
-    // DELETE LATER: expose debug images info
-    // debugImages,
+    statusBar,
+    statusMeta,
   };
 }

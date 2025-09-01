@@ -12,10 +12,8 @@ import {
   ActionSheetIOS,
   Animated,
   useWindowDimensions,
-  Image,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import ProgressRing from "@/components/ProgressRing";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -26,20 +24,29 @@ import PageLoader from "@/components/PageLoader";
 import { cameraStyles } from "@/assets/styles/camera.styles";
 import { SessionLogCard } from "@/components/SessionLogCard";
 import { useCookingSession } from "@/hooks/useCookingSession";
-import { useDailyNutrition } from "@/hooks/useDailyNutrition";
-import { useUser } from "@clerk/clerk-expo";
-import { useAuth } from "@clerk/clerk-expo";
+import { useUser, useAuth } from "@clerk/clerk-expo";
 import { USERS_API_URL } from "@/constants/api";
-import { COLORS, RAINBOW_COLORS } from "@/constants/colors";
+import { RAINBOW_COLORS } from "@/constants/colors";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import {
   FRAME_RESIZE_DIM_FOR_WEIGHT_DETECTION,
   FRAME_COMPRESSION_QUALITY,
   BLANK_FRAME_TOLERANCE,
 } from "@/lib/scale/constants";
+import StatusBar from "@/components/StatusBar";
 
 // Small helper to zero-fill macro objects
 const zeroMacros = () => ({ calories: 0, protein: 0, carbs: 0, fat: 0 });
+
+// Helper for smooth size/position changes (scaleXY provides nicer width/height interpolation)
+const smoothLayout = () =>
+  LayoutAnimation.configureNext({
+    duration: 220,
+    update: {
+      type: LayoutAnimation.Types.easeInEaseOut,
+      property: LayoutAnimation.Properties.scaleXY,
+    },
+  });
 
 // Enable LayoutAnimation on Android for smooth/bouncy list updates
 if (
@@ -52,20 +59,11 @@ if (
 // =====================
 // Macros Swiper Component (extracted to preserve state across re-renders)
 // =====================
-const MacrosSwiper = React.memo(function MacrosSwiper({
-  sessionTotals,
-  dailyTotals,
-  goals,
-}) {
+const MacrosCard = React.memo(function MacrosCard({ sessionTotals }) {
   const { width: windowWidth } = useWindowDimensions();
 
-  // Define gaps and card width based on screen size
-  const SIDE_GAP = windowWidth * 0.02; // 2% margin on each side
-  const GAP_BETWEEN_CARDS = SIDE_GAP * 2; // 4% gap between cards
-  const CARD_WIDTH = windowWidth - 2 * SIDE_GAP;
-
-  const [page, setPage] = useState(0);
-  const data = [sessionTotals, dailyTotals];
+  // Match the width of <View style={cameraStyles.cameraWrapper}> which is 96% of screen width
+  const CARD_WIDTH = windowWidth * 0.96;
 
   const CardContainer = ({ children }) => (
     <View
@@ -78,6 +76,8 @@ const MacrosSwiper = React.memo(function MacrosSwiper({
         flexDirection: "column",
         justifyContent: "flex-start",
         alignItems: "center",
+        marginBottom: 0,
+        marginTop: 0,
         // Shadow
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 1 },
@@ -91,209 +91,65 @@ const MacrosSwiper = React.memo(function MacrosSwiper({
   );
 
   return (
-    <View style={{ marginBottom: 6 }}>
-      <FlatList
-        data={data}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(_, idx) => String(idx)}
-        snapToInterval={CARD_WIDTH + GAP_BETWEEN_CARDS}
-        snapToAlignment="start"
-        decelerationRate="fast"
-        contentContainerStyle={{ paddingHorizontal: SIDE_GAP }}
-        ItemSeparatorComponent={() => (
-          <View style={{ width: GAP_BETWEEN_CARDS }} />
-        )}
-        onMomentumScrollEnd={(e) => {
-          const newPage = Math.round(
-            e.nativeEvent.contentOffset.x / (CARD_WIDTH + GAP_BETWEEN_CARDS)
-          );
-          setPage(newPage);
-        }}
-        renderItem={({ item, index }) => {
-          if (index === 0) {
-            // ------ Session Totals Card ------
-            return (
-              <CardContainer>
-                <Text
-                  style={{
-                    alignSelf: "center",
-                    fontSize: 14,
-                    fontWeight: "500",
-                    marginBottom: 12,
-                  }}
-                >
-                  Session Total
-                </Text>
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-around",
-                    width: "100%",
-                  }}
-                >
-                  {/* Calories */}
-                  <View style={{ alignItems: "center" }}>
-                    <Text style={{ fontWeight: "600", fontSize: 14 }}>
-                      {item.calories % 1 === 0
-                        ? Math.round(item.calories)
-                        : item.calories.toFixed(1)}{" "}
-                      kcal
-                    </Text>
-                    <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
-                      Calories
-                    </Text>
-                  </View>
-                  {/* Protein */}
-                  <View style={{ alignItems: "center" }}>
-                    <Text style={{ fontWeight: "600", fontSize: 14 }}>
-                      {item.protein % 1 === 0
-                        ? Math.round(item.protein)
-                        : item.protein.toFixed(1)}{" "}
-                      g
-                    </Text>
-                    <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
-                      Protein
-                    </Text>
-                  </View>
-                  {/* Carbs */}
-                  <View style={{ alignItems: "center" }}>
-                    <Text style={{ fontWeight: "600", fontSize: 14 }}>
-                      {item.carbs % 1 === 0
-                        ? Math.round(item.carbs)
-                        : item.carbs.toFixed(1)}{" "}
-                      g
-                    </Text>
-                    <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
-                      Carbs
-                    </Text>
-                  </View>
-                  {/* Fat */}
-                  <View style={{ alignItems: "center" }}>
-                    <Text style={{ fontWeight: "600", fontSize: 14 }}>
-                      {item.fat % 1 === 0
-                        ? Math.round(item.fat)
-                        : item.fat.toFixed(1)}{" "}
-                      g
-                    </Text>
-                    <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
-                      Fat
-                    </Text>
-                  </View>
-                </View>
-              </CardContainer>
-            );
-          }
-
-          // ------ Today's Total Card ------
-          const calorieColor =
-            goals.calorieGoal > 0 && item.calories > goals.calorieGoal
-              ? COLORS.expense // red over goal
-              : COLORS.income; // green within goal
-
-          return (
-            <CardContainer>
-              <Text
-                style={{
-                  alignSelf: "center",
-                  fontSize: 14,
-                  fontWeight: "500",
-                  marginBottom: 12,
-                }}
-              >
-                Today's Total
-              </Text>
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-around",
-                  width: "100%",
-                  alignItems: "center",
-                }}
-              >
-                {/* Calories */}
-                <View style={{ alignItems: "center" }}>
-                  <ProgressRing
-                    size={20}
-                    strokeWidth={4}
-                    value={item.calories}
-                    goal={goals.calorieGoal}
-                    color={calorieColor}
-                    style={{ marginTop: 4 }}
-                  />
-                  <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
-                    Calories
-                  </Text>
-                </View>
-                {/* Protein */}
-                <View style={{ alignItems: "center" }}>
-                  <ProgressRing
-                    size={20}
-                    strokeWidth={4}
-                    value={item.protein}
-                    goal={goals.proteinGoal}
-                    color={RAINBOW_COLORS[1]}
-                    style={{ marginTop: 4 }}
-                  />
-                  <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
-                    Protein
-                  </Text>
-                </View>
-                {/* Carbs */}
-                <View style={{ alignItems: "center" }}>
-                  <ProgressRing
-                    size={20}
-                    strokeWidth={4}
-                    value={item.carbs}
-                    goal={goals.carbsGoal}
-                    color={RAINBOW_COLORS[2]}
-                    style={{ marginTop: 4 }}
-                  />
-                  <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
-                    Carbs
-                  </Text>
-                </View>
-                {/* Fat */}
-                <View style={{ alignItems: "center" }}>
-                  <ProgressRing
-                    size={20}
-                    strokeWidth={4}
-                    value={item.fat}
-                    goal={goals.fatGoal}
-                    color={RAINBOW_COLORS[3]}
-                    style={{ marginTop: 4 }}
-                  />
-                  <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
-                    Fat
-                  </Text>
-                </View>
-              </View>
-            </CardContainer>
-          );
-        }}
-      />
-
-      {/* Page indicators */}
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "center",
-          marginTop: 6,
-        }}
-      >
-        {[0, 1].map((i) => (
-          <View
-            key={i}
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: 3,
-              marginHorizontal: 3,
-              backgroundColor: i === page ? "#333" : "#bbb",
-            }}
-          />
-        ))}
-      </View>
+    <View style={{ marginBottom: 6, alignItems: "center" }}>
+      <CardContainer>
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-around",
+            width: "100%",
+          }}
+        >
+          {/* Calories */}
+          <View style={{ alignItems: "center" }}>
+            <Text style={{ fontWeight: "600", fontSize: 14 }}>
+              {sessionTotals.calories % 1 === 0
+                ? Math.round(sessionTotals.calories)
+                : sessionTotals.calories.toFixed(1)}{" "}
+              kcal
+            </Text>
+            <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
+              Calories
+            </Text>
+          </View>
+          {/* Protein */}
+          <View style={{ alignItems: "center" }}>
+            <Text style={{ fontWeight: "600", fontSize: 14 }}>
+              {sessionTotals.protein % 1 === 0
+                ? Math.round(sessionTotals.protein)
+                : sessionTotals.protein.toFixed(1)}{" "}
+              g
+            </Text>
+            <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
+              Protein
+            </Text>
+          </View>
+          {/* Carbs */}
+          <View style={{ alignItems: "center" }}>
+            <Text style={{ fontWeight: "600", fontSize: 14 }}>
+              {sessionTotals.carbs % 1 === 0
+                ? Math.round(sessionTotals.carbs)
+                : sessionTotals.carbs.toFixed(1)}{" "}
+              g
+            </Text>
+            <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
+              Carbs
+            </Text>
+          </View>
+          {/* Fat */}
+          <View style={{ alignItems: "center" }}>
+            <Text style={{ fontWeight: "600", fontSize: 14 }}>
+              {sessionTotals.fat % 1 === 0
+                ? Math.round(sessionTotals.fat)
+                : sessionTotals.fat.toFixed(1)}{" "}
+              g
+            </Text>
+            <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
+              Fat
+            </Text>
+          </View>
+        </View>
+      </CardContainer>
     </View>
   );
 });
@@ -308,6 +164,39 @@ export default function CameraScreen() {
   // User's kitchen scale type ("integer", "1-decimal", "2-decimal")
   const [scaleType, setScaleType] = useState("integer");
 
+  // Local paused flag for immediate UI feedback
+  const [uiPaused, setUiPaused] = useState(false);
+
+  // Fetch user's preferred scale type once on mount
+  const { user } = useUser();
+  const { getToken } = useAuth();
+
+  // Ref mirror for quick synchronous checks inside async functions
+  const pausedRef = useRef(false);
+
+  useEffect(() => {
+    const fetchScaleType = async () => {
+      try {
+        const token = await getToken();
+        if (!token) return;
+        const res = await fetch(`${USERS_API_URL}/get-user`, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.scaleType) setScaleType(data.scaleType);
+      } catch (err) {
+        console.warn("Failed to fetch user scale type", err);
+      }
+    };
+
+    if (user?.id) fetchScaleType();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
   // Session logic handled by custom hook
   const {
     isSessionActive,
@@ -321,7 +210,8 @@ export default function CameraScreen() {
     currentWeight,
     detectionConfidence,
     deleteLogEntry,
-    isAnalyzing,
+    statusBar,
+    statusMeta,
   } = useCookingSession(scaleType);
 
   // Displayed weight/confidence with 2-blank-frame tolerance
@@ -330,8 +220,16 @@ export default function CameraScreen() {
   const blankCountRef = useRef(0);
   const [frameTick, setFrameTick] = useState(0);
 
+  // Keep local flag in sync once the real pause state updates
+  useEffect(() => {
+    setUiPaused(isPaused);
+  }, [isPaused]);
+
   // Update visible weight based on consecutive blank frames
   useEffect(() => {
+    // Trigger smooth layout transition whenever weight visibility is about to change
+    smoothLayout();
+
     if (currentWeight !== null) {
       blankCountRef.current = 0;
       setDisplayedWeight(currentWeight);
@@ -345,6 +243,11 @@ export default function CameraScreen() {
     }
   }, [frameTick, currentWeight, detectionConfidence]);
 
+  // Smoothly animate overlay size changes when paused or weight display toggles
+  useEffect(() => {
+    smoothLayout();
+  }, [isPaused, displayedWeight]);
+
   // Signal other screens (Dashboard, History) to refresh after session ends
   const { setShouldRefresh } = useRefreshSignal();
 
@@ -357,62 +260,19 @@ export default function CameraScreen() {
   const blinkAnim = useRef(new Animated.Value(0)).current;
   const blinkLoopRef = useRef(null);
 
-  // Clerk user (for fetching daily nutrition)
-  const { user } = useUser();
-  const { getToken } = useAuth();
+  // Scale animation for status bullet
+  const indicatorScale = useRef(new Animated.Value(1)).current;
 
-  // =====================
-  // User Goals
-  // =====================
-  const [goals, setGoals] = useState({
-    calorieGoal: 0,
-    proteinGoal: 0,
-    carbsGoal: 0,
-    fatGoal: 0,
-  });
-  // Fetch goals once user is available
+  // Trigger a subtle pop animation whenever paused state or displayedWeight changes
   useEffect(() => {
-    const fetchGoals = async () => {
-      try {
-        const token = await getToken();
-        if (!token) return;
-        const res = await fetch(`${USERS_API_URL}/get-user`, {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        setGoals({
-          calorieGoal: data.calorieGoal || 0,
-          proteinGoal: data.proteinGoal || 0,
-          carbsGoal: data.carbsGoal || 0,
-          fatGoal: data.fatGoal || 0,
-        });
-        // Save scale type if available
-        if (data.scaleType) {
-          setScaleType(data.scaleType);
-        }
-      } catch (err) {
-        console.warn("Failed to fetch user goals", err);
-      }
-    };
-
-    if (user?.id) fetchGoals();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
-
-  // Daily nutrition hook – fetch once when user is available
-  const { summary: dailySummary, loadData: loadDailyNutrition } =
-    useDailyNutrition(user?.id);
-
-  useEffect(() => {
-    if (user?.id) {
-      loadDailyNutrition();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+    indicatorScale.setValue(0.92);
+    Animated.spring(indicatorScale, {
+      toValue: 1,
+      friction: 6,
+      tension: 90,
+      useNativeDriver: true,
+    }).start();
+  }, [isPaused, displayedWeight]);
 
   // =====================
   // Nutrition calculations
@@ -430,18 +290,30 @@ export default function CameraScreen() {
     }, zeroMacros());
   }, [logEntries]);
 
-  const dailyTotals = useMemo(() => {
-    const backend = dailySummary?.dailyTotals || zeroMacros();
-    return {
-      calories: backend.calories + sessionTotals.calories,
-      protein: backend.protein + sessionTotals.protein,
-      carbs: backend.carbs + sessionTotals.carbs,
-      fat: backend.fat + sessionTotals.fat,
-    };
-  }, [dailySummary, sessionTotals]);
+  // Whether there are any logs recorded in the current session
+  const hasLogs = logEntries.length > 0;
 
-  // Dimensions
-  const { width: windowWidth } = useWindowDimensions();
+  // Handle back (<) press – replaces previous Exit/Save button
+  const handleBackPress = () => {
+    if (!isSessionActive) {
+      // Not in session – simply navigate back
+      if (router.canGoBack?.()) {
+        router.back();
+      } else {
+        router.replace("/(root)/(tabs)/dashboard");
+      }
+      return;
+    }
+
+    if (!hasLogs) {
+      // End session without saving and leave
+      endSession(false).then(() => setSessionEnded(true));
+      return;
+    }
+
+    // If logs exist, reuse existing flow to ask meal type
+    endSessionFlow();
+  };
 
   // Request permission if not granted (first render)
   useEffect(() => {
@@ -512,8 +384,8 @@ export default function CameraScreen() {
         blinkLoopRef.current.stop();
       }
       if (isPaused) {
-        // Stop the animation and freeze the star at its current opacity
-        blinkAnim.stopAnimation();
+        // Stop the animation and keep the star visible
+        blinkAnim.setValue(1);
       } else if (!isSessionActive) {
         // Hide indicator only when session ends
         blinkAnim.setValue(0);
@@ -551,15 +423,17 @@ export default function CameraScreen() {
 
   // Animate on pause/resume toggle to avoid abrupt shift
   const handlePauseToggle = () => {
+    // Trigger smooth bullet resize before state changes
+    smoothLayout();
     animateControls();
-    // If currently running (not paused), stop the blinking animation instantly
-    if (!isPaused) {
-      if (blinkLoopRef.current) {
-        blinkLoopRef.current.stop();
-      }
-      blinkAnim.stopAnimation();
-    }
+    // Immediately set real pause state for consistent logic
     togglePause();
+    // Reflect UI instantly (it now matches isPaused value)
+    setUiPaused((prev) => !prev);
+    // Keep star bright when pausing
+    if (!isPaused) {
+      blinkAnim.setValue(1);
+    }
   };
 
   // Animate the transition between Start ↔ Pause/Done
@@ -661,8 +535,14 @@ export default function CameraScreen() {
   };
 
   const captureAndProcessFrame = async () => {
-    // When the camera is still capturing (i.e., when isCapturingRef.current is true), we don't capture another frame
-    if (!cameraRef.current || !cameraReady || isCapturingRef.current) return;
+    // Skip if paused or currently capturing
+    if (
+      !cameraRef.current ||
+      !cameraReady ||
+      isCapturingRef.current ||
+      pausedRef.current
+    )
+      return;
     isCapturingRef.current = true;
     try {
       const captured = await cameraRef.current.takePictureAsync({
@@ -693,11 +573,10 @@ export default function CameraScreen() {
       const arrayBuffer = await response.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
 
-      // Note:
-      // the second paramter can either be resizedUri or captured.uri
-      // resizedUri is the compressed image, captured.uri is the original image
-      // await processFrame(bytes, captured.uri); // save the original image for each Frame
-      await processFrame(bytes, resizedUri); // save the compressed image for each Frame
+      // Double-check before heavy processing
+      if (!pausedRef.current) {
+        await processFrame(bytes, resizedUri); // save the compressed image for each Frame
+      }
 
       setFrameTick((t) => t + 1);
     } catch (e) {
@@ -762,6 +641,40 @@ export default function CameraScreen() {
 
   return (
     <View style={cameraStyles.container}>
+      {/* Top Navigation Bar */}
+      <View style={cameraStyles.topBar}>
+        <TouchableOpacity
+          style={cameraStyles.navBtn}
+          onPress={handleBackPress}
+          activeOpacity={0.7}
+        >
+          {hasLogs ? (
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Ionicons name="chevron-back" size={24} color="#000" />
+              <Text
+                style={{
+                  fontSize: 15,
+                  fontWeight: "600",
+                  color: "#000",
+                  marginLeft: 2,
+                }}
+              >
+                Save & Exit
+              </Text>
+            </View>
+          ) : (
+            <Ionicons name="chevron-back" size={28} color="#000" />
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={cameraStyles.navBtn}
+          onPress={openGuide}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="help-circle-outline" size={26} color="#000" />
+        </TouchableOpacity>
+      </View>
+
       {/* Camera Preview */}
       <View style={cameraStyles.cameraWrapper}>
         {/*
@@ -781,10 +694,18 @@ export default function CameraScreen() {
           onCameraReady={() => setCameraReady(true)}
         />
 
+        {/* Status Bar */}
+        <StatusBar status={statusBar} meta={statusMeta} />
+
         {/* Detection Status Overlay */}
         {isSessionActive && (
           <View style={cameraStyles.detectionOverlay}>
-            <View style={cameraStyles.weightIndicator}>
+            <Animated.View
+              style={[
+                cameraStyles.weightIndicator,
+                { transform: [{ scale: indicatorScale }] },
+              ]}
+            >
               {/* Embedded Live Star */}
               <Animated.View
                 style={{
@@ -813,7 +734,16 @@ export default function CameraScreen() {
                 </MaskedView>
               </Animated.View>
 
-              {displayedWeight !== null ? (
+              {uiPaused ? (
+                <Text
+                  style={[
+                    cameraStyles.weightText,
+                    { fontSize: 13, textAlign: "left" },
+                  ]}
+                >
+                  Paused
+                </Text>
+              ) : displayedWeight !== null ? (
                 <View style={{ alignItems: "flex-start" }}>
                   <Text
                     style={cameraStyles.weightText}
@@ -834,115 +764,26 @@ export default function CameraScreen() {
                   Detecting{"\n"}kitchen scale...
                 </Text>
               )}
-            </View>
+            </Animated.View>
           </View>
         )}
-        {isAnalyzing && (
-          <View
-            style={{
-              position: "absolute",
-              top: 12,
-              right: 12,
-              flexDirection: "row",
-              alignItems: "center",
-              backgroundColor: "rgba(0,0,0,0.7)",
-              borderRadius: 20,
-              paddingHorizontal: 10,
-              paddingVertical: 6,
-            }}
-          >
-            <ActivityIndicator
-              size="small"
-              color="#fff"
-              style={{ transform: [{ scale: 0.75 }] }}
-            />
-            <Text
-              style={{
-                color: "#fff",
-                marginLeft: 4,
-                fontSize: 12,
-                fontWeight: "bold",
-              }}
-            >
-              Analyzing...
-            </Text>
-          </View>
-        )}
-
-        {/* DELETE LATER: Debug overlay showing images being sent to vision backend */}
-        {/* {debugImages?.length > 0 && (
-          <View
-            style={{
-              position: "absolute",
-              bottom: 100, // above control buttons
-              left: 10,
-              flexDirection: "row",
-              backgroundColor: "rgba(0,0,0,0.3)",
-              padding: 4,
-              borderRadius: 6,
-            }}
-          >
-            {debugImages.map(({ uri, label }, idx) => (
-              <View
-                key={idx}
-                style={{
-                  alignItems: "center",
-                  marginRight: idx !== debugImages.length - 1 ? 4 : 0,
-                }}
-              >
-                <Image
-                  source={{ uri }}
-                  style={{
-                    width: 60,
-                    height: 60,
-                    borderColor: "#fff",
-                    borderWidth: 1,
-                  }}
-                />
-                <Text
-                  style={{
-                    color: "#fff",
-                    fontSize: 10,
-                    marginTop: 2,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {label}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )} */}
-        {/* DELETE LATER END */}
 
         {/* Controls Overlay */}
         <View style={cameraStyles.controlsOverlay}>
           {isSessionActive ? (
-            <>
-              <TouchableOpacity
-                style={cameraStyles.controlBtn}
-                onPress={handlePauseToggle}
-                activeOpacity={0.5}
-                disabled={isLoading}
-              >
-                <Ionicons
-                  name={!isPaused ? "pause" : "play"}
-                  size={14}
-                  color="#fff"
-                />
-                <Text style={cameraStyles.controlText}>
-                  {!isPaused ? " Pause" : " Resume"}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[cameraStyles.controlBtn, cameraStyles.endBtn]}
-                onPress={endSessionFlow}
-                activeOpacity={0.5}
-                disabled={isLoading}
-              >
-                <Text style={cameraStyles.controlText}>Done</Text>
-              </TouchableOpacity>
-            </>
+            <TouchableOpacity
+              style={cameraStyles.controlBtn}
+              onPress={handlePauseToggle}
+              activeOpacity={0.4}
+              disabled={isLoading}
+            >
+              <Ionicons
+                name={!isPaused ? "pause" : "play"}
+                size={18}
+                color="#fff"
+                style={isPaused ? { marginLeft: 1.8 } : null}
+              />
+            </TouchableOpacity>
           ) : (
             <TouchableOpacity
               style={cameraStyles.startBtn}
@@ -954,7 +795,7 @@ export default function CameraScreen() {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <>
-                  <Ionicons name="play" size={12} color="#fff" />
+                  <Ionicons name="sparkles" size={12} color="#fff" />
                   <Text style={cameraStyles.controlText}> Start </Text>
                 </>
               )}
@@ -974,11 +815,7 @@ export default function CameraScreen() {
       </View>
 
       {/* Macros Swiper */}
-      <MacrosSwiper
-        sessionTotals={sessionTotals}
-        dailyTotals={dailyTotals}
-        goals={goals}
-      />
+      <MacrosCard sessionTotals={sessionTotals} />
 
       {/* Live Log */}
       <View style={cameraStyles.logContainer}>
@@ -997,15 +834,6 @@ export default function CameraScreen() {
               <Text style={cameraStyles.emptyText}>
                 {"\n\n"}No entries yet{"\n\n"}
               </Text>
-              <TouchableOpacity
-                style={cameraStyles.guideBtn}
-                onPress={openGuide}
-                activeOpacity={0.7}
-              >
-                <Text style={{ color: "#fff", fontWeight: "600" }}>
-                  How to use calmera?
-                </Text>
-              </TouchableOpacity>
             </View>
           }
         />
