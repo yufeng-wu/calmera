@@ -190,6 +190,7 @@ export default function CameraScreen() {
         if (!res.ok) return;
         const data = await res.json();
         if (data.scaleType) setScaleType(data.scaleType);
+        console.log("data.scaleType", data.scaleType);
         if (!data.scaleType) {
           // First-time user: show welcome & scale selector
           router.replace("/(root)/calmera-welcome");
