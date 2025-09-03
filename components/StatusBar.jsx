@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Text, StyleSheet } from "react-native";
+import { COLORS } from "@/constants/colors";
 import { STATUS } from "@/constants/statusBar";
 
 // Map status -> title + subtitle builder & autoHide flag
@@ -17,7 +18,7 @@ const statusConfig = {
     autoHide: false,
   },
   [STATUS.FOOD_LOGGED]: {
-    buildLines: ({ foodLines }) => ["Food Logged", foodLines],
+    buildLines: ({ foodLines }) => ["Food logged!", foodLines],
     autoHide: true,
   },
   [STATUS.WEIGHT_CHANGE_IGNORED]: {
@@ -98,11 +99,25 @@ export default function StatusBar({ status, meta }) {
         }
       }}
     >
-      {lines.map((text, idx) => (
-        <Text key={idx} style={idx === 0 ? styles.title : styles.subtitle}>
-          {text}
-        </Text>
-      ))}
+      {lines.map((text, idx) => {
+        // First line colour overrides for certain statuses
+        let extraStyle = {};
+        if (idx === 0) {
+          if (status === STATUS.READY) {
+            extraStyle.color = COLORS.income; // green
+          } else if (status === STATUS.WEIGHT_CHANGE_IGNORED) {
+            extraStyle.color = COLORS.expense; // red
+          }
+        }
+        return (
+          <Text
+            key={idx}
+            style={[idx === 0 ? styles.title : styles.subtitle, extraStyle]}
+          >
+            {text}
+          </Text>
+        );
+      })}
     </Animated.View>
   );
 }

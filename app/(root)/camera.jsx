@@ -163,6 +163,8 @@ export default function CameraScreen() {
 
   // User's kitchen scale type ("integer", "1-decimal", "2-decimal")
   const [scaleType, setScaleType] = useState("integer");
+  // Flag to determine if we are still checking the user's profile
+  const [checkingUser, setCheckingUser] = useState(true);
 
   // Local paused flag for immediate UI feedback
   const [uiPaused, setUiPaused] = useState(false);
@@ -188,6 +190,12 @@ export default function CameraScreen() {
         if (!res.ok) return;
         const data = await res.json();
         if (data.scaleType) setScaleType(data.scaleType);
+        if (!data.scaleType) {
+          // First-time user: show welcome & scale selector
+          router.replace("/(root)/calmera-welcome");
+          return;
+        }
+        setCheckingUser(false);
       } catch (err) {
         console.warn("Failed to fetch user scale type", err);
       }
@@ -309,6 +317,11 @@ export default function CameraScreen() {
       // End session without saving and leave
       endSession(false).then(() => setSessionEnded(true));
       return;
+    }
+
+    // Auto-pause to stop further processing while user decides
+    if (!isPaused) {
+      togglePause();
     }
 
     // If logs exist, reuse existing flow to ask meal type
@@ -486,8 +499,8 @@ export default function CameraScreen() {
           if (buttonIndex === MEAL_OPTIONS.length) {
             // Discard option
             Alert.alert(
-              "Discard Session",
-              "Are you sure you want to discard all logs? This action cannot be undone.",
+              "Discard Food Logs",
+              "Are you sure? This action cannot be undone.",
               [
                 { text: "Cancel", style: "cancel" },
                 {
@@ -628,7 +641,7 @@ export default function CameraScreen() {
     });
   };
 
-  if (permission === null) {
+  if (checkingUser || permission === null) {
     return <PageLoader />;
   }
   if (!hasPermission) {

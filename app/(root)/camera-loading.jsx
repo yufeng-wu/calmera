@@ -10,7 +10,8 @@ import {
 import { useRouter } from "expo-router";
 import * as tf from "@tensorflow/tfjs";
 import "@tensorflow/tfjs-react-native";
-import { loadModel, isModelLoaded, isModelWarmed } from "@/lib/tfModels";
+// import { loadModel, isModelLoaded, isModelWarmed } from "@/lib/tfModels";
+import { loadModel, isModelLoaded } from "@/lib/tfModels";
 import { COLORS } from "@/constants/colors";
 
 export default function CameraLoadingScreen() {
@@ -50,14 +51,14 @@ export default function CameraLoadingScreen() {
             }
           },
         },
-        {
-          label: "Warming up model…",
-          run: async () => {
-            if (!isModelWarmed("oneStep")) {
-              await loadModel("oneStep");
-            }
-          },
-        },
+        // {
+        //   label: "Warming up model…",
+        //   run: async () => {
+        //     if (!isModelWarmed("oneStep")) {
+        //       await loadModel("oneStep");
+        //     }
+        //   },
+        // },
       ];
 
       for (let i = 0; i < steps.length; i++) {
