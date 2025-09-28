@@ -58,6 +58,20 @@ export const styles = StyleSheet.create({
     fontWeight: "bold",
     color: COLORS.text,
   },
+  premiumButton: {
+    paddingHorizontal: 0,
+    paddingVertical: 1,
+    borderRadius: 20,
+    position: "absolute",
+    top: 10,
+    left: 20,
+    overflow: "hidden",
+  },
+  premiumButtonText: {
+    color: COLORS.white,
+    fontWeight: "600",
+    fontSize: 12,
+  },
   addButton: {
     backgroundColor: COLORS.primary,
     paddingHorizontal: 16,

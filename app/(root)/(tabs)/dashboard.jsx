@@ -33,6 +33,7 @@ import { VOICE_LOG_API_URL } from "@/constants/api";
 import { getLocalTimeWithOffset } from "@/lib/utils";
 import { isModelLoaded, isModelWarmed } from "@/lib/tfModels";
 import AnimatedRe, { Layout as ReLayout } from "react-native-reanimated";
+import { LinearGradient } from "expo-linear-gradient";
 
 // Animated Touchable wrapper
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -579,6 +580,21 @@ export default function SummaryScreen() {
         }
       >
         <View style={styles.headerContainer}>
+          {/* Go Premium button */}
+          <LinearGradient
+            colors={RAINBOW_COLORS}
+            start={{ x: 1, y: 1 }}
+            end={{ x: 0, y: 0 }}
+            style={styles.premiumButton}
+          >
+            <TouchableOpacity
+              style={{ paddingHorizontal: 10, paddingVertical: 8 }}
+              onPress={() => router.push("/go-premium")}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.premiumButtonText}>Go Premium</Text>
+            </TouchableOpacity>
+          </LinearGradient>
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <View style={styles.welcomeContainer}>
@@ -717,7 +733,7 @@ export default function SummaryScreen() {
               activeOpacity={0.8}
             >
               <Ionicons name="sparkles" size={16} color={COLORS.white} />
-              <Text style={styles.fabText}>Calmera AI</Text>
+              <Text style={styles.fabText}>Live AI</Text>
             </TouchableOpacity>
           </Animated.View>
 

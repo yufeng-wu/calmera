@@ -17,6 +17,9 @@ export const RECOMMEND_GOALS_API_URL = `${API_BASE_URL}/users/recommend-goals`;
 // Endpoint for voice log
 export const VOICE_LOG_API_URL = `${API_BASE_URL}/voice/log`;
 
+// Endpoint to create Stripe Payment Intent
+export const PAYMENTS_API_URL = `${API_BASE_URL}/payments/create-payment-intent`;
+
 // Endpoint for vision-related requests
 export const VISION_API_URL = `${API_BASE_URL}/vision`;
 
