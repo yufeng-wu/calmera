@@ -34,6 +34,11 @@ export default function GoPremium() {
       const { error: initError } = await initPaymentSheet({
         paymentIntentClientSecret: clientSecret,
         merchantDisplayName: "Calmera",
+        merchantCountryCode: "US",
+        returnURL: "mobile://",
+        applePay: {
+          merchantCountryCode: "US",
+        },
       });
       if (initError) throw initError;
 
@@ -95,29 +100,41 @@ export default function GoPremium() {
         </View>
 
         {[
-          { label: "Live AI", free: false },
-          { label: "Photo", free: false },
+          {
+            label: "Live Mode",
+            sub: "Only at Calmera",
+            free: false,
+          },
+          { label: "Photo Log", free: false },
           { label: "Voice Log", free: false },
-          { label: "Manual logging", free: true },
+          { label: "Manual Logging", free: true },
         ].map((row) => (
           <View
             key={row.label}
             style={{
               flexDirection: "row",
               alignItems: "center",
+              minHeight: 44,
               paddingVertical: 6,
             }}
           >
-            <Text style={{ flex: 1 }}>{row.label}</Text>
+            <View style={{ flex: 1 }}>
+              <Text>{row.label}</Text>
+              {row.sub && (
+                <Text style={{ fontSize: 12, color: COLORS.textLight }}>
+                  {row.sub}
+                </Text>
+              )}
+            </View>
             <View style={{ flex: 1, alignItems: "center" }}>
               <Ionicons
                 name={row.free ? "checkmark" : "close"}
-                size={20}
+                size={24}
                 color={row.free ? COLORS.primary : COLORS.text}
               />
             </View>
             <View style={{ flex: 1, alignItems: "center" }}>
-              <Ionicons name="checkmark" size={20} color={COLORS.primary} />
+              <Ionicons name="checkmark" size={24} color={COLORS.primary} />
             </View>
           </View>
         ))}
@@ -126,7 +143,7 @@ export default function GoPremium() {
       {/* Subscription Options */}
       <Text
         style={{
-          fontSize: 18,
+          fontSize: 16,
           fontWeight: "700",
           marginTop: 10,
           marginBottom: 20,
@@ -134,7 +151,7 @@ export default function GoPremium() {
           textAlign: "left",
         }}
       >
-        We offer two options:
+        Select your subscription:
       </Text>
 
       <View
