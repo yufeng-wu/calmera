@@ -70,10 +70,12 @@ export default function GoPremium() {
       {/* Title */}
       <Text
         style={{
-          fontSize: 24,
-          fontWeight: "bold",
-          marginTop: 60,
-          marginBottom: 20,
+          fontSize: 18,
+          fontWeight: "700",
+          marginBottom: 30,
+          marginTop: 50,
+          width: "90%",
+          textAlign: "center",
         }}
       >
         Compare Plans
@@ -122,8 +124,17 @@ export default function GoPremium() {
       </View>
 
       {/* Subscription Options */}
-      <Text style={{ fontSize: 18, fontWeight: "700", marginBottom: 20 }}>
-        Choose your subscription
+      <Text
+        style={{
+          fontSize: 18,
+          fontWeight: "700",
+          marginTop: 10,
+          marginBottom: 20,
+          width: "90%",
+          textAlign: "left",
+        }}
+      >
+        We offer two options:
       </Text>
 
       <View
@@ -131,6 +142,7 @@ export default function GoPremium() {
           flexDirection: "row",
           justifyContent: "space-between",
           width: "90%",
+          alignSelf: "center",
           marginBottom: 24,
         }}
       >
@@ -180,15 +192,23 @@ export default function GoPremium() {
                   style={{
                     position: "absolute",
                     top: -12,
-                    backgroundColor: COLORS.primary,
+                    backgroundColor: isSelected
+                      ? COLORS.primary
+                      : COLORS.background,
                     paddingHorizontal: 12,
                     paddingVertical: 5,
                     borderRadius: 20,
                     borderWidth: 1,
-                    borderColor: COLORS.white,
+                    borderColor: isSelected ? COLORS.primary : COLORS.text,
                   }}
                 >
-                  <Text style={{ color: COLORS.white, fontSize: 10 }}>
+                  <Text
+                    style={{
+                      color: isSelected ? COLORS.white : COLORS.text,
+                      fontSize: 10,
+                      fontWeight: "600",
+                    }}
+                  >
                     {opt.badge}
                   </Text>
                 </View>
@@ -196,7 +216,7 @@ export default function GoPremium() {
               <Text
                 style={{
                   fontWeight: "600",
-                  color: isSelected ? COLORS.primary : COLORS.text,
+                  color: COLORS.text,
                 }}
               >
                 {opt.header}
@@ -217,16 +237,25 @@ export default function GoPremium() {
         colors={RAINBOW_COLORS}
         start={{ x: 1, y: 1 }}
         end={{ x: 0, y: 0 }}
-        style={{ borderRadius: 24, marginBottom: 32 }}
+        style={{
+          borderRadius: 24,
+          marginBottom: 32,
+          width: "90%",
+          alignSelf: "center",
+        }}
       >
         <TouchableOpacity
           onPress={() => payPremium(selectedPlan)}
-          style={{ paddingHorizontal: 30, paddingVertical: 14 }}
+          style={{ paddingVertical: 14, alignItems: "center" }}
           disabled={loading}
           activeOpacity={0.8}
         >
           <Text style={{ color: COLORS.white, fontWeight: "600" }}>
-            {loading ? "Processing..." : "Go Premium"}
+            {loading
+              ? "Processing..."
+              : selectedPlan === "monthly"
+              ? "Subscribe for $14.99 / month"
+              : "Subscribe for $59.88 / year"}
           </Text>
         </TouchableOpacity>
       </LinearGradient>
