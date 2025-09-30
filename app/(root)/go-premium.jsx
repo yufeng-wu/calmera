@@ -2,15 +2,18 @@ import { View, Text, TouchableOpacity, Alert, ScrollView } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import * as Linking from "expo-linking";
 import { COLORS, RAINBOW_COLORS } from "@/constants/colors";
 import { styles } from "@/assets/styles/home.styles";
 import { useStripe } from "@stripe/stripe-react-native";
+import { useAuth } from "@clerk/clerk-expo";
 import { PAYMENTS_API_URL } from "@/constants/api";
 import { useState } from "react";
 
 export default function GoPremium() {
   const router = useRouter();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const { getToken } = useAuth();
   const [loading, setLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState("monthly");
 
@@ -18,10 +21,14 @@ export default function GoPremium() {
   const payPremium = async (plan) => {
     try {
       setLoading(true);
+      const token = await getToken();
       // Fetch client secret for the desired plan from backend
       const response = await fetch(PAYMENTS_API_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ plan }), // "monthly" | "yearly"
       });
 
@@ -35,7 +42,7 @@ export default function GoPremium() {
         paymentIntentClientSecret: clientSecret,
         merchantDisplayName: "Calmera",
         merchantCountryCode: "US",
-        returnURL: "mobile://",
+        returnURL: Linking.createURL("stripe-redirect"),
         applePay: {
           merchantCountryCode: "US",
         },
