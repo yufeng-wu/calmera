@@ -4,6 +4,7 @@ import { Stack } from "expo-router/stack";
 import { StripeProvider } from "@stripe/stripe-react-native";
 import Constants from "expo-constants";
 import { EntriesRefreshProvider } from "@/context/EntriesRefreshContext";
+import { PremiumProvider } from "@/context/PremiumContext";
 
 export default function Layout() {
   const { isSignedIn, isLoaded } = useUser();
@@ -19,7 +20,9 @@ export default function Layout() {
       merchantIdentifier={Constants.expoConfig.extra.stripe.merchantIdentifier}
     >
       <EntriesRefreshProvider>
-        <Stack screenOptions={{ headerShown: false }} />
+        <PremiumProvider>
+          <Stack screenOptions={{ headerShown: false }} />
+        </PremiumProvider>
       </EntriesRefreshProvider>
     </StripeProvider>
   );

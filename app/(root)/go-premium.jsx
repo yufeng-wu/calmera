@@ -5,17 +5,27 @@ import { useRouter } from "expo-router";
 import * as Linking from "expo-linking";
 import { COLORS, RAINBOW_COLORS } from "@/constants/colors";
 import { styles } from "@/assets/styles/home.styles";
+import SubscriptionComparison from "@/components/SubscriptionComparison";
 import { useStripe } from "@stripe/stripe-react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import { PAYMENTS_API_URL } from "@/constants/api";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { usePremium } from "@/context/PremiumContext";
 
 export default function GoPremium() {
   const router = useRouter();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const { getToken } = useAuth();
+  const { isPremium, refreshPremium } = usePremium();
   const [loading, setLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState("monthly");
+
+  useEffect(() => {
+    if (isPremium) {
+      Alert.alert("You're already Premium");
+      router.back();
+    }
+  }, [isPremium]);
 
   // Generic handler for both monthly & yearly plans
   const payPremium = async (plan) => {
@@ -51,6 +61,16 @@ export default function GoPremium() {
 
       const { error: sheetError } = await presentPaymentSheet();
       if (sheetError) throw sheetError;
+
+      // Poll backend for premium flip once payment sheet succeeds
+      const poll = setInterval(async () => {
+        await refreshPremium();
+        if (isPremium) {
+          clearInterval(poll);
+          router.replace("/premium-plan");
+        }
+      }, 3000);
+      setTimeout(() => clearInterval(poll), 30000);
 
       Alert.alert("Success", "Thank you for upgrading to Premium! 🎉");
     } catch (err) {
@@ -94,58 +114,7 @@ export default function GoPremium() {
       </Text>
 
       {/* Comparison Table */}
-      <View style={{ width: "90%", marginBottom: 28 }}>
-        {/* Header Row */}
-        <View style={{ flexDirection: "row", marginBottom: 12 }}>
-          <View style={{ flex: 1 }} />
-          <Text style={{ flex: 1, textAlign: "center", fontWeight: "600" }}>
-            Free
-          </Text>
-          <Text style={{ flex: 1, textAlign: "center", fontWeight: "600" }}>
-            Premium
-          </Text>
-        </View>
-
-        {[
-          {
-            label: "Live Mode",
-            sub: "Only at Calmera",
-            free: false,
-          },
-          { label: "Photo Log", free: false },
-          { label: "Voice Log", free: false },
-          { label: "Manual Logging", free: true },
-        ].map((row) => (
-          <View
-            key={row.label}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              minHeight: 44,
-              paddingVertical: 6,
-            }}
-          >
-            <View style={{ flex: 1 }}>
-              <Text>{row.label}</Text>
-              {row.sub && (
-                <Text style={{ fontSize: 12, color: COLORS.textLight }}>
-                  {row.sub}
-                </Text>
-              )}
-            </View>
-            <View style={{ flex: 1, alignItems: "center" }}>
-              <Ionicons
-                name={row.free ? "checkmark" : "close"}
-                size={24}
-                color={row.free ? COLORS.primary : COLORS.text}
-              />
-            </View>
-            <View style={{ flex: 1, alignItems: "center" }}>
-              <Ionicons name="checkmark" size={24} color={COLORS.primary} />
-            </View>
-          </View>
-        ))}
-      </View>
+      <SubscriptionComparison />
 
       {/* Subscription Options */}
       <Text

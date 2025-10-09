@@ -162,11 +162,6 @@ export function useCookingSession(scaleType) {
         });
         sessionRef.current.addFrame(frame);
 
-        console.log("frameBuffer", sessionRef.current.frameBuffer);
-        console.log("initialized", sessionRef.current.isInitialized);
-        console.log("currentState", sessionRef.current.currentState);
-        console.log("--------------------------------");
-
         // initialization check: require ≥2 ~0 g frames (|w|<1) in last 5 and no positive weight
         if (!sessionRef.current.isInitialized) {
           const WINDOW = 3;

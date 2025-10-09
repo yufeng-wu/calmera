@@ -26,6 +26,7 @@ import { FoodEntryItem } from "@/components/FoodEntryItem";
 import NoRecordYet from "@/components/NoRecordYet";
 import { USERS_API_URL } from "@/constants/api";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
+import { usePremium } from "@/context/PremiumContext";
 import { COLORS, RAINBOW_COLORS } from "@/constants/colors";
 import { useAuth } from "@clerk/clerk-expo";
 import { Audio } from "expo-av";
@@ -59,6 +60,7 @@ const MealGroup = ({ title, entries, onDelete }) => {
 export default function SummaryScreen() {
   const { user } = useUser();
   const { getToken, isLoaded } = useAuth();
+  const { isPremium, refreshPremium } = usePremium();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const {
@@ -160,6 +162,7 @@ export default function SummaryScreen() {
   const onRefresh = async () => {
     setRefreshing(true);
     await loadData();
+    await refreshPremium();
     setRefreshing(false);
   };
 
@@ -589,10 +592,14 @@ export default function SummaryScreen() {
           >
             <TouchableOpacity
               style={{ paddingHorizontal: 10, paddingVertical: 8 }}
-              onPress={() => router.push("/go-premium")}
+              onPress={() =>
+                router.push(isPremium ? "/premium-plan" : "/go-premium")
+              }
               activeOpacity={0.8}
             >
-              <Text style={styles.premiumButtonText}>Go Premium</Text>
+              <Text style={styles.premiumButtonText}>
+                {isPremium ? " Premium " : "Go Premium"}
+              </Text>
             </TouchableOpacity>
           </LinearGradient>
           <View style={styles.header}>
