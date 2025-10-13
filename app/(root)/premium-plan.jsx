@@ -8,6 +8,7 @@ import { COLORS } from "@/constants/colors";
 
 export default function PremiumPlan() {
   const { plan, premiumExpiresAt } = usePremium();
+  const planLabel = plan === "yearly" ? "Year Pass" : "Month Pass";
   const router = useRouter();
   const daysLeft = Math.max(
     0,
@@ -49,7 +50,7 @@ export default function PremiumPlan() {
             marginBottom: 16,
           }}
         >
-          <Text style={{ fontWeight: "600" }}>Current Plan: {plan}</Text>
+          <Text style={{ fontWeight: "600" }}>Current Plan: {planLabel}</Text>
         </View>
         <View
           style={{

@@ -12,6 +12,7 @@ import {
   Easing,
   Dimensions,
   Linking,
+  Pressable,
 } from "react-native";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useFocusEffect } from "@react-navigation/native";
@@ -92,6 +93,11 @@ export default function SummaryScreen() {
   });
   const timerRef = useRef(null);
   const recordingRef = useRef(null);
+  // Flag to request an early stop when the user lifts finger before the recorder is ready
+  const stopRequestedRef = useRef(false);
+  // Animation refs to cancel queued animations cleanly
+  const voicePhase1AnimRef = useRef(null);
+  const voiceGrowAnimRef = useRef(null);
   // removed isLongPressing; we'll control start/stop directly via handlers
   const fabAnim = useRef(new Animated.Value(0)).current;
   // Animated width for main FAB
@@ -351,6 +357,15 @@ export default function SummaryScreen() {
   const handleManualAdd = () => collapseFabThenNavigate("/create");
 
   const handleCameraAdd = () => {
+    // Block non-premium users
+    if (!isPremium) {
+      Alert.alert(
+        "Premium Feature",
+        "Live AI is available for Premium users. Upgrade to unlock!"
+      );
+      return;
+    }
+
     const roiReady = isModelLoaded("roi") && isModelWarmed("roi");
     const digitReady = isModelLoaded("digit") && isModelWarmed("digit");
 
@@ -414,23 +429,39 @@ export default function SummaryScreen() {
       );
       await rec.startAsync();
 
-      // Phase 1: Immediate jump to 160px
+      // Reset and start Phase 1 width animation (guarded sequencing)
+      voiceWidthAnim.stopAnimation();
+      voicePhase1AnimRef.current && voicePhase1AnimRef.current.stop();
+      voiceGrowAnimRef.current && voiceGrowAnimRef.current.stop();
       voiceWidthAnim.setValue(120);
-      Animated.timing(voiceWidthAnim, {
+      const phase1 = Animated.timing(voiceWidthAnim, {
         toValue: 160,
         duration: 200,
         useNativeDriver: false,
-      }).start(() => {
-        // Phase 2: Linear growth to 200px over 30 seconds
+      });
+      voicePhase1AnimRef.current = phase1;
+      phase1.start(({ finished }) => {
+        // Only continue if phase 1 actually finished and recording is still active
+        if (!finished || stopRequestedRef.current || !recordingRef.current)
+          return;
         const screenWidth = Dimensions.get("window").width;
         const maxButtonWidth = screenWidth * 0.7;
-        Animated.timing(voiceWidthAnim, {
+        const grow = Animated.timing(voiceWidthAnim, {
           toValue: maxButtonWidth,
           duration: 30000,
           easing: Easing.out(Easing.quad),
           useNativeDriver: false,
-        }).start();
+        });
+        voiceGrowAnimRef.current = grow;
+        grow.start();
       });
+
+      // If the user already lifted the finger, stop immediately after starting
+      if (stopRequestedRef.current) {
+        stopRequestedRef.current = false;
+        stopRecording();
+        return rec;
+      }
 
       // reset seconds & start interval counter
       setRecordingSeconds(0);
@@ -459,6 +490,11 @@ export default function SummaryScreen() {
   const stopRecording = async () => {
     if (!recordingRef.current) return;
 
+    // Cancel any pending width animations before shrinking
+    voicePhase1AnimRef.current && voicePhase1AnimRef.current.stop();
+    voiceGrowAnimRef.current && voiceGrowAnimRef.current.stop();
+    voiceWidthAnim.stopAnimation();
+
     try {
       const rec = recordingRef.current;
       await rec.stopAndUnloadAsync();
@@ -477,7 +513,13 @@ export default function SummaryScreen() {
         useNativeDriver: false,
       }).start();
 
-      // ---- NEW: send audio to backend ----
+      // If recording shorter than 1 second, discard and skip analysis
+      if (recordingSeconds < 1) {
+        stopRequestedRef.current = false;
+        return;
+      }
+
+      // ---- Send audio to backend ----
       setAnalyzing(true);
       setRecordingSeconds(0);
       try {
@@ -520,6 +562,8 @@ export default function SummaryScreen() {
       } finally {
         setAnalyzing(false);
       }
+      // Ensure any pending stop requests are cleared
+      stopRequestedRef.current = false;
     } catch (err) {
       console.error("Failed to stop recording", err);
     }
@@ -538,6 +582,15 @@ export default function SummaryScreen() {
     );
   };
   const handleVoiceLongPress = () => {
+    // Block non-premium users
+    if (!isPremium) {
+      Alert.alert(
+        "Premium Feature",
+        "Voice Log is available for Premium users. Upgrade to unlock!"
+      );
+      return;
+    }
+
     if (recordingRef.current || analyzing) return; // already recording or analyzing
     longPressTriggered.current = true;
     startRecording();
@@ -546,6 +599,18 @@ export default function SummaryScreen() {
   const handleVoicePressOut = () => {
     if (recordingRef.current) {
       stopRecording();
+    } else if (longPressTriggered.current) {
+      // Recording hasn't started yet; request a stop once it does
+      stopRequestedRef.current = true;
+      // Reset width immediately and cancel any queued animations
+      voicePhase1AnimRef.current && voicePhase1AnimRef.current.stop();
+      voiceGrowAnimRef.current && voiceGrowAnimRef.current.stop();
+      voiceWidthAnim.stopAnimation();
+      Animated.timing(voiceWidthAnim, {
+        toValue: 120,
+        duration: 150,
+        useNativeDriver: false,
+      }).start();
     }
     longPressTriggered.current = false;
   };
@@ -656,64 +721,67 @@ export default function SummaryScreen() {
               },
             ]}
           >
-            <AnimatedTouchable
-              style={[
-                styles.fabOption,
-                {
-                  width: voiceWidthAnim,
-                  borderWidth: analyzing ? 3 : 0,
-                  borderColor: analyzing ? rainbowBorderColor : "transparent",
-                },
-              ]}
+            <Pressable
               onPress={handleVoiceShortPress}
               onLongPress={handleVoiceLongPress}
               onPressOut={handleVoicePressOut}
-              activeOpacity={0.8}
               disabled={analyzing}
+              style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
             >
-              {/* Timer on left */}
-              {recording && !analyzing && (
-                <Text
-                  style={{
-                    position: "absolute",
-                    left: 16,
-                    color: COLORS.white,
-                    fontWeight: "600",
-                    alignSelf: "center",
-                  }}
-                >
-                  {recordingSeconds}s
-                </Text>
-              )}
-              {/* Icon and Text view, absolute on the right */}
-              <View
-                style={{
-                  position: "absolute",
-                  right: 20,
-                  flexDirection: "row",
-                  alignItems: "center",
-                }}
+              <Animated.View
+                style={[
+                  styles.fabOption,
+                  {
+                    width: voiceWidthAnim,
+                    borderWidth: analyzing ? 3 : 0,
+                    borderColor: analyzing ? rainbowBorderColor : "transparent",
+                  },
+                ]}
               >
-                {analyzing ? (
-                  <Text style={styles.fabText}>Analyzing...</Text>
-                ) : (
-                  <Animated.View
+                {/* Timer on left */}
+                {recording && !analyzing && (
+                  <Text
                     style={{
-                      opacity: voiceLogContentOpacity,
-                      flexDirection: "row",
-                      alignItems: "center",
+                      position: "absolute",
+                      left: 16,
+                      color: COLORS.white,
+                      fontWeight: "600",
+                      alignSelf: "center",
                     }}
                   >
-                    <Ionicons
-                      name="mic-outline"
-                      size={16}
-                      color={COLORS.white}
-                    />
-                    <Text style={styles.fabText}>Voice Log</Text>
-                  </Animated.View>
+                    {recordingSeconds}s
+                  </Text>
                 )}
-              </View>
-            </AnimatedTouchable>
+                {/* Icon and Text view, absolute on the right */}
+                <View
+                  style={{
+                    position: "absolute",
+                    right: 20,
+                    flexDirection: "row",
+                    alignItems: "center",
+                  }}
+                >
+                  {analyzing ? (
+                    <Text style={styles.fabText}>Analyzing...</Text>
+                  ) : (
+                    <Animated.View
+                      style={{
+                        opacity: voiceLogContentOpacity,
+                        flexDirection: "row",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Ionicons
+                        name="mic-outline"
+                        size={16}
+                        color={COLORS.white}
+                      />
+                      <Text style={styles.fabText}>Voice Log</Text>
+                    </Animated.View>
+                  )}
+                </View>
+              </Animated.View>
+            </Pressable>
           </Animated.View>
 
           {/* Calmera AI Option */}
@@ -767,7 +835,7 @@ export default function SummaryScreen() {
               onPress={handleManualAdd}
               activeOpacity={0.8}
             >
-              <Ionicons name="create-outline" size={16} color={COLORS.white} />
+              <Ionicons name="pencil-outline" size={16} color={COLORS.white} />
               <Text style={styles.fabText}>Quick Add</Text>
             </TouchableOpacity>
           </Animated.View>
@@ -776,53 +844,60 @@ export default function SummaryScreen() {
 
       {/* Voice Log button visible only while recording (hidden during analysis when FAB collapsed) */}
       {recording && !fabExpanded && (
-        <AnimatedTouchable
-          style={[
-            styles.fabOption,
+        <Pressable
+          onPress={handleVoiceShortPress}
+          onLongPress={handleVoiceLongPress}
+          onPressOut={handleVoicePressOut}
+          disabled={analyzing}
+          style={({ pressed }) => [
             {
               position: "absolute",
               right: 20,
               bottom: voiceBottom,
-              width: voiceWidthAnim,
-              justifyContent: "center",
-              borderWidth: analyzing ? 2 : 0,
-              borderColor: analyzing ? rainbowBorderColor : "transparent",
+              opacity: pressed ? 0.85 : 1,
             },
           ]}
-          onPress={handleVoiceShortPress}
-          onLongPress={handleVoiceLongPress}
-          onPressOut={handleVoicePressOut}
-          activeOpacity={0.8}
-          disabled={analyzing}
         >
-          {/* Timer – visible only while recording */}
-          {recording && (
-            <Text
+          <Animated.View
+            style={[
+              styles.fabOption,
+              {
+                width: voiceWidthAnim,
+                justifyContent: "center",
+                borderWidth: analyzing ? 2 : 0,
+                borderColor: analyzing ? rainbowBorderColor : "transparent",
+              },
+            ]}
+          >
+            {/* Timer – visible only while recording */}
+            {recording && (
+              <Text
+                style={{
+                  position: "absolute",
+                  left: 16,
+                  color: COLORS.white,
+                  fontWeight: "600",
+                  alignSelf: "center",
+                }}
+              >
+                {recordingSeconds}s
+              </Text>
+            )}
+
+            {/* Icon and Text view, absolute on the right */}
+            <View
               style={{
                 position: "absolute",
-                left: 16,
-                color: COLORS.white,
-                fontWeight: "600",
-                alignSelf: "center",
+                right: 20,
+                flexDirection: "row",
+                alignItems: "center",
               }}
             >
-              {recordingSeconds}s
-            </Text>
-          )}
-
-          {/* Icon and Text view, absolute on the right */}
-          <View
-            style={{
-              position: "absolute",
-              right: 20,
-              flexDirection: "row",
-              alignItems: "center",
-            }}
-          >
-            <Ionicons name="mic-outline" size={16} color={COLORS.white} />
-            <Text style={styles.fabText}>Voice Log</Text>
-          </View>
-        </AnimatedTouchable>
+              <Ionicons name="mic-outline" size={16} color={COLORS.white} />
+              <Text style={styles.fabText}>Voice Log</Text>
+            </View>
+          </Animated.View>
+        </Pressable>
       )}
 
       {/* Main Floating Action Button */}

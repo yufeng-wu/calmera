@@ -217,24 +217,29 @@ export default function UpdateGoals() {
           />
         </View>
 
-        {/* AI Recommendation Survey Link */}
-        <View style={styles.surveyLinkContainer}>
-          <Text
-            style={[
-              styles.surveyLinkText,
-              { color: COLORS.text },
-              { textDecorationLine: "none" },
-            ]}
-          >
-            Not sure what should be your goal?{"\n"}Fill out our{" "}
-            <Text
-              style={styles.surveyLinkText}
-              onPress={() => router.push("/goals-survey")}
-            >
-              survey
-            </Text>{" "}
-            and get personalized recommendation!
+        {/* AI Recommendation CTA */}
+        <View style={[createStyles.card, styles.ctaCard]}>
+          <View style={styles.ctaHeader}>
+            <Ionicons
+              name="sparkles"
+              size={18}
+              color={COLORS.primary}
+              style={{ marginRight: 8 }}
+            />
+            <Text style={styles.ctaTitle}>Need some help?</Text>
+          </View>
+          <Text style={styles.ctaText}>
+            Take a 1-minute survey and we will recommend the right calories and
+            macros for you.
           </Text>
+          <TouchableOpacity
+            style={[createStyles.estimateButton, { marginTop: 12 }]}
+            onPress={() => router.push("/goals-survey")}
+            activeOpacity={0.8}
+          >
+            <Text style={createStyles.estimateButtonText}>Take the survey</Text>
+            <Ionicons name="arrow-forward" size={18} color={COLORS.white} />
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
@@ -262,7 +267,7 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 8,
+    borderRadius: 15,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
@@ -278,5 +283,26 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
     textDecorationLine: "underline",
+  },
+  ctaCard: {
+    marginTop: 8,
+  },
+  ctaHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  ctaTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.text,
+  },
+  ctaText: {
+    fontSize: 12,
+    color: COLORS.textLight,
+    lineHeight: 18,
+    marginBottom: 6,
+    marginTop: 8,
   },
 });

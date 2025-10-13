@@ -11,6 +11,7 @@ import { useAuth } from "@clerk/clerk-expo";
 import { PAYMENTS_API_URL } from "@/constants/api";
 import { useState, useEffect } from "react";
 import { usePremium } from "@/context/PremiumContext";
+import { ActivityIndicator } from "react-native";
 
 export default function GoPremium() {
   const router = useRouter();
@@ -19,10 +20,12 @@ export default function GoPremium() {
   const { isPremium, refreshPremium } = usePremium();
   const [loading, setLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState("monthly");
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     if (isPremium) {
-      Alert.alert("You're already Premium");
+      // congratulating user on already being premium
+      Alert.alert("Congratulations 🎉", "You are now a Premium member!");
       router.back();
     }
   }, [isPremium]);
@@ -62,17 +65,23 @@ export default function GoPremium() {
       const { error: sheetError } = await presentPaymentSheet();
       if (sheetError) throw sheetError;
 
-      // Poll backend for premium flip once payment sheet succeeds
+      // Show processing indicator while verifying subscription status
+      setVerifying(true);
+
       const poll = setInterval(async () => {
         await refreshPremium();
         if (isPremium) {
           clearInterval(poll);
-          router.replace("/premium-plan");
+          setVerifying(false);
+          router.back(); // return to main screen
+          Alert.alert("Congratulations", "You are now a Premium member! 🎉");
         }
       }, 3000);
-      setTimeout(() => clearInterval(poll), 30000);
-
-      Alert.alert("Success", "Thank you for upgrading to Premium! 🎉");
+      // Failsafe stop after 30s
+      setTimeout(() => {
+        clearInterval(poll);
+        setVerifying(false);
+      }, 30000);
     } catch (err) {
       // If the user cancels the sheet, Stripe returns an error with code "Canceled".
       if (err?.code === "Canceled") {
@@ -91,6 +100,27 @@ export default function GoPremium() {
       contentContainerStyle={[styles.container, { alignItems: "center" }]}
       showsVerticalScrollIndicator={false}
     >
+      {/* Verifying overlay */}
+      {verifying && (
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.3)",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 20,
+          }}
+        >
+          <ActivityIndicator size="large" color={COLORS.white} />
+          <Text style={{ color: COLORS.white, marginTop: 16 }}>
+            Processing your purchase…
+          </Text>
+        </View>
+      )}
       {/* Back button */}
       <TouchableOpacity
         onPress={() => router.back()}

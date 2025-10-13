@@ -1364,6 +1364,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     backgroundColor: COLORS.white,
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     padding: 2,
     marginTop: 0,
     flex: 1,

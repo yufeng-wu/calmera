@@ -168,7 +168,7 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: COLORS.primary,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: 12,
     marginBottom: 6,
     marginTop: 6,
     opacity: 1,

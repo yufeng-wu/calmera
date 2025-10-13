@@ -114,6 +114,13 @@ export const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 3,
   },
+  balanceCardEditBtn: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    padding: 6,
+    borderRadius: 16,
+  },
   balanceTitle: {
     fontSize: 14,
     color: COLORS.textLight,

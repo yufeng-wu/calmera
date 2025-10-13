@@ -44,10 +44,8 @@ export default function SettingsScreen() {
           style={styles.optionButton}
           onPress={() => router.push("/update-scale-type")}
         >
-          <Ionicons name="speedometer-outline" size={20} color={COLORS.text} />
-          <Text style={styles.optionText}>
-            Update Scale Type (for Calmera AI)
-          </Text>
+          <Ionicons name="sparkles-outline" size={20} color={COLORS.text} />
+          <Text style={styles.optionText}>Live AI Settings</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.optionButton} onPress={handleLogout}>

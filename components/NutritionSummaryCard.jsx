@@ -1,10 +1,12 @@
-import { View, Text } from "react-native";
+import { View, Text, TouchableOpacity } from "react-native";
 import { styles } from "../assets/styles/home.styles";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { COLORS, RAINBOW_COLORS } from "../constants/colors";
 import ProgressRing from "./ProgressRing";
+import { useRouter } from "expo-router";
 
 export const NutritionSummaryCard = ({ summary = {}, goals = {} }) => {
+  const router = useRouter();
   // Extract consumed values (fallback to 0 if not provided)
   const calories = Number(
     summary.calories ?? summary.dailyTotals?.calories ?? 0
@@ -50,6 +52,15 @@ export const NutritionSummaryCard = ({ summary = {}, goals = {} }) => {
 
   return (
     <View style={styles.balanceCard}>
+      <TouchableOpacity
+        style={styles.balanceCardEditBtn}
+        onPress={() => router.push("/update-goals")}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel="Edit nutrition goals"
+      >
+        <Ionicons name="create-outline" size={20} color={COLORS.primary} />
+      </TouchableOpacity>
       {/* Calories row: left stack, right ring */}
       <View
         style={{
