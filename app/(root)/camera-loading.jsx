@@ -44,7 +44,7 @@ export default function CameraLoadingScreen() {
           },
         },
         {
-          label: "Downloading one-step model…",
+          label: "Downloading AI models…",
           run: async () => {
             if (!isModelLoaded("oneStep")) {
               await loadModel("oneStep", { skipWarmup: true });
@@ -84,7 +84,7 @@ export default function CameraLoadingScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Calmera AI</Text>
+      <Text style={styles.title}>Live AI @ Calmera</Text>
       <ActivityIndicator size="large" color={COLORS.primary || "#000"} />
       <Text style={styles.status}>{status}</Text>
       <View style={styles.progressBarBackground}>
@@ -101,8 +101,8 @@ export default function CameraLoadingScreen() {
         ></Animated.View>
       </View>
       <Text style={styles.hintText}>
-        Model warm-up speed depends on your device. An iPhone 14 Pro typically
-        takes ~2 seconds.
+        Model setup speed depends on your device. An iPhone 14 Pro takes ~2
+        seconds.
       </Text>
     </View>
   );
@@ -117,8 +117,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   title: {
-    fontSize: 24,
-    fontWeight: "700",
+    fontSize: 22,
+    fontWeight: "600",
     marginBottom: 24,
   },
   status: {

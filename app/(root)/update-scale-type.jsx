@@ -125,7 +125,7 @@ export default function UpdateScaleType() {
         >
           <Ionicons name="arrow-back" size={24} color={COLORS.text} />
         </TouchableOpacity>
-        <Text style={createStyles.headerTitle}>Update Scale Type</Text>
+        <Text style={createStyles.headerTitle}>Live AI Calibration</Text>
         <TouchableOpacity
           style={createStyles.saveButtonContainer}
           onPress={handleSave}
@@ -149,6 +149,9 @@ export default function UpdateScaleType() {
         <Text style={styles.questionText}>
           What type of kitchen scale are you using?
         </Text>
+        <Text style={styles.noteText}>
+          This will make sure Calmera reads your scale correctly.
+        </Text>
 
         <View style={styles.optionsList}>
           {SCALE_OPTIONS.map((opt) => (
@@ -160,12 +163,6 @@ export default function UpdateScaleType() {
             />
           ))}
         </View>
-
-        <Text style={styles.noteText}>
-          Selecting the correct scale type helps Calmera AI interpret the
-          numbers on your scale display accurately, ensuring precise weight
-          readings for your Calmera AI sessions.
-        </Text>
       </ScrollView>
     </View>
   );
@@ -204,8 +201,8 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
   },
   optionImage: {
-    width: 150,
-    height: 150,
+    width: 116,
+    height: 116,
     borderRadius: 8,
     marginRight: 12,
     backgroundColor: "#fff", // To show image border
@@ -231,10 +228,10 @@ const styles = StyleSheet.create({
     right: 12,
   },
   noteText: {
-    marginTop: 24,
     fontSize: 14,
+    marginBottom: 20,
     color: COLORS.textLight,
     lineHeight: 20,
-    textAlign: "center",
+    textAlign: "left",
   },
 });
