@@ -2,4 +2,8 @@
 
 Author: Yufeng Wu (yufengwu@mit.edu, yfwu02@gmail.com)
 
-Repo now set to public for Google Gemini Hackathon competition.
+## License & Usage
+
+This project is made public for demonstration purposes only.
+© 2026 Yufeng Wu. All Rights Reserved.
+No permission is granted to use, copy, modify, or distribute this code.
