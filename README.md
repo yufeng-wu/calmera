@@ -1,4 +1,4 @@
-### Calmera App (mobile)
+### Calmera App (frontend)
 
 Author: Yufeng Wu (yufengwu@mit.edu, yfwu02@gmail.com)
 
