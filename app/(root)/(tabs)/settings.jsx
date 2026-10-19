@@ -13,7 +13,11 @@ export default function SettingsScreen({ calmeraPreview = false }) {
   const { signOut } = useClerk();
   const [previewMessage, setPreviewMessage] = useState("");
   const openPage = (path, label) => {
-    if (calmeraPreview) { setPreviewMessage(`${label} selected. Preview only.`); return; }
+    if (calmeraPreview) {
+      if (path === "/voice-language") router.push({ pathname: "/ui-gallery", params: { page: "voice-language" } });
+      else setPreviewMessage(`${label} selected. Preview only.`);
+      return;
+    }
     router.push(path);
   };
   const handleLogout = () => {
@@ -30,8 +34,10 @@ export default function SettingsScreen({ calmeraPreview = false }) {
     <ScrollView key={`text-size-${fontScale}`} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <Text style={styles.section}>CALMERA</Text>
       <FormCard variant="grouped" style={styles.group}>
-        <SettingsRow title="ChatGPT connection" subtitle="Your account, model and voice language"
+        <SettingsRow title="ChatGPT connection" subtitle="Your account and model"
           icon="sparkles-outline" onPress={() => openPage("/chatgpt", "ChatGPT connection")} />
+        <SettingsRow title="Voice language" subtitle="Choose the language for voice logs" icon="mic-outline" divider
+          onPress={() => openPage("/voice-language", "Voice language")} />
         <SettingsRow title="Nutrition goals" subtitle="Adjust your daily targets" icon="options-outline" divider
           onPress={() => openPage("/update-goals", "Nutrition goals")} />
       </FormCard>

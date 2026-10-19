@@ -57,7 +57,9 @@ Requests go to the public Responses endpoint with store:false and stream:true.
 Only response.completed yields validated entries; partial output, unsupported
 images, failures, usage limits and interrupted streams cannot become meals.
 Account-specific models are selectable. Settings explains plan use and links to
-ChatGPT usage management. Audio input/transcription is not supported by this
+ChatGPT usage management. Voice recognition language lives separately at
+Settings → Voice language. It uses the unchanged per-user local preference key,
+so existing choices are preserved. Audio input/transcription is not supported by this
 ChatGPT-plan grant, hence local transcription rather than an API-key fallback.
 
 See [the verified setup checklist](SETUP_CHECKLIST.md) for the exact developer
@@ -134,3 +136,21 @@ Official sources checked October 18, 2026:
 - https://developers.openai.com/siwc/ui-ux-guidelines
 
 Current service status and login actions: [SERVICE_AUDIT.md](SERVICE_AUDIT.md).
+
+## Standalone voice language settings
+
+Settings now has its own Voice language row and `/voice-language` page. English
+and Chinese use the existing `getVoiceLanguage` / `setVoiceLanguage` functions
+and `calmera.voice.<Calmera user ID>` SecureStore key. Selection saves
+automatically; opening the page does not require a ChatGPT connection. Read
+failures offer Retry without overwriting the saved value. Concurrent taps are
+guarded, and late reads/writes do not update a different account or unmounted
+screen. Back returns to the prior screen, with Settings as a cold-entry fallback.
+
+Scoped ESLint, all 60 existing mobile Node tests and the Release simulator build
+passed. Local-only production-component previews verified Settings → Voice
+language, Chinese radio selection, Back → Settings, and removal of the language
+controls from ChatGPT connection. The gallery now has 22 preview states. No real
+voice preference, account credential, microphone or database was read or changed
+for these checks; the existing storage key was verified in source. Screenshots
+were inspected live without export.

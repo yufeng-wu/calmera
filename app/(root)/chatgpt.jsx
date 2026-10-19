@@ -9,7 +9,6 @@ import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import usePageExit from "@/hooks/usePageExit";
 import { createPlanClient, isChatGPTAvailable } from "@/lib/chatgpt/planClient";
 import { friendlyError } from "@/lib/chatgpt/protocol.mjs";
-import { getVoiceLanguage, setVoiceLanguage } from "@/lib/chatgpt/nutrition";
 
 const PREVIEW_MODELS = [{ slug: "calmera-preview", display_name: "ChatGPT model" }, { slug: "calmera-preview-fast", display_name: "ChatGPT fast model" }];
 export default function ChatGPTSettings({ calmeraPreview = false, calmeraPreviewState = "connected" }) {
@@ -22,7 +21,6 @@ export default function ChatGPTSettings({ calmeraPreview = false, calmeraPreview
   const [checking, setChecking] = useState(!calmeraPreview);
   const [models, setModels] = useState(calmeraPreview ? PREVIEW_MODELS : []);
   const [model, setModel] = useState(calmeraPreview ? PREVIEW_MODELS[0].slug : "");
-  const [language, setLanguage] = useState("en-US");
   const available = calmeraPreview || isChatGPTAvailable();
 
   useEffect(() => {
@@ -34,9 +32,8 @@ export default function ChatGPTSettings({ calmeraPreview = false, calmeraPreview
     setChecking(true);
     (async () => {
       const value = await client.connected();
-      const currentLanguage = await getVoiceLanguage(userId);
       if (!active) return;
-      setConnected(value); setLanguage(currentLanguage);
+      setConnected(value);
       if (value) {
         const choices = await client.models(), selected = await client.getSelectedModel();
         if (active) { setModels(choices); setModel(choices.find(item => item.slug === selected)?.slug || choices[0]?.slug || ""); }
@@ -68,11 +65,6 @@ export default function ChatGPTSettings({ calmeraPreview = false, calmeraPreview
     try { await client.setSelectedModel(slug); setModel(slug); }
     catch { Alert.alert("ChatGPT", "Could not update the selected model."); }
   }
-  async function selectLanguage(value) {
-    if (calmeraPreview) { setLanguage(value); return; }
-    try { await setVoiceLanguage(userId, value); setLanguage(value); }
-    catch { Alert.alert("Voice language", "Could not update your voice language."); }
-  }
   return <View style={formStyles.screen}>
     <FormHeader title="ChatGPT" onBack={leave} />
     <ScrollView key={`text-size-${fontScale}`} contentContainerStyle={formStyles.content} showsVerticalScrollIndicator={false}>
@@ -98,14 +90,6 @@ export default function ChatGPTSettings({ calmeraPreview = false, calmeraPreview
             : <Text style={styles.empty}>No models are available. Reconnect to try again.</Text>}
         </FormCard>
       </View>}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>VOICE LANGUAGE</Text>
-        <Text style={styles.caption}>Voice is transcribed on your phone before ChatGPT analyzes the words.</Text>
-        <FormCard style={styles.group}>
-          {[{ value: "en-US", label: "English" }, { value: "zh-CN", label: "中文" }].map((item, index) => <SettingsRow key={item.value}
-            title={item.label} selected={language === item.value} divider={index > 0} accessibilityRole="radio" onPress={() => selectLanguage(item.value)} />)}
-        </FormCard>
-      </View>
       <FormCard style={styles.privacy}>
         <Ionicons name="lock-closed-outline" size={18} color={COLORS.textLight} />
         <Text style={styles.privacyText}>Food descriptions and selected meal photos go directly to OpenAI. Your ChatGPT credentials stay on this phone.</Text>

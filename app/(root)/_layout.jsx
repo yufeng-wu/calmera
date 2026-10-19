@@ -17,7 +17,7 @@ export default function Layout() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.background } }}>
         {/* These custom headers live below SafeScreen's inset. A rectangular
             native-stack push avoids UIKit's temporary rounded push mask there. */}
-        {["update-goals", "create", "photo-log", "chatgpt", "goals-survey", "edit/[id]", "session-log-edit/[id]", "calmera-guide", "calmera-welcome", "update-scale-type", "camera", "camera-loading"].map((name) => (
+        {["update-goals", "create", "photo-log", "chatgpt", "voice-language", "goals-survey", "edit/[id]", "session-log-edit/[id]", "calmera-guide", "calmera-welcome", "update-scale-type", "camera", "camera-loading"].map((name) => (
           <Stack.Screen key={name} name={name} options={{
             presentation: "card", animation: "simple_push", gestureEnabled: true,
           }} />
