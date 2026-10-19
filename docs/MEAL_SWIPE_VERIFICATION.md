@@ -2,6 +2,12 @@
 
 Today and History use the shared FoodEntryItem. The original card typography, emoji, calorie/time layout and nutrition expansion are retained. Edit/Delete appear in a trailing action rail after a left swipe.
 
+## Follow-up: clipped glass shadow
+
+A grouped meal card exposed a rectangular cutoff below the native glass controls. The native host now includes a real 40 pt compositing inset on each side, with buttons inset inside that canvas. Swipeable reserves the matching effect area, while the gesture rail width, 12 pt card-to-control gap, 70 pt collapsed button height and text-only appearance stay unchanged. Only button frames participate in native hit testing; the transparent inset cannot intercept neighboring-row taps.
+
+The Release simulator build and scoped ESLint passed. Live checks in the synthetic meal fixture confirmed 72 × 70 pt native glass controls and no symbols. The actual History component's local-only preview confirmed a naturally fading shadow at the Breakfast/Lunch group boundary; native Edit still invoked the preview callback and dismissed the rail. No real records or physical device were accessed.
+
 ## October 19 update: full-height text actions
 
 This update supersedes the older fixed 60 × 52 pt, icon-and-label specification below. Edit / Delete now use text only (14 pt medium at standard size), equal widths and the card's actual full height, with 28 pt continuous rounded corners. The rail's vertical margins remove only the existing 20 pt effect-bleed inset. UIKit native glass, swipe thresholds, edit callbacks and delete confirmation remain.

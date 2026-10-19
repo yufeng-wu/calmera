@@ -36,6 +36,7 @@ public final class CalmeraChatGPTModule: Module {
       Events("onAction", "onMetrics")
       Prop("buttonWidth") { (view: CalmeraMealActionsView, value: Double) in view.buttonWidth = CGFloat(max(44, value)) }
       Prop("buttonHeight") { (view: CalmeraMealActionsView, value: Double) in view.buttonHeight = CGFloat(max(44, value)) }
+      Prop("effectOutset") { (view: CalmeraMealActionsView, value: Double) in view.effectOutset = CGFloat(max(0, value)) }
       Prop("actionsVisible") { (view: CalmeraMealActionsView, value: Bool) in view.actionsVisible = value }
       OnViewDidUpdateProps { (view: CalmeraMealActionsView) in view.updateControls() }
     }
@@ -692,6 +693,7 @@ final class CalmeraMealActionsView: ExpoView {
   let onMetrics = EventDispatcher()
   var buttonWidth: CGFloat = 60
   var buttonHeight: CGFloat = 52
+  var effectOutset: CGFloat = 40
   var actionsVisible = false
   private let container = UIView()
   private var buttons: [UIButton] = []
@@ -787,10 +789,10 @@ final class CalmeraMealActionsView: ExpoView {
   override func layoutSubviews() {
     super.layoutSubviews()
     container.frame = bounds
-    let height = bounds.height
+    let height = max(0, bounds.height - 2 * effectOutset)
     for (index, button) in buttons.enumerated() {
-      button.frame = CGRect(x: CGFloat(index) * (buttonWidth + 8),
-        y: (bounds.height - height) / 2, width: buttonWidth, height: height)
+      button.frame = CGRect(x: effectOutset + CGFloat(index) * (buttonWidth + 8),
+        y: effectOutset, width: buttonWidth, height: height)
       button.layoutIfNeeded()
     }
     var glass = 0.0
@@ -800,6 +802,12 @@ final class CalmeraMealActionsView: ExpoView {
       "symbolSize": 0,
       "usesNativeGlass": glass, "opaqueFallback": UIAccessibility.isReduceTransparencyEnabled ? 1 : 0]
     if metrics != lastMetrics { lastMetrics = metrics; onMetrics(metrics) }
+  }
+
+  // Only actual buttons receive touches. The transparent compositing inset
+  // must not capture taps meant for neighboring cards or the swipe gap.
+  override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+    actionsVisible && buttons.contains { $0.frame.contains(point) }
   }
 
   deinit { NotificationCenter.default.removeObserver(self) }

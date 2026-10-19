@@ -2,25 +2,26 @@ import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { requireNativeViewManager } from "expo-modules-core";
 import { COLORS } from "@/constants/colors";
 
-export const MEAL_EFFECT_OUTSET = 20;
+export const MEAL_EFFECT_OUTSET = 40;
 
 const NativeActions = Platform.OS === "ios" ? requireNativeViewManager("CalmeraChatGPT", "MealActions") : null;
 
 export default function MealSwipeActions({ width, visible, onEdit, onDelete, onMetrics }) {
   const railWidth = width * 2 + 20;
   const contentWidth = width * 2 + 8;
-  // The swipe wrapper has shadow bleed room. Offset controls back to the
-  // original row edge, keeping the card-to-button gap at 12 pt.
-  const contentStyle = { width: contentWidth, flex: 1, marginLeft: 12 - MEAL_EFFECT_OUTSET };
-  // Swipeable's absolute action area includes its 20pt material/shadow inset.
-  // Removing that inset gives both buttons the card's exact current height,
-  // including wrapped food names, expanded nutrition and larger text sizes.
-  return <View style={{ width: railWidth, marginVertical: MEAL_EFFECT_OUTSET }}>
-    {NativeActions ? <NativeActions style={contentStyle}
-      buttonWidth={width} actionsVisible={visible}
+  // Give UIKit's glass/shadow a real native canvas, rather than relying on
+  // overflow outside the Expo view's exact button-sized compositing bounds.
+  // The host includes the same bleed inset as Swipeable; buttons sit inside it.
+  const nativeStyle = { position: "absolute", top: 0, bottom: 0,
+    left: 12 - 2 * MEAL_EFFECT_OUTSET, width: contentWidth + 2 * MEAL_EFFECT_OUTSET };
+  const fallbackStyle = { width: contentWidth, flex: 1,
+    marginVertical: MEAL_EFFECT_OUTSET, marginLeft: 12 - MEAL_EFFECT_OUTSET };
+  return <View pointerEvents="box-none" style={{ width: railWidth }}>
+    {NativeActions ? <NativeActions style={nativeStyle}
+      buttonWidth={width} effectOutset={MEAL_EFFECT_OUTSET} actionsVisible={visible}
       onAction={({ nativeEvent }) => { if (nativeEvent.action === "edit") onEdit(); else if (nativeEvent.action === "delete") onDelete(); }}
       onMetrics={onMetrics ? ({ nativeEvent }) => onMetrics(nativeEvent) : undefined} />
-      : <View style={[styles.rail, contentStyle]} accessibilityElementsHidden={!visible}
+      : <View style={[styles.rail, fallbackStyle]} accessibilityElementsHidden={!visible}
         importantForAccessibility={visible ? "auto" : "no-hide-descendants"}>
         {[{ label: "Edit", color: COLORS.primary, action: onEdit },
           { label: "Delete", color: COLORS.expense, action: onDelete }].map(item =>
