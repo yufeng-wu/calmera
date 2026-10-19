@@ -1,101 +1,52 @@
-import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { TYPOGRAPHY } from "@/constants/typography";
+import { useState } from "react";
+import { Alert, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useRouter } from "expo-router";
 import { useClerk } from "@clerk/clerk-expo";
-import { Ionicons } from "@expo/vector-icons";
-import { styles as createStyles } from "@/assets/styles/create.styles";
-import { COLORS } from "@/constants/colors";
+import { FormCard, formStyles } from "@/components/GlassForm";
+import SettingsRow from "@/components/SettingsRow";
+import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 
-export default function SettingsScreen() {
+export default function SettingsScreen({ calmeraPreview = false }) {
   const router = useRouter();
+  const { fontScale } = useWindowDimensions();
   const { signOut } = useClerk();
-
-  const handleLogout = async () => {
+  const [previewMessage, setPreviewMessage] = useState("");
+  const openPage = (path, label) => {
+    if (calmeraPreview) { setPreviewMessage(`${label} selected. Preview only.`); return; }
+    router.push(path);
+  };
+  const handleLogout = () => {
     Alert.alert("Sign out", "Are you sure you want to sign out?", [
       { text: "Cancel", style: "cancel" },
-      {
-        text: "Sign out",
-        style: "destructive",
-        onPress: async () => await signOut(),
-      },
+      { text: "Sign out", style: "destructive", onPress: async () => {
+        if (calmeraPreview) { setPreviewMessage("Sign out confirmed. Preview only."); return; }
+        await signOut();
+      } },
     ]);
   };
-
-  const handleUpdateGoals = () => {
-    router.push("/update-goals");
-  };
-
-  return (
-    <View style={createStyles.container}>
-      <View style={styles.profileHeader}>
-        <Text style={styles.profileTitle}>Settings</Text>
-      </View>
-
-      <View style={styles.contentWrapper}>
-        <TouchableOpacity
-          style={styles.optionButton}
-          onPress={handleUpdateGoals}
-        >
-          <Ionicons name="create-outline" size={20} color={COLORS.text} />
-          <Text style={styles.optionText}>Edit Nutrition Goals</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.optionButton}
-          onPress={() => router.push("/update-scale-type")}
-        >
-          <Ionicons name="sparkles-outline" size={20} color={COLORS.text} />
-          <Text style={styles.optionText}>Live AI Settings</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.optionButton} onPress={handleLogout}>
-          <Ionicons
-            name="log-out-outline"
-            size={20}
-            color={COLORS.destructive}
-          />
-          <Text style={[styles.optionText, { color: COLORS.destructive }]}>
-            Log Out
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+  return <View style={formStyles.screen}>
+    <View style={styles.header}><Text accessibilityRole="header" style={styles.title}>Settings</Text></View>
+    <ScrollView key={`text-size-${fontScale}`} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <Text style={styles.section}>CALMERA</Text>
+      <FormCard style={styles.group}>
+        <SettingsRow title="ChatGPT connection" subtitle="Your account, model and voice language"
+          icon="sparkles-outline" onPress={() => openPage("/chatgpt", "ChatGPT connection")} />
+        <SettingsRow title="Nutrition goals" subtitle="Adjust your daily targets" icon="options-outline" divider
+          onPress={() => openPage("/update-goals", "Nutrition goals")} />
+      </FormCard>
+      <Text style={styles.section}>ACCOUNT</Text>
+      <FormCard style={styles.group}>
+        <SettingsRow title="Sign out" icon="log-out-outline" destructive onPress={handleLogout} />
+      </FormCard>
+      {!!previewMessage && <Text accessibilityLiveRegion="polite" style={formStyles.caption}>{previewMessage}</Text>}
+    </ScrollView>
+  </View>;
 }
-
 const styles = StyleSheet.create({
-  profileHeader: {
-    alignItems: "center",
-    marginTop: 16,
-  },
-  profileTitle: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: "600",
-    color: COLORS.text,
-  },
-  contentWrapper: {
-    marginTop: 24,
-    paddingHorizontal: 16,
-    gap: 16,
-  },
-  optionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.card,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  optionText: {
-    marginLeft: 12,
-    fontSize: 14,
-    fontWeight: "500",
-    color: COLORS.text,
-  },
+  header: { minHeight: 64, paddingHorizontal: 20, justifyContent: "center", alignItems: "center" },
+  title: { ...TYPOGRAPHY.pageTitle, color: COLORS.text},
+  content: { padding: 20, paddingTop: 14, paddingBottom: 150, gap: 12 },
+  section: { ...TYPOGRAPHY.eyebrow, color: COLORS.textLight, marginTop: 6, marginLeft: 4},
+  group: { padding: 0, gap: 0, overflow: "hidden" },
 });

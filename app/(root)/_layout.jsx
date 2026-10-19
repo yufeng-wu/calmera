@@ -1,10 +1,8 @@
 import { useUser } from "@clerk/clerk-expo";
 import { Redirect } from "expo-router";
 import { Stack } from "expo-router/stack";
-import { StripeProvider } from "@stripe/stripe-react-native";
-import Constants from "expo-constants";
+import { COLORS } from "@/constants/colors";
 import { EntriesRefreshProvider } from "@/context/EntriesRefreshContext";
-import { PremiumProvider } from "@/context/PremiumContext";
 
 export default function Layout() {
   const { isSignedIn, isLoaded } = useUser();
@@ -15,15 +13,16 @@ export default function Layout() {
   }
 
   return (
-    <StripeProvider
-      publishableKey={Constants.expoConfig.extra.stripe.publishableKey}
-      merchantIdentifier={Constants.expoConfig.extra.stripe.merchantIdentifier}
-    >
-      <EntriesRefreshProvider>
-        <PremiumProvider>
-          <Stack screenOptions={{ headerShown: false }} />
-        </PremiumProvider>
-      </EntriesRefreshProvider>
-    </StripeProvider>
+    <EntriesRefreshProvider>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.background } }}>
+        {/* These custom headers live below SafeScreen's inset. A rectangular
+            native-stack push avoids UIKit's temporary rounded push mask there. */}
+        {["update-goals", "create", "photo-log", "chatgpt", "goals-survey", "edit/[id]", "session-log-edit/[id]", "calmera-guide", "calmera-welcome", "update-scale-type", "camera", "camera-loading"].map((name) => (
+          <Stack.Screen key={name} name={name} options={{
+            presentation: "card", animation: "simple_push", gestureEnabled: true,
+          }} />
+        ))}
+      </Stack>
+    </EntriesRefreshProvider>
   );
 }

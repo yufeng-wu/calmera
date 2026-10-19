@@ -1,231 +1,144 @@
-import { useState } from "react";
-import {
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  Platform,
-  Keyboard,
-  ActivityIndicator,
-} from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { useRef, useState } from "react";
+import { Keyboard, Text, View } from "react-native";
 import { useSignUp, useAuth } from "@clerk/clerk-expo";
-import { Link, useRouter } from "expo-router";
-import { styles } from "@/assets/styles/auth.styles.js";
-import { Ionicons } from "@expo/vector-icons";
-import { COLORS } from "../../constants/colors.js";
-import { Image } from "expo-image";
+import { useRouter } from "expo-router";
+import { styles } from "@/assets/styles/auth.styles";
+import { FormCard, GlassButton } from "@/components/GlassForm";
+import { AuthBusy, AuthField, AuthLink, AuthNotice, AuthScreen, isAuthEmail } from "@/components/AuthForm";
 import {
   USERS_API_URL,
   VERIFY_USER_CREATION_RETRY_COUNT,
   VERIFY_USER_CREATION_RETRY_INTERVAL_MS,
 } from "../../constants/api.js";
 
-export default function SignUpScreen() {
+export default function SignUpScreen({ calmeraPreview = false, calmeraPreviewStage = "" } = {}) {
   const { isLoaded, signUp, setActive } = useSignUp();
-  const router = useRouter();
   const { getToken } = useAuth();
-
-  const [emailAddress, setEmailAddress] = useState("");
+  const router = useRouter();
+  const busyRef = useRef(false);
+  const [emailAddress, setEmailAddress] = useState(calmeraPreview && calmeraPreviewStage === "verification" ? "calmera@example.invalid" : "");
   const [password, setPassword] = useState("");
-  const [pendingVerification, setPendingVerification] = useState(false);
+  const [pendingVerification, setPendingVerification] = useState(calmeraPreview && calmeraPreviewStage === "verification");
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
+  const [busy, setBusy] = useState(false);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
 
-  // Handle submission of sign-up form
+  const backToSignIn = () => {
+    if (busyRef.current || isCreatingUser) return;
+    if (calmeraPreview) {
+      router.replace({ pathname: "/ui-gallery", params: { page: "sign-in" } });
+      return;
+    }
+    router.replace("/sign-in");
+  };
   const onSignUpPress = async () => {
-    if (!isLoaded) return;
-
-    // Start sign-up process using email and password provided
+    if (busyRef.current || (!calmeraPreview && !isLoaded)) return;
+    setError("");
+    setInfo("");
+    if (!isAuthEmail(emailAddress)) return setError("Enter a valid email address.");
+    if (!password) return setError("Choose a password for your account.");
+    Keyboard.dismiss();
+    if (calmeraPreview) {
+      setInfo("Preview verification. No email or account creation request was sent.");
+      setPendingVerification(true);
+      return;
+    }
+    busyRef.current = true;
+    setBusy(true);
     try {
-      await signUp.create({
-        emailAddress,
-        password,
-      });
-
-      // Send user an email with verification code
+      await signUp.create({ emailAddress: emailAddress.trim(), password });
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
-
-      // Set 'pendingVerification' to true to display second form
-      // and capture OTP code
       setPendingVerification(true);
     } catch (err) {
-      if (err.errors?.[0]?.code === "form_identifier_exists") {
-        setError("Email already in use.");
-      } else {
-        setError("Error: " + err.message);
-      }
+      if (err.errors?.[0]?.code === "form_identifier_exists") setError("Email already in use.");
+      else setError(err.errors?.[0]?.longMessage || "Unable to create your account. Please try again.");
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
     }
   };
 
-  // Handle submission of verification form
   const onVerifyPress = async () => {
-    if (!isLoaded) return;
-
+    if (busyRef.current || (!calmeraPreview && !isLoaded)) return;
+    setError("");
+    setInfo("");
+    if (!code.trim()) return setError("Enter the verification code from your email.");
+    Keyboard.dismiss();
+    if (calmeraPreview) return setInfo("Preview verification complete. No authentication or database request was sent.");
+    busyRef.current = true;
+    setBusy(true);
     try {
-      // Use the code the user provided to attempt verification
-      const signUpAttempt = await signUp.attemptEmailAddressVerification({
-        code,
-      });
-
-      // If verification was completed, set the session to active
-      // and redirect the user
-      if (signUpAttempt.status === "complete") {
-        await setActive({ session: signUpAttempt.createdSessionId });
-
-        setIsCreatingUser(true);
-        try {
-          const token = await getToken();
-          // 1) Persist the new user in our own backend database
-          await fetch(`${USERS_API_URL}/create-user`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              email: emailAddress,
-              username: emailAddress.split("@")[0],
-              localDate: new Date().toLocaleDateString("en-CA"),
-            }),
+      const attempt = await signUp.attemptEmailAddressVerification({ code: code.trim() });
+      if (attempt.status !== "complete") {
+        setError("Verification is not complete. Check the code and try again.");
+        return;
+      }
+      await setActive({ session: attempt.createdSessionId });
+      setIsCreatingUser(true);
+      try {
+        const token = await getToken();
+        await fetch(`${USERS_API_URL}/create-user`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            email: emailAddress.trim(), username: emailAddress.trim().split("@")[0],
+            localDate: new Date().toLocaleDateString("en-CA"),
+          }),
+        });
+        const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        let created = false;
+        for (let i = 0; i < VERIFY_USER_CREATION_RETRY_COUNT; i++) {
+          const response = await fetch(`${USERS_API_URL}/get-user`, {
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           });
-
-          // 2) Poll backend until user is retrievable
-          const wait = (ms) =>
-            new Promise((resolve) => setTimeout(resolve, ms));
-          let created = false;
-          for (let i = 0; i < VERIFY_USER_CREATION_RETRY_COUNT; i++) {
-            const res = await fetch(`${USERS_API_URL}/get-user`, {
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-            });
-            if (res.ok) {
-              created = true;
-              break;
-            }
-            await wait(VERIFY_USER_CREATION_RETRY_INTERVAL_MS);
-          }
-
-          if (!created) {
-            throw new Error("User not available after creation retries");
-          }
-
-          // 3) Navigate to the main app after backend confirmed user creation
-          router.replace("/");
-        } catch (err) {
-          console.error("Error creating user in backend:", err);
-          setError("Failed to create user. Please try again.");
-        } finally {
-          setIsCreatingUser(false);
+          if (response.ok) { created = true; break; }
+          await wait(VERIFY_USER_CREATION_RETRY_INTERVAL_MS);
         }
-      } else {
-        // If the status is not complete, check why. User may need to
-        // complete further steps.
-        console.error(JSON.stringify(signUpAttempt, null, 2));
+        if (!created) throw new Error("User not available after creation retries");
+        router.replace("/");
+      } catch {
+        setError("Your email is verified, but Calmera account setup could not finish. Please try signing in.");
+      } finally {
+        setIsCreatingUser(false);
       }
     } catch (err) {
-      // See https://clerk.com/docs/custom-flows/error-handling
-      // for more info on error handling
-      console.error(JSON.stringify(err, null, 2));
+      setError(err.errors?.[0]?.longMessage || "Unable to verify this code. Please try again.");
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
     }
   };
 
-  if (pendingVerification) {
-    return (
-      <View style={styles.verificationContainer}>
-        {/* Show loader while waiting for backend confirmation */}
-        {isCreatingUser ? (
-          <ActivityIndicator size="large" color={COLORS.success} />
-        ) : (
-          <>
-            <Text style={styles.verificationTitle}>Verify your email</Text>
-
-            {error ? (
-              <View style={styles.errorBox}>
-                <Ionicons
-                  name="alert-circle"
-                  size={20}
-                  color={COLORS.expense}
-                />
-                <Text style={styles.errorText}>{error}</Text>
-                <TouchableOpacity onPress={() => setError("")}>
-                  <Ionicons name="close" size={20} color={COLORS.textLight} />
-                </TouchableOpacity>
-              </View>
-            ) : null}
-
-            <TextInput
-              style={[styles.verificationInput, error && styles.errorInput]}
-              value={code}
-              placeholder="Enter your verification code"
-              placeholderTextColor={COLORS.textLight}
-              onChangeText={(code) => setCode(code)}
-            />
-
-            <TouchableOpacity onPress={onVerifyPress} style={styles.button}>
-              <Text style={styles.buttonText}>Verify</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
-    );
-  }
-
-  return (
-    <KeyboardAwareScrollView
-      style={{ flex: 1 }}
-      contentContainerStyle={{ flexGrow: 1 }}
-      enableOnAndroid={true}
-      enableAutomaticScroll={true}
-      extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
-      keyboardShouldPersistTaps="handled"
-    >
-      <View style={styles.container}>
-        <Image
-          source={require("../../assets/images/poster2.png")}
-          style={styles.illustration}
-        />
-        <Text style={styles.title}>Create Account</Text>
-
-        {error ? (
-          <View style={styles.errorBox}>
-            <Ionicons name="alert-circle" size={20} color={COLORS.expense} />
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity onPress={() => setError("")}>
-              <Ionicons name="close" size={20} color={COLORS.textLight} />
-            </TouchableOpacity>
-          </View>
-        ) : null}
-
-        <TextInput
-          style={[styles.input, error && styles.errorInput]}
-          autoCapitalize="none"
-          value={emailAddress}
-          placeholder="Enter email"
-          placeholderTextColor={COLORS.textLight}
-          onChangeText={(email) => setEmailAddress(email)}
-        />
-        <TextInput
-          style={[styles.input, error && styles.errorInput]}
-          value={password}
-          placeholder="Enter password"
-          secureTextEntry={true}
-          placeholderTextColor={COLORS.textLight}
-          onChangeText={(password) => setPassword(password)}
-        />
-        <TouchableOpacity onPress={onSignUpPress} style={styles.button}>
-          <Text style={styles.buttonText}>Sign Up</Text>
-        </TouchableOpacity>
-        <View style={styles.footerContainer}>
-          <Text style={styles.footerText}>Already have an account?</Text>
-          <TouchableOpacity onPress={() => router.replace("/sign-in")}>
-            <Text style={styles.linkText}>Sign in</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </KeyboardAwareScrollView>
-  );
+  return <AuthScreen title={pendingVerification ? "Check your email" : "Create your account"}
+    subtitle={pendingVerification ? `Enter the verification code sent to ${emailAddress}.` : "A little awareness, one meal at a time."}
+    onBack={backToSignIn} backDisabled={busy || isCreatingUser}
+    footer={<View style={styles.footer}>
+      <Text style={styles.footerText}>Already have an account?</Text>
+      <AuthLink onPress={backToSignIn} disabled={busy || isCreatingUser}>Sign in</AuthLink>
+    </View>}>
+    <FormCard style={styles.form}>
+      <AuthNotice error>{error}</AuthNotice>
+      <AuthNotice>{info}</AuthNotice>
+      {isCreatingUser ? <AuthBusy>Setting up your Calmera account…</AuthBusy> : pendingVerification ? <>
+        <AuthField calmeraPreview={calmeraPreview} label="Verification code" code value={code} onChangeText={setCode}
+          placeholder="Email code" keyboardType="number-pad" textContentType="oneTimeCode"
+          autoComplete="one-time-code" editable={!busy} error={!!error}
+          returnKeyType="done" onSubmitEditing={onVerifyPress} />
+        <GlassButton title="Verify email" role="accent" onPress={onVerifyPress}
+          loading={busy} disabled={!calmeraPreview && !isLoaded} style={styles.action} />
+      </> : <>
+        <AuthField calmeraPreview={calmeraPreview} label="Email" value={emailAddress} onChangeText={setEmailAddress}
+          autoCapitalize="none" keyboardType="email-address" textContentType="emailAddress"
+          autoComplete="email" placeholder="you@example.com" editable={!busy} error={!!error} />
+        <AuthField calmeraPreview={calmeraPreview} label="Password" value={password} onChangeText={setPassword} secureTextEntry
+          textContentType="newPassword" autoComplete="new-password" autoCapitalize="none"
+          placeholder="Choose a password" editable={!busy} error={!!error}
+          returnKeyType="go" onSubmitEditing={onSignUpPress} />
+        <GlassButton title="Create account" role="accent" onPress={onSignUpPress}
+          loading={busy} disabled={!calmeraPreview && !isLoaded} style={styles.action} />
+      </>}
+    </FormCard>
+  </AuthScreen>;
 }

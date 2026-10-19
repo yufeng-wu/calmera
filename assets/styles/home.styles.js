@@ -321,6 +321,14 @@ export const styles = StyleSheet.create({
     color: COLORS.text,
     marginBottom: 12,
   },
+  todayWordmark: {
+    fontSize: 22,
+    fontWeight: "600",
+    letterSpacing: -0.4,
+    color: COLORS.primary,
+    textAlign: "center",
+    marginBottom: 16,
+  },
   dateText: {
     fontSize: 18,
     fontWeight: "600",

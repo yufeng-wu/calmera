@@ -1,27 +1,28 @@
 import {
   View,
+  ActivityIndicator,
   Text,
   StyleSheet,
   ScrollView,
+  RefreshControl,
   TouchableOpacity,
   LayoutAnimation,
   UIManager,
   Platform,
   Alert,
   Pressable,
+  useWindowDimensions,
 } from "react-native";
 // Removed reanimated for meal group container to avoid date-switch animations
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useUser, useAuth } from "@clerk/clerk-expo";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import AnimatedRe, { Layout as ReLayout } from "react-native-reanimated";
 
-import { useRefreshSignal } from "@/context/EntriesRefreshContext";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useNutritionData } from "@/hooks/useNutritionData";
 import { NutritionSummaryCard } from "@/components/NutritionSummaryCard";
-import { FoodEntryItem } from "@/components/FoodEntryItem";
-import PageLoader from "@/components/PageLoader";
-import { COLORS } from "@/constants/colors";
-import { Ionicons } from "@expo/vector-icons";
-import { FOOD_ENTRIES_API_URL, USERS_API_URL } from "@/constants/api";
+import { FoodEntryItem, closeOpenMealActions } from "@/components/FoodEntryItem";
+import { FORM_COLORS as COLORS } from "@/constants/formTheme";
+import { FormCard, GlassButton } from "@/components/GlassForm";
 
 // Enable LayoutAnimation on Android
 if (
@@ -31,25 +32,15 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const ArrowButton = ({ direction, disabled, onPress }) => (
-  <Pressable
-    onPress={onPress}
-    disabled={disabled}
-    hitSlop={8}
-    style={({ pressed }) => [styles.navButton, { opacity: pressed ? 0.5 : 1 }]}
-  >
-    <Ionicons
-      name={direction === "left" ? "chevron-back" : "chevron-forward"}
-      size={22}
-      color={disabled ? COLORS.border : COLORS.text}
-    />
-  </Pressable>
-);
+const ArrowButton = ({ direction, disabled, onPress }) => <GlassButton
+  symbol={direction === "left" ? "chevron.left" : "chevron.right"}
+  accessibilityLabel={direction === "left" ? "Previous month" : "Next month"}
+  disabled={disabled} onPress={onPress} style={styles.navButton} />;
 
 const AnimatedMealGroupContainer = AnimatedRe.createAnimatedComponent(View);
 const AnimatedContent = AnimatedRe.createAnimatedComponent(View);
 
-const MealGroup = ({ title, entries, onDelete, shouldAnimate }) => {
+const MealGroup = ({ title, entries, onDelete, onEdit, shouldAnimate }) => {
   if (!entries || entries.length === 0) return null;
   const layoutAnim = shouldAnimate
     ? ReLayout.springify().damping(15)
@@ -65,6 +56,7 @@ const MealGroup = ({ title, entries, onDelete, shouldAnimate }) => {
           key={item.id}
           item={item}
           onDelete={onDelete}
+          onEdit={onEdit}
           enableLayout={shouldAnimate}
         />
       ))}
@@ -75,14 +67,6 @@ const MealGroup = ({ title, entries, onDelete, shouldAnimate }) => {
 const getLocalDateString = (d) => {
   const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
   return local.toISOString().split("T")[0];
-};
-
-const getStartOfWeek = (date) => {
-  const start = new Date(date);
-  const day = start.getDay(); // 0 (Sun) - 6 (Sat)
-  start.setDate(start.getDate() - day);
-  start.setHours(0, 0, 0, 0);
-  return start;
 };
 
 const MonthCalendar = ({
@@ -109,7 +93,8 @@ const MonthCalendar = ({
   // Determine the weekday (0=Sun) of the 1st day to pad grid
   const firstWeekday = new Date(year, month, 1).getDay();
 
-  const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const { fontScale } = useWindowDimensions();
+  const weekdayLabels = fontScale > 1.4 ? ["S", "M", "T", "W", "T", "F", "S"] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   const renderDay = (day) => {
     const dateStr = getLocalDateString(day);
@@ -150,11 +135,14 @@ const MonthCalendar = ({
     return (
       <TouchableOpacity
         key={dateStr}
+        accessibilityRole="button"
+        accessibilityLabel={day.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+        accessibilityState={{ selected: isSelected, disabled: Boolean(isFuture || isBeforeSignup) }}
         style={[styles.dayContainer, isSelected && styles.daySelected]}
         disabled={isFuture || isBeforeSignup}
         onPress={onPress}
       >
-        <Text
+        <Text maxFontSizeMultiplier={1.35}
           style={[
             styles.dayNumber,
             (isFuture || isBeforeSignup) && styles.dayDisabled,
@@ -173,8 +161,8 @@ const MonthCalendar = ({
     <View>
       {/* Weekday header */}
       <View style={styles.weekHeaderRow}>
-        {weekdayLabels.map((label) => (
-          <Text key={label} style={styles.weekHeaderText}>
+        {weekdayLabels.map((label, index) => (
+          <Text key={index} maxFontSizeMultiplier={1.35} style={styles.weekHeaderText}>
             {label}
           </Text>
         ))}
@@ -192,31 +180,50 @@ const MonthCalendar = ({
   );
 };
 
-export default function HistoryScreen() {
-  const { user } = useUser();
-  const [signUpDate, setSignUpDate] = useState(null);
-  const { getToken } = useAuth();
-  const {
-    shouldRefresh,
-    setShouldRefresh,
-    shouldRefreshGoals,
-    setShouldRefreshGoals,
-  } = useRefreshSignal();
+const previewNote = () => Alert.alert("UI preview", "This example stays local. No meal records are read or changed.");
+export default function HistoryScreen({ calmeraPreview = false } = {}) {
+  return calmeraPreview ? <HistoryPreview /> : <HistoryConnected />;
+}
 
+function HistoryConnected() {
+  const tabBarHeight = useBottomTabBarHeight();
   const [selectedDate, setSelectedDate] = useState(new Date());
-  // Temporarily suppress group layout animation immediately after a date switch
-  const [suppressGroupAnim, setSuppressGroupAnim] = useState(false);
+  const data = useNutritionData(selectedDate, true);
+  return <HistoryView selectedDate={selectedDate} setSelectedDate={setSelectedDate} data={data}
+    floatingBarInset={Platform.OS === "ios" ? tabBarHeight : 0} />;
+}
 
+function HistoryPreview() {
+  const [selectedDate, setSelectedDate] = useState(new Date(2026, 9, 19));
+  const data = useMemo(() => ({
+    dataByDate: { "2026-10-19": { entries: [
+      { id: "ui-history-banana", foodName: "Banana", mealType: "Breakfast", localTime: "09:00:00", calories: 105, protein: 1, carbs: 27, fat: 0 },
+      { id: "ui-history-toast", foodName: "Avocado toast", mealType: "Lunch", localTime: "12:00:00", calories: 280, protein: 8, carbs: 32, fat: 14 },
+    ], summary: { calories: 385, protein: 9, carbs: 59, fat: 14 } } },
+    profile: { createdAtLocalDate: "2026-09-01" },
+    goals: { calorieGoal: 2000, proteinGoal: 150, carbsGoal: 200, fatGoal: 50 },
+    error: null, refresh: async () => {}, deleteEntry: async () => previewNote(), historyLoading: false,
+  }), []);
+  return <HistoryView selectedDate={selectedDate} setSelectedDate={setSelectedDate} data={data} preview />;
+}
+
+function HistoryView({ selectedDate, setSelectedDate, data, floatingBarInset = 0, preview = false }) {
+  const { fontScale } = useWindowDimensions();
+  const { dataByDate, profile, goals, error, refresh, deleteEntry, historyLoading } = data;
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refresh(); } catch {} finally { setRefreshing(false); }
+  }, [refresh]);
+  const calorieGoal = goals.calorieGoal;
+  const signUpDate = useMemo(() => profile?.createdAtLocalDate
+    ? new Date(`${profile.createdAtLocalDate.split("T")[0]}T00:00:00`) : null, [profile?.createdAtLocalDate]);
+  const [suppressGroupAnim, setSuppressGroupAnim] = useState(false);
   useEffect(() => {
-    // Suppress for the first frame after changing the date
     setSuppressGroupAnim(true);
-    const id = setTimeout(() => setSuppressGroupAnim(false), 50); // ~1 frame at 60fps
+    const id = setTimeout(() => setSuppressGroupAnim(false), 50);
     return () => clearTimeout(id);
   }, [selectedDate]);
-  const [dataByDate, setDataByDate] = useState({}); // Cache per date
-  const [loading, setLoading] = useState(false);
-  const [goals, setGoals] = useState({});
-  const [calorieGoal, setCalorieGoal] = useState(null);
 
   // Store the last selected day for each month so we can return to it when navigating
   const lastSelectedPerMonth = useRef({}); // { '2025-6': Date }
@@ -248,248 +255,15 @@ export default function HistoryScreen() {
     );
   };
 
-  // ---- Helpers --------------------------------------------------
-  const fetchUserGoals = useCallback(async () => {
-    if (!user) return;
-    try {
-      const token = await getToken();
-      if (!token) {
-        // Clerk session not ready yet; try again on next focus/render without logging error
-        return;
-      }
-      const response = await fetch(`${USERS_API_URL}/get-user`, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!response.ok) throw new Error("Failed to fetch user goals");
-      const data = await response.json();
-      // Set signup date from backend data
-      if (data.createdAtLocalDate) {
-        // Ensure we interpret the date in local timezone at midnight to avoid UTC shift
-        const dateOnlyStr = data.createdAtLocalDate.split("T")[0]; // e.g. '2025-07-15'
-        setSignUpDate(new Date(`${dateOnlyStr}T00:00:00`));
-      }
-      const goalObj = {
-        calorieGoal: data.calorieGoal ?? data.calorie_goal ?? data.calories,
-        proteinGoal: data.proteinGoal ?? data.protein_goal ?? data.protein,
-        carbsGoal: data.carbsGoal ?? data.carbs_goal ?? data.carbs,
-        fatGoal: data.fatGoal ?? data.fat_goal ?? data.fat,
-      };
-      setGoals(goalObj);
-      setCalorieGoal(goalObj.calorieGoal);
-    } catch (error) {
-      console.error("Error fetching user goals", error);
-    }
-  }, [getToken, user]);
-
-  const fetchAllSummaries = useCallback(async () => {
-    try {
-      setLoading(true);
-      const token = await getToken();
-      if (!token) return;
-      const response = await fetch(`${FOOD_ENTRIES_API_URL}/summaries`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!response.ok) throw new Error("Failed to fetch summaries");
-      const allData = await response.json();
-      const transformed = {};
-      Object.keys(allData).forEach((dateKey) => {
-        const summaryObj = allData[dateKey];
-        transformed[dateKey] = {
-          entries: summaryObj.foodEntries || [],
-          summary: summaryObj,
-        };
-      });
-      setDataByDate(transformed);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  }, [getToken]);
-
-  // Fetch user goals (once)
-  useEffect(() => {
-    if (!user || Object.keys(goals).length > 0) return;
-    fetchUserGoals();
-  }, [user, goals, fetchUserGoals]);
-
-  // Fetch all summaries once when component mounts
-  useEffect(() => {
-    if (Object.keys(dataByDate).length === 0 && user) {
-      fetchAllSummaries();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
-
-  // Refresh goals when goal refresh signal is triggered
-  useEffect(() => {
-    if (shouldRefreshGoals) {
-      // 1) Refresh the latest goals (affects dot coloring going forward)
-      fetchUserGoals();
-
-      // 2) Refresh only TODAY's summary (the only one affected by a new goal)
-      const today = new Date();
-      fetchDailyData(today);
-
-      // 3) Clear the flag so it doesn't loop
-      setShouldRefreshGoals(false);
-    }
-    // Intentionally exclude fetchAllSummaries here for performance
-  }, [
-    shouldRefreshGoals,
-    fetchUserGoals,
-    fetchDailyData,
-    setShouldRefreshGoals,
-  ]);
-
-  // Helper to fetch daily summary & entries
-  const fetchDailyData = useCallback(
-    async (date) => {
-      setLoading(true);
-      const dateStr = getLocalDateString(date);
-      try {
-        const token = await getToken();
-        const response = await fetch(
-          `${FOOD_ENTRIES_API_URL}/summary-by-date/${dateStr}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-        if (!response.ok) throw new Error("Failed to fetch daily summary");
-        const data = await response.json();
-
-        setDataByDate((prev) => ({
-          ...prev,
-          [dateStr]: {
-            entries: data.foodEntries || [],
-            summary: data,
-          },
-        }));
-      } catch (error) {
-        console.error(error);
-        Alert.alert("Error", error.message);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [getToken]
-  );
-
-  // Refresh data when other screens (or this screen) signal an update
-  useEffect(() => {
-    if (shouldRefresh) {
-      // Refresh entire summaries cache so calendar dots stay accurate
-      fetchAllSummaries();
-      // Also refresh the currently visible day to guarantee latest values
-      fetchDailyData(selectedDate);
-      // Reset the flag so other consumers don’t re-trigger endlessly
-      setShouldRefresh(false);
-    }
-  }, [
-    shouldRefresh,
-    selectedDate,
-    fetchAllSummaries,
-    fetchDailyData,
-    setShouldRefresh,
-  ]);
-
-  const handleDelete = async (id) => {
-    Alert.alert(
-      "Delete Entry",
-      "Are you sure you want to delete this food entry?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            const entryToDelete = entries.find((e) => e.id === id);
-            if (!entryToDelete) return;
-
-            // Animate row removal
-            LayoutAnimation.configureNext(
-              LayoutAnimation.Presets.easeInEaseOut
-            );
-
-            // Optimistically update local cache
-            const dateKey = getLocalDateString(selectedDate);
-            setDataByDate((prev) => {
-              const dayData = prev[dateKey];
-              if (!dayData) return prev;
-
-              const subtract = (totals = {}) => ({
-                calories:
-                  Number(totals.calories || 0) -
-                  Number(entryToDelete.calories || 0),
-                protein:
-                  Number(totals.protein || 0) -
-                  Number(entryToDelete.protein || 0),
-                carbs:
-                  Number(totals.carbs || 0) - Number(entryToDelete.carbs || 0),
-                fat: Number(totals.fat || 0) - Number(entryToDelete.fat || 0),
-              });
-
-              const updatedEntries = dayData.entries.filter((e) => e.id !== id);
-
-              const mealType =
-                entryToDelete.mealType || entryToDelete.meal_type;
-              let updatedMealTotals = dayData.summary.mealTotals;
-              if (
-                mealType &&
-                updatedMealTotals &&
-                updatedMealTotals[mealType]
-              ) {
-                updatedMealTotals = {
-                  ...updatedMealTotals,
-                  [mealType]: subtract(updatedMealTotals[mealType]),
-                };
-              }
-
-              const updatedSummary = {
-                ...dayData.summary,
-                dailyTotals: subtract(dayData.summary.dailyTotals || {}),
-                mealTotals: updatedMealTotals,
-              };
-
-              return {
-                ...prev,
-                [dateKey]: {
-                  ...dayData,
-                  entries: updatedEntries,
-                  summary: updatedSummary,
-                },
-              };
-            });
-
-            // Make API request; rollback on failure
-            try {
-              const token = await getToken();
-              const response = await fetch(`${FOOD_ENTRIES_API_URL}/${id}`, {
-                method: "DELETE",
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                },
-              });
-              if (!response.ok) throw new Error("Failed to delete entry");
-
-              // Optionally notify other screens – skipped to avoid self-reload
-            } catch (error) {
-              console.error(error);
-              Alert.alert("Error", error.message);
-              // Roll back by refetching latest data
-              fetchDailyData(selectedDate);
-            }
-          },
-        },
-      ]
-    );
+  const handleDelete = (id) => {
+    Alert.alert("Delete Entry", "Are you sure you want to delete this food entry?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: async () => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        try { await deleteEntry(id); }
+        catch { Alert.alert("Couldn't delete meal", "Please try again."); }
+      } },
+    ]);
   };
 
   // Navigation between months
@@ -586,18 +360,18 @@ export default function HistoryScreen() {
 
   const mealOrder = ["Breakfast", "Lunch", "Dinner", "Snack"];
 
-  if (loading) {
-    return <PageLoader />;
-  }
-
   return (
     <View style={styles.container}>
       {/* Date navigation & summary */}
-      <ScrollView
+      <ScrollView key={`history-text-${fontScale}`} onScrollBeginDrag={closeOpenMealActions} directionalLockEnabled alwaysBounceHorizontal={false}
         style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 40 + floatingBarInset }}
+        scrollIndicatorInsets={{ bottom: floatingBarInset }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <View style={styles.headerContainer}>
+          <Text accessibilityRole="header" style={styles.pageTitle}>History</Text>
+          <FormCard style={styles.calendarCard}>
           {/* Month navigation + label */}
           <View style={styles.dateNav}>
             <ArrowButton
@@ -613,6 +387,13 @@ export default function HistoryScreen() {
             />
           </View>
 
+          {historyLoading && <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingBottom: 12 }}>
+            <ActivityIndicator size="small" color={COLORS.primary} />
+            <Text style={styles.emptyText}>Getting your meals…</Text>
+          </View>}
+          {error && <Pressable onPress={() => refresh().catch(() => {})} accessibilityRole="button" style={{ padding: 12 }}>
+            <Text style={styles.emptyText}>Meals couldn’t refresh. Tap to retry.</Text>
+          </Pressable>}
           {/* Week calendar row */}
           <MonthCalendar
             monthDate={selectedDate}
@@ -622,8 +403,10 @@ export default function HistoryScreen() {
             calorieGoal={calorieGoal}
             signUpDate={signUpDate}
           />
+          </FormCard>
           {entries.length > 0 && (
             <NutritionSummaryCard
+              onEditGoals={preview ? previewNote : undefined}
               summary={summary}
               goals={summary.goals || goals} // TODO: 1. what is || goal for ? 2. performance optimization: when the user updates goals, we only need to update today's goal and rerender today's summary card.
             />
@@ -643,11 +426,12 @@ export default function HistoryScreen() {
                 title={meal}
                 entries={groupedEntries[meal] || []}
                 onDelete={handleDelete}
+                onEdit={preview ? previewNote : undefined}
                 shouldAnimate={!suppressGroupAnim}
               />
             ))
           ) : (
-            <Text style={styles.emptyText}>No entries for this date.</Text>
+            <Text style={styles.emptyText}>{historyLoading ? "" : error ? "" : "No entries for this date."}</Text>
           )}
         </AnimatedContent>
       </ScrollView>
@@ -667,21 +451,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 0,
   },
+  pageTitle: { marginTop: 20, marginBottom: 20, textAlign: "center", fontSize: 18, fontWeight: "600", color: COLORS.text },
+  calendarCard: { padding: 12, gap: 0, marginBottom: 12 },
   dateNav: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 12,
-    marginBottom: 20,
+    marginTop: 0,
+    marginBottom: 12,
+    gap: 8,
   },
-  navButton: {
-    padding: 4,
-  },
+  navButton: { width: 44, height: 44, minHeight: 44 },
   dateText: {
     fontSize: 18,
     fontWeight: "600",
     color: COLORS.text,
-    marginHorizontal: 8,
+    marginHorizontal: 2,
+    flex: 1,
+    textAlign: "center",
   },
   mealGroupContainer: {
     marginBottom: 10,
@@ -709,8 +496,9 @@ const styles = StyleSheet.create({
   dayContainer: {
     alignItems: "center",
     justifyContent: "center",
+    minHeight: 44,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 14,
     width: `${100 / 7}%`,
   },
   daySelected: {

@@ -1,0 +1,86 @@
+import { useEffect, useRef } from "react";
+import { AccessibilityInfo, ActivityIndicator, Platform, Pressable, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { Ionicons } from "@expo/vector-icons";
+import { FORM_COLORS as COLORS } from "@/constants/formTheme";
+import { styles } from "@/assets/styles/auth.styles";
+import { FormHeader } from "@/components/GlassForm";
+
+export function AuthScreen({ title, subtitle, onBack, backDisabled = false, children, footer }) {
+  const { fontScale } = useWindowDimensions();
+  return <View style={styles.screen}>
+    {onBack ? <FormHeader title="calmera" onBack={onBack} backDisabled={backDisabled} /> : <Text key={`brand-${fontScale}`} style={styles.wordmark}>calmera</Text>}
+    <KeyboardAwareScrollView style={styles.scroll} contentContainerStyle={styles.content}
+      enableOnAndroid enableAutomaticScroll extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
+      keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+      <View key={fontScale} style={styles.column}>
+        <View style={styles.hero}>
+          <Text accessibilityRole="header" style={styles.title}>{title}</Text>
+          <Text style={styles.subtitle}>{subtitle}</Text>
+        </View>
+        {children}
+        {footer}
+      </View>
+    </KeyboardAwareScrollView>
+  </View>;
+}
+
+export function AuthField({ label, error = false, code = false, hint, style, calmeraPreview = false, ...props }) {
+  return <View style={styles.field}>
+    <Text style={styles.label}>{label}</Text>
+    <TextInput accessibilityLabel={label} placeholderTextColor={COLORS.textLight}
+      style={[styles.input, code && styles.codeInput, error && styles.errorInput, style]}
+      autoCorrect={false} {...props}
+      autoComplete={calmeraPreview ? "off" : props.autoComplete}
+      textContentType={calmeraPreview ? "none" : props.textContentType} />
+    {hint && <Text style={styles.hint}>{hint}</Text>}
+  </View>;
+}
+
+// Android uses the live region below; iOS needs an explicit announcement.
+// Delay until the message is laid out, and cancel stale/unmounted messages.
+function useAuthAnnouncement(message) {
+  const lastAnnounced = useRef("");
+  const text = typeof message === "string" ? message.trim() : "";
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    if (!text) { lastAnnounced.current = ""; return; }
+    if (lastAnnounced.current === text) return;
+    const timer = setTimeout(() => {
+      lastAnnounced.current = text;
+      if (AccessibilityInfo.announceForAccessibilityWithOptions) {
+        AccessibilityInfo.announceForAccessibilityWithOptions(text, { queue: true });
+      } else AccessibilityInfo.announceForAccessibility(text);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [text]);
+}
+
+export function AuthNotice({ children, error = false }) {
+  useAuthAnnouncement(children);
+  if (!children) return null;
+  return <View accessibilityLiveRegion="polite" style={[styles.notice, error && styles.errorNotice]}>
+    <Ionicons name={error ? "alert-circle-outline" : "information-circle-outline"}
+      size={20} color={error ? COLORS.expense : COLORS.primary} />
+    <Text style={styles.noticeText}>{children}</Text>
+  </View>;
+}
+
+export function AuthLink({ children, onPress, style, disabled = false }) {
+  return <Pressable onPress={onPress} disabled={disabled} accessibilityRole="link"
+    accessibilityState={{ disabled }} style={[styles.link, style]}>
+    <Text style={styles.linkText}>{children}</Text>
+  </Pressable>;
+}
+
+export function AuthBusy({ children }) {
+  useAuthAnnouncement(children);
+  return <View accessibilityLiveRegion="polite" style={styles.busy}>
+    <ActivityIndicator color={COLORS.primary} />
+    <Text style={[styles.subtitle, { flex: 1 }]}>{children}</Text>
+  </View>;
+}
+
+export function isAuthEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}

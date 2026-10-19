@@ -1,11 +1,11 @@
-import { View, Text, TouchableOpacity } from "react-native";
+import { View, Text } from "react-native";
 import { styles } from "../assets/styles/home.styles";
-import Ionicons from "@expo/vector-icons/Ionicons";
 import { COLORS, RAINBOW_COLORS } from "../constants/colors";
 import ProgressRing from "./ProgressRing";
+import SummaryGoalsMenu from "./SummaryGoalsMenu";
 import { useRouter } from "expo-router";
 
-export const NutritionSummaryCard = ({ summary = {}, goals = {} }) => {
+export const NutritionSummaryCard = ({ summary = {}, goals = {}, onEditGoals }) => {
   const router = useRouter();
   // Extract consumed values (fallback to 0 if not provided)
   const calories = Number(
@@ -50,17 +50,15 @@ export const NutritionSummaryCard = ({ summary = {}, goals = {} }) => {
     return `${consumed}${unit}`;
   };
 
+  const editGoals = () => onEditGoals ? onEditGoals() : router.push("/update-goals");
+  const accessibilitySummary = `Nutrition summary. Calories ${formatCalories(calories, calorieGoal)}. Protein ${formatMacro(protein, proteinGoal, " grams")}. Carbs ${formatMacro(carbs, carbsGoal, " grams")}. Fat ${formatMacro(fat, fatGoal, " grams")}.`;
+
   return (
-    <View style={styles.balanceCard}>
-      <TouchableOpacity
-        style={styles.balanceCardEditBtn}
-        onPress={() => router.push("/update-goals")}
-        activeOpacity={0.8}
-        accessibilityRole="button"
-        accessibilityLabel="Edit nutrition goals"
-      >
-        <Ionicons name="create-outline" size={20} color={COLORS.primary} />
-      </TouchableOpacity>
+    <View style={styles.balanceCard} accessible accessibilityRole="summary"
+      accessibilityLabel={accessibilitySummary}
+      accessibilityHint="Long press for Edit goals."
+      accessibilityActions={[{ name: "editGoals", label: "Edit goals" }]}
+      onAccessibilityAction={({ nativeEvent }) => { if (nativeEvent.actionName === "editGoals") editGoals(); }}>
       {/* Calories row: left stack, right ring */}
       <View
         style={{
@@ -166,6 +164,7 @@ export const NutritionSummaryCard = ({ summary = {}, goals = {} }) => {
           </Text>
         </View>
       </View>
+      <SummaryGoalsMenu onEditGoals={editGoals} />
     </View>
   );
 };

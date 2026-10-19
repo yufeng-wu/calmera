@@ -1,30 +1,42 @@
-import { View, Text, Alert, TouchableOpacity, Platform } from "react-native";
-import { useUser, useAuth } from "@clerk/clerk-expo";
-import { useRouter } from "expo-router";
-import { FOOD_ENTRIES_API_URL, ESTIMATE_MACROS_API_URL } from "@/constants/api";
+import { estimateMacros, inferenceError } from "@/lib/chatgpt/nutrition";
+import { View, Text, Alert, Platform, StyleSheet } from "react-native";
+import { useAuth } from "@clerk/clerk-expo";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import Constants from "expo-constants";
+import { FOOD_ENTRIES_API_URL } from "@/constants/api";
 import { useState } from "react";
-import { styles } from "@/assets/styles/create.styles";
-import { COLORS } from "@/constants/colors";
-import { Ionicons } from "@expo/vector-icons";
+import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { FoodEntryFormCard } from "@/components/FoodEntryFormCard";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { getLocalTimeWithOffset } from "@/lib/utils";
+import usePageExit from "@/hooks/usePageExit";
+import { FormHeader } from "@/components/GlassForm";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const CreateScreen = () => {
+const CreateScreen = ({ calmeraPreview = false } = {}) => {
   const router = useRouter();
-  const { user } = useUser();
-  const { getToken } = useAuth();
+  const { calmeraFixture } = useLocalSearchParams();
+  // A fixed synthetic fixture is available only in the separate full-test build.
+  // It never submits, estimates, signs in or supplies credentials automatically.
+  const phoneTestFixture = Constants.expoConfig?.extra?.calmeraFullAppTest === true &&
+    calmeraFixture === "banana-phone";
+  // The visual fixture uses this same form, with all network operations blocked.
+  const uiTestFixture = Constants.expoConfig?.extra?.calmeraFullAppTest === true &&
+    (calmeraPreview || calmeraFixture === "ui-manual");
+  const exit = usePageExit(uiTestFixture ? "/ui-gallery" : "/dashboard");
+  const insets = useSafeAreaInsets();
+  const { getToken, userId } = useAuth();
   const { setShouldRefresh } = useRefreshSignal();
 
-  const [foodName, setFoodName] = useState("");
+  const [foodName, setFoodName] = useState(phoneTestFixture ? "Banana - CALMERA PHONE TEST 2026-10-18" : uiTestFixture ? "Banana" : "");
   const [calories, setCalories] = useState("");
   const [protein, setProtein] = useState("");
   const [carbs, setCarbs] = useState("");
   const [fat, setFat] = useState("");
   const [mealType, setMealType] = useState("Breakfast");
   const [isLoading, setIsLoading] = useState(false);
-  const [quantity, setQuantity] = useState("");
+  const [quantity, setQuantity] = useState(phoneTestFixture || uiTestFixture ? "118 g" : "");
   const [isEstimating, setIsEstimating] = useState(false);
   const [lastEstimated, setLastEstimated] = useState({
     foodName: "",
@@ -43,6 +55,9 @@ const CreateScreen = () => {
     }
     if (!calories || isNaN(parseFloat(calories)) || parseFloat(calories) < 0)
       return Alert.alert("Error", "Calories must be a non-negative number");
+    if (uiTestFixture) {
+      return Alert.alert("Preview only", "The form is valid. Nothing was sent or saved.");
+    }
     setIsLoading(true);
     try {
       const token = await getToken();
@@ -78,7 +93,8 @@ const CreateScreen = () => {
 
       // Signal home screen to refresh entries, then navigate back home
       setShouldRefresh(true);
-      router.back();
+      if (router.canGoBack()) router.back();
+      else router.replace("/dashboard");
     } catch (error) {
       Alert.alert("Error", error.message);
       console.error("Error creating food entry:", error);
@@ -94,24 +110,12 @@ const CreateScreen = () => {
         "Food name and quantity are required for estimation"
       );
     }
+    if (uiTestFixture) {
+      return Alert.alert("Preview only", "Estimation is disabled for this visual test. You can enter macros manually.");
+    }
     setIsEstimating(true);
     try {
-      const token = await getToken();
-      const resp = await fetch(ESTIMATE_MACROS_API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ foodName, quantity }),
-      });
-      if (!resp.ok) {
-        const errData = await resp.json();
-        throw new Error(
-          errData.error || errData.message || "Estimation failed"
-        );
-      }
-      const data = await resp.json();
+      const data = await estimateMacros(userId, foodName, quantity);
 
       // If backend normalized the quantity (e.g., added "count(s)") reflect that in the UI
       if (data.normalizedQuantity) {
@@ -130,7 +134,7 @@ const CreateScreen = () => {
       });
       setShowMacros(true);
     } catch (err) {
-      Alert.alert("Error", err.message);
+      inferenceError(err, router);
     } finally {
       setIsEstimating(false);
     }
@@ -143,48 +147,27 @@ const CreateScreen = () => {
       quantity.trim() === lastEstimated.quantity);
 
   return (
-    <KeyboardAwareScrollView
-      style={{ flex: 1 }}
-      contentContainerStyle={{ flexGrow: 1, paddingBottom: 10 }}
-      enableOnAndroid={true}
-      enableAutomaticScroll={true}
-      extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
-      keyboardShouldPersistTaps="handled"
-      enableResetScrollToCoords={false}
-    >
-      <View style={styles.container}>
-        {/* HEADER */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>New Food Entry</Text>
-          <TouchableOpacity
-            style={[
-              styles.saveButtonContainer,
-              isLoading && styles.saveButtonDisabled,
-            ]}
-            onPress={handleCreate}
-            disabled={isLoading}
-          >
-            <Text
-              style={[
-                styles.saveButton,
-                isLoading && styles.saveButtonDisabled,
-              ]}
-            >
-              {isLoading ? "Saving..." : "Save"}
-            </Text>
-            {!isLoading && (
-              <Ionicons name="checkmark" size={18} color={COLORS.primary} />
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* FORM */}
+    <View style={screen.container}>
+      <FormHeader
+        title="Manual"
+        onBack={exit}
+        onSave={handleCreate}
+        saving={isLoading}
+        saveDisabled={isLoading || isEstimating}
+        backDisabled={isLoading}
+      />
+      <KeyboardAwareScrollView
+        style={screen.scroll}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 28 }}
+        enableOnAndroid={true}
+        enableAutomaticScroll={true}
+        extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
+        keyboardShouldPersistTaps="handled"
+        enableResetScrollToCoords={false}
+      >
+        {uiTestFixture && (
+          <Text style={screen.fixtureNote}>Visual test · nothing is sent or saved</Text>
+        )}
         <FoodEntryFormCard
           foodName={foodName}
           setFoodName={setFoodName}
@@ -204,10 +187,17 @@ const CreateScreen = () => {
           isEstimating={isEstimating}
           estimateDisabled={estimateDisabled}
           showMacros={showMacros}
+          onEnterMacros={() => setShowMacros(true)}
         />
-      </View>
-    </KeyboardAwareScrollView>
+      </KeyboardAwareScrollView>
+    </View>
   );
 };
+
+const screen = StyleSheet.create({
+  container: { flex: 1, backgroundColor: COLORS.background },
+  scroll: { flex: 1 },
+  fixtureNote: { color: COLORS.textLight, textAlign: "center", fontSize: 13, paddingHorizontal: 20, paddingTop: 8 },
+});
 
 export default CreateScreen;

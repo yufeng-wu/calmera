@@ -8,7 +8,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test:chatgpt": "node --test tests/chatgpt-*.test.mjs"
   },
   "dependencies": {
     "@clerk/clerk-expo": "^2.12.0",
@@ -59,7 +60,8 @@
     "react-native-svg": "^15.11.2",
     "react-native-swipe-list-view": "^3.2.9",
     "react-native-web": "~0.20.0",
-    "stripe": "^18.5.0"
+    "stripe": "^18.5.0",
+    "expo-crypto": "~14.1.5"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

@@ -1,3 +1,4 @@
+import { Redirect } from "expo-router";
 import { View, Text, TouchableOpacity, Alert, ScrollView } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,7 +14,7 @@ import { useState, useEffect } from "react";
 import { usePremium } from "@/context/PremiumContext";
 import { ActivityIndicator } from "react-native";
 
-export default function GoPremium() {
+export function LegacyGoPremium() {
   const router = useRouter();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const { getToken } = useAuth();
@@ -284,4 +285,8 @@ export default function GoPremium() {
       </LinearGradient>
     </ScrollView>
   );
+}
+
+export default function GoPremium() {
+  return <Redirect href="/chatgpt" />;
 }

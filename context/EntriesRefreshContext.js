@@ -1,31 +1,28 @@
-// React context to signal when the food-entries list and goals should be refreshed across screens.
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useAuth } from "@clerk/clerk-expo";
+import { createNutritionStore } from "@/lib/nutritionStore.mjs";
 
-// The context holds boolean flags and their setters for both entries and goals.
-const EntriesRefreshContext = createContext({
-  shouldRefresh: false,
-  shouldRefreshGoals: false,
-  // eslint-disable-next-line no-empty-function
-  setShouldRefresh: () => {},
-  // eslint-disable-next-line no-empty-function
-  setShouldRefreshGoals: () => {},
-});
+const EntriesRefreshContext = createContext(null);
 
 export const EntriesRefreshProvider = ({ children }) => {
-  const [shouldRefresh, setShouldRefresh] = useState(false);
-  const [shouldRefreshGoals, setShouldRefreshGoals] = useState(false);
-  return (
-    <EntriesRefreshContext.Provider
-      value={{
-        shouldRefresh,
-        setShouldRefresh,
-        shouldRefreshGoals,
-        setShouldRefreshGoals,
-      }}
-    >
-      {children}
-    </EntriesRefreshContext.Provider>
-  );
+  const { userId } = useAuth();
+  const store = useMemo(() => createNutritionStore({ ownerKey: userId }), [userId]);
+  const [entriesRevision, setEntriesRevision] = useState(0);
+  const [goalsRevision, setGoalsRevision] = useState(0);
+  useEffect(() => { store.retain(); return () => store.release(); }, [store]);
+  const setShouldRefresh = useCallback((changed) => {
+    if (!changed) return;
+    store.invalidateEntries();
+    setEntriesRevision((value) => value + 1);
+  }, [store]);
+  const setShouldRefreshGoals = useCallback((changed) => {
+    if (!changed) return;
+    store.invalidateProfile();
+    setGoalsRevision((value) => value + 1);
+  }, [store]);
+  const value = useMemo(() => ({ store, entriesRevision, goalsRevision, setShouldRefresh, setShouldRefreshGoals }),
+    [store, entriesRevision, goalsRevision, setShouldRefresh, setShouldRefreshGoals]);
+  return <EntriesRefreshContext.Provider value={value}>{children}</EntriesRefreshContext.Provider>;
 };
 
 export const useRefreshSignal = () => useContext(EntriesRefreshContext);

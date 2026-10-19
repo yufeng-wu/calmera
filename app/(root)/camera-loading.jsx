@@ -1,3 +1,4 @@
+import LiveComingSoon from "@/components/LiveComingSoon";
 import { useEffect, useState, useRef } from "react";
 import {
   View,
@@ -14,7 +15,7 @@ import "@tensorflow/tfjs-react-native";
 import { loadModel, isModelLoaded } from "@/lib/tfModels";
 import { COLORS } from "@/constants/colors";
 
-export default function CameraLoadingScreen() {
+export function LegacyCameraLoadingScreen() {
   const router = useRouter();
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("Preparing ML backend…");
@@ -146,3 +147,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 });
+
+export default function CameraLoadingScreen() {
+  return <LiveComingSoon />;
+}

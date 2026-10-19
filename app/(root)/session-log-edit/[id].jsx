@@ -1,34 +1,28 @@
-import { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  Alert,
-  TouchableOpacity,
-  ActivityIndicator,
-  Platform,
-} from "react-native";
+import { estimateMacros, inferenceError } from "@/lib/chatgpt/nutrition";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Platform, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
-import { Ionicons } from "@expo/vector-icons";
-import { styles } from "@/assets/styles/create.styles";
-import { COLORS } from "@/constants/colors";
-import { ESTIMATE_MACROS_API_URL } from "@/constants/api";
-import {
-  getLogEntryById,
-  updateLogEntryById,
-} from "@/lib/scale/sessionManager";
+import { FORM_COLORS as COLORS } from "@/constants/formTheme";
+import { getLogEntryById, updateLogEntryById } from "@/lib/scale/sessionManager";
 import { FoodEntryFormCard } from "@/components/FoodEntryFormCard";
+import { FormCard, FormHeader, formStyles } from "@/components/GlassForm";
+import usePageExit from "@/hooks/usePageExit";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
-export default function EditSessionLogEntry() {
-  const router = useRouter();
-  const { id } = useLocalSearchParams();
-  const { getToken } = useAuth();
+const previewEntry = { foodName: "Banana — UI preview", absDeltaWeight: 118, direction: "add",
+  nutritionInfo: { calories: 105, protein: 1, carbs: 27, fat: 0 } };
 
+export default function EditSessionLogEntry({ calmeraPreview = false }) {
+  const router = useRouter();
+  const { fontScale } = useWindowDimensions();
+  const { id } = useLocalSearchParams();
+  const { userId } = useAuth();
+  const savingRef = useRef(false);
+  const estimatingRef = useRef(false);
   const [isFetching, setIsFetching] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-
-  // Local editable state
+  const [loadError, setLoadError] = useState("");
   const [foodName, setFoodName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [calories, setCalories] = useState("");
@@ -36,31 +30,22 @@ export default function EditSessionLogEntry() {
   const [carbs, setCarbs] = useState("");
   const [fat, setFat] = useState("");
   const [direction, setDirection] = useState("add");
-
-  // AI estimation helpers
   const [isEstimating, setIsEstimating] = useState(false);
-  const [lastEstimated, setLastEstimated] = useState({
-    foodName: "",
-    quantity: "",
-  });
+  const [lastEstimated, setLastEstimated] = useState({ foodName: "", quantity: "" });
   const [showMacros, setShowMacros] = useState(true);
+  const entryId = Array.isArray(id) ? id[0] : id;
+  const goBack = usePageExit(calmeraPreview ? "/ui-gallery" : "/dashboard");
 
-  // Fetch entry from the in-memory session log
   useEffect(() => {
-    if (!id) {
-      Alert.alert("Error", "Invalid log entry id");
-      router.back();
-      return;
-    }
-
-    const entry = getLogEntryById(String(id));
+    setIsFetching(true);
+    setLoadError("");
+    // Preview never reads the user's active scale session.
+    const entry = calmeraPreview ? previewEntry : entryId ? getLogEntryById(String(entryId)) : null;
     if (!entry) {
-      Alert.alert("Error", "Log entry not found in current session");
-      router.back();
+      setLoadError(entryId ? "This item is no longer in the current session." : "Invalid log entry. Go back and choose an item again.");
+      setIsFetching(false);
       return;
     }
-
-    // Populate UI state
     setFoodName(entry.foodName ?? "");
     setCalories(String(entry.nutritionInfo?.calories ?? ""));
     setProtein(String(entry.nutritionInfo?.protein ?? ""));
@@ -68,155 +53,70 @@ export default function EditSessionLogEntry() {
     setFat(String(entry.nutritionInfo?.fat ?? ""));
     setQuantity(String(entry.absDeltaWeight ?? ""));
     setDirection(entry.direction ?? "add");
-    setLastEstimated({
-      foodName: entry.foodName ?? "",
-      quantity: String(entry.absDeltaWeight ?? ""),
-    });
-
+    setLastEstimated({ foodName: entry.foodName ?? "", quantity: String(entry.absDeltaWeight ?? "") });
     setIsFetching(false);
-  }, [id]);
+  }, [entryId, calmeraPreview]);
 
   const handleSave = () => {
+    if (savingRef.current || isFetching || isEstimating || loadError) return;
     if (!foodName.trim()) return Alert.alert("Error", "Food name is required");
-    if (!calories || isNaN(parseFloat(calories)) || Number(calories) < 0) {
+    if (!calories || isNaN(parseFloat(calories)) || Number(calories) < 0)
       return Alert.alert("Error", "Calories must be a non-negative number");
-    }
-
+    if (calmeraPreview) return Alert.alert("Preview only", "Changes validated. No scale-session item was updated.");
+    savingRef.current = true;
     setIsSaving(true);
-    const success = updateLogEntryById(String(id), {
-      foodName: foodName.trim(),
-      absDeltaWeight: quantity ? Number(quantity) : undefined,
-      direction,
-      nutritionInfo: {
-        calories: calories ? Number(calories) : undefined,
-        protein: protein ? Number(protein) : undefined,
-        carbs: carbs ? Number(carbs) : undefined,
-        fat: fat ? Number(fat) : undefined,
-      },
+    const success = updateLogEntryById(String(entryId), {
+      foodName: foodName.trim(), absDeltaWeight: quantity ? Number(quantity) : undefined, direction,
+      nutritionInfo: { calories: calories ? Number(calories) : undefined,
+        protein: protein ? Number(protein) : undefined, carbs: carbs ? Number(carbs) : undefined,
+        fat: fat ? Number(fat) : undefined },
     });
-
+    savingRef.current = false;
     setIsSaving(false);
-    if (!success) {
-      Alert.alert("Error", "Failed to update entry – session may have ended");
-      return;
-    }
-
-    router.back();
+    if (!success) return Alert.alert("Error", "Failed to update entry – session may have ended");
+    goBack();
   };
 
   const handleEstimateMacros = async () => {
-    if (!foodName.trim() || !quantity.trim()) {
-      return Alert.alert(
-        "Error",
-        "Food name and quantity are required for estimation"
-      );
-    }
-
+    if (estimatingRef.current || isSaving) return;
+    if (!foodName.trim() || !quantity.trim())
+      return Alert.alert("Error", "Food name and quantity are required for estimation");
+    estimatingRef.current = true;
     setIsEstimating(true);
     try {
-      const token = await getToken();
-      const resp = await fetch(ESTIMATE_MACROS_API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ foodName, quantity: `${quantity} g` }),
-      });
-      if (!resp.ok) {
-        const err = await resp.json();
-        throw new Error(err.message || "Estimation failed");
-      }
-      const data = await resp.json();
+      const data = calmeraPreview ? previewEntry.nutritionInfo : await estimateMacros(userId, foodName, `${quantity} g`);
       setCalories(String(data.calories ?? ""));
       setProtein(String(data.protein ?? ""));
       setCarbs(String(data.carbs ?? ""));
       setFat(String(data.fat ?? ""));
       setLastEstimated({ foodName, quantity });
       setShowMacros(true);
-    } catch (err) {
-      Alert.alert("Error", err.message);
-    } finally {
-      setIsEstimating(false);
-    }
+    } catch (err) { inferenceError(err, router); }
+    finally { estimatingRef.current = false; setIsEstimating(false); }
   };
+  const estimateDisabled = isSaving || !foodName.trim() || !quantity.trim()
+    || (foodName.trim() === lastEstimated.foodName && quantity.trim() === lastEstimated.quantity);
 
-  const estimateDisabled =
-    !foodName.trim() ||
-    !quantity.trim() ||
-    (foodName.trim() === lastEstimated.foodName &&
-      quantity.trim() === lastEstimated.quantity);
-
-  if (isFetching) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
-  }
-
-  return (
-    <KeyboardAwareScrollView
-      style={{ flex: 1 }}
-      contentContainerStyle={{ flexGrow: 1, paddingBottom: 10 }}
-      enableOnAndroid={true}
-      enableAutomaticScroll={true}
-      extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
-      keyboardShouldPersistTaps="handled"
-      enableResetScrollToCoords={false}
-    >
-      <View style={styles.container}>
-        {/* HEADER */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Edit Item</Text>
-          <TouchableOpacity
-            style={[
-              styles.saveButtonContainer,
-              isSaving && styles.saveButtonDisabled,
-            ]}
-            onPress={handleSave}
-            disabled={isSaving}
-          >
-            <Text
-              style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
-            >
-              {isSaving ? "Saving..." : "Save"}
-            </Text>
-            {!isSaving && (
-              <Ionicons name="checkmark" size={18} color={COLORS.primary} />
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* FORM */}
-        <FoodEntryFormCard
-          foodName={foodName}
-          setFoodName={setFoodName}
-          quantity={quantity}
-          setQuantity={setQuantity}
-          gramsOnly={true}
-          calories={calories}
-          setCalories={setCalories}
-          protein={protein}
-          setProtein={setProtein}
-          carbs={carbs}
-          setCarbs={setCarbs}
-          fat={fat}
-          setFat={setFat}
-          showMealType={false}
-          showEstimateButton={true}
-          onEstimateMacros={handleEstimateMacros}
-          isEstimating={isEstimating}
-          estimateDisabled={estimateDisabled}
-          showMacros={showMacros}
-        />
-      </View>
+  return <View style={formStyles.screen}>
+    <FormHeader title="Edit Item" onBack={goBack} onSave={handleSave} saving={isSaving} backDisabled={isSaving}
+      saveDisabled={isFetching || isEstimating || !!loadError} />
+    <KeyboardAwareScrollView key={`editor-text-${fontScale}`} style={formStyles.screen} contentContainerStyle={{ paddingTop: 12, paddingBottom: 40, gap: 18 }}
+      enableOnAndroid enableAutomaticScroll extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
+      keyboardShouldPersistTaps="handled" enableResetScrollToCoords={false}>
+      {calmeraPreview && <Text style={[formStyles.caption, { marginHorizontal: 20 }]}>Synthetic preview · nothing is saved</Text>}
+      {isFetching ? <FormCard style={localStyles.statusCard}>
+        <ActivityIndicator color={COLORS.primary} accessibilityLabel="Loading session item" />
+        <Text style={formStyles.caption}>Loading your item…</Text>
+      </FormCard> : loadError ? <FormCard style={{ marginHorizontal: 20 }}>
+        <Text style={formStyles.sectionTitle}>Item unavailable</Text>
+        <Text style={formStyles.caption}>{loadError}</Text>
+      </FormCard> : <FoodEntryFormCard
+        foodName={foodName} setFoodName={setFoodName} quantity={quantity} setQuantity={setQuantity}
+        gramsOnly calories={calories} setCalories={setCalories} protein={protein} setProtein={setProtein}
+        carbs={carbs} setCarbs={setCarbs} fat={fat} setFat={setFat} showMealType={false}
+        showEstimateButton onEstimateMacros={handleEstimateMacros} isEstimating={isEstimating}
+        estimateDisabled={estimateDisabled} showMacros={showMacros} />}
     </KeyboardAwareScrollView>
-  );
+  </View>;
 }
+const localStyles = StyleSheet.create({ statusCard: { marginHorizontal: 20, minHeight: 160, alignItems: "center", justifyContent: "center" } });
