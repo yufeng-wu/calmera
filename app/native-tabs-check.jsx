@@ -36,6 +36,7 @@ export default function NativeTabsCheck() {
         <Text>Spacing: {JSON.stringify(optionSpacing)}</Text>
         <Text>Voice events: {voiceEvents}</Text>
         <Text>Menu state: processing={menuMetrics.processing ?? 0} addTitleVisible={menuMetrics.addTitleVisible ?? 0}</Text>
+        <Text>Voice return: samples={menuMetrics.voiceReturnSamples ?? 0} · bad frames={menuMetrics.voiceReturnBadSamples ?? 0} · max anchor drift={Number(menuMetrics.voiceReturnMaxAnchorError ?? 0).toFixed(2)} pt · start width={Number(menuMetrics.voiceReturnStartWidth ?? 0).toFixed(1)} pt</Text>
         <Text>Scroll offset: {offset} · Touches: {touches} · Moves: {moves}</Text>
         <Pressable onPress={() => setShowBar(!showBar)} style={{ padding: 12 }}><Text>Toggle native bar: {showBar ? "visible" : "hidden"}</Text></Pressable>
         <Pressable onPress={() => scroll.current?.scrollToEnd({ animated: false })} style={{ padding: 12 }}><Text>Check last row</Text></Pressable>
@@ -52,7 +53,7 @@ export default function NativeTabsCheck() {
         mockTimer.current = setTimeout(() => { setMockProcessing(false); setExpanded(false); }, 4000);
       }}
       recording={mockRecording} analyzing={mockProcessing} voiceWidth={ADD_MENU_OPTION_WIDTH} seconds={7}
-      onMenuMetrics={(next) => setMenuMetrics((previous) => previous.processing === next.processing && previous.addTitleVisible === next.addTitleVisible ? previous : next)}
+      onMenuMetrics={(next) => setMenuMetrics((previous) => previous.processing === next.processing && previous.addTitleVisible === next.addTitleVisible && previous.voiceReturnSamples === next.voiceReturnSamples ? previous : next)}
       onOptionSpacing={(name, left, right) => setOptionSpacing((previous) => previous[name]?.[0] === left && previous[name]?.[1] === right ? previous : { ...previous, [name]: [left, right] })}
       onOptionLayout={(name, width) => setOptionWidths((previous) => previous[name] === width ? previous : { ...previous, [name]: width })} />
     {showBar && <SystemTabsInteractionCheck selectedIndex={selected} bottomInset={insets.bottom}

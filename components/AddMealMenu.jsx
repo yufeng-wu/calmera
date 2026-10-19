@@ -129,5 +129,6 @@ export default function AddMealMenu(props) {
   return <NativeMenu style={StyleSheet.absoluteFill}
     expanded={props.expanded} recording={Boolean(props.recording)} analyzing={Boolean(props.analyzing)}
     seconds={props.seconds || 0} bottomInset={props.bottomInset || 0} optionWidth={ADD_MENU_OPTION_WIDTH}
+    motionDiagnostics={Boolean(props.onMenuMetrics)}
     onAction={onAction} onMetrics={props.onOptionLayout || props.onOptionSpacing || props.onMenuMetrics ? onMetrics : undefined} />;
 }

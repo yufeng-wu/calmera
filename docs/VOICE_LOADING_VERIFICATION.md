@@ -1,6 +1,16 @@
 # Voice feedback and cached navigation
 
-## Latest verified result
+## October 19: anchored Voice release spring
+
+The native menu no longer copies a glass layer's entire presentation frame into its UIView frame when interrupting recording growth. It captures only the current width, clamps it to the menu, clears the old growth animation/transform and reconstructs placement from the Voice slot's own right/top anchor. Release uses a 0.38 s damped spring (damping 0.80), starting from that anchored model frame without asking beginFromCurrentState to reuse an unrelated presentation coordinate space. Recording/Processing changes also retain the existing glass effect instance instead of rematerializing it. Processing text and its activity indicator remain; inference, recording and persistence logic are unchanged.
+
+The synthetic native-tabs-check route reuses the production menu but replaces voice callbacks with local state. Its optional motion diagnostics sample presentation layers converted into the menu's coordinate space; raw CALayer presentation.frame is not a comparable UIView-superview coordinate. Diagnostics are disabled in production use and contain only geometry.
+
+Validation: scoped ESLint and the 60 existing mobile Node tests passed; Release simulator build passed and was installed. A 10 s synthetic held press produced start/end, shrank from about 215.7 pt to the readable 150 pt Processing capsule and retained the spinner. 25 return samples stayed localized, with a maximum 5.86 pt presentation-anchor displacement including native interactive settling. An approximately 650 ms held press interrupted initial growth, returned from about 160.1 pt, and showed 7.18 pt maximum local displacement over 25 samples. These measurements are not claims of zero visual movement; small local elastic settling remains intentional. Neither case showed the screen-corner flight, and Processing completion restored addTitleVisible=1.
+
+No microphone, speech/transcript, inference, account data, database record or physical iPhone was used in these animation checks; screenshots were inspected live without export.
+
+## Earlier verified pipeline result
 
 Revision 3 was verified through an actual user-controlled microphone recording in the Mac simulator, using the requested fictional-food phrase. The user confirmed that Processing appeared. The metadata-only trace showed: recording at 136 ms; release/Processing at 5392 ms; expo-av status duration 0 ms; actual finalized media duration 5293 ms; transcription at 5424 ms; estimation at 11139 ms; saving at 19408 ms; completion at 19795 ms; idle at 19866 ms. The real save adapter resolved successfully. No transcript, model output, meal records or credentials were inspected for this verification.
 

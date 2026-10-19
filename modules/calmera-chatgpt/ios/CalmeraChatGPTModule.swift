@@ -64,6 +64,7 @@ public final class CalmeraChatGPTModule: Module {
       Prop("seconds") { (view: CalmeraActionMenuView, value: Int) in view.seconds = value }
       Prop("bottomInset") { (view: CalmeraActionMenuView, value: Double) in view.bottomInset = CGFloat(max(0, value)) }
       Prop("optionWidth") { (view: CalmeraActionMenuView, value: Double) in view.optionWidth = CGFloat(min(300, max(120, value))) }
+      Prop("motionDiagnostics") { (view: CalmeraActionMenuView, value: Bool) in view.motionDiagnostics = value }
       OnViewDidUpdateProps { (view: CalmeraActionMenuView) in view.render() }
     }
     AsyncFunction("startCallback") { (state: String, promise: Promise) in
@@ -259,6 +260,7 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
   var seconds = 0
   var bottomInset: CGFloat = 0
   var optionWidth: CGFloat = 120
+  var motionDiagnostics = false
   private let container = UIVisualEffectView()
   private var glasses: [UIVisualEffectView] = []
   private var buttons: [UIButton] = []
@@ -274,6 +276,12 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
   private var lastBounds = CGRect.zero
   private var visible = [false, false, false, true]
   private var voiceAnimator: UIViewPropertyAnimator?
+  private var voiceReturnLink: CADisplayLink?
+  private var voiceReturnGeneration = 0
+  private var voiceReturnSamples = 0
+  private var voiceReturnMaxAnchorError: CGFloat = 0
+  private var voiceReturnBadSamples = 0
+  private var voiceReturnStartWidth: CGFloat = 0
   private let tint = UIColor(red: 188/255, green: 90/255, blue: 25/255, alpha: 1)
   private var itemHeight: CGFloat { max(48, UIFontMetrics(forTextStyle: .body).scaledValue(for: 48)) }
   private var triggerHeight: CGFloat { max(56, UIFontMetrics(forTextStyle: .body).scaledValue(for: 56)) }
@@ -415,6 +423,7 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
   func render(animated: Bool = true, force: Bool = false) {
     guard bounds.width > 40, glasses.count == 4 else { return }
     let first = priorExpanded == nil
+    let previousVisibility = visible
     let changed = force || priorExpanded != expanded || priorRecording != recording || priorAnalyzing != analyzing
     labels[2].text = analyzing ? "Processing…" : recording ? "\(seconds)s · Release" : "Voice"
     icons[2].image = analyzing ? nil : UIImage(systemName: recording ? "waveform" : "mic")
@@ -438,6 +447,8 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
     if !changed { glasses[2].layoutIfNeeded(); return }
     stopVoiceGrowth()
     let startsRecording = recording && !priorRecording
+    let releasesRecording = priorRecording && !recording
+    let returnGeneration: Int? = releasesRecording ? beginVoiceReturnCheck() : nil
     priorExpanded = expanded; priorRecording = recording; priorAnalyzing = analyzing
     let trigger = frame(for: 3, width: triggerWidth)
     if first {
@@ -454,7 +465,12 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
         let targetWidth = index == 3 ? self.triggerWidth : index == 2 && self.analyzing ? processingWidth : width
         self.glasses[index].frame = index == 3 || show ? self.frame(for: index, width: targetWidth) : trigger
         self.glasses[index].layer.cornerRadius = (index == 3 ? self.triggerHeight : self.itemHeight) / 2
-        self.glasses[index].effect = show ? self.material() : nil
+        // A recording/processing label change is not a new glass element.
+        // Keep its material identity; replacing it during a frame animation can
+        // trigger an unrelated container materialization from a default origin.
+        if first || previousVisibility[index] != show {
+          self.glasses[index].effect = show ? self.material() : nil
+        }
         self.glasses[index].backgroundColor = show && UIAccessibility.isReduceTransparencyEnabled ? .secondarySystemGroupedBackground : .clear
         self.rows[index].alpha = show ? 1 : 0
         self.glasses[index].layoutIfNeeded()
@@ -466,11 +482,22 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
       self.glasses[3].layoutIfNeeded()
     }
     if animated && !first && !UIAccessibility.isReduceMotionEnabled {
-      UIView.animate(withDuration: expanded ? 0.4 : 0.26, delay: 0,
-        usingSpringWithDamping: expanded ? 0.82 : 0.95, initialSpringVelocity: 0,
-        options: [.beginFromCurrentState, .allowUserInteraction], animations: update,
-        completion: { [weak self] _ in self?.settleTriggerTitle() })
-    } else { update(); settleTriggerTitle() }
+      // Release starts from the anchored model frame frozen below. Re-reading
+      // a glass presentation frame via beginFromCurrentState can reintroduce
+      // UIKit's temporary interaction coordinates and launch it from (0,0).
+      let options: UIView.AnimationOptions = releasesRecording
+        ? [.allowUserInteraction] : [.beginFromCurrentState, .allowUserInteraction]
+      UIView.animate(withDuration: releasesRecording ? 0.38 : expanded ? 0.4 : 0.26, delay: 0,
+        usingSpringWithDamping: releasesRecording ? 0.80 : expanded ? 0.82 : 0.95, initialSpringVelocity: 0,
+        options: options, animations: update,
+        completion: { [weak self] _ in
+          self?.settleTriggerTitle()
+          if let returnGeneration { self?.finishVoiceReturnCheck(returnGeneration) }
+        })
+    } else {
+      update(); settleTriggerTitle()
+      if let returnGeneration { finishVoiceReturnCheck(returnGeneration) }
+    }
     if startsRecording { growVoice() }
     reportMetrics()
   }
@@ -498,15 +525,83 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
     metrics["addTitleVisible"] = !labels[3].isHidden && labels[3].alpha > 0.99 && (triggerTitleWidth?.constant ?? 0) > 0 ? 1 : 0
     metrics["processing"] = analyzing ? 1 : 0
     metrics["voiceHeight"] = Double(glasses[2].bounds.height)
+    if motionDiagnostics {
+      metrics["voiceReturnSamples"] = Double(voiceReturnSamples)
+      metrics["voiceReturnBadSamples"] = Double(voiceReturnBadSamples)
+      metrics["voiceReturnMaxAnchorError"] = Double(voiceReturnMaxAnchorError)
+      metrics["voiceReturnStartWidth"] = Double(voiceReturnStartWidth)
+      metrics["voiceRight"] = Double(glasses[2].frame.maxX)
+      metrics["voiceTop"] = Double(glasses[2].frame.minY)
+    }
     onMetrics(metrics)
   }
 
   private func stopVoiceGrowth() {
     guard let animator = voiceAnimator else { return }
-    let current = glasses[2].layer.presentation()?.frame ?? glasses[2].frame
+    // Glass can have temporary interaction transforms. Its presentation frame
+    // is not a reliable placement to copy into the container's coordinate space.
+    // Preserve only the visible width and rebuild the canonical right/top anchor.
+    let sampledWidth = glasses[2].layer.presentation()?.bounds.width ?? glasses[2].bounds.width
+    let currentWidth = sampledWidth.isFinite && sampledWidth > 0 ? sampledWidth : glasses[2].bounds.width
+    let width = min(max(optionWidth, currentWidth), max(optionWidth, bounds.width - 40))
     animator.stopAnimation(true)
     voiceAnimator = nil
-    glasses[2].frame = current
+    UIView.performWithoutAnimation {
+      self.glasses[2].layer.removeAllAnimations()
+      self.glasses[2].transform = .identity
+      self.glasses[2].frame = self.frame(for: 2, width: width)
+      self.glasses[2].layoutIfNeeded()
+    }
+  }
+
+  private func beginVoiceReturnCheck() -> Int {
+    voiceReturnGeneration += 1
+    voiceReturnLink?.invalidate()
+    voiceReturnLink = nil
+    voiceReturnSamples = 0
+    voiceReturnMaxAnchorError = 0
+    voiceReturnBadSamples = 0
+    voiceReturnStartWidth = glasses[2].bounds.width
+    guard motionDiagnostics else { return voiceReturnGeneration }
+    // The release transaction has not committed yet; its presentation tree
+    // still belongs to the interrupted growth. Check the frozen model start,
+    // then sample only actually presented return frames on display ticks.
+    recordVoiceReturnFrame(glasses[2].frame)
+    let link = CADisplayLink(target: self, selector: #selector(sampleVoiceReturn))
+    link.preferredFramesPerSecond = 60
+    link.add(to: .main, forMode: .common)
+    voiceReturnLink = link
+    return voiceReturnGeneration
+  }
+
+  @objc private func sampleVoiceReturn() {
+    guard motionDiagnostics, glasses.count == 4 else { return }
+    // Glass compositing can place the layer below an internal render layer.
+    // A raw presentation.frame is in that layer's space, not UIView.superview
+    // space. Convert both presentation layers before comparing menu anchors.
+    if let presentation = glasses[2].layer.presentation(),
+      let containerPresentation = container.contentView.layer.presentation() {
+      let current = presentation.convert(presentation.bounds, to: containerPresentation)
+      recordVoiceReturnFrame(current)
+    } else {
+      recordVoiceReturnFrame(glasses[2].frame)
+    }
+  }
+
+  private func recordVoiceReturnFrame(_ current: CGRect) {
+    let expected = frame(for: 2, width: current.width)
+    let error = max(abs(current.maxX - expected.maxX), abs(current.minY - expected.minY))
+    voiceReturnMaxAnchorError = max(voiceReturnMaxAnchorError, error)
+    if error > 1 { voiceReturnBadSamples += 1 }
+    voiceReturnSamples += 1
+  }
+
+  private func finishVoiceReturnCheck(_ generation: Int) {
+    guard generation == voiceReturnGeneration else { return }
+    sampleVoiceReturn()
+    voiceReturnLink?.invalidate()
+    voiceReturnLink = nil
+    reportMetrics()
   }
 
   private func growVoice() {
@@ -586,6 +681,7 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
   }
 
   deinit {
+    voiceReturnLink?.invalidate()
     voiceAnimator?.stopAnimation(true)
     NotificationCenter.default.removeObserver(self)
   }
