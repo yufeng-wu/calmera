@@ -3,7 +3,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming, useRedu
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { styles } from "../assets/styles/home.styles";
@@ -21,7 +21,7 @@ export function closeOpenMealActions() {
   activeRow = null;
 }
 
-export const FoodEntryItem = ({ item, onDelete, onEdit, onSwipeStateChange, onActionMetrics }) => {
+export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdit, onSwipeStateChange, onActionMetrics }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [actionsVisible, setActionsVisible] = useState(false);
   const initialReducedMotion = useReducedMotion();
@@ -117,7 +117,7 @@ export const FoodEntryItem = ({ item, onDelete, onEdit, onSwipeStateChange, onAc
         if (activeRow === swipeable) activeRow = null;
         onSwipeStateChange?.("closed");
       }}
-      renderRightActions={() => <MealSwipeActions width={actionWidth}
+      renderRightActions={(progress) => <MealSwipeActions width={actionWidth} progress={progress}
         visible={actionsVisible} onEdit={edit} onDelete={remove} onMetrics={onActionMetrics} />}>
       <Pressable style={({ pressed }) => [styles.foodEntryCard, swipeStyles.card, pressed && swipeStyles.pressedCard]}
         onPress={toggleExpand} onLongPress={revealActions} delayLongPress={450}
@@ -155,7 +155,7 @@ export const FoodEntryItem = ({ item, onDelete, onEdit, onSwipeStateChange, onAc
       </Pressable>
     </Swipeable>
   </View>;
-};
+});
 
 const swipeStyles = StyleSheet.create({
   row: { marginBottom: 10 },

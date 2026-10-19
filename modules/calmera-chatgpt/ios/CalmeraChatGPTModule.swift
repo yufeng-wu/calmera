@@ -38,6 +38,8 @@ public final class CalmeraChatGPTModule: Module {
       Prop("buttonHeight") { (view: CalmeraMealActionsView, value: Double) in view.buttonHeight = CGFloat(max(44, value)) }
       Prop("effectOutset") { (view: CalmeraMealActionsView, value: Double) in view.effectOutset = CGFloat(max(0, value)) }
       Prop("actionsVisible") { (view: CalmeraMealActionsView, value: Bool) in view.actionsVisible = value }
+      Prop("revealProgress") { (view: CalmeraMealActionsView, value: Double) in view.revealProgress = CGFloat(min(1, max(0, value))) }
+      Prop("reportMetrics") { (view: CalmeraMealActionsView, value: Bool) in view.reportMetrics = value }
       OnViewDidUpdateProps { (view: CalmeraMealActionsView) in view.updateControls() }
     }
 
@@ -687,19 +689,25 @@ final class CalmeraGoalsMenuView: ExpoView, UIContextMenuInteractionDelegate {
 
 
 // Real UIKit glass actions own highlighting and material adaptation.
-// The React swipe row owns horizontal translation; no effect ancestor is faded.
+// Gesture Handler drives this native material with its UI-thread progress.
+// Geometry and glass material converge to zero before the row's hidden state.
 final class CalmeraMealActionsView: ExpoView {
   let onAction = EventDispatcher()
   let onMetrics = EventDispatcher()
-  var buttonWidth: CGFloat = 60
-  var buttonHeight: CGFloat = 52
+  var buttonWidth: CGFloat = 72
+  var buttonHeight: CGFloat = 70
   var effectOutset: CGFloat = 40
   var actionsVisible = false
-  private let container = UIView()
+  var reportMetrics = false
+  var revealProgress: CGFloat = 0 { didSet { renderProgress() } }
+  private let container = UIVisualEffectView(effect: nil)
+  private var materials: [UIVisualEffectView] = []
   private var buttons: [UIButton] = []
   private var labels: [UILabel] = []
+  private var effectAnimator: UIViewPropertyAnimator?
   private var configurationKey = ""
   private var lastMetrics: [String: Double] = [:]
+  private var lastProgressBucket = -1
   private let editTint = UIColor(red: 188/255, green: 90/255, blue: 25/255, alpha: 1)
 
   required init(appContext: AppContext? = nil) {
@@ -710,10 +718,17 @@ final class CalmeraMealActionsView: ExpoView {
     overrideUserInterfaceStyle = .light
     container.backgroundColor = .clear
     container.clipsToBounds = false
+    container.contentView.clipsToBounds = false
     addSubview(container)
     for index in 0..<2 {
+      let material = UIVisualEffectView(effect: nil)
+      material.clipsToBounds = false
+      material.layer.cornerRadius = 28
+      material.layer.cornerCurve = .continuous
+      if #available(iOS 26.0, *) { material.cornerConfiguration = .capsule(maximumRadius: 28) }
       let button = UIButton(type: .system)
       button.tag = index
+      button.configuration = .plain()
       button.accessibilityLabel = index == 0 ? "Edit meal" : "Delete meal"
       button.addAction(UIAction(title: index == 0 ? "Edit" : "Delete",
         attributes: index == 0 ? [] : .destructive) { [weak self] _ in
@@ -722,26 +737,14 @@ final class CalmeraMealActionsView: ExpoView {
       let label = UILabel()
       label.text = index == 0 ? "Edit" : "Delete"
       label.adjustsFontForContentSizeCategory = true
-      label.numberOfLines = 0
+      label.numberOfLines = 1
       label.textAlignment = .center
-      label.lineBreakMode = .byWordWrapping
       label.isAccessibilityElement = false
-      let row = UIStackView(arrangedSubviews: [label])
-      row.axis = .vertical
-      row.alignment = .center
-      row.isUserInteractionEnabled = false
-      row.translatesAutoresizingMaskIntoConstraints = false
-      button.addSubview(row)
-      NSLayoutConstraint.activate([
-        row.centerXAnchor.constraint(equalTo: button.centerXAnchor),
-        row.centerYAnchor.constraint(equalTo: button.centerYAnchor),
-        row.widthAnchor.constraint(equalTo: button.widthAnchor, constant: -8),
-        label.widthAnchor.constraint(equalTo: row.widthAnchor),
-        row.heightAnchor.constraint(lessThanOrEqualTo: button.heightAnchor, constant: -12)
-      ])
-      labels.append(label)
-      container.addSubview(button)
-      buttons.append(button)
+      label.isUserInteractionEnabled = false
+      button.addSubview(label)
+      material.contentView.addSubview(button)
+      container.contentView.addSubview(material)
+      materials.append(material); labels.append(label); buttons.append(button)
     }
     for name in [UIContentSizeCategory.didChangeNotification,
       UIAccessibility.reduceTransparencyStatusDidChangeNotification,
@@ -758,59 +761,114 @@ final class CalmeraMealActionsView: ExpoView {
   }
 
   func updateControls() {
-    isUserInteractionEnabled = actionsVisible
-    accessibilityElementsHidden = !actionsVisible
     let opaque = UIAccessibility.isReduceTransparencyEnabled
     let key = traitCollection.preferredContentSizeCategory.rawValue + "-\(opaque)-\(UIAccessibility.isDarkerSystemColorsEnabled)"
     if key != configurationKey {
       configurationKey = key
+      effectAnimator?.stopAnimation(true)
+      effectAnimator = nil
+      if #available(iOS 26.0, *), !opaque {
+        let group = UIGlassContainerEffect()
+        // Separate at the final 8pt gap; merge naturally while retracting.
+        group.spacing = 6
+        container.effect = group
+      } else { container.effect = nil }
       let font = UIFontMetrics(forTextStyle: .subheadline).scaledFont(for: .systemFont(ofSize: 14, weight: .medium), compatibleWith: traitCollection)
-      for (index, button) in buttons.enumerated() {
-        var config: UIButton.Configuration
-        if #available(iOS 26.0, *), !opaque { config = .glass() }
-        else { config = .filled(); config.baseBackgroundColor = .secondarySystemGroupedBackground }
-        let foreground: UIColor = index == 0 ? editTint : .systemRed
-        // Text-only native actions use the row's exact height, with the same
-        // continuous rounded corners as the meal card instead of circular chips.
-        config.contentInsets = .zero
-        config.baseForegroundColor = foreground
-        config.cornerStyle = .fixed
-        config.background.cornerRadius = 28
-        button.tintColor = foreground
-        button.configuration = config
+      for (index, material) in materials.enumerated() {
+        material.effect = nil
+        material.backgroundColor = opaque ? .secondarySystemGroupedBackground : .clear
+        let color: UIColor = index == 0 ? editTint : .systemRed
+        buttons[index].tintColor = color
         labels[index].font = font
-        labels[index].textColor = foreground
-        if #available(iOS 26.0, *) { button.cornerConfiguration = .capsule(maximumRadius: 28) }
+        labels[index].textColor = color
+      }
+      if !opaque {
+        let effects: [UIVisualEffect] = materials.map { _ in
+          if #available(iOS 26.0, *) {
+            let glass = UIGlassEffect(style: .regular)
+            glass.isInteractive = true
+            return glass
+          }
+          return UIBlurEffect(style: .systemMaterial)
+        }
+        // Scrub the real material, not alpha on its compositing ancestor.
+        let animator = UIViewPropertyAnimator(duration: 1, curve: .linear) { [weak self] in
+          guard let self else { return }
+          for (index, material) in self.materials.enumerated() { material.effect = effects[index] }
+        }
+        animator.pausesOnCompletion = true
+        animator.startAnimation()
+        animator.pauseAnimation()
+        effectAnimator = animator
       }
     }
     setNeedsLayout()
+    renderProgress()
   }
 
   override func layoutSubviews() {
     super.layoutSubviews()
     container.frame = bounds
-    let height = max(0, bounds.height - 2 * effectOutset)
-    for (index, button) in buttons.enumerated() {
-      button.frame = CGRect(x: effectOutset + CGFloat(index) * (buttonWidth + 8),
-        y: effectOutset, width: buttonWidth, height: height)
-      button.layoutIfNeeded()
+    renderProgress()
+  }
+
+  private func renderProgress() {
+    guard materials.count == 2 else { return }
+    let p = min(1, max(0, revealProgress))
+    let fullHeight = max(0, bounds.height - 2 * effectOutset)
+    let anchor = effectOutset + 2 * buttonWidth + 8
+    let visibleWidth = buttonWidth * p
+    let visibleHeight = fullHeight * p
+    let labelPhase = min(1, max(0, (p - 0.45) / 0.45))
+    let labelOpacity = labelPhase * labelPhase * (3 - 2 * labelPhase)
+    effectAnimator?.fractionComplete = p
+    for (index, material) in materials.enumerated() {
+      // Both droplets share one right-edge seed. Separation accelerates later
+      // than size, keeping real overlapping glass until near the open state.
+      let spread = (buttonWidth + 8) * p * p
+      let originX = anchor - visibleWidth - CGFloat(1 - index) * spread
+      material.isHidden = p == 0
+      material.frame = CGRect(x: originX,
+        y: effectOutset + (fullHeight - visibleHeight) / 2,
+        width: visibleWidth, height: visibleHeight)
+      buttons[index].frame = material.bounds
+      buttons[index].isUserInteractionEnabled = actionsVisible && p > 0.95
+      buttons[index].accessibilityElementsHidden = !(actionsVisible && p > 0.95)
+      labels[index].frame = CGRect(x: (visibleWidth - buttonWidth) / 2 + 4,
+        y: 0, width: max(0, buttonWidth - 8), height: visibleHeight)
+      // Content may fade; the glass and its shadow retain full ancestor alpha.
+      labels[index].alpha = labelOpacity
     }
-    var glass = 0.0
-    if #available(iOS 26.0, *), !UIAccessibility.isReduceTransparencyEnabled { glass = 1 }
-    let metrics: [String: Double] = ["buttonWidth": Double(buttonWidth), "buttonHeight": Double(height),
-      "labelSize": Double(labels.first?.font.pointSize ?? 0),
-      "symbolSize": 0,
-      "usesNativeGlass": glass, "opaqueFallback": UIAccessibility.isReduceTransparencyEnabled ? 1 : 0]
-    if metrics != lastMetrics { lastMetrics = metrics; onMetrics(metrics) }
+    isUserInteractionEnabled = actionsVisible && p > 0.95
+    accessibilityElementsHidden = !isUserInteractionEnabled
+    if reportMetrics {
+      var glass = 0.0
+      if #available(iOS 26.0, *), !UIAccessibility.isReduceTransparencyEnabled { glass = 1 }
+      let bucket = Int((p * 10).rounded())
+      let checkpoint = abs(p * 4 - (p * 4).rounded()) < 0.00001
+      let metrics: [String: Double] = ["buttonWidth": Double(buttonWidth), "buttonHeight": Double(fullHeight),
+        "labelSize": Double(labels.first?.font.pointSize ?? 0), "symbolSize": 0,
+        "usesNativeGlass": glass, "opaqueFallback": UIAccessibility.isReduceTransparencyEnabled ? 1 : 0,
+        "revealProgress": Double((p * 1000).rounded() / 1000), "renderedWidth": Double((visibleWidth * 10).rounded() / 10),
+        "materialProgress": Double((p * 1000).rounded() / 1000), "sharedGlassContainer": glass]
+      // Geometry-only fixture diagnostics, emitted at most once per tenth step.
+      if bucket != lastProgressBucket || (checkpoint && lastMetrics["revealProgress"] != metrics["revealProgress"]) ||
+        lastMetrics["buttonWidth"] != metrics["buttonWidth"] || lastMetrics["buttonHeight"] != metrics["buttonHeight"] {
+        lastProgressBucket = bucket
+        lastMetrics = metrics
+        onMetrics(metrics)
+      }
+    }
   }
 
-  // Only actual buttons receive touches. The transparent compositing inset
-  // must not capture taps meant for neighboring cards or the swipe gap.
   override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-    actionsVisible && buttons.contains { $0.frame.contains(point) }
+    actionsVisible && revealProgress > 0.95 && materials.contains { $0.frame.contains(point) }
   }
 
-  deinit { NotificationCenter.default.removeObserver(self) }
+  deinit {
+    effectAnimator?.stopAnimation(true)
+    NotificationCenter.default.removeObserver(self)
+  }
 }
 
 

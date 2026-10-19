@@ -1,12 +1,23 @@
+import { memo } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { requireNativeViewManager } from "expo-modules-core";
+import Animated, { useAnimatedProps, useAnimatedStyle } from "react-native-reanimated";
 import { COLORS } from "@/constants/colors";
 
 export const MEAL_EFFECT_OUTSET = 40;
 
 const NativeActions = Platform.OS === "ios" ? requireNativeViewManager("CalmeraChatGPT", "MealActions") : null;
 
-export default function MealSwipeActions({ width, visible, onEdit, onDelete, onMetrics }) {
+const AnimatedNativeActions = NativeActions ? Animated.createAnimatedComponent(NativeActions) : null;
+Animated.addWhitelistedNativeProps({ revealProgress: true });
+
+function MealSwipeActions({ width, progress, visible, onEdit, onDelete, onMetrics }) {
+  const animatedProps = useAnimatedProps(() => ({
+    revealProgress: Math.max(0, Math.min(1, progress.value)),
+  }));
+  const fallbackReveal = useAnimatedStyle(() => ({
+    transform: [{ translateX: (1 - Math.max(0, Math.min(1, progress.value))) * (width * 2 + 20) }],
+  }));
   const railWidth = width * 2 + 20;
   const contentWidth = width * 2 + 8;
   // Give UIKit's glass/shadow a real native canvas, rather than relying on
@@ -17,11 +28,11 @@ export default function MealSwipeActions({ width, visible, onEdit, onDelete, onM
   const fallbackStyle = { width: contentWidth, flex: 1,
     marginVertical: MEAL_EFFECT_OUTSET, marginLeft: 12 - MEAL_EFFECT_OUTSET };
   return <View pointerEvents="box-none" style={{ width: railWidth }}>
-    {NativeActions ? <NativeActions style={nativeStyle}
-      buttonWidth={width} effectOutset={MEAL_EFFECT_OUTSET} actionsVisible={visible}
+    {AnimatedNativeActions ? <AnimatedNativeActions style={nativeStyle} animatedProps={animatedProps}
+      buttonWidth={width} effectOutset={MEAL_EFFECT_OUTSET} actionsVisible={visible} reportMetrics={Boolean(onMetrics)}
       onAction={({ nativeEvent }) => { if (nativeEvent.action === "edit") onEdit(); else if (nativeEvent.action === "delete") onDelete(); }}
       onMetrics={onMetrics ? ({ nativeEvent }) => onMetrics(nativeEvent) : undefined} />
-      : <View style={[styles.rail, fallbackStyle]} accessibilityElementsHidden={!visible}
+      : <Animated.View style={[styles.rail, fallbackStyle, fallbackReveal]} accessibilityElementsHidden={!visible}
         importantForAccessibility={visible ? "auto" : "no-hide-descendants"}>
         {[{ label: "Edit", color: COLORS.primary, action: onEdit },
           { label: "Delete", color: COLORS.expense, action: onDelete }].map(item =>
@@ -29,7 +40,7 @@ export default function MealSwipeActions({ width, visible, onEdit, onDelete, onM
             onPress={item.action} style={({ pressed }) => [styles.action, { width, alignSelf: "stretch", borderRadius: 28 }, pressed && styles.pressed]}>
             <Text style={[styles.label, { color: item.color }]}>{item.label}</Text>
           </Pressable>)}
-      </View>}
+      </Animated.View>}
   </View>;
 }
 
@@ -39,3 +50,5 @@ const styles = StyleSheet.create({
   label: { fontSize: 14, fontWeight: "500", textAlign: "center" },
   pressed: { opacity: 0.75 },
 });
+
+export default memo(MealSwipeActions);

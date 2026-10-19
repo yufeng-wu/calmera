@@ -2,6 +2,18 @@
 
 Today and History use the shared FoodEntryItem. The original card typography, emoji, calorie/time layout and nutrition expansion are retained. Edit/Delete appear in a trailing action rail after a left swipe.
 
+## Follow-up: continuous material and merging during swipe
+
+The installed Gesture Handler 2.24 Swipeable toggles its right-action ancestor opacity between zero and one. Fixed-size native glass therefore appeared with a full shadow as soon as a drag began. MealSwipeActions now consumes Swipeable's actual shared progress via Reanimated animated native props. No per-frame React state is used in the production reveal.
+
+The iOS implementation uses two UIGlassEffect views inside one UIGlassContainerEffect. Their size and separation grow continuously from one right-edge seed; separation grows more slowly, retaining overlap until near the open position. A paused UIViewPropertyAnimator scrubs each material's effect between nil and glass. Only label content fades. The glass, its shadow and compositing ancestors retain full alpha within the native host. At zero progress the shape, material and shadow converge to zero before Swipeable's hidden state takes effect. Existing swipe threshold, Edit/Delete routing, delete confirmation, Tangerine accent and final full-height button layout remain. The previous shadow canvas and shadow-only hit-test exclusion remain. Memoized row/action components avoid unrelated React render updates during the gesture.
+
+Validation: scoped ESLint and all 60 mobile Node tests pass; Release iOS simulator build passes. The native progress fixture showed a joined shape at progress0.5 (36pt element width), two complete actions at progress1 (72pt width), and no shape/shadow at progress0. The real food-card fixture observed10 distinct intermediate native progress samples on opening and20 across opening/closing; open settled at1 and closed at0. Native Edit callback was verified during implementation; final Delete opened its confirmation and Cancel retained all synthetic entries. At accessibility-large, controls were155pt wide, matched the wrapped row's174.3pt height and displayed complete25pt labels. Original text size `large` was restored.
+
+The full-test-only `meal-swipe-check?motion=1` page pauses the actual native action component at controlled progress, without records or network calls. The regular fixture uses the actual FoodEntryItem. Direct computer drag input was attempted but registered as a tap, so pointer swipe physics and frame-rate performance are not claimed as measured; reveal/close were exercised through the existing accessibility action and native controls. No personal data was read, no screenshots exported and no physical iPhone operated.
+
+References: [Apple UIKit Liquid Glass material and container example](https://developer.apple.com/videos/play/wwdc2025/284/), [Gesture Handler Swipeable progress](https://docs.swmansion.com/react-native-gesture-handler/docs/components/reanimated_swipeable/), and installed Reanimated3/Expo53 sources for native animated props.
+
 ## Follow-up: clipped glass shadow
 
 A grouped meal card exposed a rectangular cutoff below the native glass controls. The native host now includes a real 40 pt compositing inset on each side, with buttons inset inside that canvas. Swipeable reserves the matching effect area, while the gesture rail width, 12 pt card-to-control gap, 70 pt collapsed button height and text-only appearance stay unchanged. Only button frames participate in native hit testing; the transparent inset cannot intercept neighboring-row taps.
