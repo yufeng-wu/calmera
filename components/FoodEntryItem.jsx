@@ -1,5 +1,5 @@
-import { View, Text, Pressable, StyleSheet, LayoutAnimation, UIManager, Platform, useWindowDimensions, AccessibilityInfo } from "react-native";
-import Animated, { Layout, FadeIn, FadeOut, useReducedMotion, ReduceMotion } from "react-native-reanimated";
+import { View, Text, Pressable, StyleSheet, useWindowDimensions, AccessibilityInfo } from "react-native";
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming, useReducedMotion, ReduceMotion } from "react-native-reanimated";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -12,8 +12,6 @@ import { getFoodEmoji } from "@/lib/foodIcons.mjs";
 import { formatTime } from "../lib/utils";
 import MealSwipeActions, { MEAL_EFFECT_OUTSET } from "./MealSwipeActions";
 
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) UIManager.setLayoutAnimationEnabledExperimental(true);
-
 // Only a UI controller reference is shared. Opening another row closes the old one.
 let activeRow = null;
 const SPRING = { mass: 0.9, stiffness: 310, damping: 34, overshootClamping: false };
@@ -23,7 +21,7 @@ export function closeOpenMealActions() {
   activeRow = null;
 }
 
-export const FoodEntryItem = ({ item, onDelete, onEdit, enableLayout = true, onSwipeStateChange, onActionMetrics }) => {
+export const FoodEntryItem = ({ item, onDelete, onEdit, onSwipeStateChange, onActionMetrics }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [actionsVisible, setActionsVisible] = useState(false);
   const initialReducedMotion = useReducedMotion();
@@ -34,8 +32,27 @@ export const FoodEntryItem = ({ item, onDelete, onEdit, enableLayout = true, onS
   }, []);
   const { fontScale, width: screenWidth } = useWindowDimensions();
   const actionScale = Math.max(1, fontScale);
-  const actionWidth = Math.min(Math.ceil(60 * actionScale), Math.max(60, (screenWidth - 52) / 2));
-  const actionHeight = Math.ceil(52 * actionScale);
+  const actionWidth = Math.min(Math.ceil(72 * actionScale), Math.max(72, (screenWidth - 52) / 2));
+  // The details remain measured while closed, so the first tap and Dynamic Type
+  // changes animate the actual content height instead of guessing a fixed size.
+  const [detailsHeight, setDetailsHeight] = useState(0);
+  const expansion = useSharedValue(0);
+  const measuredDetailsHeight = useSharedValue(0);
+  useEffect(() => {
+    measuredDetailsHeight.value = detailsHeight;
+    expansion.value = withTiming(isExpanded ? 1 : 0, {
+      duration: reducedMotion ? 0 : 260,
+      easing: Easing.out(Easing.cubic),
+      reduceMotion: reducedMotion ? ReduceMotion.Always : ReduceMotion.System,
+    });
+  }, [detailsHeight, isExpanded, reducedMotion, expansion, measuredDetailsHeight]);
+  const detailsStyle = useAnimatedStyle(() => ({
+    height: measuredDetailsHeight.value * expansion.value,
+    opacity: expansion.value,
+  }));
+  const chevronStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${expansion.value * 180}deg` }],
+  }));
   const swipeSpring = useMemo(() => ({ ...SPRING, overshootClamping: reducedMotion,
     reduceMotion: reducedMotion ? ReduceMotion.Always : ReduceMotion.System }), [reducedMotion]);
   const router = useRouter();
@@ -48,7 +65,7 @@ export const FoodEntryItem = ({ item, onDelete, onEdit, enableLayout = true, onS
     isOpen.current = false;
     setActionsVisible(false);
     if (activeRow === swipeable) activeRow = null;
-  }, [actionWidth, actionHeight]);
+  }, [actionWidth]);
   const { foodName = item.food_name, calories, protein, carbs, fat, localTime = item.local_time } = item;
   const macros = `Protein ${Number(protein)}g   Carbs ${Number(carbs)}g   Fat ${Number(fat)}g`;
 
@@ -72,7 +89,6 @@ export const FoodEntryItem = ({ item, onDelete, onEdit, enableLayout = true, onS
   const remove = () => { close(); onDelete?.(item.id); };
   const toggleExpand = () => {
     if (isOpen.current) { close(); return; }
-    if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setIsExpanded(value => !value);
   };
   const accessibilityAction = ({ nativeEvent: { actionName } }) => {
@@ -82,8 +98,7 @@ export const FoodEntryItem = ({ item, onDelete, onEdit, enableLayout = true, onS
     else toggleExpand();
   };
 
-  return <Animated.View style={swipeStyles.row}
-    layout={enableLayout && !reducedMotion ? Layout.springify().damping(18) : undefined}>
+  return <View style={swipeStyles.row}>
     <Swipeable ref={swipeable} pointerEvents="box-none" friction={1} rightThreshold={22}
       dragOffsetFromLeftEdge={12} dragOffsetFromRightEdge={10}
       overshootLeft={false} overshootRight={!reducedMotion} overshootFriction={9}
@@ -102,9 +117,9 @@ export const FoodEntryItem = ({ item, onDelete, onEdit, enableLayout = true, onS
         if (activeRow === swipeable) activeRow = null;
         onSwipeStateChange?.("closed");
       }}
-      renderRightActions={() => <MealSwipeActions width={actionWidth} height={actionHeight}
+      renderRightActions={() => <MealSwipeActions width={actionWidth}
         visible={actionsVisible} onEdit={edit} onDelete={remove} onMetrics={onActionMetrics} />}>
-      <Pressable style={({ pressed }) => [styles.foodEntryCard, swipeStyles.card, { minHeight: Math.max(70, actionHeight + 18) }, pressed && swipeStyles.pressedCard]}
+      <Pressable style={({ pressed }) => [styles.foodEntryCard, swipeStyles.card, pressed && swipeStyles.pressedCard]}
         onPress={toggleExpand} onLongPress={revealActions} delayLongPress={450}
         accessibilityRole="button" accessibilityState={{ expanded: isExpanded }}
         accessibilityValue={{ text: isExpanded ? macros : "" }}
@@ -123,16 +138,23 @@ export const FoodEntryItem = ({ item, onDelete, onEdit, enableLayout = true, onS
             <Text style={styles.transactionDate}>{formatTime(localTime)}</Text>
           </View>
           <View style={styles.indicatorContainer}>
-            <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={20} color={COLORS.textLight} />
+            <Animated.View style={chevronStyle}>
+              <Ionicons name="chevron-down" size={20} color={COLORS.textLight} />
+            </Animated.View>
           </View>
         </View>
-        {isExpanded && <Animated.View entering={reducedMotion ? undefined : FadeIn.duration(130)}
-          exiting={reducedMotion ? undefined : FadeOut.duration(120)} style={styles.expandedContent}>
-          <Text style={styles.macrosText}>{macros}</Text>
-        </Animated.View>}
+        <Animated.View style={[swipeStyles.detailsClip, detailsStyle]} pointerEvents="none"
+          accessibilityElementsHidden={!isExpanded}
+          importantForAccessibility={isExpanded ? "auto" : "no-hide-descendants"}>
+          <View style={[styles.expandedContent, swipeStyles.detailsContent]}
+            onLayout={({ nativeEvent }) => setDetailsHeight(previous =>
+              Math.abs(previous - nativeEvent.layout.height) > 0.5 ? nativeEvent.layout.height : previous)}>
+            <Text style={[styles.macrosText, swipeStyles.detailsText]}>{macros}</Text>
+          </View>
+        </Animated.View>
       </Pressable>
     </Swipeable>
-  </Animated.View>;
+  </View>;
 };
 
 const swipeStyles = StyleSheet.create({
@@ -141,4 +163,7 @@ const swipeStyles = StyleSheet.create({
     marginVertical: -MEAL_EFFECT_OUTSET, marginHorizontal: -MEAL_EFFECT_OUTSET },
   card: { marginBottom: 0, minHeight: 70 },
   pressedCard: { opacity: 0.94 },
+  detailsClip: { overflow: "hidden" },
+  detailsText: { flex: 1 },
+  detailsContent: { position: "absolute", top: 0, left: 0, right: 0 },
 });

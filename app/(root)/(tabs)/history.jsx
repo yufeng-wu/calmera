@@ -370,7 +370,6 @@ function HistoryView({ selectedDate, setSelectedDate, data, floatingBarInset = 0
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <View style={styles.headerContainer}>
-          <Text accessibilityRole="header" style={styles.pageTitle}>History</Text>
           <FormCard style={styles.calendarCard}>
           {/* Month navigation + label */}
           <View style={styles.dateNav}>
@@ -379,7 +378,7 @@ function HistoryView({ selectedDate, setSelectedDate, data, floatingBarInset = 0
               onPress={() => changeMonth(-1)}
               disabled={isSignupMonthView}
             />
-            <Text style={styles.dateText}>{monthLabel}</Text>
+            <Text accessibilityRole="header" style={styles.dateText}>{monthLabel}</Text>
             <ArrowButton
               direction="right"
               onPress={() => changeMonth(1)}
@@ -451,7 +450,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 0,
   },
-  pageTitle: { marginTop: 20, marginBottom: 20, textAlign: "center", fontSize: 18, fontWeight: "600", color: COLORS.text },
   calendarCard: { padding: 12, gap: 0, marginBottom: 12 },
   dateNav: {
     flexDirection: "row",

@@ -685,7 +685,7 @@ final class CalmeraGoalsMenuView: ExpoView, UIContextMenuInteractionDelegate {
 }
 
 
-// Real UIKit glass buttons own highlighting, SF Symbols and material adaptation.
+// Real UIKit glass actions own highlighting and material adaptation.
 // The React swipe row owns horizontal translation; no effect ancestor is faded.
 final class CalmeraMealActionsView: ExpoView {
   let onAction = EventDispatcher()
@@ -696,8 +696,6 @@ final class CalmeraMealActionsView: ExpoView {
   private let container = UIView()
   private var buttons: [UIButton] = []
   private var labels: [UILabel] = []
-  private var symbols: [UIImageView] = []
-  private var symbolSizes: [[NSLayoutConstraint]] = []
   private var configurationKey = ""
   private var lastMetrics: [String: Double] = [:]
   private let editTint = UIColor(red: 139/255, green: 89/255, blue: 62/255, alpha: 1)
@@ -719,11 +717,6 @@ final class CalmeraMealActionsView: ExpoView {
         attributes: index == 0 ? [] : .destructive) { [weak self] _ in
           self?.onAction(["action": index == 0 ? "edit" : "delete"])
         }, for: .touchUpInside)
-      let symbol = UIImageView()
-      symbol.contentMode = .scaleAspectFit
-      symbol.isAccessibilityElement = false
-      let size = [symbol.widthAnchor.constraint(equalToConstant: 19), symbol.heightAnchor.constraint(equalToConstant: 19)]
-      NSLayoutConstraint.activate(size)
       let label = UILabel()
       label.text = index == 0 ? "Edit" : "Delete"
       label.adjustsFontForContentSizeCategory = true
@@ -731,10 +724,9 @@ final class CalmeraMealActionsView: ExpoView {
       label.textAlignment = .center
       label.lineBreakMode = .byWordWrapping
       label.isAccessibilityElement = false
-      let row = UIStackView(arrangedSubviews: [symbol, label])
+      let row = UIStackView(arrangedSubviews: [label])
       row.axis = .vertical
       row.alignment = .center
-      row.spacing = 3
       row.isUserInteractionEnabled = false
       row.translatesAutoresizingMaskIntoConstraints = false
       button.addSubview(row)
@@ -745,7 +737,7 @@ final class CalmeraMealActionsView: ExpoView {
         label.widthAnchor.constraint(equalTo: row.widthAnchor),
         row.heightAnchor.constraint(lessThanOrEqualTo: button.heightAnchor, constant: -12)
       ])
-      labels.append(label); symbols.append(symbol); symbolSizes.append(size)
+      labels.append(label)
       container.addSubview(button)
       buttons.append(button)
     }
@@ -770,27 +762,23 @@ final class CalmeraMealActionsView: ExpoView {
     let key = traitCollection.preferredContentSizeCategory.rawValue + "-\(opaque)-\(UIAccessibility.isDarkerSystemColorsEnabled)"
     if key != configurationKey {
       configurationKey = key
-      let font = UIFontMetrics(forTextStyle: .caption1).scaledFont(for: .systemFont(ofSize: 12, weight: .medium), compatibleWith: traitCollection)
-      let symbolSize = UIFontMetrics(forTextStyle: .body).scaledValue(for: 19, compatibleWith: traitCollection)
+      let font = UIFontMetrics(forTextStyle: .subheadline).scaledFont(for: .systemFont(ofSize: 14, weight: .medium), compatibleWith: traitCollection)
       for (index, button) in buttons.enumerated() {
         var config: UIButton.Configuration
         if #available(iOS 26.0, *), !opaque { config = .glass() }
         else { config = .filled(); config.baseBackgroundColor = .secondarySystemGroupedBackground }
         let foreground: UIColor = index == 0 ? editTint : .systemRed
-        // Keep UIKit's real glass button background and press behavior, while
-        // native foreground views retain exact symbol size and semantic color.
+        // Text-only native actions use the row's exact height, with the same
+        // continuous rounded corners as the meal card instead of circular chips.
         config.contentInsets = .zero
         config.baseForegroundColor = foreground
-        config.cornerStyle = .capsule
+        config.cornerStyle = .fixed
+        config.background.cornerRadius = 28
         button.tintColor = foreground
         button.configuration = config
         labels[index].font = font
         labels[index].textColor = foreground
-        symbols[index].image = UIImage(systemName: index == 0 ? "pencil" : "trash",
-          withConfiguration: UIImage.SymbolConfiguration(pointSize: symbolSize, weight: .regular))?.withRenderingMode(.alwaysTemplate)
-        symbols[index].tintColor = foreground
-        for constraint in symbolSizes[index] { constraint.constant = symbolSize }
-        if #available(iOS 26.0, *) { button.cornerConfiguration = .capsule() }
+        if #available(iOS 26.0, *) { button.cornerConfiguration = .capsule(maximumRadius: 28) }
       }
     }
     setNeedsLayout()
@@ -799,7 +787,7 @@ final class CalmeraMealActionsView: ExpoView {
   override func layoutSubviews() {
     super.layoutSubviews()
     container.frame = bounds
-    let height = min(buttonHeight, bounds.height)
+    let height = bounds.height
     for (index, button) in buttons.enumerated() {
       button.frame = CGRect(x: CGFloat(index) * (buttonWidth + 8),
         y: (bounds.height - height) / 2, width: buttonWidth, height: height)
@@ -809,7 +797,7 @@ final class CalmeraMealActionsView: ExpoView {
     if #available(iOS 26.0, *), !UIAccessibility.isReduceTransparencyEnabled { glass = 1 }
     let metrics: [String: Double] = ["buttonWidth": Double(buttonWidth), "buttonHeight": Double(height),
       "labelSize": Double(labels.first?.font.pointSize ?? 0),
-      "symbolSize": Double(symbolSizes.first?.first?.constant ?? 0),
+      "symbolSize": 0,
       "usesNativeGlass": glass, "opaqueFallback": UIAccessibility.isReduceTransparencyEnabled ? 1 : 0]
     if metrics != lastMetrics { lastMetrics = metrics; onMetrics(metrics) }
   }

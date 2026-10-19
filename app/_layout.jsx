@@ -4,6 +4,7 @@ import { Slot } from "expo-router";
 import SafeScreen from "@/components/SafeScreen";
 import { StatusBar } from "expo-status-bar";
 import Constants from "expo-constants";
+import { COLORS } from "@/constants/colors";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 export default function RootLayout() {
@@ -14,7 +15,7 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: COLORS.background }}>
       <ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>
         <SafeScreen>
           <Slot />

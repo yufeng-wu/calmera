@@ -2,7 +2,17 @@
 
 Today and History use the shared FoodEntryItem. The original card typography, emoji, calorie/time layout and nutrition expansion are retained. Edit/Delete appear in a trailing action rail after a left swipe.
 
-## Current reviewed design
+## October 19 update: full-height text actions
+
+This update supersedes the older fixed 60 × 52 pt, icon-and-label specification below. Edit / Delete now use text only (14 pt medium at standard size), equal widths and the card's actual full height, with 28 pt continuous rounded corners. The rail's vertical margins remove only the existing 20 pt effect-bleed inset. UIKit native glass, swipe thresholds, edit callbacks and delete confirmation remain.
+
+Food details remain mounted and measured; one 260 ms Reanimated progress drives height, opacity and chevron rotation. This replaces the competing LayoutAnimation, row layout spring and mount/unmount fades. Rapid toggles reverse from the current progress; Reduce Motion uses zero duration. Existing typography and accent colors stay unchanged.
+
+Release simulator build passed after regenerating locked Pods metadata for the renamed `/Users/yw/Projects/calmera/mobile` directory. Scoped ESLint and all 60 mobile Node tests passed. Live synthetic-component checks showed 72 × 70 pt native controls at standard size, symbol size 0, native glass enabled; expanding the first row changed its measured height to about 99.3 pt. Edit invoked its callback, Delete requested confirmation, and Cancel preserved all synthetic entries. Repeated taps returned to the collapsed state.
+
+At accessibility-large, after reopening the fixture to refresh React Native text measurement, controls were 155 pt wide and matched the naturally wrapped card height (about 174.3 pt); labels were 25 pt and complete. Original content size `large` was restored. The actual History component was visually checked using its local-only preview: white canvas, no History heading, month/year accessible heading preserved, expansion and surrounding layout intact. Native actions were exposed via the existing accessibility action; direct pointer swipe physics and frame-rate performance were not separately benchmarked. No screenshots were saved/exported, personal meals read, account records changed, or physical iPhone operated.
+
+## Earlier reviewed design
 
 - The iOS controls are real UIButton instances with UIButton.Configuration.glass() on iOS 26, inside a clear native host. UIKit owns the glass background and press feedback. Native UIImageView/UILabel content supplies SF Symbols pencil/trash, exact symbol sizing, medium labels and matching semantic foreground colors.
 - Standard size: equal 60 × 52 pt controls, 19 pt symbols, 12 pt medium labels, 8 pt between controls and 12 pt from the translated card. Edit retains Calmera brown; Delete uses UIColor.systemRed. Labels remain explicit.
