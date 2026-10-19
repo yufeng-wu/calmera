@@ -172,7 +172,7 @@ final class CalmeraSystemTabsView: ExpoView, UITabBarControllerDelegate {
     controller.view.isOpaque = false
     controller.view.clipsToBounds = false
     controller.overrideUserInterfaceStyle = .light
-    controller.tabBar.tintColor = UIColor(red: 139/255, green: 89/255, blue: 62/255, alpha: 1)
+    controller.tabBar.tintColor = UIColor(red: 188/255, green: 90/255, blue: 25/255, alpha: 1)
     let definitions = [
       ("Today", "fork.knife", "fork.knife"),
       ("History", "calendar", "calendar"),
@@ -272,7 +272,7 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
   private var lastBounds = CGRect.zero
   private var visible = [false, false, false, true]
   private var voiceAnimator: UIViewPropertyAnimator?
-  private let tint = UIColor(red: 139/255, green: 89/255, blue: 62/255, alpha: 1)
+  private let tint = UIColor(red: 188/255, green: 90/255, blue: 25/255, alpha: 1)
   private var itemHeight: CGFloat { max(48, UIFontMetrics(forTextStyle: .body).scaledValue(for: 48)) }
   private var triggerHeight: CGFloat { max(56, UIFontMetrics(forTextStyle: .body).scaledValue(for: 56)) }
   private var triggerWidth: CGFloat {
@@ -700,7 +700,7 @@ final class CalmeraMealActionsView: ExpoView {
   private var labels: [UILabel] = []
   private var configurationKey = ""
   private var lastMetrics: [String: Double] = [:]
-  private let editTint = UIColor(red: 139/255, green: 89/255, blue: 62/255, alpha: 1)
+  private let editTint = UIColor(red: 188/255, green: 90/255, blue: 25/255, alpha: 1)
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -825,7 +825,7 @@ final class CalmeraFormButtonView: ExpoView {
   var buttonDisabled = false
   var loading = false
   private let button = UIButton(type: .system)
-  private let tint = UIColor(red: 139/255, green: 89/255, blue: 62/255, alpha: 1)
+  private let tint = UIColor(red: 188/255, green: 90/255, blue: 25/255, alpha: 1)
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -907,7 +907,7 @@ final class CalmeraGoalSliderView: ExpoView {
     super.init(appContext: appContext)
     backgroundColor = .clear
     overrideUserInterfaceStyle = .light
-    slider.minimumTrackTintColor = UIColor(red: 139/255, green: 89/255, blue: 62/255, alpha: 1)
+    slider.minimumTrackTintColor = UIColor(red: 188/255, green: 90/255, blue: 25/255, alpha: 1)
     slider.maximumTrackTintColor = UIColor(red: 229/255, green: 211/255, blue: 183/255, alpha: 1)
     slider.addTarget(self, action: #selector(changed), for: .valueChanged)
     slider.addTarget(self, action: #selector(completed), for: [.touchUpInside, .touchUpOutside, .touchCancel])
