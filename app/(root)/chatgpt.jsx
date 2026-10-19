@@ -73,16 +73,6 @@ export default function ChatGPTSettings({ calmeraPreview = false, calmeraPreview
     try { await setVoiceLanguage(userId, value); setLanguage(value); }
     catch { Alert.alert("Voice language", "Could not update your voice language."); }
   }
-  function disconnect() {
-    Alert.alert("Disconnect ChatGPT?", "Removes Calmera's saved ChatGPT connection from this phone. Your food records stay in Calmera.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Disconnect", style: "destructive", onPress: async () => {
-        if (calmeraPreview) { setConnected(false); setModels([]); setModel(""); return; }
-        try { await client.disconnect(); setConnected(false); setModels([]); setModel(""); }
-        catch { Alert.alert("ChatGPT", "Could not disconnect. Please try again."); }
-      } },
-    ]);
-  }
   return <View style={formStyles.screen}>
     <FormHeader title="ChatGPT" onBack={leave} />
     <ScrollView key={`text-size-${fontScale}`} contentContainerStyle={formStyles.content} showsVerticalScrollIndicator={false}>
@@ -120,8 +110,6 @@ export default function ChatGPTSettings({ calmeraPreview = false, calmeraPreview
         <Ionicons name="lock-closed-outline" size={18} color={COLORS.textLight} />
         <Text style={styles.privacyText}>Food descriptions and selected meal photos go directly to OpenAI. Your ChatGPT credentials stay on this phone.</Text>
       </FormCard>
-      {connected && !checking && <GlassButton title="Disconnect from this phone" symbol="xmark" role="destructive"
-        disabled={busy} onPress={disconnect} style={styles.action} />}
     </ScrollView>
   </View>;
 }

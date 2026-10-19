@@ -48,8 +48,10 @@ listener, RSA/ECDSA-signed ID-token validation and selected-photo input. It does
 not substitute an unsupported custom-scheme callback. Credentials are stored
 in SecureStore, scoped to the current Calmera user, with
 WHEN_UNLOCKED_THIS_DEVICE_ONLY. Each installation has an opaque stable host ID.
-Refresh rotation is serialized and saved together. Disconnect removes only
-Calmera's own items; credentials from installed ChatGPT/Codex apps are never read.
+Refresh rotation is serialized and saved together. Internal connection cleanup
+removes only Calmera's own items; credentials from installed ChatGPT/Codex apps
+are never read. The main ChatGPT settings page retains Reconnect for account
+changes and has no local Disconnect button.
 
 Requests go to the public Responses endpoint with store:false and stream:true.
 Only response.completed yields validated entries; partial output, unsupported
