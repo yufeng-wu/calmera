@@ -370,7 +370,7 @@ function HistoryView({ selectedDate, setSelectedDate, data, floatingBarInset = 0
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <View style={styles.headerContainer}>
-          <FormCard style={styles.calendarCard}>
+          <FormCard variant="grouped" style={styles.calendarCard}>
           {/* Month navigation + label */}
           <View style={styles.dateNav}>
             <ArrowButton

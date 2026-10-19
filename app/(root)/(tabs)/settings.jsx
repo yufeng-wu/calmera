@@ -29,14 +29,14 @@ export default function SettingsScreen({ calmeraPreview = false }) {
     <View style={styles.header}><Text accessibilityRole="header" style={styles.title}>Settings</Text></View>
     <ScrollView key={`text-size-${fontScale}`} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <Text style={styles.section}>CALMERA</Text>
-      <FormCard style={styles.group}>
+      <FormCard variant="grouped" style={styles.group}>
         <SettingsRow title="ChatGPT connection" subtitle="Your account, model and voice language"
           icon="sparkles-outline" onPress={() => openPage("/chatgpt", "ChatGPT connection")} />
         <SettingsRow title="Nutrition goals" subtitle="Adjust your daily targets" icon="options-outline" divider
           onPress={() => openPage("/update-goals", "Nutrition goals")} />
       </FormCard>
       <Text style={styles.section}>ACCOUNT</Text>
-      <FormCard style={styles.group}>
+      <FormCard variant="grouped" style={styles.group}>
         <SettingsRow title="Sign out" icon="log-out-outline" destructive onPress={handleLogout} />
       </FormCard>
       {!!previewMessage && <Text accessibilityLiveRegion="polite" style={formStyles.caption}>{previewMessage}</Text>}

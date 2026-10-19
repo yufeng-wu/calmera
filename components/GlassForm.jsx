@@ -1,3 +1,4 @@
+import { SURFACES } from "@/constants/surfaces";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { requireNativeViewManager } from "expo-modules-core";
@@ -59,8 +60,8 @@ export function FormHeader({ title, onBack, onSave, saving = false, saveDisabled
   </View>;
 }
 
-export function FormCard({ children, style }) {
-  return <View style={[styles.card, style]}>{children}</View>;
+export function FormCard({ children, style, variant = "content" }) {
+  return <View style={[styles.card, variant === "grouped" && styles.groupedCard, style]}>{children}</View>;
 }
 
 export const formStyles = StyleSheet.create({
@@ -87,6 +88,7 @@ const styles = StyleSheet.create({
   headerBack: { width: 44, minHeight: 44, height: 44 },
   headerSave: { width: 68, minHeight: 44, height: 44 },
   title: { ...TYPOGRAPHY.pageTitle, flex: 1, color: COLORS.text, textAlign: "center"},
-  card: { backgroundColor: COLORS.card, borderRadius: 24, padding: 20, gap: 14,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: "#EFE7DF" },
+  card: { backgroundColor: SURFACES.content, borderRadius: 24, padding: 20, gap: 14,
+    ...SURFACES.edge },
+  groupedCard: { backgroundColor: SURFACES.grouped },
 });

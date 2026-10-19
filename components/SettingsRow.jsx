@@ -1,3 +1,4 @@
+import { SURFACES } from "@/constants/surfaces";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,8 +22,8 @@ export default function SettingsRow({ title, subtitle, icon, onPress, selected =
 }
 const styles = StyleSheet.create({
   row: { minHeight: 62, paddingVertical: 16, paddingHorizontal: 18, gap: 13, flexDirection: "row", alignItems: "center" },
-  divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#EBE3DB" },
-  pressed: { backgroundColor: "#F6F0EA" },
+  divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: SURFACES.separator },
+  pressed: { backgroundColor: SURFACES.pressed },
   icon: { width: 30, minHeight: 30, alignItems: "center", justifyContent: "center" },
   copy: { flex: 1, gap: 4 },
   title: { ...TYPOGRAPHY.bodyMedium, color: COLORS.text},
