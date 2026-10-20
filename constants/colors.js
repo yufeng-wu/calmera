@@ -63,6 +63,9 @@ export const THEMES = {
 // 👇 change this to switch theme
 export const COLORS = THEMES.coffee;
 
+// Keep Tangerine as the brand accent; use herb green for calorie progress.
+export const CALORIE_PROGRESS_COLOR = "#355C45";
+
 // Rainbow colors for the live AI indicator animation
 export const RAINBOW_COLORS = [
   "#7694f8",

@@ -2,7 +2,11 @@
 
 The user requested a Sweetgreen-inspired alternative to the existing Tangerine palette, with both versions shown before choosing. This is a local comparison, not an app-wide palette selection.
 
-## Current revision — Green & Ivory
+## Decision — keep Tangerine
+
+The user chose to keep Tangerine as the main app palette, then requested only a darker Sweetgreen-inspired calorie-progress indicator. The brand accent remains #BC5A19. The normal calorie ring now uses the independently defined #355C45 herb green; the over-goal red state, other macro ring colors, calendar status dots, saved backgrounds and all typography/layout remain unchanged. The green/off-white proposals stay available only in the isolated review route and are not applied globally. Scoped lint and the Release build passed (/tmp/foodwrap-calorie-progress-lint.log and /tmp/foodwrap-calorie-progress-build.log); the updated app was installed in the iOS 27 test simulator. The final live pixel check was unavailable because ScreenCaptureKit returned SCStreamErrorDomain -3811, so no visual-verification claim is made for this last color-only change.
+
+## Current comparison revision — Green & Ivory
 
 After reviewing the first comparison, the user asked for green as the main color with an off-white background. The green proposal is now **Green & Ivory**: accent #355C45, neutral ivory canvas #FCFBF7, white cards #FFFFFF, border #E3E5DE and restrained sage highlight #EBF0E1. The original green-washed Basil & Oat study is preserved in commit bb5a597; it is no longer the current second button.
 

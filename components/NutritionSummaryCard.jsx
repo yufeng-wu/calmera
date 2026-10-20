@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, useWindowDimensions } from "react-native";
 import { styles } from "../assets/styles/home.styles";
-import { COLORS, RAINBOW_COLORS } from "../constants/colors";
+import { COLORS, RAINBOW_COLORS, CALORIE_PROGRESS_COLOR } from "../constants/colors";
 import ProgressRing from "./ProgressRing";
 import SummaryGoalsMenu from "./SummaryGoalsMenu";
 import { useRouter } from "expo-router";
@@ -25,7 +25,7 @@ export const NutritionSummaryCard = ({ summary = {}, goals = {}, onEditGoals, pa
 
   // Determine if the calorie goal is exceeded (for status indicator) and choose ring color
   const exceeded = calorieGoal !== undefined && calories > calorieGoal;
-  const calorieRingColor = exceeded ? COLORS.expense : COLORS.income;
+  const calorieRingColor = exceeded ? COLORS.expense : CALORIE_PROGRESS_COLOR;
 
   // Format calories and macros to smaller strings to avoid line wrapping
   const round = (num, decimals = 1) => {
@@ -92,7 +92,7 @@ export const NutritionSummaryCard = ({ summary = {}, goals = {}, onEditGoals, pa
                   width: 7,
                   height: 7,
                   borderRadius: 10,
-                  backgroundColor: exceeded ? COLORS.expense : COLORS.income,
+                  backgroundColor: calorieRingColor,
                   marginLeft: 6,
                 }}
               />
