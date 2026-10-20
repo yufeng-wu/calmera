@@ -6,6 +6,12 @@ The user requested a Sweetgreen-inspired alternative to the existing Tangerine p
 
 The user chose to keep Tangerine as the main app palette and refined the calorie-progress indicator from dark herb green to a lighter soft leaf green. The brand accent remains #BC5A19. The normal calorie ring now uses the independently defined #6F9D78; the over-goal red state, other macro ring colors, calendar status dots, saved backgrounds and all typography/layout remain unchanged. The green/off-white proposals stay available only in the isolated review route and are not applied globally. Scoped lint and the Release build passed (/tmp/foodwrap-light-green-progress-lint.log and /tmp/foodwrap-light-green-progress-build.log); the updated app was installed in the iOS 27 test simulator. Live pixel verification was not repeated after the preceding ScreenCaptureKit SCStreamErrorDomain -3811 failure, so no new visual-verification claim is made for this color-only refinement.
 
+## New background theme — Off-white
+
+Added Off-white as the eighth permanent choice under Settings → Theme, with ID offwhite and a solid #FCFBF7 canvas. Existing theme IDs, their palettes and the default remain unchanged. The same canvas-color resolver is used for the root background and navigation scenes, so the new color extends consistently through page transitions. Tangerine accents and the approved #6F9D78 calorie ring are preserved.
+
+The existing persistence suite passed 7/7, with its all-themes round-trip loop now covering all eight choices (/tmp/foodwrap-offwhite-theme-tests.log). Scoped lint, whitespace checks and Release build passed (/tmp/foodwrap-offwhite-theme-lint.log and /tmp/foodwrap-offwhite-theme-build.log). Installed in both dedicated simulators. On iOS 27, the actual Theme page exposed the new unchecked Off-white radio option and all seven existing choices; the user's selected theme was not changed. This is native AX evidence; no new screenshot/pixel verification is claimed.
+
 ## Current comparison revision — Green & Ivory
 
 After reviewing the first comparison, the user asked for green as the main color with an off-white background. The green proposal is now **Green & Ivory**: accent #355C45, neutral ivory canvas #FCFBF7, white cards #FFFFFF, border #E3E5DE and restrained sage highlight #EBF0E1. The original green-washed Basil & Oat study is preserved in commit bb5a597; it is no longer the current second button.
