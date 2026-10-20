@@ -40,6 +40,7 @@ public final class CalmeraChatGPTModule: Module {
       ViewName("GoalSlider")
       Events("onValueChange", "onSlidingComplete")
       Prop("value") { (view: CalmeraGoalSliderView, value: Double) in view.value = value }
+      Prop("valueUnset") { (view: CalmeraGoalSliderView, value: Bool) in view.valueUnset = value }
       Prop("minimumValue") { (view: CalmeraGoalSliderView, value: Double) in view.minimumValue = value }
       Prop("maximumValue") { (view: CalmeraGoalSliderView, value: Double) in view.maximumValue = value }
       Prop("step") { (view: CalmeraGoalSliderView, value: Double) in view.step = value }
@@ -1511,6 +1512,7 @@ final class CalmeraGoalSliderView: ExpoView {
   let onValueChange = EventDispatcher()
   let onSlidingComplete = EventDispatcher()
   var value: Double = 0
+  var valueUnset = false
   var minimumValue: Double = 0
   var maximumValue: Double = 100
   var step: Double = 1
@@ -1550,6 +1552,8 @@ final class CalmeraGoalSliderView: ExpoView {
   }
 
   @objc private func changed() {
+    // Update VoiceOver immediately; do not wait for the JS value echo.
+    valueUnset = false
     value = quantizedValue()
     slider.value = Float(value)
     updateAccessibleValue()
@@ -1559,7 +1563,8 @@ final class CalmeraGoalSliderView: ExpoView {
   @objc private func completed() { onSlidingComplete(["value": value]) }
 
   private func updateAccessibleValue() {
-    slider.accessibilityValue = "\(value.formatted(.number.precision(.fractionLength(0)))) \(unit)"
+    slider.accessibilityValue = valueUnset ? "Not set"
+      : "\(value.formatted(.number.precision(.fractionLength(0)))) \(unit)"
   }
 
   override func layoutSubviews() {

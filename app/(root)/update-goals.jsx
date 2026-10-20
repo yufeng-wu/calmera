@@ -22,6 +22,7 @@ import { FormScreen, FormScrollView, FormHeader, FormCard, GlassButton } from "@
 import GoalSliderRow from "@/components/GoalSliderRow";
 import { goalInputValue, goalSaveValue } from "@/lib/goalSlider.mjs";
 import { fetchGoalProfile, saveGoalProfile } from "@/lib/goalProfile.mjs";
+import usePageExit from "@/hooks/usePageExit";
 
 const EMPTY_GOALS = { calorieGoal: "", proteinGoal: "", carbsGoal: "", fatGoal: "" };
 const FIXTURE_GOALS = { calorieGoal: "2000", proteinGoal: "150", carbsGoal: "200", fatGoal: "50" };
@@ -38,7 +39,7 @@ export default function UpdateGoals() {
   const { fontScale } = useWindowDimensions();
   const params = useLocalSearchParams();
   const isFixture = Constants.expoConfig?.extra?.calmeraFullAppTest === true
-    && ["ui-goals", "ui-goals-load", "ui-goals-error", "ui-goals-rounded", "ui-goals-save", "ui-goals-save-error", "ui-goals-slow"].includes(params.calmeraFixture);
+    && ["ui-goals", "ui-goals-load", "ui-goals-error", "ui-goals-rounded", "ui-goals-unset", "ui-goals-save", "ui-goals-save-error", "ui-goals-slow"].includes(params.calmeraFixture);
   const fixtureMode = isFixture ? params.calmeraFixture : null;
   const { setShouldRefresh, setShouldRefreshGoals } = useRefreshSignal();
   const { getToken, userId, isLoaded } = useAuth();
@@ -60,10 +61,7 @@ export default function UpdateGoals() {
     mounted.current = true;
     return () => { mounted.current = false; saveController.current?.abort(); };
   }, []);
-  const leaveEditor = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace(isFixture ? "/form-style-check" : "/dashboard");
-  };
+  const leaveEditor = usePageExit(isFixture ? "/form-style-check" : "/dashboard");
   const [fixtureSaved, setFixtureSaved] = useState(false);
   const hasAnimated = useRef(false);
 
@@ -111,7 +109,8 @@ export default function UpdateGoals() {
           data = await new Promise((resolve, reject) => {
             fixtureTimer = setTimeout(() => {
               if (fixtureMode === "ui-goals-error" && loadAttempt === 0) reject(new Error("synthetic_load_failure"));
-              else resolve(fixtureMode === "ui-goals-rounded" ? { ...FRACTIONAL_FIXTURE_GOALS } : { ...FIXTURE_GOALS });
+              else resolve(fixtureMode === "ui-goals-rounded" ? { ...FRACTIONAL_FIXTURE_GOALS }
+                : fixtureMode === "ui-goals-unset" ? { calorieGoal: null, proteinGoal: null, carbsGoal: null, fatGoal: null } : { ...FIXTURE_GOALS });
             }, fixtureMode === "ui-goals-slow" ? 10000 : 200);
           });
         } else {

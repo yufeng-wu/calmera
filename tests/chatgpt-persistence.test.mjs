@@ -83,3 +83,11 @@ test("voice permission denial, unsupported devices, remote clips and empty speec
   await assert.rejects(transcribeLocalClip(speech, "https://example.invalid/audio", "en-US"));
   assert.equal(speech.options, undefined);
 });
+
+test("aborting photo save while token lookup waits cannot write later", async () => {
+  let resolve; const token = new Promise(r => { resolve = r; }); const controller = new AbortController(); let calls = 0;
+  const pending = saveEstimatedEntries([meal], { ...options, signal: controller.signal, getToken: () => token,
+    fetchImpl: async () => { calls++; } });
+  controller.abort(); await assert.rejects(pending, /meal_save_failed/);
+  resolve("late synthetic token"); await new Promise(r => setImmediate(r)); assert.equal(calls, 0);
+});

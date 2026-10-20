@@ -4,11 +4,11 @@ import { COLORS } from "@/constants/colors";
 
 const NativeSlider = Platform.OS === "ios" ? requireNativeViewManager("CalmeraChatGPT", "GoalSlider") : null;
 export default function NativeGoalSlider({ value, minimumValue = 0, maximumValue = 100,
-  step = 1, onValueChange, onSlidingComplete, accessibilityLabel, unit = "", disabled = false, style }) {
+  step = 1, onValueChange, onSlidingComplete, accessibilityLabel, unit = "", disabled = false, unset = false, style }) {
   const update = (next) => { onValueChange?.(next); onSlidingComplete?.(next); };
   if (NativeSlider) return <NativeSlider style={[styles.slider, style]} value={Number(value) || 0}
     minimumValue={minimumValue} maximumValue={maximumValue} step={step} sliderDisabled={disabled}
-    sliderLabel={accessibilityLabel || "Goal"} unit={unit}
+    sliderLabel={accessibilityLabel || "Goal"} unit={unit} valueUnset={unset}
     onValueChange={({ nativeEvent }) => onValueChange?.(nativeEvent.value)}
     onSlidingComplete={({ nativeEvent }) => onSlidingComplete?.(nativeEvent.value)} />;
   // Existing frameworks only: accessible stepper fallback outside iOS, no new dependency.

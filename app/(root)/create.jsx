@@ -3,6 +3,9 @@ import { Text, Alert, Platform, StyleSheet, Keyboard } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Constants from "expo-constants";
+import { useNavigation } from "@react-navigation/native";
+import useFormTaskScope from "@/hooks/useFormTaskScope";
+import { mealRequest } from "@/lib/mealRequest.mjs";
 import { FOOD_ENTRIES_API_URL } from "@/constants/api";
 import { useRef, useState } from "react";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
@@ -15,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const CreateScreen = ({ calmeraPreview = false } = {}) => {
   const router = useRouter();
+  const navigation = useNavigation();
   const { calmeraFixture } = useLocalSearchParams();
   // A fixed synthetic fixture is available only in the separate full-test build.
   // It never submits, estimates, signs in or supplies credentials automatically.
@@ -44,9 +48,14 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
     quantity: "",
   });
   const [showMacros, setShowMacros] = useState(false);
+  const scope = useFormTaskScope(userId, () => {
+    savingRef.current = false; estimatingRef.current = false;
+    setIsLoading(false); setIsEstimating(false);
+    navigation.setOptions({ gestureEnabled: true });
+  });
 
   const handleCreate = async () => {
-    if (savingRef.current || estimatingRef.current) return;
+    if (!scope.isActive() || savingRef.current || estimatingRef.current) return;
     // form validation
     if (!foodName.trim()) return Alert.alert("Error", "Food name is required");
     if (!showMacros) {
@@ -60,56 +69,39 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
     if (uiTestFixture) {
       return Alert.alert("Preview only", "The form is valid. Nothing was sent or saved.");
     }
-    savingRef.current = true;
+    const task = scope.start();
+    if (!task) return;
+    savingRef.current = task;
+    navigation.setOptions({ gestureEnabled: false });
     Keyboard.dismiss();
     setIsLoading(true);
+    let leavingAfterSave = false;
     try {
-      const token = await getToken();
-      const response = await fetch(`${FOOD_ENTRIES_API_URL}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          foodName,
-          quantity,
-          calories: Number(calories),
-          protein: protein ? Number(protein) : 0,
-          carbs: carbs ? Number(carbs) : 0,
-          fat: fat ? Number(fat) : 0,
-          mealType,
-          createdAt: getLocalTimeWithOffset(),
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        const errorMessage =
-          (errorData.details && Array.isArray(errorData.details)
-            ? errorData.details.join("\n")
-            : null) ||
-          errorData.error ||
-          errorData.message ||
-          "Failed to create food entry";
-        throw new Error(errorMessage);
-      }
+      await mealRequest({ getToken, url: FOOD_ENTRIES_API_URL, signal: task.signal,
+        body: { foodName, quantity, calories: Number(calories), protein: protein ? Number(protein) : 0,
+          carbs: carbs ? Number(carbs) : 0, fat: fat ? Number(fat) : 0, mealType, createdAt: getLocalTimeWithOffset() } });
 
       // Signal home screen to refresh entries, then navigate back home
       setShouldRefresh(true);
-      if (router.canGoBack()) router.back();
-      else router.replace("/dashboard");
+      if (task.isCurrent()) { exit(); leavingAfterSave = true; }
     } catch (error) {
-      Alert.alert("Error", error.message);
-      console.error("Error creating food entry:", error);
+      if (error.uncertain) setShouldRefresh(true);
+      if (!task.isCurrent()) return;
+      Alert.alert(error.uncertain ? "Couldn’t confirm save" : "Couldn’t save meal",
+        error.uncertain ? "Your meal may already be saved. Your draft is still here; check History before trying again to avoid a duplicate."
+          : error.timedOut ? "Saving took too long. Your draft is still here. Please try again." : error.message,
+        error.uncertain ? [{ text: "Keep editing", style: "cancel" }, { text: "View History", onPress: () => { if (task.isCurrent()) router.push("/history"); } }] : undefined);
     } finally {
-      savingRef.current = false;
-      setIsLoading(false);
+      task.finish();
+      if (savingRef.current === task && !leavingAfterSave) {
+        savingRef.current = false;
+        if (task.isCurrent()) { setIsLoading(false); navigation.setOptions({ gestureEnabled: true }); }
+      }
     }
   };
 
   const handleEstimateMacros = async () => {
-    if (estimatingRef.current || savingRef.current) return;
+    if (!scope.isActive() || estimatingRef.current || savingRef.current) return;
     if (!foodName.trim() || !quantity.trim()) {
       return Alert.alert(
         "Error",
@@ -119,10 +111,14 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
     if (uiTestFixture) {
       return Alert.alert("Preview only", "Estimation is disabled for this visual test. You can enter macros manually.");
     }
-    estimatingRef.current = true;
+    const task = scope.start();
+    if (!task) return;
+    estimatingRef.current = task;
+    navigation.setOptions({ gestureEnabled: false });
     setIsEstimating(true);
     try {
-      const data = await estimateMacros(userId, foodName, quantity);
+      const data = await estimateMacros(userId, foodName, quantity, { signal: task.signal });
+      if (!task.isCurrent()) return;
 
       // If backend normalized the quantity (e.g., added "count(s)") reflect that in the UI
       if (data.normalizedQuantity) {
@@ -141,10 +137,13 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
       });
       setShowMacros(true);
     } catch (err) {
-      inferenceError(err, router);
+      if (task.isCurrent()) inferenceError(err, router);
     } finally {
-      estimatingRef.current = false;
-      setIsEstimating(false);
+      task.finish();
+      if (estimatingRef.current === task) {
+        estimatingRef.current = false;
+        if (task.isCurrent()) { setIsEstimating(false); navigation.setOptions({ gestureEnabled: true }); }
+      }
     }
   };
 

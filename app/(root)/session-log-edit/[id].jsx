@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Platform, StyleSheet, Text, useWindowDimensions } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
+import { useNavigation } from "@react-navigation/native";
+import useFormTaskScope from "@/hooks/useFormTaskScope";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { getLogEntryById, updateLogEntryById } from "@/lib/scale/sessionManager";
 import { FoodEntryFormCard } from "@/components/FoodEntryFormCard";
@@ -14,6 +16,7 @@ const previewEntry = { foodName: "Banana — UI preview", absDeltaWeight: 118, d
 
 export default function EditSessionLogEntry({ calmeraPreview = false }) {
   const router = useRouter();
+  const navigation = useNavigation();
   const { fontScale } = useWindowDimensions();
   const { id } = useLocalSearchParams();
   const { userId } = useAuth();
@@ -34,6 +37,11 @@ export default function EditSessionLogEntry({ calmeraPreview = false }) {
   const [showMacros, setShowMacros] = useState(true);
   const entryId = Array.isArray(id) ? id[0] : id;
   const goBack = usePageExit(calmeraPreview ? "/ui-gallery" : "/dashboard");
+  const scope = useFormTaskScope(`${userId}:${entryId || "preview"}`, () => {
+    savingRef.current = false; estimatingRef.current = false;
+    setIsSaving(false); setIsEstimating(false);
+    navigation.setOptions({ gestureEnabled: true });
+  });
 
   useEffect(() => {
     setIsFetching(true);
@@ -57,7 +65,7 @@ export default function EditSessionLogEntry({ calmeraPreview = false }) {
   }, [entryId, calmeraPreview]);
 
   const handleSave = () => {
-    if (savingRef.current || estimatingRef.current || isFetching || isEstimating || loadError) return;
+    if (!scope.isActive() || savingRef.current || estimatingRef.current || isFetching || isEstimating || loadError) return;
     if (!foodName.trim()) return Alert.alert("Error", "Food name is required");
     if (!calories || isNaN(parseFloat(calories)) || Number(calories) < 0)
       return Alert.alert("Error", "Calories must be a non-negative number");
@@ -70,28 +78,39 @@ export default function EditSessionLogEntry({ calmeraPreview = false }) {
         protein: protein ? Number(protein) : undefined, carbs: carbs ? Number(carbs) : undefined,
         fat: fat ? Number(fat) : undefined },
     });
-    savingRef.current = false;
-    setIsSaving(false);
-    if (!success) return Alert.alert("Error", "Failed to update entry – session may have ended");
+    if (!success) {
+      savingRef.current = false; setIsSaving(false);
+      return Alert.alert("Error", "Failed to update entry – session may have ended");
+    }
     goBack();
   };
 
   const handleEstimateMacros = async () => {
-    if (estimatingRef.current || savingRef.current || isSaving) return;
+    if (!scope.isActive() || estimatingRef.current || savingRef.current || isSaving) return;
     if (!foodName.trim() || !quantity.trim())
       return Alert.alert("Error", "Food name and quantity are required for estimation");
-    estimatingRef.current = true;
+    const task = scope.start();
+    if (!task) return;
+    estimatingRef.current = task;
+    navigation.setOptions({ gestureEnabled: false });
     setIsEstimating(true);
     try {
-      const data = calmeraPreview ? previewEntry.nutritionInfo : await estimateMacros(userId, foodName, `${quantity} g`);
+      const data = calmeraPreview ? previewEntry.nutritionInfo : await estimateMacros(userId, foodName, `${quantity} g`, { signal: task.signal });
+      if (!task.isCurrent()) return;
       setCalories(String(data.calories ?? ""));
       setProtein(String(data.protein ?? ""));
       setCarbs(String(data.carbs ?? ""));
       setFat(String(data.fat ?? ""));
       setLastEstimated({ foodName, quantity });
       setShowMacros(true);
-    } catch (err) { inferenceError(err, router); }
-    finally { estimatingRef.current = false; setIsEstimating(false); }
+    } catch (err) { if (task.isCurrent()) inferenceError(err, router); }
+    finally {
+      task.finish();
+      if (estimatingRef.current === task) {
+        estimatingRef.current = false;
+        if (task.isCurrent()) { setIsEstimating(false); navigation.setOptions({ gestureEnabled: true }); }
+      }
+    }
   };
   const estimateDisabled = isSaving || !foodName.trim() || !quantity.trim()
     || (foodName.trim() === lastEstimated.foodName && quantity.trim() === lastEstimated.quantity);

@@ -1,8 +1,9 @@
 import { TYPOGRAPHY } from "@/constants/typography";
-import { useState } from "react";
-import { ActivityIndicator, Image, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { useCallback, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Image, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
 import usePageExit from "@/hooks/usePageExit";
@@ -18,6 +19,7 @@ import { getLocalTimeWithOffset } from "@/lib/utils";
 
 export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewState = "empty" } = {}) {
   const router = useRouter();
+  const navigation = useNavigation();
   const { fontScale } = useWindowDimensions();
   const { calmeraFixture } = useLocalSearchParams();
   const testBuild = Constants.expoConfig?.extra?.calmeraFullAppTest === true;
@@ -31,48 +33,145 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
     ? { dataURL: phoneTestNutritionLabel, syntheticFixture: true }
     : null);
   const [busy, setBusy] = useState(false);
+  const [selecting, setSelecting] = useState(false);
   const [processingStep, setProcessingStep] = useState("Analyzing your meal photo…");
   const [uncertain, setUncertain] = useState(false);
+  const operation = useRef(null);
+  const routeGeneration = useRef(0);
+  const focused = useRef(false);
+  const focusedOwner = useRef(null);
+
+  useFocusEffect(useCallback(() => {
+    focused.current = true;
+    focusedOwner.current = userId;
+    routeGeneration.current += 1;
+    setBusy(false);
+    setSelecting(false);
+    navigation.setOptions({ gestureEnabled: true });
+    return () => {
+      // A native picker does not change React Navigation focus. An actual route
+      // exit cancels this operation and must never later dismiss another page.
+      focused.current = false;
+      focusedOwner.current = null;
+      routeGeneration.current += 1;
+      operation.current?.controller.abort();
+      operation.current = null;
+      navigation.setOptions({ gestureEnabled: true });
+    };
+  }, [navigation, userId]));
+
+  const isCurrent = ticket => focused.current && operation.current === ticket
+    && focusedOwner.current === ticket.owner && routeGeneration.current === ticket.generation && !ticket.controller.signal.aborted;
+  const beginOperation = kind => {
+    if (!focused.current || operation.current) return null;
+    const ticket = { kind, owner: focusedOwner.current, generation: routeGeneration.current, controller: new AbortController() };
+    operation.current = ticket;
+    // Lock the native edge gesture in the same event as the JS operation lock,
+    // rather than leaving a gap until disabled React props render.
+    navigation.setOptions({ gestureEnabled: false });
+    if (kind === "select") setSelecting(true);
+    else setBusy(true);
+    return ticket;
+  };
+  const finishOperation = ticket => {
+    // Keep a confirmed-save ticket locked until navigation actually blurs the
+    // page; a second native press can otherwise arrive in the pop transition.
+    if (operation.current !== ticket || ticket.leaving) return;
+    operation.current = null;
+    if (!focused.current || routeGeneration.current !== ticket.generation) return;
+    setSelecting(false);
+    setBusy(false);
+    navigation.setOptions({ gestureEnabled: true });
+  };
+  const leavePhoto = () => { if (!operation.current) exit(); };
+  const resetPreview = () => {
+    operation.current?.controller.abort();
+    operation.current = null;
+    setSelecting(false);
+    setBusy(false);
+    navigation.setOptions({ gestureEnabled: true });
+  };
 
   async function selectPhoto(source) {
-    if (busy || uiFixture) return;
+    if (uiFixture) return;
+    const ticket = beginOperation("select");
+    if (!ticket) return;
     try {
       const selected = await pickMealPhoto(source);
+      if (!isCurrent(ticket)) return;
       if (selected) { setPhoto(selected); setUncertain(false); }
-    } catch (error) { inferenceError(error, router); }
+    } catch (error) {
+      if (!isCurrent(ticket)) return;
+      // Normal picker cancellation returns null. Do not describe camera access
+      // or picker failures as a ChatGPT connection problem or image-size issue.
+      if (error?.code === "ERR_CANCELED" || error?.message === "photo_cancelled") return;
+      Alert.alert(source === "camera" ? "Camera unavailable" : "Photo unavailable", source === "camera"
+        ? "The camera could not be opened. Camera access may be off or unavailable on this device. You can choose a meal photo with Photos instead."
+        : "This photo could not be opened. Please choose another meal photo and try again.");
+    } finally { finishOperation(ticket); }
   }
 
   async function logPhoto() {
-    if (!photo || busy || uncertain) return;
+    if (!photo || uncertain) return;
+    const ticket = beginOperation("log");
+    if (!ticket) return;
     if (uiFixture) {
       setProcessingStep("Preview only. No photo is sent or saved.");
-      setBusy(true);
       return;
     }
+    const selectedPhoto = photo;
     setProcessingStep("Analyzing your meal photo…");
-    setBusy(true);
-    const createdAt = getLocalTimeWithOffset();
     try {
+      const createdAt = getLocalTimeWithOffset();
       const { client, model } = await nutritionClient(userId);
-      const result = await client.estimate({ text: "", image: photo.dataURL, model });
-      const entries = photo.syntheticFixture ? result.map(entry => ({
+      if (!isCurrent(ticket)) return;
+      const result = await client.estimate({ text: "", image: selectedPhoto.dataURL, model,
+        signal: ticket.controller.signal });
+      if (!isCurrent(ticket)) return;
+      const entries = selectedPhoto.syntheticFixture ? result.map(entry => ({
         ...entry, foodName: `${entry.foodName} - CALMERA PHONE PHOTO TEST 2026-10-18`,
       })) : result;
       if (!entries.length) throw new Error("no_food_detected");
       setProcessingStep("Saving your meal…");
-      await saveEstimatedEntries(entries, { createdAt, getToken, url: FOOD_ENTRIES_API_URL });
+      await saveEstimatedEntries(entries, { createdAt, url: FOOD_ENTRIES_API_URL,
+        signal: ticket.controller.signal,
+        getToken: async () => {
+          const token = await getToken();
+          if (!isCurrent(ticket)) throw new Error("photo_operation_cancelled");
+          return token;
+        },
+      });
+      // Confirmed/potential writes still invalidate the cache if the route was
+      // externally removed; stale work cannot show alerts or navigate afterward.
       setShouldRefresh(true);
-      if (router.canGoBack()) router.back();
-      else router.replace("/dashboard");
+      if (isCurrent(ticket)) {
+        ticket.leaving = true;
+        exit();
+      }
     } catch (error) {
-      if (/meal_save/.test(error.message)) { setUncertain(true); setShouldRefresh(true); }
-      inferenceError(error, router);
-    } finally { setBusy(false); }
+      // A failed navigation dispatch must still release the operation lock.
+      if (operation.current === ticket) ticket.leaving = false;
+      const message = error?.message || "";
+      const mayHaveSaved = error?.mayHaveSaved === true || message === "meal_save_uncertain"
+        || Boolean(error?.savedEntries?.length);
+      if (mayHaveSaved) setShouldRefresh(true);
+      if (!isCurrent(ticket)) return;
+      if (mayHaveSaved) {
+        setUncertain(true);
+        inferenceError(error, router);
+      } else if (/meal_save/.test(message)) {
+        const reason = error?.reason || message;
+        if (/sign_in|refresh|401|development_build/.test(reason)) inferenceError({ message: reason }, router);
+        else Alert.alert("Couldn’t save meal", error?.timedOut
+          ? "Saving took too long. Your photo is still here. Please try again."
+          : "Your meal was not saved. Your photo is still here. Please try again.");
+      } else inferenceError(error, router);
+    } finally { finishOperation(ticket); }
   }
 
   return (
     <FormScreen style={styles.container}>
-      <FormHeader title="Photo" onBack={exit} backDisabled={busy} />
+      <FormHeader title="Photo" onBack={leavePhoto} backDisabled={busy || selecting} />
       <FormScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {uiFixture && (
           <Text style={styles.fixtureNote}>
@@ -105,7 +204,7 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
               accessibilityLabel="Take photo"
               style={styles.option}
               onPress={() => selectPhoto("camera")}
-              disabled={busy || uiFixture}
+              disabled={busy || selecting || uiFixture}
             />
             <GlassButton
               title="Photos"
@@ -113,12 +212,16 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
               accessibilityLabel="Choose photo"
               style={styles.option}
               onPress={() => selectPhoto("library")}
-              disabled={busy || uiFixture}
+              disabled={busy || selecting || uiFixture}
             />
           </View>
         </FormCard>
 
         <View style={styles.footer}>
+          {selecting && <View style={styles.status} accessibilityRole="text" accessibilityLiveRegion="polite">
+            <ActivityIndicator color={COLORS.primary} />
+            <Text style={styles.statusDetail}>Preparing your photo…</Text>
+          </View>}
           {busy && (
             <View style={styles.status} accessibilityRole="text" accessibilityLiveRegion="polite">
               <ActivityIndicator color={COLORS.primary} />
@@ -143,15 +246,15 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
             role="accent"
             onPress={logPhoto}
             loading={busy}
-            disabled={!photo || busy || uncertain}
+            disabled={!photo || busy || selecting || uncertain}
             style={styles.logButton}
             accessibilityLabel={uiFixture ? "Preview processing without sending or saving" : "Estimate and log photo with ChatGPT"}
           />
           {uncertain && (
-            <GlassButton title="View History" symbol="clock" onPress={() => router.replace("/history")} style={styles.logButton} />
+            <GlassButton title="View History" symbol="clock" onPress={() => { if (!operation.current) router.replace("/history"); }} disabled={busy || selecting} style={styles.logButton} />
           )}
           {uiFixture && busy && (
-            <GlassButton title="Reset preview" symbol="arrow.counterclockwise" onPress={() => setBusy(false)} style={styles.logButton} />
+            <GlassButton title="Reset preview" symbol="arrow.counterclockwise" onPress={resetPreview} style={styles.logButton} />
           )}
           <Text style={styles.note}>
             Using your ChatGPT plan. Only this selected photo goes to OpenAI. Food estimates are approximate.

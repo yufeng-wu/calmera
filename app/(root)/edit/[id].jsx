@@ -3,6 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Platform, StyleSheet, Text, useWindowDimensions } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
+import { useNavigation } from "@react-navigation/native";
+import useFormTaskScope from "@/hooks/useFormTaskScope";
+import { mealRequest } from "@/lib/mealRequest.mjs";
 import { FOOD_ENTRIES_API_URL } from "@/constants/api";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
@@ -17,6 +20,7 @@ const previewEntry = {
 
 export default function EditFoodEntry({ calmeraPreview = false }) {
   const router = useRouter();
+  const navigation = useNavigation();
   const { fontScale } = useWindowDimensions();
   const { id } = useLocalSearchParams();
   const { getToken, userId } = useAuth();
@@ -41,6 +45,11 @@ export default function EditFoodEntry({ calmeraPreview = false }) {
   const [showMacros, setShowMacros] = useState(true);
   const entryId = Array.isArray(id) ? id[0] : id;
   const goBack = usePageExit(calmeraPreview ? "/ui-gallery" : "/dashboard");
+  const scope = useFormTaskScope(`${userId}:${entryId || "preview"}`, () => {
+    savingRef.current = false; estimatingRef.current = false;
+    setIsLoading(false); setIsEstimating(false);
+    navigation.setOptions({ gestureEnabled: true });
+  });
 
   useEffect(() => {
     let active = true;
@@ -83,45 +92,52 @@ export default function EditFoodEntry({ calmeraPreview = false }) {
   }, [entryId, userId, calmeraPreview, retry]);
 
   const handleUpdate = async () => {
-    if (savingRef.current || estimatingRef.current || isFetching || isEstimating || loadError) return;
+    if (!scope.isActive() || savingRef.current || estimatingRef.current || isFetching || isEstimating || loadError) return;
     if (!foodName.trim()) return Alert.alert("Error", "Food name is required");
     if (!calories || isNaN(parseFloat(calories)) || Number(calories) < 0)
       return Alert.alert("Error", "Calories must be a non-negative number");
     if (calmeraPreview) return Alert.alert("Preview only", "Changes validated. No meal was updated.");
-    savingRef.current = true;
+    const task = scope.start();
+    if (!task) return;
+    savingRef.current = task;
+    navigation.setOptions({ gestureEnabled: false });
     setIsLoading(true);
+    let leavingAfterSave = false;
     try {
-      const token = await tokenRef.current();
-      const response = await fetch(`${FOOD_ENTRIES_API_URL}/${entryId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          foodName, quantity, calories: Number(calories),
-          protein: protein ? Number(protein) : 0, carbs: carbs ? Number(carbs) : 0,
-          fat: fat ? Number(fat) : 0, mealType,
-        }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error((Array.isArray(errorData.details) ? errorData.details.join("\n") : null)
-          || errorData.error || errorData.message || "Failed to update food entry");
-      }
+      await mealRequest({ getToken: () => tokenRef.current(), url: `${FOOD_ENTRIES_API_URL}/${entryId}`,
+        method: "PUT", signal: task.signal,
+        body: { foodName, quantity, calories: Number(calories), protein: protein ? Number(protein) : 0,
+          carbs: carbs ? Number(carbs) : 0, fat: fat ? Number(fat) : 0, mealType } });
       setShouldRefresh(true);
-      goBack();
-    } catch (error) { Alert.alert("Error", error.message); }
-    finally { savingRef.current = false; setIsLoading(false); }
+      if (task.isCurrent()) { goBack(); leavingAfterSave = true; }
+    } catch (error) {
+      if (error.mayHaveSaved) setShouldRefresh(true);
+      if (task.isCurrent()) Alert.alert("Couldn’t save changes", error.timedOut
+        ? error.mayHaveSaved ? "Saving took too long. Your changes are still here. Check History before trying again."
+          : "Saving took too long. Your changes are still here. Please try again." : error.message);
+    } finally {
+      task.finish();
+      if (savingRef.current === task && !leavingAfterSave) {
+        savingRef.current = false;
+        if (task.isCurrent()) { setIsLoading(false); navigation.setOptions({ gestureEnabled: true }); }
+      }
+    }
   };
 
   const handleEstimateMacros = async () => {
-    if (estimatingRef.current || savingRef.current || isLoading) return;
+    if (!scope.isActive() || estimatingRef.current || savingRef.current || isLoading) return;
     if (!foodName.trim() || !quantity.trim())
       return Alert.alert("Error", "Food name and quantity are required for estimation");
-    estimatingRef.current = true;
+    const task = scope.start();
+    if (!task) return;
+    estimatingRef.current = task;
+    navigation.setOptions({ gestureEnabled: false });
     setIsEstimating(true);
     try {
       const data = calmeraPreview
         ? { ...previewEntry, normalizedQuantity: quantity }
-        : await estimateMacros(userId, foodName, quantity);
+        : await estimateMacros(userId, foodName, quantity, { signal: task.signal });
+      if (!task.isCurrent()) return;
       if (data.normalizedQuantity) setQuantity(data.normalizedQuantity);
       setCalories(String(data.calories ?? ""));
       setProtein(String(data.protein ?? ""));
@@ -129,8 +145,14 @@ export default function EditFoodEntry({ calmeraPreview = false }) {
       setFat(String(data.fat ?? ""));
       setLastEstimated({ foodName, quantity: data.normalizedQuantity || quantity });
       setShowMacros(true);
-    } catch (err) { inferenceError(err, router); }
-    finally { estimatingRef.current = false; setIsEstimating(false); }
+    } catch (err) { if (task.isCurrent()) inferenceError(err, router); }
+    finally {
+      task.finish();
+      if (estimatingRef.current === task) {
+        estimatingRef.current = false;
+        if (task.isCurrent()) { setIsEstimating(false); navigation.setOptions({ gestureEnabled: true }); }
+      }
+    }
   };
   const estimateDisabled = isLoading || !foodName.trim() || !quantity.trim()
     || (foodName.trim() === lastEstimated.foodName && quantity.trim() === lastEstimated.quantity);

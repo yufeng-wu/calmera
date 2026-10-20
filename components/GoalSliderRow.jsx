@@ -29,6 +29,7 @@ export default function GoalSliderRow({
     <NativeGoalSlider
       {...rangeRef.current}
       value={Number(displayValue) || 0}
+      unset={displayValue === ""}
       step={step}
       disabled={disabled}
       onValueChange={(next) => onChange(goalInputValue(next))}
