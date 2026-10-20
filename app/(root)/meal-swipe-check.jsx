@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { Redirect, useLocalSearchParams } from "expo-router";
 import { useSharedValue, withTiming } from "react-native-reanimated";
@@ -41,6 +41,52 @@ export default function MealSwipeCheck() {
   const [event, setEvent] = useState("None");
   const [offset, setOffset] = useState(0);
   const [metrics, setMetrics] = useState({});
+  const [narrowDetails, setNarrowDetails] = useState(false);
+  const [detailsResult, setDetailsResult] = useState("Expand the first card, then run its width reflow check.");
+  const latestDetails = useRef(null);
+  const detailProbe = useRef(null);
+  const detailTimer = useRef(null);
+  useEffect(() => () => clearTimeout(detailTimer.current), []);
+  const recordDetails = useCallback(value => {
+    latestDetails.current = value;
+    const probe = detailProbe.current;
+    if (!probe) return;
+    if (probe.target == null && Math.abs(value.target - probe.oldTarget) > 0.5) {
+      probe.target = value.target;
+      probe.firstHeight = value.height;
+    }
+    if (probe.target == null) return;
+    probe.samples += 1;
+    if (value.height > Math.min(probe.oldHeight, probe.target) + 0.5
+      && value.height < Math.max(probe.oldHeight, probe.target) - 0.5) probe.intermediate += 1;
+  }, []);
+  const runDetailsReflow = () => {
+    if (detailProbe.current) return;
+    const before = latestDetails.current;
+    if (!before || before.expanded !== 1 || before.progress < 0.999 || before.height < 1) {
+      setDetailsResult("Tap the first card to expand its macros, wait for it to settle, then run this check.");
+      return;
+    }
+    closeOpenMealActions();
+    const probe = { oldHeight: before.height, oldTarget: before.target, target: null,
+      firstHeight: null, samples: 0, intermediate: 0, reduceMotion: before.reduceMotion };
+    detailProbe.current = probe;
+    setDetailsResult("Running first-card reflow: numeric UI-height samples only.");
+    setNarrowDetails(value => !value);
+    detailTimer.current = setTimeout(() => {
+      if (detailProbe.current !== probe) return;
+      detailProbe.current = null;
+      const final = latestDetails.current;
+      const fmt = value => value == null ? "—" : Number(value).toFixed(2);
+      const settled = probe.target != null && final?.expanded === 1
+        && Math.abs(final.height - probe.target) <= 0.5;
+      const verdict = !settled ? "Needs review: target did not change/settle, or interaction interrupted."
+        : probe.reduceMotion ? "Reduced Motion: immediate height settlement is expected."
+          : probe.intermediate > 0 ? "Intermediate UI heights observed."
+            : "Height snap observed: remeasure reached its new height without intermediate samples.";
+      setDetailsResult(`${verdict} Old stable ${fmt(probe.oldHeight)} · target ${fmt(probe.target)} · first height ${fmt(probe.firstHeight)} · intermediate ${probe.intermediate} · samples ${probe.samples} · final ${fmt(final?.height)} pt.`);
+    }, 1000);
+  };
   const observedProgress = useRef(new Set());
   const recordMetrics = useCallback(value => {
     if (value.revealProgress > 0 && value.revealProgress < 1) observedProgress.current.add(value.revealProgress);
@@ -61,10 +107,19 @@ export default function MealSwipeCheck() {
       <Text allowFontScaling={false}>Swipe state: {state} · Last action: {event} · Scroll offset: {offset}</Text>
       <Text allowFontScaling={false}>Native controls: {metrics.buttonWidth ?? "—"} × {metrics.buttonHeight ?? "—"} pt · label={metrics.labelSize ?? "—"} · symbol={metrics.symbolSize ?? "—"} · glass={metrics.usesNativeGlass ?? "—"} · opaque={metrics.opaqueFallback ?? "—"} · progress={metrics.revealProgress ?? "—"} · intermediate steps={observedProgress.current.size}</Text>
       <Text allowFontScaling={false}>Drag a card left about 30 points and release. On Mac Simulator, click and hold while dragging. Tap a closed card for macros.</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel="Run first card width reflow check"
+        onPress={runDetailsReflow} style={{ minHeight: 44, justifyContent: "center" }}>
+        <Text allowFontScaling={false}>{narrowDetails ? "Restore first card to full width and measure" : "Narrow first card to 180 pt and measure"}</Text>
+      </Pressable>
+      <Text allowFontScaling={false} accessibilityLiveRegion="polite">{detailsResult}</Text>
     </View>
-    {fixtures.map((item, index) => <FoodEntryItem key={item.id} item={item} onSwipeStateChange={setState}
-      onActionMetrics={index === 0 ? recordMetrics : undefined}
-      onEdit={markEdited} onDelete={confirmDelete} />)}
+    {fixtures.map((item, index) => <View key={item.id}
+      style={{ width: index === 0 && narrowDetails ? 180 : "100%", maxWidth: "100%", alignSelf: "flex-start" }}>
+      <FoodEntryItem item={item} onSwipeStateChange={setState}
+        onActionMetrics={index === 0 ? recordMetrics : undefined}
+        onDetailsMetrics={index === 0 ? recordDetails : undefined}
+        onEdit={markEdited} onDelete={confirmDelete} />
+    </View>)}
     <Pressable onPress={() => setEvent("Scroll check ready")} style={{ paddingVertical: 16 }}><Text allowFontScaling={false}>Scroll test area</Text></Pressable>
     {Array.from({ length: 12 }, (_, i) => <View key={i} style={{ height: 90, padding: 24, backgroundColor: i % 2 ? "#F1E8DF" : "#F8EFE8" }}>
       <Text allowFontScaling={false}>{i === 11 ? "Last synthetic row" : `Synthetic scroll row ${i + 1}`}</Text>

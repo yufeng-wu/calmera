@@ -1,5 +1,5 @@
 import { View, Text, Pressable, StyleSheet, useWindowDimensions, AccessibilityInfo } from "react-native";
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming, useReducedMotion, ReduceMotion } from "react-native-reanimated";
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming, useReducedMotion, ReduceMotion, useAnimatedReaction, runOnJS } from "react-native-reanimated";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -21,7 +21,7 @@ export function closeOpenMealActions() {
   activeRow = null;
 }
 
-export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdit, onSwipeStateChange, onActionMetrics }) {
+export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdit, onSwipeStateChange, onActionMetrics, onDetailsMetrics }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [actionsVisible, setActionsVisible] = useState(false);
   const initialReducedMotion = useReducedMotion();
@@ -38,18 +38,36 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
   const [detailsHeight, setDetailsHeight] = useState(0);
   const expansion = useSharedValue(0);
   const measuredDetailsHeight = useSharedValue(0);
+  const renderedDetailsHeight = useSharedValue(0);
   useEffect(() => {
-    measuredDetailsHeight.value = detailsHeight;
-    expansion.value = withTiming(isExpanded ? 1 : 0, {
+    const timing = {
       duration: reducedMotion ? 0 : 260,
       easing: Easing.out(Easing.cubic),
       reduceMotion: reducedMotion ? ReduceMotion.Always : ReduceMotion.System,
-    });
-  }, [detailsHeight, isExpanded, reducedMotion, expansion, measuredDetailsHeight]);
+    };
+    measuredDetailsHeight.value = detailsHeight;
+    // Retarget from the currently displayed pixel height. Multiplying a newly
+    // measured height by an already-open progress value jumps on text reflow.
+    renderedDetailsHeight.value = withTiming(isExpanded ? detailsHeight : 0, timing);
+    expansion.value = withTiming(isExpanded ? 1 : 0, timing);
+  }, [detailsHeight, isExpanded, reducedMotion, expansion, measuredDetailsHeight, renderedDetailsHeight]);
+  // The actual rendered style and optional diagnostics share the same UI value.
   const detailsStyle = useAnimatedStyle(() => ({
-    height: measuredDetailsHeight.value * expansion.value,
+    height: renderedDetailsHeight.value,
     opacity: expansion.value,
   }));
+  useAnimatedReaction(() => onDetailsMetrics ? {
+    height: renderedDetailsHeight.value, target: measuredDetailsHeight.value,
+    progress: expansion.value, expanded: isExpanded ? 1 : 0, reduceMotion: reducedMotion ? 1 : 0,
+  } : null, (value, previous) => {
+    if (!value || !onDetailsMetrics) return;
+    if (previous && Math.abs(value.height - previous.height) < 0.01
+      && Math.abs(value.target - previous.target) < 0.01
+      && Math.abs(value.progress - previous.progress) < 0.001
+      && value.expanded === previous.expanded && value.reduceMotion === previous.reduceMotion) return;
+    // No per-frame JS events in production: only the synthetic fixture opts in.
+    runOnJS(onDetailsMetrics)(value);
+  }, [onDetailsMetrics, isExpanded, reducedMotion]);
   const chevronStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${expansion.value * 180}deg` }],
   }));
