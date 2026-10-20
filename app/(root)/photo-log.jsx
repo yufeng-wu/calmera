@@ -1,12 +1,12 @@
 import { TYPOGRAPHY } from "@/constants/typography";
 import { useState } from "react";
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Image, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
 import usePageExit from "@/hooks/usePageExit";
-import { FormHeader, FormCard, GlassButton } from "@/components/GlassForm";
+import { FormScreen, FormScrollView, FormHeader, FormCard, GlassButton } from "@/components/GlassForm";
 import { phoneTestNutritionLabel } from "@/lib/chatgpt/phoneTestFixtures.mjs";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { FOOD_ENTRIES_API_URL } from "@/constants/api";
@@ -71,9 +71,9 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
   }
 
   return (
-    <View style={styles.container}>
+    <FormScreen style={styles.container}>
       <FormHeader title="Photo" onBack={exit} backDisabled={busy} />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <FormScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {uiFixture && (
           <Text style={styles.fixtureNote}>
             UI preview · Photo access and saving are disabled.
@@ -157,8 +157,8 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
             Using your ChatGPT plan. Only this selected photo goes to OpenAI. Food estimates are approximate.
           </Text>
         </View>
-      </ScrollView>
-    </View>
+      </FormScrollView>
+    </FormScreen>
   );
 }
 

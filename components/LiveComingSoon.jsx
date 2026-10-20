@@ -1,7 +1,7 @@
 import { TYPOGRAPHY } from "@/constants/typography";
-import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { FormHeader, FormCard } from "@/components/GlassForm";
+import { FormScreen, FormScrollView, FormHeader, FormCard } from "@/components/GlassForm";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import usePageExit from "@/hooks/usePageExit";
 
@@ -9,14 +9,14 @@ import usePageExit from "@/hooks/usePageExit";
 export default function LiveComingSoon({ calmeraPreview = false } = {}) {
   const { fontScale } = useWindowDimensions();
   const exit = usePageExit(calmeraPreview ? "/ui-gallery" : "/dashboard");
-  return <View style={styles.screen}>
+  return <FormScreen style={styles.screen}>
     <FormHeader title="Live AI" onBack={exit} />
-    <ScrollView key={`fallback-text-${fontScale}`} contentContainerStyle={styles.content}><FormCard style={styles.card}>
+    <FormScrollView key={`fallback-text-${fontScale}`} contentContainerStyle={styles.content}><FormCard style={styles.card}>
       <View style={styles.icon}><Ionicons name="videocam-outline" size={32} color={COLORS.primary} /></View>
       <Text style={styles.title}>Coming soon</Text>
       <Text style={styles.note}>Use Photo, Manual, or Voice to record your meals.</Text>
-    </FormCard></ScrollView>
-  </View>;
+    </FormCard></FormScrollView>
+  </FormScreen>;
 }
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.background },

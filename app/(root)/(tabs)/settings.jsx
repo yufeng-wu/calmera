@@ -40,7 +40,7 @@ export default function SettingsScreen({ calmeraPreview = false }) {
           icon="sparkles-outline" onPress={() => openPage("/chatgpt", "ChatGPT connection")} />
         <SettingsRow title="Voice language" subtitle="Choose the language for voice logs" icon="mic-outline" divider
           onPress={() => openPage("/voice-language", "Voice language")} />
-        <SettingsRow title="Theme" subtitle={theme.name} icon="color-palette-outline" divider
+        <SettingsRow title="Theme" subtitle={theme.name} accessibilityValue={{ text: theme.name }} icon="color-palette-outline" divider
           onPress={() => openPage("/theme", "Theme")} />
         <SettingsRow title="Nutrition goals" subtitle="Adjust your daily targets" icon="options-outline" divider
           onPress={() => openPage("/update-goals", "Nutrition goals")} />

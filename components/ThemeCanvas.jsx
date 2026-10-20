@@ -5,6 +5,15 @@ import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
 
 import { BASE_CANVAS_COLOR } from "@/constants/appearance.mjs";
 
+const GRADIENTS = {
+  dawn: ["#FFF7E9", "#FFF3EC", "#FFEFF4"],
+  matcha: ["#FCFBF4", "#F0F4E8", "#EFF4E7"],
+  mocha: ["#FCF8F4", "#F9F3ED", "#F6ECE4"],
+};
+const BLOOM_COLORS = {
+  matcha: ["#BED79E", "#E3ECCF"],
+  mocha: ["#CEAC8D", "#E5CDB7"],
+};
 const SPOTS = {
   glow: [
     { color: "#FFC38F", cx: 360, cy: 80, rx: 330, ry: 400, opacity: 0.62 },
@@ -48,16 +57,18 @@ export default function ThemeCanvas({ variant = "solid", topInset = 0, energized
   }, [active, motionEnabled, moving, phase, reduceMotion]);
   useEffect(() => {
     bloom.stopAnimation();
-    if (reduceMotion || !motionEnabled) { bloom.setValue(energized ? 1 : 0); return; }
+    if (reduceMotion || !motionEnabled || !active) { bloom.setValue(energized ? 1 : 0); return; }
     const response = Animated.spring(bloom, { toValue: energized ? 1 : 0, stiffness: 115, damping: 22,
       mass: 1, useNativeDriver: true, isInteraction: false });
     response.start();
     return () => response.stop();
-  }, [bloom, energized, motionEnabled, reduceMotion]);
+  }, [active, bloom, energized, motionEnabled, reduceMotion]);
   const spots = SPOTS[variant];
+  const gradient = GRADIENTS[variant];
+  const bloomColors = BLOOM_COLORS[variant] || ["#FFB868", "#FFCFAD"];
   return <View pointerEvents="none" accessible={false} accessibilityElementsHidden
     importantForAccessibility="no-hide-descendants" style={[styles.canvas, { top: -topInset }]}>
-    {variant === "dawn" && <LinearGradient colors={["#FFF7E9", "#FFF3EC", "#FFEFF4"]}
+    {gradient && <LinearGradient colors={gradient}
       locations={[0, 0.5, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />}
     {spots && <Animated.View style={[styles.overscan, {
       opacity: phase.interpolate({ inputRange: [0, 1], outputRange: [0.78, 1] }),
@@ -83,9 +94,9 @@ export default function ThemeCanvas({ variant = "solid", topInset = 0, energized
     }]}>
       <Svg width="100%" height="100%" viewBox="0 0 400 900" preserveAspectRatio="none">
         <Defs><RadialGradient id={`calmera-canvas-${gradientId}-add-bloom`} gradientUnits="userSpaceOnUse" cx="390" cy="770" rx="300" ry="320">
-          <Stop offset="0" stopColor="#FFB868" stopOpacity="0.3" />
-          <Stop offset="0.5" stopColor="#FFCFAD" stopOpacity="0.12" />
-          <Stop offset="1" stopColor="#FFCFAD" stopOpacity="0" />
+          <Stop offset="0" stopColor={bloomColors[0]} stopOpacity="0.3" />
+          <Stop offset="0.5" stopColor={bloomColors[1]} stopOpacity="0.12" />
+          <Stop offset="1" stopColor={bloomColors[1]} stopOpacity="0" />
         </RadialGradient></Defs>
         <Rect x="0" y="0" width="400" height="900" fill={`url(#calmera-canvas-${gradientId}-add-bloom)`} />
       </Svg>

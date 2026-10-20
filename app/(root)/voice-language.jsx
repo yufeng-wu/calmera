@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, Text, useWindowDimensions } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
-import { FormCard, FormHeader, GlassButton, formStyles } from "@/components/GlassForm";
+import { FormScreen, FormScrollView, FormCard, FormHeader, GlassButton, formStyles } from "@/components/GlassForm";
 import SettingsRow from "@/components/SettingsRow";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import usePageExit from "@/hooks/usePageExit";
@@ -61,9 +61,9 @@ export default function VoiceLanguage({ calmeraPreview = false }) {
   const back = () => calmeraPreview
     ? router.replace({ pathname: "/ui-gallery", params: { page: "settings" } }) : leave();
 
-  return <View style={formStyles.screen}>
+  return <FormScreen style={formStyles.screen}>
     <FormHeader title="Voice language" onBack={back} />
-    <ScrollView key={`voice-language-text-${fontScale}`} contentContainerStyle={formStyles.content}>
+    <FormScrollView key={`voice-language-text-${fontScale}`} contentContainerStyle={formStyles.content}>
       <Text style={formStyles.caption}>Choose the language you speak when logging meals.</Text>
       {loading ? <FormCard style={styles.feedback}>
         <ActivityIndicator color={COLORS.primary} /><Text style={formStyles.caption}>Loading your language…</Text>
@@ -79,8 +79,8 @@ export default function VoiceLanguage({ calmeraPreview = false }) {
       {!loading && !loadError && <Text accessibilityLiveRegion="polite" style={formStyles.caption}>
         {calmeraPreview ? "Preview only · nothing is saved." : saving ? "Saving…" : "Changes are saved automatically."}
       </Text>}
-    </ScrollView>
-  </View>;
+    </FormScrollView>
+  </FormScreen>;
 }
 const styles = StyleSheet.create({
   group: { padding: 0, gap: 0, overflow: "hidden" },

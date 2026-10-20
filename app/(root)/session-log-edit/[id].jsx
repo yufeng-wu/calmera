@@ -1,14 +1,13 @@
 import { estimateMacros, inferenceError } from "@/lib/chatgpt/nutrition";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Platform, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Alert, Platform, StyleSheet, Text, useWindowDimensions } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { getLogEntryById, updateLogEntryById } from "@/lib/scale/sessionManager";
 import { FoodEntryFormCard } from "@/components/FoodEntryFormCard";
-import { FormCard, FormHeader, formStyles } from "@/components/GlassForm";
+import { FormScreen, FormScrollView, FormCard, FormHeader, formStyles } from "@/components/GlassForm";
 import usePageExit from "@/hooks/usePageExit";
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 const previewEntry = { foodName: "Banana — UI preview", absDeltaWeight: 118, direction: "add",
   nutritionInfo: { calories: 105, protein: 1, carbs: 27, fat: 0 } };
@@ -58,7 +57,7 @@ export default function EditSessionLogEntry({ calmeraPreview = false }) {
   }, [entryId, calmeraPreview]);
 
   const handleSave = () => {
-    if (savingRef.current || isFetching || isEstimating || loadError) return;
+    if (savingRef.current || estimatingRef.current || isFetching || isEstimating || loadError) return;
     if (!foodName.trim()) return Alert.alert("Error", "Food name is required");
     if (!calories || isNaN(parseFloat(calories)) || Number(calories) < 0)
       return Alert.alert("Error", "Calories must be a non-negative number");
@@ -78,7 +77,7 @@ export default function EditSessionLogEntry({ calmeraPreview = false }) {
   };
 
   const handleEstimateMacros = async () => {
-    if (estimatingRef.current || isSaving) return;
+    if (estimatingRef.current || savingRef.current || isSaving) return;
     if (!foodName.trim() || !quantity.trim())
       return Alert.alert("Error", "Food name and quantity are required for estimation");
     estimatingRef.current = true;
@@ -97,12 +96,12 @@ export default function EditSessionLogEntry({ calmeraPreview = false }) {
   const estimateDisabled = isSaving || !foodName.trim() || !quantity.trim()
     || (foodName.trim() === lastEstimated.foodName && quantity.trim() === lastEstimated.quantity);
 
-  return <View style={formStyles.screen}>
+  return <FormScreen style={formStyles.screen}>
     <FormHeader title="Edit Item" onBack={goBack} onSave={handleSave} saving={isSaving} backDisabled={isSaving}
       saveDisabled={isFetching || isEstimating || !!loadError} />
-    <KeyboardAwareScrollView key={`editor-text-${fontScale}`} style={formStyles.screen} contentContainerStyle={{ paddingTop: 12, paddingBottom: 40, gap: 18 }}
+    <FormScrollView keyboardAware key={`editor-text-${fontScale}`} style={formStyles.screen} contentContainerStyle={{ paddingTop: 12, paddingBottom: 40, gap: 18 }}
       enableOnAndroid enableAutomaticScroll extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
-      keyboardShouldPersistTaps="handled" enableResetScrollToCoords={false}>
+      keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" enableResetScrollToCoords={false}>
       {calmeraPreview && <Text style={[formStyles.caption, { marginHorizontal: 20 }]}>Synthetic preview · nothing is saved</Text>}
       {isFetching ? <FormCard style={localStyles.statusCard}>
         <ActivityIndicator color={COLORS.primary} accessibilityLabel="Loading session item" />
@@ -114,9 +113,9 @@ export default function EditSessionLogEntry({ calmeraPreview = false }) {
         foodName={foodName} setFoodName={setFoodName} quantity={quantity} setQuantity={setQuantity}
         gramsOnly calories={calories} setCalories={setCalories} protein={protein} setProtein={setProtein}
         carbs={carbs} setCarbs={setCarbs} fat={fat} setFat={setFat} showMealType={false}
-        showEstimateButton onEstimateMacros={handleEstimateMacros} isEstimating={isEstimating}
+        showEstimateButton onEstimateMacros={handleEstimateMacros} isEstimating={isEstimating} busy={isSaving || isEstimating}
         estimateDisabled={estimateDisabled} showMacros={showMacros} />}
-    </KeyboardAwareScrollView>
-  </View>;
+    </FormScrollView>
+  </FormScreen>;
 }
 const localStyles = StyleSheet.create({ statusCard: { marginHorizontal: 20, minHeight: 160, alignItems: "center", justifyContent: "center" } });

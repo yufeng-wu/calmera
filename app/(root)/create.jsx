@@ -1,17 +1,16 @@
 import { estimateMacros, inferenceError } from "@/lib/chatgpt/nutrition";
-import { View, Text, Alert, Platform, StyleSheet } from "react-native";
+import { Text, Alert, Platform, StyleSheet, Keyboard } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Constants from "expo-constants";
 import { FOOD_ENTRIES_API_URL } from "@/constants/api";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { FoodEntryFormCard } from "@/components/FoodEntryFormCard";
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { getLocalTimeWithOffset } from "@/lib/utils";
 import usePageExit from "@/hooks/usePageExit";
-import { FormHeader } from "@/components/GlassForm";
+import { FormScreen, FormScrollView, FormHeader } from "@/components/GlassForm";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const CreateScreen = ({ calmeraPreview = false } = {}) => {
@@ -29,6 +28,8 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
   const { getToken, userId } = useAuth();
   const { setShouldRefresh } = useRefreshSignal();
 
+  const savingRef = useRef(false);
+  const estimatingRef = useRef(false);
   const [foodName, setFoodName] = useState(phoneTestFixture ? "Banana - CALMERA PHONE TEST 2026-10-18" : uiTestFixture ? "Banana" : "");
   const [calories, setCalories] = useState("");
   const [protein, setProtein] = useState("");
@@ -45,6 +46,7 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
   const [showMacros, setShowMacros] = useState(false);
 
   const handleCreate = async () => {
+    if (savingRef.current || estimatingRef.current) return;
     // form validation
     if (!foodName.trim()) return Alert.alert("Error", "Food name is required");
     if (!showMacros) {
@@ -58,6 +60,8 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
     if (uiTestFixture) {
       return Alert.alert("Preview only", "The form is valid. Nothing was sent or saved.");
     }
+    savingRef.current = true;
+    Keyboard.dismiss();
     setIsLoading(true);
     try {
       const token = await getToken();
@@ -99,11 +103,13 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
       Alert.alert("Error", error.message);
       console.error("Error creating food entry:", error);
     } finally {
+      savingRef.current = false;
       setIsLoading(false);
     }
   };
 
   const handleEstimateMacros = async () => {
+    if (estimatingRef.current || savingRef.current) return;
     if (!foodName.trim() || !quantity.trim()) {
       return Alert.alert(
         "Error",
@@ -113,6 +119,7 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
     if (uiTestFixture) {
       return Alert.alert("Preview only", "Estimation is disabled for this visual test. You can enter macros manually.");
     }
+    estimatingRef.current = true;
     setIsEstimating(true);
     try {
       const data = await estimateMacros(userId, foodName, quantity);
@@ -136,18 +143,20 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
     } catch (err) {
       inferenceError(err, router);
     } finally {
+      estimatingRef.current = false;
       setIsEstimating(false);
     }
   };
 
   const estimateDisabled =
+    isLoading ||
     !foodName.trim() ||
     !quantity.trim() ||
     (foodName.trim() === lastEstimated.foodName &&
       quantity.trim() === lastEstimated.quantity);
 
   return (
-    <View style={screen.container}>
+    <FormScreen style={screen.container}>
       <FormHeader
         title="Manual"
         onBack={exit}
@@ -156,12 +165,13 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
         saveDisabled={isLoading || isEstimating}
         backDisabled={isLoading}
       />
-      <KeyboardAwareScrollView
+      <FormScrollView keyboardAware
         style={screen.scroll}
         contentContainerStyle={{ paddingBottom: insets.bottom + 28 }}
         enableOnAndroid={true}
         enableAutomaticScroll={true}
         extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
+        keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         enableResetScrollToCoords={false}
       >
@@ -185,12 +195,13 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
           setMealType={setMealType}
           onEstimateMacros={handleEstimateMacros}
           isEstimating={isEstimating}
+          busy={isLoading || isEstimating}
           estimateDisabled={estimateDisabled}
           showMacros={showMacros}
           onEnterMacros={() => setShowMacros(true)}
         />
-      </KeyboardAwareScrollView>
-    </View>
+      </FormScrollView>
+    </FormScreen>
   );
 };
 

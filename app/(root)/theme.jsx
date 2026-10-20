@@ -1,9 +1,9 @@
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { FormHeader, GlassButton, formStyles } from "@/components/GlassForm";
+import { FormHeader, GlassButton, FormScreen, FormScrollView, formStyles } from "@/components/GlassForm";
 import ThemeCanvas from "@/components/ThemeCanvas";
 import { APPEARANCE_THEMES } from "@/constants/appearance.mjs";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
@@ -24,9 +24,9 @@ export default function ThemeSettings({ calmeraPreview = false }) {
     Haptics.selectionAsync().catch(() => {});
     selectTheme(id).catch(() => {});
   };
-  return <View style={formStyles.screen}>
+  return <FormScreen style={formStyles.screen}>
     <FormHeader title="Theme" onBack={back} />
-    <ScrollView key={`theme-text-${fontScale}`} contentContainerStyle={styles.content}>
+    <FormScrollView key={`theme-text-${fontScale}`} contentContainerStyle={styles.content}>
       <Text style={styles.intro}>Choose your Calmera mood.</Text>
       <View style={styles.grid} accessibilityRole="radiogroup" accessibilityLabel="App theme">
         {APPEARANCE_THEMES.map(item => <Pressable key={item.id} accessibilityRole="radio"
@@ -56,8 +56,8 @@ export default function ThemeSettings({ calmeraPreview = false }) {
       {Constants.expoConfig?.extra?.calmeraFullAppTest === true && <GlassButton title="Compare glass materials" symbol="square.on.square"
         onPress={() => router.push("/glass-compare")} />}
       {review && <Text style={styles.description}>UI review · this choice is saved only in the test preference.</Text>}
-    </ScrollView>
-  </View>;
+    </FormScrollView>
+  </FormScreen>;
 }
 const styles = StyleSheet.create({
   content: { padding: 20, paddingTop: 12, paddingBottom: 44, gap: 18 },
@@ -71,5 +71,5 @@ const styles = StyleSheet.create({
   nameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   name: { ...TYPOGRAPHY.bodyMedium, color: COLORS.text, flex: 1 },
   description: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
-  status: { ...TYPOGRAPHY.captionMedium, color: COLORS.primary },
+  status: { ...TYPOGRAPHY.captionMedium, color: COLORS.text },
 });

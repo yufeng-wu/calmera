@@ -4,7 +4,8 @@ import { useAuth } from "@clerk/clerk-expo";
 import { useIsFocused } from "@react-navigation/native";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { FOOD_ENTRIES_API_URL, USERS_API_URL } from "@/constants/api";
-import { EMPTY_DAY, localDateKey } from "@/lib/nutritionStore.mjs";
+import { localDateKey } from "@/lib/nutritionStore.mjs";
+import { nutritionViewState, retryNutritionError } from "@/lib/nutritionPresentation.mjs";
 
 export function useNutritionData(date = new Date(), history = false) {
   const { userId, getToken, isLoaded } = useAuth();
@@ -59,6 +60,7 @@ export function useNutritionData(date = new Date(), history = false) {
     const data = history ? store.loadHistory(loader, { force: true }) : store.loadDay(dateKey, loader, { force: true });
     return Promise.all([data, store.loadProfile(loader, { force: true })]);
   }, [store, loader, history, dateKey]);
+  const refreshProfile = useCallback(() => store.loadProfile(loader, { force: true }), [store, loader]);
   const deleteEntry = useCallback(async (id) => {
     if (!store.belongsTo(userId)) return;
     const removal = store.removeOptimistically(dateKey, id);
@@ -84,9 +86,10 @@ export function useNutritionData(date = new Date(), history = false) {
       carbsGoal: p.carbsGoal ?? p.carbs_goal ?? p.carbs,
       fatGoal: p.fatGoal ?? p.fat_goal ?? p.fat };
   }, [snapshot.profile]);
-  const day = snapshot.days[dateKey] || (snapshot.historyLoaded ? EMPTY_DAY : undefined);
-  const error = snapshot.errors[history ? "history" : `day:${dateKey}`] || (!day ? snapshot.errors.history : null);
-  return { store, dateKey, day, goals, profile: snapshot.profile, dataByDate: snapshot.days,
-    error, refresh, deleteEntry, loading: !day && !error, historyLoading: !snapshot.historyLoaded && !error,
-    snapshot, loader };
+  const presentation = nutritionViewState(snapshot, dateKey, history);
+  const retryError = useCallback(() => retryNutritionError(
+    { error: presentation.error, profileError: presentation.profileError }, { refresh, refreshProfile }),
+  [presentation.error, presentation.profileError, refresh, refreshProfile]);
+  return { store, dateKey, ...presentation, goals, profile: snapshot.profile, dataByDate: snapshot.days,
+    refresh, refreshProfile, retryError, deleteEntry, snapshot, loader };
 }

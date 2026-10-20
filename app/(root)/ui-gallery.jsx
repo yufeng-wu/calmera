@@ -1,5 +1,8 @@
-import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { useContext } from "react";
+import { Platform, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { SafeScreenTopContext } from "@/components/SafeScreen";
+import { formOwnsTopInset } from "@/lib/headerLayout.mjs";
 import Constants from "expo-constants";
 import { FormHeader, GlassButton } from "@/components/GlassForm";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
@@ -53,12 +56,14 @@ export default function UIGallery() {
   const router = useRouter();
   const { fontScale } = useWindowDimensions();
   const { page } = useLocalSearchParams();
+  const safeTop = useContext(SafeScreenTopContext);
+  const localInset = formOwnsTopInset("/ui-gallery", page, Platform.OS, Platform.Version) ? 0 : safeTop;
   if (Constants.expoConfig?.extra?.calmeraFullAppTest !== true) return <Redirect href="/dashboard" />;
   const id = Array.isArray(page) ? page[0] : page;
   const index = screens.findIndex(item => item.id === id);
   const entry = screens[index];
   const select = target => router.replace({ pathname: "/ui-gallery", params: target ? { page: target } : {} });
-  if (!entry) return <View style={styles.screen}>
+  if (!entry) return <View style={[styles.screen, { paddingTop: localInset }]}>
     <FormHeader title="UI review" />
     <ScrollView contentContainerStyle={styles.list}>
       <Text style={styles.note}>Actual Calmera pages with synthetic data and local-only actions. Your account stays signed in; these examples cannot submit authentication, inference, or record changes.</Text>
@@ -66,7 +71,7 @@ export default function UIGallery() {
     </ScrollView>
   </View>;
   const Component = entry.Component;
-  return <View style={styles.screen}>
+  return <View style={[styles.screen, { paddingTop: localInset }]}>
     <View style={styles.page}><Component key={id} calmeraPreview
       calmeraPreviewStage={entry.stage} calmeraPreviewState={entry.state} /></View>
     <View style={styles.reviewBar}>

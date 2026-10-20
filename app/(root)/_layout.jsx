@@ -1,3 +1,7 @@
+import { useContext } from "react";
+import { Platform } from "react-native";
+import { SafeScreenTopContext } from "@/components/SafeScreen";
+import { formOwnsTopInset } from "@/lib/headerLayout.mjs";
 import { useUser } from "@clerk/clerk-expo";
 import { Redirect } from "expo-router";
 import { Stack } from "expo-router/stack";
@@ -6,6 +10,7 @@ import { EntriesRefreshProvider } from "@/context/EntriesRefreshContext";
 
 export default function Layout() {
   const { isSignedIn, isLoaded } = useUser();
+  const topInset = useContext(SafeScreenTopContext);
 
   if (!isLoaded) return null; // this is for better ux.
   if (!isSignedIn) {
@@ -14,14 +19,18 @@ export default function Layout() {
 
   return (
     <EntriesRefreshProvider>
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.background } }}>
-        {/* These custom headers live below SafeScreen's inset. A rectangular
-            native-stack push avoids UIKit's temporary rounded push mask there. */}
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.background, paddingTop: topInset } }}>
+        {/* Forms own their inset so native material can span the status area.
+            Other screens keep their inset locally without resizing this stack. */}
         {["update-goals", "create", "photo-log", "chatgpt", "voice-language", "theme", "goals-survey", "edit/[id]", "session-log-edit/[id]", "calmera-guide", "calmera-welcome", "update-scale-type", "camera", "camera-loading"].map((name) => (
           <Stack.Screen key={name} name={name} options={{
             presentation: "card", animation: "simple_push", gestureEnabled: true,
+            contentStyle: { backgroundColor: COLORS.background, paddingTop:
+              formOwnsTopInset(`/${name}`, undefined, Platform.OS, Platform.Version)
+                || ["camera", "camera-loading"].includes(name) ? 0 : topInset },
           }} />
         ))}
+        <Stack.Screen name="ui-gallery" options={{ contentStyle: { backgroundColor: COLORS.background, paddingTop: 0 } }} />
       </Stack>
     </EntriesRefreshProvider>
   );

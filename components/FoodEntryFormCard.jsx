@@ -15,7 +15,7 @@ import { FormCard, GlassButton } from "@/components/GlassForm";
 
 const MEAL_TYPES = ["Breakfast", "Lunch", "Dinner", "Snack"];
 
-function FormField({ label, symbol, suffix, style, inputStyle, ...inputProps }) {
+const FormField = React.forwardRef(function FormField({ label, symbol, suffix, style, inputStyle, ...inputProps }, ref) {
   return (
     <View style={[form.field, style]}>
       <Text style={form.fieldLabel}>{label}</Text>
@@ -30,6 +30,7 @@ function FormField({ label, symbol, suffix, style, inputStyle, ...inputProps }) 
           />
         )}
         <TextInput
+          ref={ref}
           {...inputProps}
           accessibilityLabel={inputProps.accessibilityLabel || label}
           placeholderTextColor={COLORS.textLight}
@@ -39,7 +40,7 @@ function FormField({ label, symbol, suffix, style, inputStyle, ...inputProps }) 
       </View>
     </View>
   );
-}
+});
 
 // State remains in each create/edit screen. Optional props preserve those callers.
 export const FoodEntryFormCard = ({
@@ -62,12 +63,15 @@ export const FoodEntryFormCard = ({
   showEstimateButton = true,
   onEstimateMacros,
   isEstimating = false,
+  busy = false,
   estimateDisabled = false,
   showMacros = true,
   onEnterMacros,
 }) => {
   const { fontScale } = useWindowDimensions();
   const stackedMacros = fontScale >= 1.3;
+  const amountInput = React.useRef(null);
+  const formBusy = busy || isEstimating;
 
   return (
     <View style={form.container}>
@@ -79,7 +83,8 @@ export const FoodEntryFormCard = ({
               <Pressable
                 key={type}
                 accessibilityRole="radio"
-                accessibilityState={{ checked: mealType === type }}
+                accessibilityState={{ checked: mealType === type, disabled: formBusy }}
+                disabled={formBusy}
                 accessibilityLabel={type}
                 onPress={() => setMealType?.(type)}
                 style={({ pressed }) => [
@@ -108,16 +113,23 @@ export const FoodEntryFormCard = ({
           placeholder="What did you eat?"
           value={foodName}
           onChangeText={setFoodName}
+          editable={!formBusy}
           returnKeyType="next"
+          submitBehavior="submit"
+          onSubmitEditing={() => amountInput.current?.focus()}
         />
         <View style={form.separator} />
         <FormField
+          ref={amountInput}
           label="Amount"
           symbol="cube-outline"
           placeholder={gramsOnly ? "Weight in grams" : "e.g. 150 g or 2 slices"}
           keyboardType={gramsOnly ? "numeric" : "default"}
           value={gramsOnly && quantity ? String(quantity) : quantity}
           suffix={gramsOnly ? "g" : undefined}
+          editable={!formBusy}
+          returnKeyType="done"
+          onSubmitEditing={Keyboard.dismiss}
           onChangeText={(text) => {
             setQuantity(gramsOnly ? text.replace(/[^0-9]/g, "") : text);
           }}
@@ -132,7 +144,7 @@ export const FoodEntryFormCard = ({
             role="accent"
             style={form.estimateButton}
             loading={isEstimating}
-            disabled={isEstimating || estimateDisabled}
+            disabled={formBusy || estimateDisabled}
             onPress={() => {
               Keyboard.dismiss();
               onEstimateMacros();
@@ -144,7 +156,7 @@ export const FoodEntryFormCard = ({
               accessibilityLabel="Enter nutrition macros manually"
               style={form.manualButton}
               onPress={onEnterMacros}
-              disabled={isEstimating}
+              disabled={formBusy}
             >
               <Text style={form.manualButtonText}>Enter macros manually</Text>
             </Pressable>
@@ -169,6 +181,7 @@ export const FoodEntryFormCard = ({
                 suffix={suffix}
                 value={value}
                 onChangeText={setter}
+                editable={!formBusy}
                 placeholder="0"
                 keyboardType="decimal-pad"
                 accessibilityLabel={`${label}, ${suffix}`}

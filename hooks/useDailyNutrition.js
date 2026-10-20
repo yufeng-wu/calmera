@@ -17,5 +17,6 @@ export const useDailyNutrition = (date = new Date()) => {
     store.addConfirmed(dateKey, entries);
   }, [store, dateKey]);
   return { entries: data.day?.entries || [], summary: data.day?.summary || EMPTY_DAY.summary,
-    hasData: Boolean(data.day), goals: data.goals, error: data.error, isSessionActive: store.isActive, isLoading: data.loading, loadData, deleteEntry, addEntries };
+    hasData: Boolean(data.day), goals: data.goals, error: data.error, profileError: data.profileError,
+    refreshProfile: data.refreshProfile, retryError: data.retryError, isSessionActive: store.isActive, isLoading: data.loading, loadData, deleteEntry, addEntries };
 };

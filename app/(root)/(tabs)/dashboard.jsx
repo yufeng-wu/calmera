@@ -93,7 +93,7 @@ export default function SummaryScreen() {
   const SCROLL_BOTTOM_PADDING = 116 + floatingBarInset;
 
   // user.id comes from Clerk
-  const { entries, summary, goals, hasData, error: dataError, isSessionActive, isLoading, loadData, deleteEntry, addEntries } =
+  const { entries, summary, goals, hasData, error: dataError, profileError, retryError, isSessionActive, isLoading, loadData, deleteEntry, addEntries } =
     useDailyNutrition();
 
   const onRefresh = async () => {
@@ -348,8 +348,8 @@ export default function SummaryScreen() {
           <Text style={styles.todayWordmark} accessibilityRole="header">calmera</Text>
           <Text style={styles.dateText}>{formattedDate}</Text>
           {hasData ? <NutritionSummaryCard summary={summary} goals={goals} /> : <NutritionSummarySkeleton loading={isLoading} />}
-          {dataError && <Pressable onPress={onRefresh} accessibilityRole="button" style={{ paddingVertical: 10 }}>
-            <Text style={styles.macrosText}>Meals couldn’t refresh. Tap to retry.</Text>
+          {(dataError || profileError) && <Pressable onPress={() => retryError().catch(() => {})} accessibilityRole="button" style={{ paddingVertical: 10 }}>
+            <Text style={styles.macrosText}>{dataError ? "Meals couldn’t refresh. Tap to retry." : "Your nutrition goals couldn’t refresh. Tap to retry."}</Text>
           </Pressable>}
         </View>
 

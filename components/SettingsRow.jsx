@@ -5,9 +5,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 
 export default function SettingsRow({ title, subtitle, icon, onPress, selected = false,
-  destructive = false, disabled = false, divider = false, accessibilityRole = "button" }) {
+  destructive = false, disabled = false, divider = false, accessibilityRole = "button", accessibilityValue }) {
   const color = destructive ? COLORS.expense : COLORS.primary;
-  return <Pressable accessibilityRole={accessibilityRole} accessibilityLabel={title}
+  return <Pressable accessibilityRole={accessibilityRole}
+    accessibilityLabel={accessibilityValue ? title : [title, subtitle].filter(Boolean).join(". ")}
+    accessibilityValue={accessibilityValue}
     accessibilityState={{ disabled, ...(accessibilityRole === "radio" ? { checked: selected } : {}) }}
     disabled={disabled} onPress={onPress}
     style={({ pressed }) => [styles.row, divider && styles.divider, pressed && styles.pressed]}>

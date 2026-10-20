@@ -1,11 +1,63 @@
+import { SafeScreenTopContext } from "@/components/SafeScreen";
 import { SURFACES } from "@/constants/surfaces";
 import { TYPOGRAPHY } from "@/constants/typography";
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { createContext, forwardRef, useCallback, useContext, useMemo, useRef, useState } from "react";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { requireNativeViewManager } from "expo-modules-core";
 import { Ionicons } from "@expo/vector-icons";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 
 const NativeButton = Platform.OS === "ios" ? requireNativeViewManager("CalmeraChatGPT", "FormButton") : null;
+const nativeEdgeSupported = Platform.OS === "ios" && Number.parseInt(String(Platform.Version), 10) >= 26;
+const NativeHeaderEdge = nativeEdgeSupported ? requireNativeViewManager("CalmeraChatGPT", "HeaderScrollEdge") : null;
+const HeaderScrollContext = createContext(null);
+
+// Preserve the resting layout while letting the native scroll edge soften
+// content moving underneath the actual header controls on iOS 26.
+export function FormScreen({ children, style, onHeaderHeightChange, onEdgeStatus, ...props }) {
+  const { fontScale } = useWindowDimensions();
+  const safeTopInset = useContext(SafeScreenTopContext);
+  const [measuredHeight, setMeasuredHeight] = useState(null);
+  const [scrollTag, setScrollTag] = useState(0);
+  const headerHeight = measuredHeight ?? Math.max(64, 40 * fontScale + 20);
+  const reportHeaderHeight = useCallback(height => {
+    setMeasuredHeight(previous => previous === height ? previous : height);
+    onHeaderHeightChange?.(height + safeTopInset);
+  }, [onHeaderHeightChange, safeTopInset]);
+  const context = useMemo(() => ({ headerHeight, topInset: safeTopInset, scrollTag, setScrollTag, reportHeaderHeight, onEdgeStatus }),
+    [headerHeight, safeTopInset, scrollTag, reportHeaderHeight, onEdgeStatus]);
+  return <HeaderScrollContext.Provider value={context}>
+    <View {...props} style={[formStyles.screen, style, safeTopInset ? { paddingTop: safeTopInset } : null]}>{children}</View>
+  </HeaderScrollContext.Provider>;
+}
+
+export const FormScrollView = forwardRef(function FormScrollView({ keyboardAware = false, style,
+  contentContainerStyle, scrollIndicatorInsets, onLayout, ...props }, forwardedRef) {
+  const edge = useContext(HeaderScrollContext);
+  const nodeRef = useRef(null);
+  const register = edge?.setScrollTag;
+  const updateTag = useCallback(() => {
+    const node = nodeRef.current;
+    const tag = node?.getScrollableNode?.() ?? node?.getScrollResponder?.()?.getScrollableNode?.() ?? 0;
+    register?.(typeof tag === "number" ? tag : 0);
+  }, [register]);
+  const attach = useCallback(node => {
+    nodeRef.current = node;
+    if (typeof forwardedRef === "function") forwardedRef(node);
+    else if (forwardedRef) forwardedRef.current = node;
+    updateTag();
+  }, [forwardedRef, updateTag]);
+  const Component = keyboardAware ? KeyboardAwareScrollView : ScrollView;
+  const overlap = NativeHeaderEdge && edge ? edge.headerHeight + edge.topInset : 0;
+  const content = StyleSheet.flatten(contentContainerStyle) || {};
+  const originalTop = content.paddingTop ?? content.paddingVertical ?? content.padding ?? 0;
+  return <Component {...props} ref={attach} style={[{ flex: 1 }, style, overlap ? { marginTop: -overlap } : null]}
+    contentContainerStyle={[contentContainerStyle, overlap ? { paddingTop: overlap + originalTop } : null]}
+    contentInsetAdjustmentBehavior={props.contentInsetAdjustmentBehavior || "never"}
+    scrollIndicatorInsets={{ ...scrollIndicatorInsets, top: (scrollIndicatorInsets?.top || 0) + overlap }}
+    onLayout={event => { updateTag(); onLayout?.(event); }} />;
+});
 const fallbackSymbols = {
   "chevron.left": "chevron-back", checkmark: "checkmark", sparkles: "sparkles-outline",
   camera: "camera-outline", "camera.fill": "camera", photo: "image-outline", "photo.on.rectangle": "images-outline",
@@ -50,7 +102,11 @@ export function GlassButton({ title = "", symbol = "", onPress, disabled = false
 export function FormHeader({ title, onBack, onSave, saving = false, saveDisabled = false, backDisabled = false, rightAction }) {
   const { fontScale } = useWindowDimensions();
   const large = fontScale > 1.4;
-  return <View style={[styles.header, { minHeight: Math.max(64, 40 * fontScale + 20) }]}>
+  const edge = useContext(HeaderScrollContext);
+  return <View collapsable={false} onLayout={event => edge?.reportHeaderHeight(event.nativeEvent.layout.height)}
+    style={[styles.header, edge && { zIndex: 10 }, { minHeight: Math.max(64, 40 * fontScale + 20) }]}>
+    {NativeHeaderEdge && edge && <NativeHeaderEdge pointerEvents="none" style={StyleSheet.absoluteFill}
+      scrollViewTag={edge.scrollTag} topExtension={edge.topInset} reportStatus={Boolean(edge.onEdgeStatus)} onStatus={edge.onEdgeStatus} />}
     <View style={[styles.headerSide, large && styles.headerSideLarge]}>
       {onBack && <GlassButton symbol="chevron.left" role="navigation" onPress={onBack} disabled={backDisabled}
         accessibilityLabel="Back" style={styles.headerBack} />}

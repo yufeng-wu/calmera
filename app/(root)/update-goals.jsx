@@ -5,7 +5,6 @@ import {
   Text,
   StyleSheet,
   Alert,
-  ScrollView,
   LayoutAnimation,
   UIManager,
   Platform,
@@ -19,7 +18,7 @@ import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { useAuth } from "@clerk/clerk-expo";
-import { FormHeader, FormCard, GlassButton } from "@/components/GlassForm";
+import { FormScreen, FormScrollView, FormHeader, FormCard, GlassButton } from "@/components/GlassForm";
 import GoalSliderRow from "@/components/GoalSliderRow";
 import { goalInputValue, goalSaveValue } from "@/lib/goalSlider.mjs";
 import { fetchGoalProfile, saveGoalProfile } from "@/lib/goalProfile.mjs";
@@ -197,7 +196,7 @@ export default function UpdateGoals() {
   };
 
   return (
-    <View style={styles.screen}>
+    <FormScreen style={styles.screen}>
       <FormHeader
         title="Edit Goals"
         onBack={leaveEditor}
@@ -206,7 +205,7 @@ export default function UpdateGoals() {
         saveDisabled={isFetching || Boolean(loadError)}
         backDisabled={loading}
       />
-      <ScrollView
+      <FormScrollView
         // Re-measure RN text after a live Dynamic Type change; keep draft state
         // in this screen so remounting the scroll content never reloads goals.
         key={`goals-text-${fontScale}`}
@@ -279,8 +278,8 @@ export default function UpdateGoals() {
             accessibilityLabel="Take the goals survey"
           />
         </FormCard>
-      </ScrollView>
-    </View>
+      </FormScrollView>
+    </FormScreen>
   );
 }
 

@@ -17,6 +17,14 @@ public final class CalmeraChatGPTModule: Module {
       Prop("sampleLabel") { (view: CalmeraMaterialSampleView, value: String) in view.sampleLabel = value }
       OnViewDidUpdateProps { (view: CalmeraMaterialSampleView) in view.updateSample() }
     }
+    View(CalmeraHeaderScrollEdgeView.self) {
+      ViewName("HeaderScrollEdge")
+      Events("onStatus")
+      Prop("scrollViewTag") { (view: CalmeraHeaderScrollEdgeView, value: Int) in view.scrollViewTag = value }
+      Prop("topExtension") { (view: CalmeraHeaderScrollEdgeView, value: Double) in view.topExtension = CGFloat(max(0, value)) }
+      Prop("reportStatus") { (view: CalmeraHeaderScrollEdgeView, value: Bool) in view.reportStatus = value }
+      OnViewDidUpdateProps { (view: CalmeraHeaderScrollEdgeView) in view.updateBinding() }
+    }
     View(CalmeraFormButtonView.self) {
       ViewName("FormButton")
       Events("onPress")
@@ -407,6 +415,8 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
   private var priorExpanded: Bool?
   private var priorRecording = false
   private var priorAnalyzing = false
+  private var priorBottomInset: CGFloat?
+  private var priorOptionWidth: CGFloat?
   private var lastBounds = CGRect.zero
   private var visible = [false, false, false, true]
   private var voiceAnimator: UIViewPropertyAnimator?
@@ -520,6 +530,7 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
     NotificationCenter.default.addObserver(self, selector: #selector(accessibilityChanged), name: UIAccessibility.reduceTransparencyStatusDidChangeNotification, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(contentSizeChanged), name: UIContentSizeCategory.didChangeNotification, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(accessibilityChanged), name: UIAccessibility.darkerSystemColorsStatusDidChangeNotification, object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(motionChanged), name: UIAccessibility.reduceMotionStatusDidChangeNotification, object: nil)
   }
 
   private func configureContainer() {
@@ -534,6 +545,19 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
     configureContainer()
     priorExpanded = nil
     refreshTypography()
+  }
+
+  @objc private func motionChanged() {
+    guard glasses.count == 4 else { return }
+    // Settle our own geometry/content animations immediately. Keep the mounted
+    // Regular glass effects so changing accessibility never rematerializes them.
+    animationGeneration += 1
+    stopVoiceGrowth()
+    for view in glasses + rows + labels + icons {
+      view.layer.removeAllAnimations()
+    }
+    if voiceReturnLink != nil { finishVoiceReturnCheck(voiceReturnGeneration) }
+    render(animated: false, force: true)
   }
 
   @objc private func contentSizeChanged() { scheduleTypographyRefresh() }
@@ -600,7 +624,8 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
     guard bounds.width > 40, glasses.count == 4 else { return }
     let first = priorExpanded == nil
     let previousVisibility = visible
-    let changed = force || priorExpanded != expanded || priorRecording != recording || priorAnalyzing != analyzing
+    let geometryChanged = force || priorBottomInset != bottomInset || priorOptionWidth != optionWidth
+    let changed = geometryChanged || priorExpanded != expanded || priorRecording != recording || priorAnalyzing != analyzing
     labels[2].text = analyzing ? "Processing…" : recording ? "\(seconds)s · Release" : "Voice"
     icons[2].image = analyzing ? nil : UIImage(systemName: recording ? "waveform" : "mic")
     if analyzing { processingIndicator.startAnimating() } else { processingIndicator.stopAnimating() }
@@ -623,11 +648,13 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
     if !changed { glasses[2].layoutIfNeeded(); return }
     animationGeneration += 1
     let generation = animationGeneration
-    stopVoiceGrowth()
+    let frozenVoiceWidth = stopVoiceGrowth()
     let startsRecording = recording && !priorRecording
+    let resumesRecording = recording && priorRecording
     let releasesRecording = priorRecording && !recording
     let returnGeneration: Int? = releasesRecording ? beginVoiceReturnCheck() : nil
     priorExpanded = expanded; priorRecording = recording; priorAnalyzing = analyzing
+    priorBottomInset = bottomInset; priorOptionWidth = optionWidth
     let trigger = frame(for: 3, width: triggerWidth)
     if first {
       for glass in glasses { glass.frame = trigger }
@@ -636,11 +663,13 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
       ($0 as NSString).size(withAttributes: [.font: labels[0].font!]).width
     }.max() ?? 0
     let width = min(max(optionWidth, ceil(longestTitle) + 62), bounds.width - 40)
+    let resumedVoiceWidth = min(bounds.width - 40, max(width, frozenVoiceWidth, rowWidths[2].constant + 32))
     let update = {
       for index in 0..<4 {
         let show = self.visible[index]
         let processingWidth = min(self.bounds.width - 40, max(width, self.rowWidths[2].constant + 32))
-        let targetWidth = index == 3 ? self.triggerWidth : index == 2 && self.analyzing ? processingWidth : width
+        let targetWidth = index == 3 ? self.triggerWidth : index == 2 && self.analyzing ? processingWidth
+          : index == 2 && resumesRecording ? resumedVoiceWidth : width
         self.glasses[index].frame = index == 3 || show ? self.frame(for: index, width: targetWidth) : trigger
         if #unavailable(iOS 26.0) {
           self.glasses[index].layer.cornerRadius = (index == 3 ? self.triggerHeight : self.itemHeight) / 2
@@ -685,7 +714,7 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
       update(); settledGeneration = generation; settleTriggerTitle()
       if let returnGeneration { finishVoiceReturnCheck(returnGeneration) }
     }
-    if startsRecording { growVoice() }
+    if startsRecording || resumesRecording { growVoice(resuming: resumesRecording) }
     reportMetrics()
   }
 
@@ -728,6 +757,11 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
       metrics["effectHostClipped"] = clipsToBounds || container.clipsToBounds || container.contentView.clipsToBounds ? 1 : 0
       metrics["triggerWidth"] = Double(glasses[3].bounds.width)
       metrics["triggerHeight"] = Double(glasses[3].bounds.height)
+      metrics["triggerTop"] = Double(glasses[3].frame.minY)
+      metrics["menuBottomInset"] = Double(bottomInset)
+      metrics["menuOptionWidth"] = Double(optionWidth)
+      metrics["voiceGrowing"] = voiceAnimator?.isRunning == true ? 1 : 0
+      metrics["reduceMotion"] = UIAccessibility.isReduceMotionEnabled ? 1 : 0
       metrics["opaqueFallback"] = opaque ? 1 : 0
       if #available(iOS 26.0, *) {
         metrics["triggerNativeGlass"] = glasses[3].effect is UIGlassEffect ? 1 : 0
@@ -745,8 +779,8 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
     onMetrics(metrics)
   }
 
-  private func stopVoiceGrowth() {
-    guard let animator = voiceAnimator else { return }
+  @discardableResult private func stopVoiceGrowth() -> CGFloat {
+    guard let animator = voiceAnimator else { return glasses[2].bounds.width }
     // Glass can have temporary interaction transforms. Its presentation frame
     // is not a reliable placement to copy into the container's coordinate space.
     // Preserve only the visible width and rebuild the canonical right/top anchor.
@@ -761,6 +795,7 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
       self.glasses[2].frame = self.frame(for: 2, width: width)
       self.glasses[2].layoutIfNeeded()
     }
+    return width
   }
 
   private func beginVoiceReturnCheck() -> Int {
@@ -813,11 +848,17 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
     reportMetrics()
   }
 
-  private func growVoice() {
-    let firstWidth = min(max(glasses[2].bounds.width, optionWidth + 40), bounds.width - 40)
+  private func growVoice(resuming: Bool = false) {
+    let firstWidth = min(max(glasses[2].bounds.width, optionWidth + 40, rowWidths[2].constant + 32), bounds.width - 40)
     if UIAccessibility.isReduceMotionEnabled {
       glasses[2].frame = frame(for: 2, width: firstWidth)
       glasses[2].layoutIfNeeded()
+      return
+    }
+    if resuming {
+      // A layout/accessibility refresh preserves the sampled width and its
+      // canonical right/top anchor, then continues only the remaining growth.
+      continueVoiceGrowth(duration: max(0, 30 - Double(seconds)))
       return
     }
     let phase = UIViewPropertyAnimator(duration: 0.22, dampingRatio: 0.85) {
@@ -826,15 +867,22 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
     }
     phase.addCompletion { [weak self] position in
       guard let self, position == .end, self.recording else { return }
-      let grow = UIViewPropertyAnimator(duration: 30, curve: .easeOut) {
-        self.glasses[2].frame = self.frame(for: 2, width: min(self.bounds.width - 40, self.bounds.width * 0.7))
-        self.glasses[2].layoutIfNeeded()
-      }
-      self.voiceAnimator = grow
-      grow.startAnimation()
+      self.continueVoiceGrowth(duration: 30)
     }
     voiceAnimator = phase
     phase.startAnimation()
+  }
+
+  private func continueVoiceGrowth(duration: TimeInterval) {
+    guard recording, !UIAccessibility.isReduceMotionEnabled, duration > 0 else { return }
+    let targetWidth = min(bounds.width - 40,
+      max(glasses[2].bounds.width, rowWidths[2].constant + 32, bounds.width * 0.7))
+    let grow = UIViewPropertyAnimator(duration: duration, curve: .easeOut) {
+      self.glasses[2].frame = self.frame(for: 2, width: targetWidth)
+      self.glasses[2].layoutIfNeeded()
+    }
+    voiceAnimator = grow
+    grow.startAnimation()
   }
 
   @objc private func tapped(_ button: UIButton) {
@@ -1176,6 +1224,195 @@ final class CalmeraMealActionsView: ExpoView {
   }
 }
 
+
+// A decorative child of the actual React header. UIKit derives the scroll
+// edge from that header's real labels/controls; React still owns all layout,
+// scrolling, content insets and gestures. Resolve only the explicit scroll ref.
+final class CalmeraHeaderScrollEdgeView: ExpoView {
+  let onStatus = EventDispatcher()
+  var scrollViewTag = 0
+  var topExtension: CGFloat = 0 {
+    didSet { if oldValue != topExtension { setNeedsLayout() } }
+  }
+  var reportStatus = false
+  private weak var headerHost: UIView?
+  private weak var boundScrollView: UIScrollView?
+  private var edgeInteraction: UIInteraction?
+  private var previousStyle: AnyObject?
+  private var previousHidden = false
+  private var bindingGeneration = 0
+  private var lastStatus: [String: Double] = [:]
+  private let backdrop = UIVisualEffectView()
+  private let backdropMask = UIView()
+  private let backdropFade = CAGradientLayer()
+  private var backdropOpaque: Bool?
+
+  required init(appContext: AppContext? = nil) {
+    super.init(appContext: appContext)
+    backgroundColor = .clear
+    isOpaque = false
+    isUserInteractionEnabled = false
+    isAccessibilityElement = false
+    accessibilityElementsHidden = true
+    clipsToBounds = false
+    overrideUserInterfaceStyle = .light
+    backdrop.isUserInteractionEnabled = false
+    backdropMask.isUserInteractionEnabled = false
+    backdropFade.colors = [UIColor.black.cgColor, UIColor.black.cgColor, UIColor.clear.cgColor]
+    backdropFade.startPoint = CGPoint(x: 0.5, y: 0)
+    backdropFade.endPoint = CGPoint(x: 0.5, y: 1)
+    backdropMask.layer.addSublayer(backdropFade)
+    addSubview(backdrop)
+    updateBackdrop()
+    NotificationCenter.default.addObserver(self, selector: #selector(updateBackdrop),
+      name: UIAccessibility.reduceTransparencyStatusDidChangeNotification, object: nil)
+  }
+
+  @objc private func updateBackdrop() {
+    let opaque = UIAccessibility.isReduceTransparencyEnabled
+    guard backdropOpaque != opaque else { return }
+    backdropOpaque = opaque
+    // This backdrop is behind the header's real controls, never their ancestor.
+    // The gradient mask belongs directly to this decorative effect view, as
+    // required by UIVisualEffectView's mask/compositing contract.
+    backdrop.effect = opaque ? nil : UIBlurEffect(style: .systemMaterial)
+    backdrop.backgroundColor = opaque ? .systemBackground : .clear
+  }
+
+  override func didMoveToSuperview() {
+    super.didMoveToSuperview()
+    detach()
+    updateBinding()
+  }
+
+  override func didMoveToWindow() {
+    super.didMoveToWindow()
+    if window == nil {
+      bindingGeneration += 1
+      detach()
+    } else { updateBinding() }
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    let size = CGSize(width: bounds.width, height: bounds.height + topExtension + 24)
+    backdrop.frame = CGRect(origin: CGPoint(x: 0, y: -topExtension), size: size)
+    if backdropMask.bounds.size != size {
+      CATransaction.begin()
+      CATransaction.setDisableActions(true)
+      backdropMask.frame = CGRect(origin: .zero, size: size)
+      backdropFade.frame = backdropMask.bounds
+      let fadeStart = size.height > 0 ? max(0, size.height - 36) / size.height : 0
+      backdropFade.locations = [0, NSNumber(value: Double(fadeStart)), 1]
+      CATransaction.commit()
+      // UIKit copies a directly assigned effect-view mask; reassign on resize.
+      backdrop.mask = backdropMask
+    }
+    updateBinding()
+  }
+
+  func updateBinding() {
+    bindingGeneration += 1
+    let generation = bindingGeneration
+    // The React tag can arrive before its native view is mounted. A bounded
+    // retry handles that ordering without polling frames or scanning a window.
+    DispatchQueue.main.async { [weak self] in
+      self?.bind(generation: generation, attempt: 0)
+    }
+  }
+
+  private func bind(generation: Int, attempt: Int) {
+    guard generation == bindingGeneration else { return }
+    guard #available(iOS 26.0, *) else {
+      detach()
+      emitStatus(available: false, bound: false, code: 1)
+      return
+    }
+    guard scrollViewTag > 0, let host = superview, window != nil else {
+      detach()
+      emitStatus(available: true, bound: false, code: 2)
+      return
+    }
+    guard let scrollHost = appContext?.findView(withTag: scrollViewTag, ofType: UIView.self),
+      let scroll = findScrollView(in: scrollHost), scroll.window === window else {
+      detach()
+      emitStatus(available: true, bound: false, code: 3)
+      if attempt < 3 {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05 * Double(attempt + 1)) { [weak self] in
+          self?.bind(generation: generation, attempt: attempt + 1)
+        }
+      }
+      return
+    }
+    if headerHost !== host || boundScrollView !== scroll || edgeInteraction == nil {
+      detach()
+      let interaction = UIScrollEdgeElementContainerInteraction()
+      interaction.scrollView = scroll
+      interaction.edge = .top
+      previousStyle = scroll.topEdgeEffect.style
+      previousHidden = scroll.topEdgeEffect.isHidden
+      headerHost = host
+      boundScrollView = scroll
+      edgeInteraction = interaction
+      host.addInteraction(interaction)
+    }
+    scroll.topEdgeEffect.style = .soft
+    scroll.topEdgeEffect.isHidden = false
+    let viewport = scroll.convert(scroll.bounds, to: host)
+    let intersection = host.bounds.intersection(viewport)
+    let overlap = intersection.isNull ? 0 : max(0, intersection.height)
+    emitStatus(available: true, bound: true, overlap: overlap, code: 0)
+  }
+
+  private func findScrollView(in root: UIView) -> UIScrollView? {
+    // RN's public scroll host wraps UIScrollView on both rendering paths. BFS
+    // chooses the outer viewport before any nested controls or content scrollers.
+    var level = [root]
+    var visited = 0
+    for _ in 0..<6 {
+      var next: [UIView] = []
+      for view in level {
+        visited += 1
+        guard visited <= 96 else { return nil }
+        if let scroll = view as? UIScrollView { return scroll }
+        next.append(contentsOf: view.subviews)
+      }
+      if next.isEmpty { return nil }
+      level = next
+    }
+    return nil
+  }
+
+  private func detach() {
+    if let interaction = edgeInteraction { headerHost?.removeInteraction(interaction) }
+    if #available(iOS 26.0, *), let scroll = boundScrollView {
+      if let style = previousStyle as? UIScrollEdgeEffect.Style {
+        scroll.topEdgeEffect.style = style
+      }
+      scroll.topEdgeEffect.isHidden = previousHidden
+    }
+    edgeInteraction = nil
+    headerHost = nil
+    boundScrollView = nil
+    previousStyle = nil
+  }
+
+  private func emitStatus(available: Bool, bound: Bool, overlap: CGFloat = 0, code: Double) {
+    guard reportStatus else { return }
+    let status: [String: Double] = ["available": available ? 1 : 0, "bound": bound ? 1 : 0,
+      "overlap": Double((overlap * 10).rounded() / 10), "overlaps": overlap > 0 ? 1 : 0, "code": code]
+    guard status != lastStatus else { return }
+    lastStatus = status
+    onStatus(status)
+  }
+
+  override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? { nil }
+
+  deinit {
+    detach()
+    NotificationCenter.default.removeObserver(self)
+  }
+}
 
 // Standard UIKit glass buttons, shared by custom-header form screens.
 // No opacity/scale animation around material; UIKit supplies its own press effect.

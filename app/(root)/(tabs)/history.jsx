@@ -23,6 +23,7 @@ import { NutritionSummaryCard } from "@/components/NutritionSummaryCard";
 import { FoodEntryItem, closeOpenMealActions } from "@/components/FoodEntryItem";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { FormCard, GlassButton } from "@/components/GlassForm";
+import { calendarDayStatus } from "@/lib/nutritionPresentation.mjs";
 
 // Enable LayoutAnimation on Android
 if (
@@ -76,6 +77,7 @@ const MonthCalendar = ({
   dataByDate,
   calorieGoal,
   signUpDate,
+  historyAvailable,
 }) => {
   const today = new Date();
   const year = monthDate.getFullYear();
@@ -107,25 +109,9 @@ const MonthCalendar = ({
 
     const dateNumber = day.getDate();
 
-    // Determine status color (only for days with entries)
-    let indicatorColor = "transparent";
-    const cached = dataByDate[dateStr];
-    if (cached && cached.entries && cached.entries.length > 0) {
-      const consumed = Number(
-        cached.summary?.calories ?? cached.summary?.dailyTotals?.calories ?? 0
-      );
-
-      // Prefer the historical goal for this date if the backend provided it
-      const goalForDate =
-        cached.summary?.goals?.calorieGoal != null
-          ? cached.summary.goals.calorieGoal
-          : calorieGoal; // fallback to current goal
-
-      if (goalForDate != null) {
-        indicatorColor =
-          consumed > goalForDate ? COLORS.expense : COLORS.income;
-      }
-    }
+    const status = calendarDayStatus(dataByDate[dateStr], calorieGoal, { historyAvailable });
+    const indicatorColor = status.goalStatus === "above" ? COLORS.expense
+      : status.goalStatus === "within" ? COLORS.income : "transparent";
 
     const onPress = () => {
       if (isFuture || isBeforeSignup) return;
@@ -137,6 +123,7 @@ const MonthCalendar = ({
         key={dateStr}
         accessibilityRole="button"
         accessibilityLabel={day.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+        accessibilityValue={{ text: status.text }}
         accessibilityState={{ selected: isSelected, disabled: Boolean(isFuture || isBeforeSignup) }}
         style={[styles.dayContainer, isSelected && styles.daySelected]}
         disabled={isFuture || isBeforeSignup}
@@ -209,7 +196,7 @@ function HistoryPreview() {
 
 function HistoryView({ selectedDate, setSelectedDate, data, floatingBarInset = 0, preview = false }) {
   const { fontScale } = useWindowDimensions();
-  const { dataByDate, profile, goals, error, refresh, deleteEntry, historyLoading } = data;
+  const { dataByDate, profile, goals, error, profileError, refresh, retryError, deleteEntry, historyLoading } = data;
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -390,8 +377,8 @@ function HistoryView({ selectedDate, setSelectedDate, data, floatingBarInset = 0
             <ActivityIndicator size="small" color={COLORS.primary} />
             <Text style={styles.emptyText}>Getting your meals…</Text>
           </View>}
-          {error && <Pressable onPress={() => refresh().catch(() => {})} accessibilityRole="button" style={{ padding: 12 }}>
-            <Text style={styles.emptyText}>Meals couldn’t refresh. Tap to retry.</Text>
+          {(error || profileError) && <Pressable onPress={() => retryError().catch(() => {})} accessibilityRole="button" style={{ padding: 12 }}>
+            <Text style={styles.emptyText}>{error ? "Meals couldn’t refresh. Tap to retry." : "Your nutrition goals couldn’t refresh. Tap to retry."}</Text>
           </Pressable>}
           {/* Week calendar row */}
           <MonthCalendar
@@ -401,6 +388,7 @@ function HistoryView({ selectedDate, setSelectedDate, data, floatingBarInset = 0
             dataByDate={dataByDate}
             calorieGoal={calorieGoal}
             signUpDate={signUpDate}
+            historyAvailable={!historyLoading && !error}
           />
           </FormCard>
           {entries.length > 0 && (

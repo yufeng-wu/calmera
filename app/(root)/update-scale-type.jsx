@@ -1,8 +1,8 @@
 import { TYPOGRAPHY } from "@/constants/typography";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
-import { FormCard, FormHeader, GlassButton, formStyles } from "@/components/GlassForm";
+import { FormScreen, FormScrollView, FormCard, FormHeader, GlassButton, formStyles } from "@/components/GlassForm";
 import ScaleOptions from "@/components/ScaleOptions";
 import { USERS_API_URL } from "@/constants/api";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
@@ -52,9 +52,9 @@ export default function UpdateScaleType({ calmeraPreview = false }) {
     } catch { Alert.alert("Error", "Unable to update scale type"); }
     finally { savingRef.current = false; setLoading(false); }
   };
-  return <View style={formStyles.screen}>
+  return <FormScreen style={formStyles.screen}>
     <FormHeader title="Scale calibration" onBack={leave} onSave={handleSave} saving={loading} saveDisabled={isFetching || loadError} />
-    <ScrollView key={`text-size-${fontScale}`} contentContainerStyle={formStyles.content} showsVerticalScrollIndicator={false}>
+    <FormScrollView key={`text-size-${fontScale}`} contentContainerStyle={formStyles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.intro}><Text accessibilityRole="header" style={styles.title}>Your kitchen scale</Text>
         <Text style={styles.caption}>Choose the display that matches your scale so Calmera can read it correctly.</Text></View>
       {isFetching ? <FormCard style={styles.feedback}><ActivityIndicator color={COLORS.primary} /><Text style={styles.caption}>Loading your scale type…</Text></FormCard>
@@ -62,8 +62,8 @@ export default function UpdateScaleType({ calmeraPreview = false }) {
           <GlassButton title="Try again" onPress={() => setRetry(value => value + 1)} /></FormCard>
           : <ScaleOptions selected={selected} onSelect={setSelected} disabled={loading} />}
       {!!previewMessage && <Text accessibilityLiveRegion="polite" style={styles.caption}>{previewMessage}</Text>}
-    </ScrollView>
-  </View>;
+    </FormScrollView>
+  </FormScreen>;
 }
 const styles = StyleSheet.create({
   intro: { gap: 8, paddingHorizontal: 4 },

@@ -1,6 +1,6 @@
 # Saved Calmera themes
 
-Settings → Theme offers four permanent choices:
+Settings → Theme offers six permanent choices:
 
 | Theme | Background |
 | --- | --- |
@@ -8,6 +8,8 @@ Settings → Theme offers four permanent choices:
 | Dawn | Peach-to-rose gradient |
 | Glow | Warm, slowly drifting ambient light |
 | Aura | Lavender, peach and mint ambient light |
+| Matcha Latte | Pale matcha green and creamy oat milk |
+| Mocha | Light cocoa and warm milk |
 
 Choices apply immediately throughout the app and save as a nonsecret theme ID in local AsyncStorage, separately for each Calmera account (with a separate guest key). No backend schema, inference, login, or database changes are required. Writes serialize per key, invalid/old IDs fall back to Soft Tangerine, and account/read/write generations guard stale completions. Save errors retain the visible choice and offer retry.
 

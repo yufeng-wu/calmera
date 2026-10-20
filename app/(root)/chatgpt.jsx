@@ -1,9 +1,9 @@
 import { TYPOGRAPHY } from "@/constants/typography";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Linking, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Alert, Linking, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
-import { FormCard, FormHeader, GlassButton, formStyles } from "@/components/GlassForm";
+import { FormScreen, FormScrollView, FormCard, FormHeader, GlassButton, formStyles } from "@/components/GlassForm";
 import SettingsRow from "@/components/SettingsRow";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import usePageExit from "@/hooks/usePageExit";
@@ -65,9 +65,9 @@ export default function ChatGPTSettings({ calmeraPreview = false, calmeraPreview
     try { await client.setSelectedModel(slug); setModel(slug); }
     catch { Alert.alert("ChatGPT", "Could not update the selected model."); }
   }
-  return <View style={formStyles.screen}>
+  return <FormScreen style={formStyles.screen}>
     <FormHeader title="ChatGPT" onBack={leave} />
-    <ScrollView key={`text-size-${fontScale}`} contentContainerStyle={formStyles.content} showsVerticalScrollIndicator={false}>
+    <FormScrollView key={`text-size-${fontScale}`} contentContainerStyle={formStyles.content} showsVerticalScrollIndicator={false}>
       <FormCard>
         <View style={styles.connectionHeading}>
           <View style={styles.connectionIcon}><Ionicons name="sparkles-outline" size={24} color={COLORS.primary} /></View>
@@ -94,8 +94,8 @@ export default function ChatGPTSettings({ calmeraPreview = false, calmeraPreview
         <Ionicons name="lock-closed-outline" size={18} color={COLORS.textLight} />
         <Text style={styles.privacyText}>Food descriptions and selected meal photos go directly to OpenAI. Your ChatGPT credentials stay on this phone.</Text>
       </FormCard>
-    </ScrollView>
-  </View>;
+    </FormScrollView>
+  </FormScreen>;
 }
 const styles = StyleSheet.create({
   connectionHeading: { flexDirection: "row", gap: 12, alignItems: "center" },

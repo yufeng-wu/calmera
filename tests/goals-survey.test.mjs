@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { surveyBmr, surveyGoals, surveyPickerCommit } from "../lib/goalsSurvey.mjs";
+import { surveyBmr, surveyGoals, surveyPickerCommit, surveyInputSignature } from "../lib/goalsSurvey.mjs";
 
 const canonical = Object.freeze({ weightKg: 70, heightCm: 175, age: 30, sex: "female", bodyFat: null,
   workActivity: "moderate", exerciseActivity: "moderate", goal: "maintain" });
@@ -36,4 +36,18 @@ test("Done preserves precision of existing canonical values across display-unit 
   assert.deepEqual(surveyPickerCommit("weight", state), { weightKg: 70.15 });
   assert.deepEqual(surveyPickerCommit("height", state), { heightCm: 175.3 });
   assert.deepEqual(surveyPickerCommit("bodyFat", state), { bodyFat: 20.4 });
+});
+
+test("changing any canonical survey detail invalidates its recommendation", () => {
+  const original = surveyInputSignature(canonical);
+  const changes = { age: 31, sex: "male", weightKg: 71, heightCm: 176, bodyFat: 20,
+    workActivity: "light", exerciseActivity: "high", goal: "lose" };
+  for (const [key, value] of Object.entries(changes)) {
+    assert.notEqual(surveyInputSignature({ ...canonical, [key]: value }), original, key);
+  }
+});
+
+test("switching display units does not invalidate the canonical recommendation", () => {
+  assert.equal(surveyInputSignature({ ...canonical, weightUnit: "kg", heightUnit: "cm" }),
+    surveyInputSignature({ ...canonical, weightUnit: "lbs", heightUnit: "ft" }));
 });

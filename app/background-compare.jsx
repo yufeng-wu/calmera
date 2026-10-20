@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Redirect } from "expo-router";
 import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles as home } from "@/assets/styles/home.styles";
-import { COLORS } from "@/constants/colors";
+import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { NutritionSummaryCard } from "@/components/NutritionSummaryCard";
 import { FoodEntryItem, closeOpenMealActions } from "@/components/FoodEntryItem";
@@ -28,6 +28,7 @@ const noAction = () => {};
 export default function BackgroundCompare() {
   const { themeId: variant, selectTheme, ready, setEnergized } = useTheme();
   const [expanded, setExpanded] = useState(false);
+  const { fontScale } = useWindowDimensions();
   useEffect(() => { setEnergized(expanded); return () => setEnergized(false); }, [expanded, setEnergized]);
   const insets = useSafeAreaInsets();
   const barHeight = 64 + insets.bottom;
@@ -38,7 +39,7 @@ export default function BackgroundCompare() {
     <View style={styles.comparison}>
       <View style={styles.choices}>
         {APPEARANCE_THEMES.map(item => <GlassButton key={item.id} title={item.label} accessibilityLabel={`Show ${item.label} background`}
-          role={variant === item.id ? "accent" : "default"} disabled={!ready} onPress={() => select(item.id)} style={styles.choice} />)}
+          role={variant === item.id ? "accent" : "default"} disabled={!ready} onPress={() => select(item.id)} style={[styles.choice, fontScale > 1.35 && { flexBasis: "100%" }]} />)}
       </View>
       <Text style={styles.note}>{selected.description} · example meals</Text>
     </View>
@@ -68,8 +69,8 @@ export default function BackgroundCompare() {
 const styles = StyleSheet.create({
   page: { flex: 1 },
   comparison: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 2, gap: 7 },
-  choices: { flexDirection: "row", gap: 6 },
-  choice: { flex: 1, minHeight: 44, height: 44 },
+  choices: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  choice: { flexGrow: 1, flexBasis: "30%", minHeight: 44 },
   note: { ...TYPOGRAPHY.caption, color: COLORS.textLight, textAlign: "center" },
   tabOverlay: { position: "absolute", bottom: 0, left: 0, right: 0 },
 });
