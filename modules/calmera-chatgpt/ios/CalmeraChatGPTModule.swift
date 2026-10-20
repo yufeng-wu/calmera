@@ -633,6 +633,8 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
     buttons[2].accessibilityValue = analyzing ? "Processing your meal" : recording ? "Recording" : nil
     // Never animate UIStackView.isHidden: interrupted hide animations can leave a plus-only button.
     labels[3].isHidden = false
+    buttons[0].isEnabled = !recording
+    buttons[1].isEnabled = !recording
     buttons[2].isEnabled = !analyzing
     buttons[3].isEnabled = !recording
     buttons[3].accessibilityLabel = expanded ? "Close add meal menu" : "Add a meal"
@@ -1130,7 +1132,7 @@ final class CalmeraMealActionsView: ExpoView {
       let font = UIFontMetrics(forTextStyle: .subheadline).scaledFont(for: .systemFont(ofSize: 14, weight: .medium), compatibleWith: traitCollection)
       for (index, material) in materials.enumerated() {
         material.effect = nil
-        material.backgroundColor = opaque ? .secondarySystemGroupedBackground : .clear
+        material.backgroundColor = opaque ? .secondarySystemBackground : .clear
         let color: UIColor = index == 0 ? editTint : .systemRed
         buttons[index].tintColor = color
         labels[index].font = font
