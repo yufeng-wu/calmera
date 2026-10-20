@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { authorizationURL, callbackResult, tokenRecord, mealInput, parseMeal,
-  completedText, foodEntryPayload, parseMeals } from "../lib/chatgpt/protocol.mjs";
+  completedText, completedResponse, foodEntryPayload, parseMeals } from "../lib/chatgpt/protocol.mjs";
 import { transcriptPrompt, mealInstructions, quantityPrompt } from "../lib/chatgpt/prompts.mjs";
 
 const redirectUri = "http://127.0.0.1:1455/auth/callback";
@@ -111,4 +111,26 @@ test("ported Gemini business rules remain and the single-photo adapter is explic
   assert.equal(mealInstructions("Synthetic banana"), transcriptPrompt("Synthetic banana"));
   assert.ok(mealInstructions("Synthetic snack", true).includes("Single-photo input adapter"));
   assert.ok(quantityPrompt("Synthetic rice", "100 g").includes("100 g"));
+});
+
+
+test("processing tier comes from validated completion, not an earlier event or requested mode", async () => {
+  const event = { ...completed, response: { ...completed.response, service_tier: "priority" } };
+  const value = await completedResponse(stream(frame({ type: "response.created", response: { service_tier: "default" } }) + frame(event)));
+  assert.equal(value.serviceTier, "priority");
+  assert.equal(value.text, JSON.stringify(meal));
+});
+
+test("a server downgrade or omitted tier cannot be reported as Fast", async () => {
+  for (const tier of ["default", undefined, "unrecognized-tier"]) {
+    const event = { ...completed, response: { ...completed.response, service_tier: tier } };
+    const value = await completedResponse(stream(frame(event)));
+    assert.equal(value.serviceTier, tier === "default" ? "default" : null);
+  }
+});
+
+test("Fast metadata never converts an incomplete or failed stream into success", async () => {
+  const event = { ...completed, response: { ...completed.response, service_tier: "priority" } };
+  await assert.rejects(completedResponse(stream(frame({ type: "response.created", response: { service_tier: "priority" } }))));
+  await assert.rejects(completedResponse(stream(frame(event) + frame({ type: "response.failed" }))));
 });
