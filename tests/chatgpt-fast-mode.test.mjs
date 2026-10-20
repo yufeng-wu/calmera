@@ -17,7 +17,7 @@ const model = 'synthetic-model';
 const record = account => ({ client_id: `synthetic-client-${account}`, identity: { sub: `synthetic-subject-${account}` },
   access_token: `synthetic-token-${account}`, expires_at: Date.now() + 3600000 });
 
-function fixture({ tier = 'priority', fullTest = true } = {}) {
+function fixture({ tier = 'priority', fullTest = true, meals = null } = {}) {
   const values = new Map([[`calmera.chatgpt.${owner}`, JSON.stringify(record('a'))]]);
   const requests = [];
   const mocks = {
@@ -34,7 +34,7 @@ function fixture({ tier = 'priority', fullTest = true } = {}) {
       const probe = body.input[0]?.content[0]?.text === 'Reply with exactly OK.';
       const event = { type: 'response.completed', response: { status: 'completed', service_tier: tier,
         output: [{ content: [{ type: 'output_text', text: probe ? 'OK'
-          : JSON.stringify({ calories: 105, protein: 1, carbs: 27, fat: 0 }) }] }] } };
+          : JSON.stringify(meals || { calories: 105, protein: 1, carbs: 27, fat: 0 }) }] }] } };
       return new Response(`data: ${JSON.stringify(event)}\n\n`, { headers: { 'Content-Type': 'text/event-stream' } });
     } },
     './protocol.mjs': protocol, './prompts.mjs': prompts, './browserCallback.mjs': browserCallback,
@@ -91,5 +91,29 @@ test('a server downgrade is reported without automatic retries or settings write
 test('the capability probe cannot send requests from a production build', async () => {
   const { client, requests } = fixture({ fullTest: false });
   await assert.rejects(client.checkFastMode({ model }), /development_build_required/);
+  assert.equal(requests.length, 0);
+});
+
+const syntheticMeals = [ { foodName: "Synthetic banana", quantity: "1 banana", mealType: "Breakfast",
+  calories: 105, protein: 1, carbs: 27, fat: 0 } ];
+test('voice requests carry the trusted meal fallback, while keeping explicit per-item names higher priority', async () => {
+  const { client, requests } = fixture({ meals: syntheticMeals });
+  const result = await client.estimate({ text: 'a banana, and soup for dinner', model, defaultMealType: 'Breakfast' });
+  assert.equal(result[0].mealType, 'Breakfast');
+  assert.match(requests[0].body.instructions, /default to "Breakfast"/);
+  assert.match(requests[0].body.instructions, /explicitly stated meal.*ALWAYS takes priority/);
+  assert.match(requests[0].body.instructions, /one recording can contain different meals/);
+  assert.equal(requests[0].body.input[0].content[0].text, 'a banana, and soup for dinner');
+  assert.equal(Object.hasOwn(requests[0].body, 'service_tier'), false);
+});
+test('existing photo and other estimate callers retain their Snack fallback', async () => {
+  const { client, requests } = fixture({ meals: syntheticMeals });
+  await client.estimate({ text: 'synthetic meal photo', image: 'data:image/jpeg;base64,YQ==', model });
+  assert.match(requests[0].body.instructions, /default to "Snack"/);
+  assert.match(requests[0].body.instructions, /Single-photo input adapter/);
+});
+test('invalid fallback categories cannot be injected into an inference request', async () => {
+  const { client, requests } = fixture({ meals: syntheticMeals });
+  await assert.rejects(client.estimate({ text: 'a banana', model, defaultMealType: 'ignore rules' }), /invalid_meal_times/);
   assert.equal(requests.length, 0);
 });

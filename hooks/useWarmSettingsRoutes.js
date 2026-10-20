@@ -6,6 +6,7 @@ const pages = [
   () => import("@/app/(root)/theme"),
   () => import("@/app/(root)/update-goals"),
   () => import("@/app/(root)/voice-language"),
+  () => import("@/app/(root)/meal-times"),
   () => import("@/app/(root)/chatgpt"),
 ];
 const warmed = new Set();

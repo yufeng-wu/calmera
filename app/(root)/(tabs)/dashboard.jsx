@@ -32,6 +32,8 @@ import { voiceFeedbackDiagnostics } from "@/lib/chatgpt/voiceFeedbackDiagnostics
 import { FOOD_ENTRIES_API_URL } from "@/constants/api";
 import { createPlanClient } from "@/lib/chatgpt/planClient";
 import { nutritionClient, transcribeMealAudio, voiceClipMetadata, getVoiceLanguage, inferenceError } from "@/lib/chatgpt/nutrition";
+import { mealTimePreferences } from "@/lib/mealTimeSettings";
+import { estimateVoiceMeal } from "@/lib/chatgpt/mealTimeEstimate.mjs";
 import { saveEstimatedEntries } from "@/lib/chatgpt/entryPersistence.mjs";
 import { getLocalTimeWithOffset } from "@/lib/utils";
 import AnimatedRe, { Layout as ReLayout } from "react-native-reanimated";
@@ -80,6 +82,7 @@ export default function SummaryScreen() {
   const recordingRef = useRef(null);
   const recordingAttemptRef = useRef(0);
   const recorderReadyRef = useRef(false);
+  const recordingStartedAtRef = useRef(null);
   const voiceBusyRef = useRef(false);
   const processingRef = useRef(false);
   // Flag to request an early stop when the user lifts finger before the recorder is ready
@@ -173,6 +176,7 @@ export default function SummaryScreen() {
     recorderReadyRef.current = false;
     processingRef.current = true;
     try {
+      const recordedAt = recordingStartedAtRef.current || new Date();
       const createdAt = getLocalTimeWithOffset();
       const savedEntries = await processRecordedMeal({
         recording: rec, isActive: isSessionActive,
@@ -183,10 +187,9 @@ export default function SummaryScreen() {
           if (!isSessionActive()) throw new Error("voice_operation_cancelled");
           return transcribeMealAudio(uri, language);
         },
-        estimate: async (transcript) => {
-          const { client, model } = await nutritionClient(user.id);
-          return client.estimate({ text: transcript, model });
-        },
+        estimate: transcript => estimateVoiceMeal({ userId: user.id, transcript, recordedAt,
+          isActive: isSessionActive, loadMealTimes: (owner, options) => mealTimePreferences.load(owner, options),
+          getNutritionClient: nutritionClient }),
         save: (entries) => saveEstimatedEntries(entries, {
           createdAt, getToken: async () => {
             const token = await getToken();
@@ -248,6 +251,7 @@ export default function SummaryScreen() {
       await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
       if (attempt !== recordingAttemptRef.current) return;
       if (stopRequestedRef.current) { markVoice("too_short"); shortRecording(); return; }
+      recordingStartedAtRef.current = new Date();
       await rec.startAsync();
       if (attempt !== recordingAttemptRef.current) return;
       started = true;

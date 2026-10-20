@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { formOwnsTopInset } from "../lib/headerLayout.mjs";
 
 test("adopted iOS26 forms own the safe area without shifting ordinary tabs", () => {
-  for (const path of ["/create", "/update-goals", "/photo-log", "/chatgpt", "/voice-language", "/theme", "/goals-survey", "/update-scale-type", "/edit/synthetic-id", "/session-log-edit/synthetic-id", "/motion-check"]) {
+  for (const path of ["/create", "/update-goals", "/photo-log", "/chatgpt", "/voice-language", "/meal-times", "/theme", "/goals-survey", "/update-scale-type", "/edit/synthetic-id", "/session-log-edit/synthetic-id", "/motion-check"]) {
     assert.equal(formOwnsTopInset(path, undefined, "ios", "26.0"), true, path);
   }
   for (const path of ["/dashboard", "/history", "/settings", "/sign-in", "/ui-gallery", "/background-compare", "/unknown"]) {
@@ -11,7 +11,7 @@ test("adopted iOS26 forms own the safe area without shifting ordinary tabs", () 
   }
 });
 test("only adopted gallery pages get full-bleed headers", () => {
-  for (const page of ["manual", "manual-save-navigation-error", "edit-save-navigation-error", "photo-save-navigation-error", "theme", "chatgpt-catalog-error", "voice-language-load-error", "voice-language-save-error", "recommendation", "recommendation-unspecified", "recommendation-body-fat", "recommendation-save-token", "recommendation-save-response", "recommendation-save-error", "photo-selected", "edit-meal", "edit-meal-load-token", "edit-meal-load-json", "edit-session"]) {
+  for (const page of ["manual", "manual-save-navigation-error", "edit-save-navigation-error", "photo-save-navigation-error", "theme", "chatgpt-catalog-error", "voice-language-load-error", "voice-language-save-error", "meal-times", "meal-times-load-error", "meal-times-save-error", "recommendation", "recommendation-unspecified", "recommendation-body-fat", "recommendation-save-token", "recommendation-save-response", "recommendation-save-error", "photo-selected", "edit-meal", "edit-meal-load-token", "edit-meal-load-json", "edit-session"]) {
     assert.equal(formOwnsTopInset("/ui-gallery", page, "ios", 26), true);
   }
   assert.equal(formOwnsTopInset("/ui-gallery", ["theme"], "ios", 26), true);

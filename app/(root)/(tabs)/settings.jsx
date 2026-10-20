@@ -18,7 +18,7 @@ export default function SettingsScreen({ calmeraPreview = false }) {
   const [previewMessage, setPreviewMessage] = useState("");
   const openPage = (path, label) => {
     if (calmeraPreview) {
-      if (path === "/voice-language" || path === "/theme") router.push({ pathname: "/ui-gallery", params: { page: path.slice(1) } });
+      if (["/voice-language", "/meal-times", "/theme"].includes(path)) router.push({ pathname: "/ui-gallery", params: { page: path.slice(1) } });
       else setPreviewMessage(`${label} selected. Preview only.`);
       return;
     }
@@ -42,6 +42,8 @@ export default function SettingsScreen({ calmeraPreview = false }) {
           icon="sparkles-outline" onPress={() => openPage("/chatgpt", "ChatGPT connection")} />
         <SettingsRow title="Voice language" subtitle="Choose the language for voice logs" icon="mic-outline" divider
           onPress={() => openPage("/voice-language", "Voice language")} />
+        <SettingsRow title="Meal times" subtitle="Default meals for voice logs" icon="time-outline" divider
+          onPress={() => openPage("/meal-times", "Meal times")} />
         <SettingsRow title="Theme" subtitle={theme.name} accessibilityValue={{ text: theme.name }} icon="color-palette-outline" divider
           onPress={() => openPage("/theme", "Theme")} />
         <SettingsRow title="Nutrition goals" subtitle="Adjust your daily targets" icon="options-outline" divider
