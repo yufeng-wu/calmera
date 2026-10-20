@@ -14,7 +14,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 // Removed reanimated for meal group container to avoid date-switch animations
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, useSyncExternalStore } from "react";
 import AnimatedRe, { Layout as ReLayout } from "react-native-reanimated";
 
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -23,7 +23,9 @@ import { NutritionSummaryCard } from "@/components/NutritionSummaryCard";
 import { FoodEntryItem, closeOpenMealActions } from "@/components/FoodEntryItem";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { FormCard, GlassButton } from "@/components/GlassForm";
-import { calendarDayStatus } from "@/lib/nutritionPresentation.mjs";
+import { calendarDayStatus, nutritionViewState, retryNutritionError } from "@/lib/nutritionPresentation.mjs";
+import { createNutritionStore } from "@/lib/nutritionStore.mjs";
+import { readNutrition } from "@/lib/nutritionRequest.mjs";
 
 // Enable LayoutAnimation on Android
 if (
@@ -168,8 +170,8 @@ const MonthCalendar = ({
 };
 
 const previewNote = () => Alert.alert("UI preview", "This example stays local. No meal records are read or changed.");
-export default function HistoryScreen({ calmeraPreview = false } = {}) {
-  return calmeraPreview ? <HistoryPreview /> : <HistoryConnected />;
+export default function HistoryScreen({ calmeraPreview = false, calmeraPreviewState = "ready" } = {}) {
+  return calmeraPreview ? <HistoryPreview state={calmeraPreviewState} /> : <HistoryConnected />;
 }
 
 function HistoryConnected() {
@@ -180,7 +182,12 @@ function HistoryConnected() {
     floatingBarInset={Platform.OS === "ios" ? tabBarHeight : 0} />;
 }
 
-function HistoryPreview() {
+function HistoryPreview({ state }) {
+  return ["cold-loading", "profile-error", "history-error"].includes(state)
+    ? <HistoryRecoveryPreview mode={state} /> : <HistoryReadyPreview />;
+}
+
+function HistoryReadyPreview() {
   const [selectedDate, setSelectedDate] = useState(new Date(2026, 9, 19));
   const data = useMemo(() => ({
     dataByDate: { "2026-10-19": { entries: [
@@ -194,10 +201,101 @@ function HistoryPreview() {
   return <HistoryView selectedDate={selectedDate} setSelectedDate={setSelectedDate} data={data} preview />;
 }
 
+const previewProfile = { createdAtLocalDate: "2026-09-01", calorieGoal: 2000,
+  proteinGoal: 150, carbsGoal: 200, fatGoal: 50 };
+const previewHistory = { "2026-10-19": {
+  foodEntries: [
+    { id: "ui-history-banana", foodName: "Banana", mealType: "Breakfast", localTime: "09:00:00", calories: 105, protein: 1, carbs: 27, fat: 0 },
+    { id: "ui-history-toast", foodName: "Avocado toast", mealType: "Lunch", localTime: "12:00:00", calories: 280, protein: 8, carbs: 32, fat: 14 },
+  ],
+  dailyTotals: { calories: 385, protein: 9, carbs: 59, fat: 14 },
+  goals: { calorieGoal: 2000, proteinGoal: 150, carbsGoal: 200, fatGoal: 50 },
+} };
+
+function HistoryRecoveryPreview({ mode }) {
+  const [selectedDate, setSelectedDate] = useState(new Date(2026, 9, 19));
+  const fixture = useMemo(() => {
+    // This component never calls useNutritionData, useAuth or the real provider.
+    // Its private memory store receives only fixed synthetic token/JSON values.
+    const store = createNutritionStore({ ownerKey: "synthetic-history-review" });
+    const attempts = { history: 0, profile: 0 };
+    const loader = ({ resource, signal }) => {
+      const attempt = ++attempts[resource];
+      const tokenStall = mode === "cold-loading" && resource === "history" && attempt === 1;
+      const fail = attempt === 2 && ((mode === "profile-error" && resource === "profile")
+        || (mode === "history-error" && resource === "history"));
+      return readNutrition({ url: `https://calmera.invalid/nutrition/${resource}`, signal,
+        timeoutMs: tokenStall ? 4000 : 20000, isActive: () => store.isActive(),
+        getToken: tokenStall ? () => new Promise(() => {}) : async () => "synthetic-history-token",
+        fetchImpl: async () => {
+          if (fail) return { ok: false, status: 503 };
+          // Explicit retries remain pending long enough to inspect feedback.
+          // The bounded reader owns cancellation even if a fake ignores abort.
+          if (attempt > 1) await new Promise(resolve => setTimeout(resolve, 1000));
+          return { ok: true, status: 200, json: async () => resource === "profile" ? previewProfile : previewHistory };
+        },
+      });
+    };
+    return { store, loader };
+  }, [mode]);
+  const { store, loader } = fixture;
+  const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+  useEffect(() => {
+    let active = true;
+    store.retain();
+    (async () => {
+      await Promise.all([store.loadProfile(loader), store.loadHistory(loader)]);
+      if (!active) return;
+      if (mode === "profile-error") await store.loadProfile(loader, { force: true });
+      else if (mode === "history-error") await store.loadHistory(loader, { force: true });
+    })().catch(() => {});
+    return () => { active = false; store.release(); };
+  }, [store, loader, mode]);
+  const presentation = nutritionViewState(snapshot, getLocalDateString(selectedDate), true);
+  const refresh = useCallback(() => Promise.all([
+    store.loadHistory(loader, { force: true }), store.loadProfile(loader, { force: true }),
+  ]), [store, loader]);
+  const refreshProfile = useCallback(() => store.loadProfile(loader, { force: true }), [store, loader]);
+  const retryError = useCallback(() => retryNutritionError(
+    { error: presentation.error, profileError: presentation.profileError }, { refresh, refreshProfile }),
+  [presentation.error, presentation.profileError, refresh, refreshProfile]);
+  const profile = snapshot.profile || {};
+  const stats = store.getDiagnostics();
+  const data = { ...presentation, dataByDate: snapshot.days, profile: snapshot.profile,
+    goals: { calorieGoal: profile.calorieGoal, proteinGoal: profile.proteinGoal,
+      carbsGoal: profile.carbsGoal, fatGoal: profile.fatGoal },
+    refresh, retryError, deleteEntry: async () => previewNote(),
+    historyPending: Boolean(snapshot.pending.history), profilePending: Boolean(snapshot.pending.profile),
+    previewDiagnostics: { history: stats.historyRequests, profile: stats.profileRequests,
+      historyPending: snapshot.pending.history ? 1 : 0, profilePending: snapshot.pending.profile ? 1 : 0 },
+  };
+  return <HistoryView selectedDate={selectedDate} setSelectedDate={setSelectedDate} data={data} preview />;
+}
+
 function HistoryView({ selectedDate, setSelectedDate, data, floatingBarInset = 0, preview = false }) {
   const { fontScale } = useWindowDimensions();
-  const { dataByDate, profile, goals, error, profileError, refresh, retryError, deleteEntry, historyLoading } = data;
+  const { dataByDate, profile, goals, error, profileError, refresh, retryError, deleteEntry, historyLoading,
+    historyPending = false, profilePending = false } = data;
   const [refreshing, setRefreshing] = useState(false);
+  const [retryContext, setRetryContext] = useState(null);
+  const retryRef = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  const retrying = retryContext !== null;
+  const retryKind = retryContext || (error ? "history" : "profile");
+  const retryPending = retryKind === "history" ? historyPending : profilePending;
+  const onRetry = useCallback(async () => {
+    if (retryRef.current || !retryError || !(error || profileError) || (error ? historyPending : profilePending)) return;
+    retryRef.current = true;
+    setRetryContext(error ? "history" : "profile");
+    try { await retryError(); } catch {} finally {
+      retryRef.current = false;
+      if (mounted.current) setRetryContext(null);
+    }
+  }, [retryError, error, profileError, historyPending, profilePending]);
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try { await refresh(); } catch {} finally { setRefreshing(false); }
@@ -373,12 +471,17 @@ function HistoryView({ selectedDate, setSelectedDate, data, floatingBarInset = 0
             />
           </View>
 
-          {historyLoading && <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingBottom: 12 }}>
+          {historyLoading && !retrying && <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingBottom: 12 }}>
             <ActivityIndicator size="small" color={COLORS.primary} />
             <Text style={styles.emptyText}>Getting your meals…</Text>
           </View>}
-          {(error || profileError) && <Pressable onPress={() => retryError().catch(() => {})} accessibilityRole="button" style={{ padding: 12 }}>
-            <Text style={styles.emptyText}>{error ? "Meals couldn’t refresh. Tap to retry." : "Your nutrition goals couldn’t refresh. Tap to retry."}</Text>
+          {(error || profileError || retrying) && <Pressable onPress={onRetry} accessibilityRole="button"
+            accessibilityLabel={retrying ? "Retrying nutrition data" : error ? "Meals couldn’t refresh. Retry meals." : "Your nutrition goals couldn’t refresh. Retry nutrition goals."}
+            accessibilityState={{ disabled: retrying || retryPending, busy: retrying || retryPending }}
+            disabled={retrying || retryPending} style={styles.retryRow}>
+            {retrying && <ActivityIndicator size="small" color={COLORS.primary} accessible={false} />}
+            <Text style={styles.retryText} accessibilityLiveRegion="polite">{retrying ? "Retrying…"
+              : <>{error ? "Meals couldn’t refresh." : "Your nutrition goals couldn’t refresh."} <Text style={styles.retryAction}>Retry</Text></>}</Text>
           </Pressable>}
           {/* Week calendar row */}
           <MonthCalendar
@@ -388,9 +491,13 @@ function HistoryView({ selectedDate, setSelectedDate, data, floatingBarInset = 0
             dataByDate={dataByDate}
             calorieGoal={calorieGoal}
             signUpDate={signUpDate}
-            historyAvailable={!historyLoading && !error}
+            historyAvailable={!historyLoading && !error && !(retrying && retryKind === "history")}
           />
           </FormCard>
+          {data.previewDiagnostics && <Text style={styles.previewDiagnostics}>
+            Synthetic requests · history {data.previewDiagnostics.history} · profile {data.previewDiagnostics.profile}
+            {"\n"}Pending · history {data.previewDiagnostics.historyPending} · profile {data.previewDiagnostics.profilePending}
+          </Text>}
           {entries.length > 0 && (
             <NutritionSummaryCard
               onEditGoals={preview ? previewNote : undefined}
@@ -439,6 +546,11 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   calendarCard: { padding: 12, gap: 0, marginBottom: 12 },
+  retryRow: { minHeight: 44, paddingVertical: 8, paddingHorizontal: 12, flexDirection: "row",
+    alignItems: "center", justifyContent: "center", gap: 8 },
+  retryText: { color: COLORS.textLight, textAlign: "center", flexShrink: 1 },
+  retryAction: { color: COLORS.primary },
+  previewDiagnostics: { fontSize: 12, color: COLORS.textLight, marginBottom: 8 },
   dateNav: {
     flexDirection: "row",
     alignItems: "center",

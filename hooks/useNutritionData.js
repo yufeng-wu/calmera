@@ -6,6 +6,7 @@ import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { FOOD_ENTRIES_API_URL, USERS_API_URL } from "@/constants/api";
 import { localDateKey } from "@/lib/nutritionStore.mjs";
 import { nutritionViewState, retryNutritionError } from "@/lib/nutritionPresentation.mjs";
+import { readNutrition } from "@/lib/nutritionRequest.mjs";
 
 export function useNutritionData(date = new Date(), history = false) {
   const { userId, getToken, isLoaded } = useAuth();
@@ -16,26 +17,12 @@ export function useNutritionData(date = new Date(), history = false) {
   const focused = useIsFocused();
   const [wakeVersion, setWakeVersion] = useState(0);
   const dateKey = localDateKey(date);
-  const loader = useCallback(async ({ resource, date: day, signal }) => {
-    const token = await tokenRef.current();
-    if (!store.isActive()) throw new Error("nutrition_store_disposed");
-    if (!token) throw new Error("calmera_sign_in_required");
+  const loader = useCallback(({ resource, date: day, signal }) => {
     const url = resource === "profile" ? `${USERS_API_URL}/get-user`
       : resource === "history" ? `${FOOD_ENTRIES_API_URL}/summaries`
         : `${FOOD_ENTRIES_API_URL}/summary-by-date/${day}`;
-    const controller = new AbortController();
-    const abort = () => controller.abort();
-    signal.addEventListener("abort", abort, { once: true });
-    if (signal.aborted) controller.abort();
-    const timeout = setTimeout(abort, 20000);
-    try {
-      const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal });
-      if (!response.ok) throw new Error(`nutrition_http_${response.status}`);
-      return await response.json();
-    } catch (error) {
-      if (controller.signal.aborted && !signal.aborted) throw new Error("nutrition_request_timeout");
-      throw error;
-    } finally { clearTimeout(timeout); signal.removeEventListener("abort", abort); }
+    return readNutrition({ getToken: () => tokenRef.current(), url, signal,
+      isActive: () => store.isActive() });
   }, [store]);
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => {
@@ -91,5 +78,6 @@ export function useNutritionData(date = new Date(), history = false) {
     { error: presentation.error, profileError: presentation.profileError }, { refresh, refreshProfile }),
   [presentation.error, presentation.profileError, refresh, refreshProfile]);
   return { store, dateKey, ...presentation, goals, profile: snapshot.profile, dataByDate: snapshot.days,
+    historyPending: Boolean(snapshot.pending.history), profilePending: Boolean(snapshot.pending.profile),
     refresh, refreshProfile, retryError, deleteEntry, snapshot, loader };
 }
