@@ -60,6 +60,7 @@ public final class CalmeraChatGPTModule: Module {
     }
     View(CalmeraMealActionsView.self) {
       ViewName("MealActions")
+      Prop("previewPalette") { (view: CalmeraMealActionsView, value: String) in view.previewPalette = value }
       Events("onAction", "onMetrics")
       Prop("buttonWidth") { (view: CalmeraMealActionsView, value: Double) in view.buttonWidth = CGFloat(max(44, value)) }
       Prop("buttonHeight") { (view: CalmeraMealActionsView, value: Double) in view.buttonHeight = CGFloat(max(44, value)) }
@@ -77,6 +78,7 @@ public final class CalmeraChatGPTModule: Module {
 
     View(CalmeraSystemTabsView.self) {
       ViewName("SystemTabs")
+      Prop("previewPalette") { (view: CalmeraSystemTabsView, value: String) in view.setPreviewPalette(value) }
       Events("onSelect")
       Prop("selectedIndex") { (view: CalmeraSystemTabsView, index: Int) in
         view.select(index)
@@ -84,6 +86,7 @@ public final class CalmeraChatGPTModule: Module {
     }
     View(CalmeraActionMenuView.self) {
       ViewName("ActionMenu")
+      Prop("previewPalette") { (view: CalmeraActionMenuView, value: String) in view.setPreviewPalette(value) }
       Events("onAction", "onMetrics")
       Prop("expanded") { (view: CalmeraActionMenuView, value: Bool) in view.expanded = value }
       Prop("recording") { (view: CalmeraActionMenuView, value: Bool) in view.recording = value }
@@ -297,6 +300,15 @@ final class CalmeraGlassView: ExpoView {
 
 
 // UIKit owns the tab buttons, selection lens and horizontal scrubbing gesture.
+// Comparison tint is opt-in and restricted to the separate simulator test app.
+// Production callers retain Tangerine until the user chooses a new palette.
+private func comparisonAccent(_ id: String) -> UIColor {
+  if id == "basil" && Bundle.main.bundleIdentifier == "com.yfwu02.mobile.chatgptdev" {
+    return UIColor(red: 53/255, green: 92/255, blue: 69/255, alpha: 1)
+  }
+  return UIColor(red: 188/255, green: 90/255, blue: 25/255, alpha: 1)
+}
+
 // React Navigation continues to own the app screens and their lifecycle.
 final class CalmeraSystemTabsView: ExpoView, UITabBarControllerDelegate {
   let onSelect = EventDispatcher()
@@ -341,6 +353,8 @@ final class CalmeraSystemTabsView: ExpoView, UITabBarControllerDelegate {
     }
     addSubview(controller.view)
   }
+
+  func setPreviewPalette(_ id: String) { controller.tabBar.tintColor = comparisonAccent(id) }
 
   func select(_ index: Int) {
     guard (0..<3).contains(index) else { return }
@@ -436,7 +450,15 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
   private var voiceReturnMaxAnchorError: CGFloat = 0
   private var voiceReturnBadSamples = 0
   private var voiceReturnStartWidth: CGFloat = 0
-  private let tint = UIColor(red: 188/255, green: 90/255, blue: 25/255, alpha: 1)
+  private var previewPalette = "tangerine"
+  private var tint: UIColor { comparisonAccent(previewPalette) }
+  func setPreviewPalette(_ id: String) {
+    guard id != previewPalette else { return }
+    previewPalette = id
+    labels.forEach { $0.textColor = tint }
+    icons.forEach { $0.tintColor = tint }
+    processingIndicator.color = tint
+  }
   private var itemHeight: CGFloat { max(48, ceil((labels.first?.font.lineHeight ?? 17) + 24)) }
   private var triggerHeight: CGFloat { max(56, ceil((labels.last?.font.lineHeight ?? 17) + 24)) }
   private var triggerWidth: CGFloat {
@@ -1072,7 +1094,8 @@ final class CalmeraMealActionsView: ExpoView {
   private var configurationKey = ""
   private var lastMetrics: [String: Double] = [:]
   private var lastProgressBucket = -1
-  private let editTint = UIColor(red: 188/255, green: 90/255, blue: 25/255, alpha: 1)
+  var previewPalette = "tangerine"
+  private var editTint: UIColor { comparisonAccent(previewPalette) }
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -1126,7 +1149,7 @@ final class CalmeraMealActionsView: ExpoView {
 
   func updateControls() {
     let opaque = UIAccessibility.isReduceTransparencyEnabled
-    let key = traitCollection.preferredContentSizeCategory.rawValue + "-\(opaque)-\(UIAccessibility.isDarkerSystemColorsEnabled)"
+    let key = traitCollection.preferredContentSizeCategory.rawValue + "-\(opaque)-\(UIAccessibility.isDarkerSystemColorsEnabled)-\(previewPalette)"
     if key != configurationKey {
       configurationKey = key
       if #available(iOS 26.0, *), !opaque {

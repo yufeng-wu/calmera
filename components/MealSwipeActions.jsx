@@ -19,7 +19,7 @@ export function MealActionRail({ translation, reveal, width }) {
   return <View pointerEvents="none" style={{ width }} />;
 }
 
-function MealSwipeActions({ width, progress, visible, onEdit, onDelete, onMetrics, overlay = false }) {
+function MealSwipeActions({ width, progress, visible, onEdit, onDelete, onMetrics, overlay = false, previewPalette }) {
   const animatedProps = useAnimatedProps(() => ({
     revealProgress: Math.max(0, Math.min(1, progress.value)),
   }));
@@ -39,7 +39,7 @@ function MealSwipeActions({ width, progress, visible, onEdit, onDelete, onMetric
     marginVertical: MEAL_EFFECT_OUTSET, marginLeft: 12 - MEAL_EFFECT_OUTSET };
   return <View pointerEvents="box-none" style={overlay ? StyleSheet.absoluteFill : { width: railWidth }}>
     {AnimatedNativeActions ? <AnimatedNativeActions style={nativeStyle} animatedProps={animatedProps}
-      buttonWidth={width} effectOutset={MEAL_EFFECT_OUTSET} actionsVisible={visible} reportMetrics={Boolean(onMetrics)}
+      previewPalette={previewPalette || "tangerine"} buttonWidth={width} effectOutset={MEAL_EFFECT_OUTSET} actionsVisible={visible} reportMetrics={Boolean(onMetrics)}
       onAction={({ nativeEvent }) => { if (nativeEvent.action === "edit") onEdit(); else if (nativeEvent.action === "delete") onDelete(); }}
       onMetrics={onMetrics ? ({ nativeEvent }) => onMetrics(nativeEvent) : undefined} />
       : <Animated.View style={[styles.rail, fallbackStyle, fallbackReveal]} accessibilityElementsHidden={!visible}

@@ -25,9 +25,9 @@ export default function RootLayout() {
   // Keep real navigator frames stable through push/pop. Each native screen
   // owns its own inset, so opening a form cannot move the previous tab page.
   const fullBleedHeader = Platform.OS === "ios" && Number.parseInt(String(Platform.Version), 10) >= 26
-    && (["(root)", "(auth)"].includes(segments[0]) || pathname === "/motion-check");
+    && (["(root)", "(auth)"].includes(segments[0]) || ["/motion-check", "/palette-compare"].includes(pathname));
   const review = Constants.expoConfig?.extra?.calmeraFullAppTest === true
-    && ["/ui-gallery", "/background-compare", "/glass-compare", "/motion-check", "/theme-check"].includes(pathname);
+    && ["/ui-gallery", "/background-compare", "/glass-compare", "/motion-check", "/theme-check", "/palette-compare"].includes(pathname);
   const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || Constants.expoConfig.extra.clerkPublishableKey;
 
   if (!publishableKey) {

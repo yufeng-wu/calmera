@@ -26,15 +26,15 @@ export default function SystemTabBar(props) {
   };
   return <View pointerEvents="box-none" style={styles.overlay}
     onLayout={({ nativeEvent }) => onHeightChange?.(nativeEvent.layout.height)}>
-    <SystemTabs selectedIndex={selectedIndex} onSelect={onSelect}
+    <SystemTabs selectedIndex={selectedIndex} onSelect={onSelect} previewPalette="tangerine"
       style={{ height: 64 + props.insets.bottom, width: "100%" }} />
   </View>;
 }
 
 // Isolated interaction check: uses the same UIKit control without account data.
-export function SystemTabsInteractionCheck({ selectedIndex, onSelect, bottomInset, style }) {
+export function SystemTabsInteractionCheck({ selectedIndex, onSelect, bottomInset, style, previewPalette }) {
   if (!SystemTabs) return null;
-  return <SystemTabs selectedIndex={selectedIndex} onSelect={onSelect}
+  return <SystemTabs selectedIndex={selectedIndex} onSelect={onSelect} previewPalette={previewPalette || "tangerine"}
     style={[{ height: 64 + bottomInset, width: "100%" }, style]} />;
 }
 

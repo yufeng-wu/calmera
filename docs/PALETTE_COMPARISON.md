@@ -1,0 +1,38 @@
+# Tangerine / Basil & Oat palette comparison
+
+The user requested a Sweetgreen-inspired alternative to the existing Tangerine palette, with both versions shown before choosing. This is a local comparison, not an app-wide palette selection.
+
+## Proposals
+
+| Token | Tangerine | Basil & Oat |
+| --- | --- | --- |
+| Accent | #BC5A19 | #355C45 |
+| Canvas | #FFFBF9 | #F5F6EC |
+| Main text | #4A3428 | #263A2D |
+| Secondary text | #9A8478 | #63705E |
+| Card | #FFFFFF | #FEFFFA |
+| Soft highlight | #F5F5F5 | #E7EDCF |
+
+Basil & Oat uses our own herb-green/oat/sage combination. [Sweetgreen's official site](https://www.sweetgreen.com/) was used as a directional reference; no brand artwork, typography or exact color specification was copied. Numeric proposal values above are original design choices, not Sweetgreen brand tokens.
+
+## Review screen
+
+Full-test app only: `calmera-chatgpt-dev:///palette-compare`, optionally `?variant=basil` for initial selection. The two radio choices switch local presentation immediately. Example meal data, goals, typography, layout, spring parameters and native Regular glass/shadows remain the same across both variants.
+
+This route reuses the actual NutritionSummaryCard, FoodEntryItem, AddMealMenu and native SystemTabs components. Optional palette overrides default to the existing presentation everywhere else. Native opt-in tint handling is limited to the separate test bundle. Normal tabs explicitly use Tangerine. The comparison changes the wordmark, text/amounts, background, card borders/badges, native Add menu, selected Today tint and Edit accent; semantic red Delete and existing macro ring colors remain stable.
+
+No saved appearance/palette preference is written. The original global COLORS and all seven saved background definitions are unchanged. Review routing uses the established isolated appearance scope; its canvas is fully covered by the selected comparison background. Mock meal actions show a local preview explanation. Voice long press/release are no-ops, never recorder access. Tab chrome is display-only, as in the existing background comparison route.
+
+## Evidence
+
+- Final native Release build passed: /tmp/foodwrap-palette-compare-final-build.log.
+- Scoped ESLint and whitespace checks passed: /tmp/foodwrap-palette-compare-final-lint.log.
+- Existing JavaScript suite passed 272/272: /tmp/foodwrap-palette-compare-tests.log. No tests were added just to mirror this reversible color study.
+- On the dedicated iOS 27 simulator, both radio choices rendered the same complete Today layout and sample totals. Switched Tangerine → Basil & Oat through the actual native app and inspected both live.
+- Basil's Add button, selected Today tab, and Photo/Manual/Voice menu labels/icons all rendered green with the existing native glass. The synthetic Greek Yogurt row exposed green Edit and red Delete, with both glass surfaces visible.
+- In-memory phone-sized views of both variants were shown in the conversation. No screenshots were saved/exported.
+- The main app is not switched to a new palette until the user chooses. Final preview build additionally makes the ordinary tab tint explicit; the comparison visuals are otherwise unchanged from the inspected build.
+
+Calculated text contrast on the proposed oat canvas (#F5F6EC): accent 6.96:1, main text 11.17:1, secondary text 4.81:1. These are static token calculations, not a full accessibility audit of adaptive glass over every background.
+
+No real meal/goal/account/backend write, microphone/camera/inference, credential/personal-record inspection, physical iPhone operation or Live AI work was performed. iOS 26, VoiceOver audio, accessibility text-size changes and all saved background combinations were not part of this color-choice review. Separate dirty OpenAI-logo edits/assets remain preserved and excluded from the scoped commit.

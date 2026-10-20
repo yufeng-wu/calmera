@@ -21,7 +21,7 @@ export function closeOpenMealActions() {
   activeRow = null;
 }
 
-export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdit, onSwipeStateChange, onActionMetrics, onDetailsMetrics }) {
+export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdit, onSwipeStateChange, onActionMetrics, onDetailsMetrics, palette }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [actionsVisible, setActionsVisible] = useState(false);
   const initialReducedMotion = useReducedMotion();
@@ -124,7 +124,7 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
   return <View style={swipeStyles.row}>
     {nativeActions && <View pointerEvents="box-none" style={swipeStyles.actionOverlay}>
       <MealSwipeActions overlay width={actionWidth} progress={nativeReveal} visible={actionsVisible}
-        onEdit={edit} onDelete={remove} onMetrics={onActionMetrics} />
+        onEdit={edit} onDelete={remove} onMetrics={onActionMetrics} previewPalette={palette?.id} />
     </View>}
     <Swipeable ref={swipeable} pointerEvents="box-none" friction={1} rightThreshold={22}
       dragOffsetFromLeftEdge={12} dragOffsetFromRightEdge={10}
@@ -147,8 +147,8 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
       renderRightActions={(progress, translation) => nativeActions
         ? <MealActionRail translation={translation} reveal={nativeReveal} width={actionWidth * 2 + 20} />
         : <MealSwipeActions width={actionWidth} progress={progress}
-          visible={actionsVisible} onEdit={edit} onDelete={remove} onMetrics={onActionMetrics} />}>
-      <Pressable style={({ pressed }) => [styles.foodEntryCard, swipeStyles.card, pressed && swipeStyles.pressedCard]}
+          visible={actionsVisible} onEdit={edit} onDelete={remove} onMetrics={onActionMetrics} previewPalette={palette?.id} />}>
+      <Pressable style={({ pressed }) => [styles.foodEntryCard, swipeStyles.card, palette && { backgroundColor: palette.card, borderColor: palette.border }, pressed && swipeStyles.pressedCard]}
         onPress={toggleExpand} onLongPress={revealActions} delayLongPress={450}
         accessibilityRole="button" accessibilityState={{ expanded: isExpanded }}
         accessibilityValue={{ text: isExpanded ? macros : "" }}
@@ -158,17 +158,17 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
           { name: "showActions", label: "Show meal actions" }, { name: "edit", label: "Edit meal" }, { name: "delete", label: "Delete meal" }]}
         onAccessibilityAction={accessibilityAction}>
         <View style={[styles.transactionContent, veryLargeText && swipeStyles.largeTextContent]}>
-          <View style={styles.categoryIconContainer}>
+          <View style={[styles.categoryIconContainer, palette && { backgroundColor: palette.badge }]}>
             <Text style={{ fontSize: 25 }} allowFontScaling={false} accessible={false}>{getFoodEmoji(foodName)}</Text>
           </View>
-          <View style={[styles.transactionLeft, veryLargeText && swipeStyles.largeTextTitle]}><Text style={styles.transactionTitle}>{foodName}</Text></View>
+          <View style={[styles.transactionLeft, veryLargeText && swipeStyles.largeTextTitle]}><Text style={[styles.transactionTitle, palette && { color: palette.text }]}>{foodName}</Text></View>
           <View style={[styles.transactionRight, veryLargeText && swipeStyles.largeTextMetadata]}>
-            <Text style={[styles.transactionAmount, { color: COLORS.primary }]}>{parseFloat(calories).toFixed(0)} kcal</Text>
-            <Text style={styles.transactionDate}>{formatTime(localTime)}</Text>
+            <Text style={[styles.transactionAmount, { color: palette?.primary || COLORS.primary }]}>{parseFloat(calories).toFixed(0)} kcal</Text>
+            <Text style={[styles.transactionDate, palette && { color: palette.textLight }]}>{formatTime(localTime)}</Text>
           </View>
           <View style={[styles.indicatorContainer, veryLargeText && swipeStyles.largeTextIndicator]}>
             <Animated.View style={chevronStyle}>
-              <Ionicons name="chevron-down" size={20} color={COLORS.textLight} />
+              <Ionicons name="chevron-down" size={20} color={palette?.textLight || COLORS.textLight} />
             </Animated.View>
           </View>
         </View>
@@ -178,7 +178,7 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
           <View style={[styles.expandedContent, swipeStyles.detailsContent]}
             onLayout={({ nativeEvent }) => setDetailsHeight(previous =>
               Math.abs(previous - nativeEvent.layout.height) > 0.5 ? nativeEvent.layout.height : previous)}>
-            <Text style={[styles.macrosText, swipeStyles.detailsText]}>{macros}</Text>
+            <Text style={[styles.macrosText, swipeStyles.detailsText, palette && { color: palette.textLight }]}>{macros}</Text>
           </View>
         </Animated.View>
       </Pressable>
