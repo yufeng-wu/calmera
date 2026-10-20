@@ -53,7 +53,7 @@ export default function UpdateScaleType({ calmeraPreview = false }) {
     finally { savingRef.current = false; setLoading(false); }
   };
   return <FormScreen style={formStyles.screen}>
-    <FormHeader title="Scale calibration" onBack={leave} onSave={handleSave} saving={loading} saveDisabled={isFetching || loadError} />
+    <FormHeader title="Scale display" onBack={leave} onSave={handleSave} saving={loading} saveDisabled={isFetching || loadError} />
     <FormScrollView key={`text-size-${fontScale}`} contentContainerStyle={formStyles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.intro}><Text accessibilityRole="header" style={styles.title}>Your kitchen scale</Text>
         <Text style={styles.caption}>Choose the display that matches your scale so Calmera can read it correctly.</Text></View>

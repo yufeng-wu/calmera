@@ -50,7 +50,7 @@ export default function VoiceLanguage({ calmeraPreview = false }) {
       await setVoiceLanguage(userId, value);
       if (generation.current === request.ticket) setLanguage(value);
     } catch {
-      if (generation.current === request.ticket) Alert.alert("Voice language", "Could not update your voice language. Please try again.");
+      if (generation.current === request.ticket) Alert.alert("Voice language", "Couldn’t save your voice language. Please try again.");
     } finally {
       if (savingRequest.current === request) {
         savingRequest.current = null;
@@ -64,7 +64,7 @@ export default function VoiceLanguage({ calmeraPreview = false }) {
   return <FormScreen style={formStyles.screen}>
     <FormHeader title="Voice language" onBack={back} />
     <FormScrollView key={`voice-language-text-${fontScale}`} contentContainerStyle={formStyles.content}>
-      <Text style={formStyles.caption}>Choose the language you speak when logging meals.</Text>
+      <Text style={formStyles.caption}>Choose the language for voice logging.</Text>
       {loading ? <FormCard style={styles.feedback}>
         <ActivityIndicator color={COLORS.primary} /><Text style={formStyles.caption}>Loading your language…</Text>
       </FormCard> : loadError ? <FormCard>

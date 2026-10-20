@@ -4,9 +4,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 
 export const SCALE_OPTIONS = [
-  { key: "integer", title: "Integer only", description: "No decimal places (e.g., 256g)", img: require("@/assets/images/0-decimal.png") },
-  { key: "1-decimal", title: "1 decimal place", description: "Shows one digit after the decimal (e.g., 256.1g)", img: require("@/assets/images/1-decimal.png") },
-  { key: "2-decimal", title: "2 decimal places", description: "Shows two digits after the decimal (e.g., 256.13g)", img: require("@/assets/images/2-decimal.png") },
+  { key: "integer", title: "No decimal places", description: "Example: 256 g", img: require("@/assets/images/0-decimal.png") },
+  { key: "1-decimal", title: "1 decimal place", description: "Example: 256.1 g", img: require("@/assets/images/1-decimal.png") },
+  { key: "2-decimal", title: "2 decimal places", description: "Example: 256.13 g", img: require("@/assets/images/2-decimal.png") },
 ];
 export default function ScaleOptions({ selected, onSelect, disabled = false }) {
   const { fontScale } = useWindowDimensions();

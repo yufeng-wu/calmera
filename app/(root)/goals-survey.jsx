@@ -296,12 +296,12 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
         <GlassButton title="Use these goals" symbol="checkmark" role="accent" onPress={handleSaveMacros} loading={loading} disabled={loading} />
         <View style={styles.methodGroup}>
           <Text style={styles.caption}>
-            Based on the Mifflin-St Jeor formula (or Katch-McArdle if you provide body fat %), your Basal Metabolic Rate
-            (BMR, the calories your body burns at rest) is {Math.round(surveyBmr({ weightKg, heightCm, age, sex, bodyFat }))} kcal/day.
+            Estimated calories at rest (BMR): {Math.round(surveyBmr({ weightKg, heightCm, age, sex, bodyFat }))} kcal/day.{" "}
+            Calculated with the {bodyFat !== null ? "Katch–McArdle" : "Mifflin–St Jeor"} formula.
           </Text>
-          <Text style={styles.caption}>Factoring in your activity levels, your estimated Total Daily Energy Expenditure (TDEE) is {recommendation.calorieGoal + (goal === "lose" ? 500 : goal === "gain" ? -250 : 0)} kcal/day.</Text>
-          <Text style={styles.caption}>Based on your goal of {goalOptions.find(item => item.value === goal)?.label}, a {goal === "lose" ? "calorie deficit of 500 kcal/day" : goal === "gain" ? "calorie surplus of 250 kcal/day" : "maintenance (no deficit or surplus)"} is reasonable, so we recommend {recommendation.calorieGoal} kcal/day.</Text>
-          <Text style={styles.caption}>These numbers are estimates. For the most accurate assessment of your nutritional needs, consult a qualified health professional or use clinical measurement methods.</Text>
+          <Text style={styles.caption}>Estimated daily energy use (TDEE), including activity: {recommendation.calorieGoal + (goal === "lose" ? 500 : goal === "gain" ? -250 : 0)} kcal/day.</Text>
+          <Text style={styles.caption}>For your selected goal, this target {goal === "lose" ? "subtracts 500 kcal/day" : goal === "gain" ? "adds 250 kcal/day" : "matches estimated maintenance calories"}.</Text>
+          <Text style={styles.caption}>These are estimates. For personal guidance, consult a qualified health professional.</Text>
         </View>
       </FormCard></View>}
     </FormScrollView>

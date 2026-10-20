@@ -43,7 +43,7 @@ const screens = [
   { id: "history", title: "History", Component: History },
   { id: "guide", title: "Tutorial", Component: Guide },
   { id: "welcome", title: "Welcome and scale setup", Component: Welcome },
-  { id: "scale", title: "Scale calibration", Component: Scale },
+  { id: "scale", title: "Scale display", Component: Scale },
   { id: "live", title: "Legacy Live fallback", Component: LiveFallback },
   { id: "manual", title: "Manual", Component: Manual },
   { id: "photo", title: "Photo empty", Component: Photo },
