@@ -21,7 +21,8 @@ import { useAuth } from "@clerk/clerk-expo";
 import { FormScreen, FormScrollView, FormHeader, FormCard, GlassButton } from "@/components/GlassForm";
 import GoalSliderRow from "@/components/GoalSliderRow";
 import { goalInputValue, goalSaveValue } from "@/lib/goalSlider.mjs";
-import { fetchGoalProfile, saveGoalProfile } from "@/lib/goalProfile.mjs";
+import { fetchGoalProfile, saveGoalProfile, goalSaveErrorMessage } from "@/lib/goalProfile.mjs";
+import useFormTaskScope from "@/hooks/useFormTaskScope";
 import usePageExit from "@/hooks/usePageExit";
 
 const EMPTY_GOALS = { calorieGoal: "", proteinGoal: "", carbsGoal: "", fatGoal: "" };
@@ -41,12 +42,14 @@ export default function UpdateGoals() {
   const isFixture = Constants.expoConfig?.extra?.calmeraFullAppTest === true
     && ["ui-goals", "ui-goals-load", "ui-goals-error", "ui-goals-rounded", "ui-goals-unset", "ui-goals-save", "ui-goals-save-error", "ui-goals-slow"].includes(params.calmeraFixture);
   const fixtureMode = isFixture ? params.calmeraFixture : null;
-  const { setShouldRefresh, setShouldRefreshGoals } = useRefreshSignal();
+  const { store, setShouldRefresh, setShouldRefreshGoals } = useRefreshSignal();
   const { getToken, userId, isLoaded } = useAuth();
   // Clerk Expo 2.12 returns a new getToken wrapper every render. It is a
   // credential accessor, not a trigger to reload and overwrite the draft.
   const tokenRef = useRef(getToken);
   tokenRef.current = getToken;
+  const ownerRef = useRef(userId);
+  ownerRef.current = userId;
   const [goals, setGoals] = useState(isFixture ? FIXTURE_GOALS : EMPTY_GOALS);
   const [loading, setLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(!isFixture);
@@ -54,13 +57,11 @@ export default function UpdateGoals() {
   const [loadAttempt, setLoadAttempt] = useState(0);
   const loadCount = useRef(0);
   const saveCount = useRef(0);
-  const savePending = useRef(false);
-  const saveController = useRef(null);
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => { mounted.current = false; saveController.current?.abort(); };
-  }, []);
+  const savePending = useRef(null);
+  const scope = useFormTaskScope(isFixture ? `calmera-goals-fixture:${fixtureMode}` : userId, () => {
+    savePending.current = null;
+    setLoading(false);
+  });
   const leaveEditor = usePageExit(isFixture ? "/form-style-check" : "/dashboard");
   const [fixtureSaved, setFixtureSaved] = useState(false);
   const hasAnimated = useRef(false);
@@ -115,18 +116,19 @@ export default function UpdateGoals() {
           });
         } else {
           data = await fetchGoalProfile({ getToken: () => tokenRef.current(),
-            url: `${USERS_API_URL}/get-user`, signal: controller.signal });
+            url: `${USERS_API_URL}/get-user`, signal: controller.signal,
+            isActive: () => active && ownerRef.current === userId });
         }
-        if (active) setGoals({
+        if (active && (fixtureMode || ownerRef.current === userId)) setGoals({
           calorieGoal: goalInputValue(data.calorieGoal),
           proteinGoal: goalInputValue(data.proteinGoal),
           carbsGoal: goalInputValue(data.carbsGoal),
           fatGoal: goalInputValue(data.fatGoal),
         });
       } catch (error) {
-        if (active) setLoadError(error.message === "goals_request_timeout" ? "timeout" : "failed");
+        if (active && (fixtureMode || ownerRef.current === userId)) setLoadError(error.message === "goals_request_timeout" ? "timeout" : "failed");
       } finally {
-        if (active) setIsFetching(false);
+        if (active && (fixtureMode || ownerRef.current === userId)) setIsFetching(false);
       }
     };
     load();
@@ -140,7 +142,9 @@ export default function UpdateGoals() {
   };
 
   const handleSave = async () => {
-    if (savePending.current || loading || isFetching || loadError) return;
+    const currentOwner = () => ownerRef.current === userId && store.belongsTo(userId);
+    if (!scope.isActive() || (!isFixture && !currentOwner())
+      || savePending.current || loading || isFetching || loadError) return;
     if (Object.values(goals).some((value) => value !== "" && (!Number.isFinite(Number(value)) || Number(value) < 0))) {
       Alert.alert("Check your goals", "Please enter a valid amount of zero or more for each goal.");
       return;
@@ -151,9 +155,18 @@ export default function UpdateGoals() {
       setFixtureSaved(true);
       return;
     }
-    savePending.current = true;
-    saveController.current = new AbortController();
+    const task = scope.start();
+    if (!task) return;
+    savePending.current = task;
     setLoading(true);
+    const refreshSavedGoals = () => {
+      // Cache bookkeeping is safe after a blur for the same active owner; stale
+      // UI/navigation still requires the original focused task below.
+      if (!isFixture && currentOwner()) {
+        setShouldRefresh(true);
+        setShouldRefreshGoals(true);
+      }
+    };
     try {
       const body = {
         calorieGoal: goalSaveValue(goals.calorieGoal),
@@ -163,34 +176,37 @@ export default function UpdateGoals() {
         localDate: new Date().toLocaleDateString("en-CA"),
       };
       const options = { getToken: () => tokenRef.current(), url: `${USERS_API_URL}/update-user`,
-        body, signal: saveController.current.signal };
+        body, signal: task.signal, isActive: () => task.isCurrent() && (isFixture || currentOwner()) };
       if (exerciseSave) {
+        options.url = "https://calmera.invalid/users/update-user";
         options.getToken = async () => "synthetic-token";
         options.fetchImpl = async () => {
-          saveCount.current += 1;
+          const attempt = ++saveCount.current;
           await new Promise(resolve => setTimeout(resolve, 300));
-          return { ok: fixtureMode !== "ui-goals-save-error" || saveCount.current > 1 };
+          const rejected = fixtureMode === "ui-goals-save-error" && attempt === 1;
+          return { ok: !rejected, status: rejected ? 400 : 200 };
         };
       }
       await saveGoalProfile(options);
-      if (!mounted.current) return;
+      refreshSavedGoals();
+      if (!task.isCurrent() || (!isFixture && !currentOwner())) return;
       Alert.alert("Success", "Goals updated successfully", [{
         text: "OK",
         onPress: () => {
-          if (!isFixture) {
-            setShouldRefresh(true);
-            setShouldRefreshGoals(true);
-          }
-          leaveEditor();
+          if (task.isCurrent() && (isFixture || currentOwner())) leaveEditor();
         },
       }]);
-    } catch (e) {
-      if (mounted.current) Alert.alert("Couldn’t save goals", e.message === "goals_request_timeout"
-        ? "The request took too long. Your changes are still here; please try again."
-        : "Your changes are still here. Please try saving again.");
+    } catch (error) {
+      if (error.mayHaveSaved) refreshSavedGoals();
+      if (task.isCurrent() && (isFixture || currentOwner())) {
+        Alert.alert(error.mayHaveSaved ? "Save not confirmed" : "Couldn’t save goals", goalSaveErrorMessage(error));
+      }
     } finally {
-      savePending.current = false;
-      if (mounted.current) setLoading(false);
+      task.finish();
+      if (savePending.current === task) {
+        savePending.current = null;
+        if (task.isCurrent() && (isFixture || currentOwner())) setLoading(false);
+      }
     }
   };
 

@@ -11,6 +11,8 @@ import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { FormCard, FormHeader, GlassButton, FormScreen, FormScrollView, formStyles } from "@/components/GlassForm";
 import GlassSurface from "@/components/GlassSurface";
 import usePageExit from "@/hooks/usePageExit";
+import useFormTaskScope from "@/hooks/useFormTaskScope";
+import { saveGoalProfile, goalSaveErrorMessage } from "@/lib/goalProfile.mjs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { surveyBmr, surveyGoals, surveyPickerCommit, surveyInputSignature } from "@/lib/goalsSurvey.mjs";
 
@@ -117,14 +119,18 @@ function SurveyPickerSheet({ visible, title, onDone, onClose, onClear, children,
 export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStage = "form" }) {
   const navigation = useNavigation();
   const { fontScale } = useWindowDimensions();
-  const { getToken } = useAuth();
+  const { getToken, userId } = useAuth();
+  const owner = calmeraPreview ? "calmera-ui-preview" : userId;
+  const ownerRef = useRef(owner);
+  ownerRef.current = owner;
   const tokenRef = useRef(getToken);
   tokenRef.current = getToken;
   const savingRef = useRef(false);
   const goBack = usePageExit(calmeraPreview ? "/ui-gallery" : "/dashboard");
-  const { setShouldRefreshGoals } = useRefreshSignal();
+  const { store, setShouldRefresh, setShouldRefreshGoals } = useRefreshSignal();
   const scrollViewRef = useRef(null);
-  const seeded = calmeraPreview && calmeraPreviewStage === "recommendation";
+  const saveFixture = calmeraPreview && ["save-token-timeout", "save-response-timeout", "save-error"].includes(calmeraPreviewStage);
+  const seeded = calmeraPreview && (calmeraPreviewStage === "recommendation" || saveFixture);
   const [age, setAge] = useState(seeded ? 30 : null);
   const [sex, setSex] = useState(seeded ? "female" : null);
   const [bodyFat, setBodyFat] = useState(null);
@@ -134,6 +140,12 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
   const [heightUnit, setHeightUnit] = useState("cm");
   const [goal, setGoal] = useState(seeded ? "maintain" : null);
   const [loading, setLoading] = useState(false);
+  const fixtureCalls = useRef({ attempts: 0, puts: 0 });
+  const [fixtureTrace, setFixtureTrace] = useState({ attempts: 0, puts: 0 });
+  const scope = useFormTaskScope(owner, () => {
+    savingRef.current = false;
+    setLoading(false);
+  });
   const [workActivity, setWorkActivity] = useState(seeded ? "moderate" : null);
   const [exerciseActivity, setExerciseActivity] = useState(seeded ? "moderate" : null);
   const inputSignature = surveyInputSignature({ weightKg, heightCm, age, sex, bodyFat, workActivity, exerciseActivity, goal });
@@ -196,29 +208,65 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
   };
 
   const handleSaveMacros = async () => {
-    if (!recommendation || savingRef.current) return;
-    if (calmeraPreview) return Alert.alert("Preview only", "Recommendation validated. No goals were saved.");
-    savingRef.current = true;
+    if (!recommendation || savingRef.current || !scope.isActive()) return;
+    if (calmeraPreview && !saveFixture) return Alert.alert("Preview only", "Recommendation validated. No goals were saved.");
+    const task = scope.start();
+    if (!task) return;
+    const current = () => task.isCurrent() && ownerRef.current === owner;
+    const refreshAfterWrite = () => {
+      if (!calmeraPreview && ownerRef.current === owner && store.belongsTo(owner)) {
+        setShouldRefresh(true);
+        setShouldRefreshGoals(true);
+      }
+    };
+    const body = {
+      calorieGoal: recommendation.calorieGoal, proteinGoal: recommendation.proteinGoal,
+      carbsGoal: recommendation.carbsGoal, fatGoal: recommendation.fatGoal,
+      localDate: new Date().toLocaleDateString("en-CA"),
+    };
+    savingRef.current = task;
     setLoading(true);
     try {
-      const token = await tokenRef.current();
-      const resp = await fetch(`${USERS_API_URL}/update-user`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          calorieGoal: recommendation.calorieGoal, proteinGoal: recommendation.proteinGoal,
-          carbsGoal: recommendation.carbsGoal, fatGoal: recommendation.fatGoal,
-          localDate: new Date().toLocaleDateString("en-CA"),
-        }),
-      });
-      if (!resp.ok) throw new Error("Failed to update goals");
-      setShouldRefreshGoals(true);
-      Alert.alert("Success", "Macro goals updated successfully.", [{ text: "OK", onPress: () => {
-        if (navigation.canGoBack()) navigation.dispatch(StackActions.popToTop());
-        else goBack();
-      } }]);
-    } catch (err) { Alert.alert("Error", err.message); }
-    finally { savingRef.current = false; setLoading(false); }
+      const options = { getToken: () => tokenRef.current(), url: `${USERS_API_URL}/update-user`,
+        body, signal: task.signal, isActive: current };
+      if (saveFixture) {
+        // These private review cases use the real save helper with fake I/O only.
+        const attempt = ++fixtureCalls.current.attempts;
+        setFixtureTrace({ ...fixtureCalls.current });
+        options.url = "https://synthetic.invalid/goals";
+        options.timeoutMs = 4000;
+        options.getToken = () => calmeraPreviewStage === "save-token-timeout" && attempt === 1
+          ? new Promise(() => {}) : Promise.resolve("synthetic-token");
+        options.fetchImpl = async () => {
+          fixtureCalls.current.puts += 1;
+          if (current()) setFixtureTrace({ ...fixtureCalls.current });
+          if (calmeraPreviewStage === "save-response-timeout" && attempt === 1) return new Promise(() => {});
+          await new Promise(resolve => setTimeout(resolve, 300));
+          return { ok: calmeraPreviewStage !== "save-error" || attempt > 1, status: calmeraPreviewStage === "save-error" && attempt === 1 ? 400 : 200 };
+        };
+      }
+      await saveGoalProfile(options);
+      refreshAfterWrite();
+      if (!current()) return;
+      if (saveFixture) {
+        Alert.alert("Preview only", "Synthetic save complete. No goals were saved.");
+      } else {
+        Alert.alert("Success", "Macro goals updated successfully.", [{ text: "OK", onPress: () => {
+          if (!current()) return;
+          if (navigation.canGoBack()) navigation.dispatch(StackActions.popToTop());
+          else goBack();
+        } }]);
+      }
+    } catch (error) {
+      if (error.mayHaveSaved) refreshAfterWrite();
+      if (current()) Alert.alert(error.mayHaveSaved ? "Save not confirmed" : "Couldn’t save goals", goalSaveErrorMessage(error));
+    } finally {
+      task.finish();
+      if (savingRef.current === task) {
+        savingRef.current = false;
+        if (current()) setLoading(false);
+      }
+    }
   };
   const displayAge = age !== null ? `${Number(age)} yrs` : "Required";
   const displayWeight = weightKg !== null
@@ -296,6 +344,9 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
             <Text style={styles.resultValue}>{value} <Text style={styles.resultUnit}>{unit}</Text></Text>
           </View>)}
         </View>
+        {saveFixture && <Text accessibilityLiveRegion="polite" style={styles.caption}>
+          Synthetic save attempts: {fixtureTrace.attempts} · PUT requests: {fixtureTrace.puts}
+        </Text>}
         <GlassButton title="Use these goals" symbol="checkmark" role="accent" onPress={handleSaveMacros} loading={loading} disabled={loading} />
         <View style={styles.methodGroup}>
           <Text style={styles.caption}>
