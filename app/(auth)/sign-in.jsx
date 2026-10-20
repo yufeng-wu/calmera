@@ -18,6 +18,12 @@ export default function Page({ calmeraPreview = false } = {}) {
   const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const clearFieldError = (field) => {
+    if (fieldError !== field) return;
+    setError("");
+    setFieldError("");
+  };
+
   const navigate = (path) => {
     if (calmeraPreview) {
       const screen = path === "/sign-up" ? "sign-up" : path === "/forgot-password" ? "forgot-password" : "sign-in";
@@ -63,11 +69,11 @@ export default function Page({ calmeraPreview = false } = {}) {
     <FormCard style={styles.form}>
       <AuthNotice error>{error}</AuthNotice>
       <AuthNotice>{info}</AuthNotice>
-      <AuthField calmeraPreview={calmeraPreview} label="Email" value={emailAddress} onChangeText={(value) => { setEmailAddress(value); setFieldError(current => current === "email" ? "" : current); }}
+      <AuthField calmeraPreview={calmeraPreview} label="Email" value={emailAddress} onChangeText={(value) => { setEmailAddress(value); clearFieldError("email"); }}
         autoCapitalize="none" keyboardType="email-address" textContentType="emailAddress"
         autoComplete="email" placeholder="you@example.com" editable={!busy} error={fieldError === "email"}
         returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => passwordInput.current?.focus()} />
-      <AuthField ref={passwordInput} calmeraPreview={calmeraPreview} label="Password" value={password} onChangeText={(value) => { setPassword(value); setFieldError(current => current === "password" ? "" : current); }}
+      <AuthField ref={passwordInput} calmeraPreview={calmeraPreview} label="Password" value={password} onChangeText={(value) => { setPassword(value); clearFieldError("password"); }}
         secureTextEntry textContentType="password" autoComplete="current-password"
         autoCapitalize="none" placeholder="Your password" editable={!busy} error={fieldError === "password"}
         returnKeyType="go" onSubmitEditing={onSignInPress} />

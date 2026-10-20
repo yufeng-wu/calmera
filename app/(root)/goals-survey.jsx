@@ -91,17 +91,20 @@ function SurveyWheel({ label, value, onChange, items, disabled = false }) {
 
 function SurveyPickerSheet({ visible, title, onDone, onClose, onClear, children, disabled = false }) {
   const insets = useSafeAreaInsets();
-  const { height } = useWindowDimensions();
+  const { height, fontScale } = useWindowDimensions();
+  const largeText = fontScale > 1.4;
+  const actionStyle = [styles.sheetSmallAction, largeText && { minWidth: Math.ceil(64 * fontScale), maxWidth: "100%" }];
   if (!visible) return null;
   return <Modal visible transparent animationType="slide" presentationStyle="overFullScreen" onRequestClose={onClose}>
     <View style={styles.sheetBackdrop}>
       <Pressable accessibilityLabel="Close picker" accessibilityRole="button" disabled={disabled} accessibilityState={{ disabled }} style={StyleSheet.absoluteFill} onPress={onClose} />
       <View accessibilityViewIsModal style={[styles.sheet, { paddingBottom: Math.max(20, insets.bottom), maxHeight: height * 0.85 }]}>
         <View style={styles.sheetHandle} />
-        <View style={styles.sheetHeader}>
-          {onClear && <GlassButton title="Clear" onPress={onClear} disabled={disabled} style={styles.sheetSmallAction} />}
-          <Text accessibilityRole="header" style={styles.sheetTitle}>{title}</Text>
-          <GlassButton title="Done" onPress={onDone} disabled={disabled} style={styles.sheetSmallAction} />
+        {largeText && <Text accessibilityRole="header" style={[styles.sheetTitle, styles.sheetTitleLarge]}>{title}</Text>}
+        <View style={[styles.sheetHeader, largeText && styles.sheetActionsLarge]}>
+          {onClear && <GlassButton title="Clear" onPress={onClear} disabled={disabled} style={actionStyle} />}
+          {!largeText && <Text accessibilityRole="header" style={styles.sheetTitle}>{title}</Text>}
+          <GlassButton title="Done" onPress={onDone} disabled={disabled} style={actionStyle} />
         </View>
         <ScrollView bounces={false} contentContainerStyle={styles.sheetContent}>
           {children}
@@ -385,6 +388,8 @@ const styles = StyleSheet.create({
   sheetHeader: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 12 },
   sheetTitle: { ...TYPOGRAPHY.pageTitle, flex: 1, minWidth: 80, color: COLORS.text},
   sheetSmallAction: { minWidth: 64 },
+  sheetTitleLarge: { flex: 0, width: "100%" },
+  sheetActionsLarge: { justifyContent: "flex-end" },
   sheetContent: { flexGrow: 1 },
   wheelRow: { flexDirection: "row", alignItems: "center" },
   wheelColumn: { flex: 1, minWidth: 0 },

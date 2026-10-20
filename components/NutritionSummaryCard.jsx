@@ -1,4 +1,4 @@
-import { View, Text } from "react-native";
+import { View, Text, StyleSheet, useWindowDimensions } from "react-native";
 import { styles } from "../assets/styles/home.styles";
 import { COLORS, RAINBOW_COLORS } from "../constants/colors";
 import ProgressRing from "./ProgressRing";
@@ -7,6 +7,8 @@ import { useRouter } from "expo-router";
 
 export const NutritionSummaryCard = ({ summary = {}, goals = {}, onEditGoals }) => {
   const router = useRouter();
+  const { fontScale } = useWindowDimensions();
+  const largeText = fontScale > 1.4;
   // Extract consumed values (fallback to 0 if not provided)
   const calories = Number(
     summary.calories ?? summary.dailyTotals?.calories ?? 0
@@ -105,11 +107,11 @@ export const NutritionSummaryCard = ({ summary = {}, goals = {}, onEditGoals }) 
       </View>
 
       {/* Macro breakdown */}
-      <View style={styles.balanceStats}>
+      <View style={[styles.balanceStats, largeText && responsive.macroRows]}>
         {/* Protein */}
-        <View style={styles.balanceStatItem}>
-          <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
-            <Text style={styles.balanceStatLabel}>Protein </Text>
+        <View style={[styles.balanceStatItem, largeText && responsive.macroRow]}>
+          <View style={[{ flexDirection: "row", alignItems: "flex-start" }, largeText && responsive.labelRow]}>
+            <Text style={[styles.balanceStatLabel, largeText && responsive.label]}>Protein </Text>
             <ProgressRing
               size={18}
               strokeWidth={3.8}
@@ -119,17 +121,17 @@ export const NutritionSummaryCard = ({ summary = {}, goals = {}, onEditGoals }) 
               style={{ marginLeft: 6 }}
             />
           </View>
-          <Text style={styles.balanceStatAmount}>
+          <Text style={[styles.balanceStatAmount, largeText && responsive.amount]}>
             {formatMacro(protein, proteinGoal, " g")}
           </Text>
         </View>
 
-        <View style={styles.statDivider} />
+        <View style={[styles.statDivider, largeText && responsive.hiddenDivider]} />
 
         {/* Carbs */}
-        <View style={styles.balanceStatItem}>
-          <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
-            <Text style={styles.balanceStatLabel}>Carbs </Text>
+        <View style={[styles.balanceStatItem, largeText && responsive.macroRow]}>
+          <View style={[{ flexDirection: "row", alignItems: "flex-start" }, largeText && responsive.labelRow]}>
+            <Text style={[styles.balanceStatLabel, largeText && responsive.label]}>Carbs </Text>
             <ProgressRing
               size={18}
               strokeWidth={3.8}
@@ -139,17 +141,17 @@ export const NutritionSummaryCard = ({ summary = {}, goals = {}, onEditGoals }) 
               style={{ marginLeft: 6 }}
             />
           </View>
-          <Text style={styles.balanceStatAmount}>
+          <Text style={[styles.balanceStatAmount, largeText && responsive.amount]}>
             {formatMacro(carbs, carbsGoal, " g")}
           </Text>
         </View>
 
-        <View style={styles.statDivider} />
+        <View style={[styles.statDivider, largeText && responsive.hiddenDivider]} />
 
         {/* Fat */}
-        <View style={styles.balanceStatItem}>
-          <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
-            <Text style={styles.balanceStatLabel}>Fat </Text>
+        <View style={[styles.balanceStatItem, largeText && responsive.macroRow]}>
+          <View style={[{ flexDirection: "row", alignItems: "flex-start" }, largeText && responsive.labelRow]}>
+            <Text style={[styles.balanceStatLabel, largeText && responsive.label]}>Fat </Text>
             <ProgressRing
               size={18}
               strokeWidth={3.8}
@@ -159,7 +161,7 @@ export const NutritionSummaryCard = ({ summary = {}, goals = {}, onEditGoals }) 
               style={{ marginLeft: 6 }}
             />
           </View>
-          <Text style={styles.balanceStatAmount}>
+          <Text style={[styles.balanceStatAmount, largeText && responsive.amount]}>
             {formatMacro(fat, fatGoal, " g")}
           </Text>
         </View>
@@ -168,3 +170,15 @@ export const NutritionSummaryCard = ({ summary = {}, goals = {}, onEditGoals }) 
     </View>
   );
 };
+
+// Larger Dynamic Type needs the full card width for each label/value pair.
+// Keep the normal three-column layout and every existing font style unchanged.
+const responsive = StyleSheet.create({
+  macroRows: { flexDirection: "column", gap: 12 },
+  macroRow: { flex: 0, width: "100%", flexDirection: "row", flexWrap: "wrap",
+    alignItems: "center", columnGap: 12, rowGap: 4 },
+  labelRow: { alignItems: "center", maxWidth: "100%", flexShrink: 1 },
+  label: { marginBottom: 0, flexShrink: 1 },
+  amount: { maxWidth: "100%", flexShrink: 1, marginLeft: "auto", textAlign: "right" },
+  hiddenDivider: { display: "none" },
+});

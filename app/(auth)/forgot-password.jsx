@@ -20,6 +20,12 @@ export default function ForgotPassword({ calmeraPreview = false, calmeraPreviewS
   const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const clearFieldError = (field) => {
+    if (fieldError !== field) return;
+    setError("");
+    setFieldError("");
+  };
+
   const backToSignIn = () => {
     if (busyRef.current) return;
     if (calmeraPreview) {
@@ -90,14 +96,14 @@ export default function ForgotPassword({ calmeraPreview = false, calmeraPreviewS
     <FormCard style={styles.form}>
       <AuthNotice error>{error}</AuthNotice>
       <AuthNotice>{info}</AuthNotice>
-      {stage === "REQUEST" ? <AuthField key={stage} calmeraPreview={calmeraPreview} label="Email" value={emailAddress} onChangeText={(value) => { setEmailAddress(value); setFieldError(current => current === "email" ? "" : current); }}
+      {stage === "REQUEST" ? <AuthField key={stage} calmeraPreview={calmeraPreview} label="Email" value={emailAddress} onChangeText={(value) => { setEmailAddress(value); clearFieldError("email"); }}
         autoCapitalize="none" keyboardType="email-address" textContentType="emailAddress"
         autoComplete="email" placeholder="you@example.com" editable={!busy} error={fieldError === "email"}
         returnKeyType="go" onSubmitEditing={submit} />
-        : stage === "VERIFY" ? <AuthField key={stage} calmeraPreview={calmeraPreview} label="Verification code" code value={code} onChangeText={(value) => { setCode(value); setFieldError(current => current === "code" ? "" : current); }}
+        : stage === "VERIFY" ? <AuthField key={stage} calmeraPreview={calmeraPreview} label="Verification code" code value={code} onChangeText={(value) => { setCode(value); clearFieldError("code"); }}
           keyboardType="number-pad" textContentType="oneTimeCode" autoComplete="one-time-code"
           placeholder="Email code" editable={!busy} error={fieldError === "code"} returnKeyType="done" onSubmitEditing={submit} />
-          : <AuthField key={stage} calmeraPreview={calmeraPreview} label="New password" value={newPassword} onChangeText={(value) => { setNewPassword(value); setFieldError(current => current === "password" ? "" : current); }}
+          : <AuthField key={stage} calmeraPreview={calmeraPreview} label="New password" value={newPassword} onChangeText={(value) => { setNewPassword(value); clearFieldError("password"); }}
             secureTextEntry autoCapitalize="none" textContentType="newPassword" autoComplete="new-password"
             placeholder="New password" hint="At least 8 characters." editable={!busy} error={fieldError === "password"}
             returnKeyType="go" onSubmitEditing={submit} />}

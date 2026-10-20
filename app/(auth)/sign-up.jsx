@@ -41,6 +41,12 @@ export default function SignUpScreen({ calmeraPreview = false, calmeraPreviewSta
   const [info, setInfo] = useState(setupPreview ? "Synthetic setup check. No authentication or network requests are sent." : "");
   const [busy, setBusy] = useState(false);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
+
+  const clearFieldError = (field) => {
+    if (fieldError !== field) return;
+    setError("");
+    setFieldError("");
+  };
   // Clerk setActive intentionally changes userId. This scope belongs to the
   // mounted signup flow, so that expected handoff must not cancel its own setup.
   const scope = useFormTaskScope("calmera-signup-flow", () => {
@@ -233,18 +239,18 @@ export default function SignUpScreen({ calmeraPreview = false, calmeraPreviewSta
       <AuthNotice>{info}</AuthNotice>
       {isCreatingUser ? <AuthBusy>Setting up your Calmera account…</AuthBusy> : emailVerified ? <GlassButton
         title="Finish account setup" role="accent" onPress={onFinishSetupPress} loading={busy} style={styles.action} /> : pendingVerification ? <>
-        <AuthField calmeraPreview={calmeraPreview} label="Verification code" code value={code} onChangeText={(value) => { setCode(value); setFieldError(current => current === "code" ? "" : current); }}
+        <AuthField calmeraPreview={calmeraPreview} label="Verification code" code value={code} onChangeText={(value) => { setCode(value); clearFieldError("code"); }}
           placeholder="Email code" keyboardType="number-pad" textContentType="oneTimeCode"
           autoComplete="one-time-code" editable={!busy} error={fieldError === "code"}
           returnKeyType="done" onSubmitEditing={onVerifyPress} />
         <GlassButton title="Verify email" role="accent" onPress={onVerifyPress}
           loading={busy} disabled={!calmeraPreview && !isLoaded} style={styles.action} />
       </> : <>
-        <AuthField calmeraPreview={calmeraPreview} label="Email" value={emailAddress} onChangeText={(value) => { setEmailAddress(value); setFieldError(current => current === "email" ? "" : current); }}
+        <AuthField calmeraPreview={calmeraPreview} label="Email" value={emailAddress} onChangeText={(value) => { setEmailAddress(value); clearFieldError("email"); }}
           autoCapitalize="none" keyboardType="email-address" textContentType="emailAddress"
           autoComplete="email" placeholder="you@example.com" editable={!busy} error={fieldError === "email"}
           returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => passwordInput.current?.focus()} />
-        <AuthField ref={passwordInput} calmeraPreview={calmeraPreview} label="Password" value={password} onChangeText={(value) => { setPassword(value); setFieldError(current => current === "password" ? "" : current); }} secureTextEntry
+        <AuthField ref={passwordInput} calmeraPreview={calmeraPreview} label="Password" value={password} onChangeText={(value) => { setPassword(value); clearFieldError("password"); }} secureTextEntry
           textContentType="newPassword" autoComplete="new-password" autoCapitalize="none"
           placeholder="Choose a password" editable={!busy} error={fieldError === "password"}
           returnKeyType="go" onSubmitEditing={onSignUpPress} />
