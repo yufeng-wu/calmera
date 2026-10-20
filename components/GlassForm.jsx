@@ -25,6 +25,10 @@ export function GlassButton({ title = "", symbol = "", onPress, disabled = false
   const minimumHeight = typeof requested.height === "number" ? requested.height
     : Math.max(requested.minHeight || 48, fontScale > 1.4 ? 40 * fontScale + 16 : 48);
   const buttonStyle = [styles.button, style, { minHeight: minimumHeight }];
+  const navigation = role === "navigation" || role === "navigation-action";
+  const neutral = role === "navigation";
+  const foreground = role === "accent" ? COLORS.white : role === "destructive" ? "#C12D26"
+    : neutral ? "#1C1C1E" : COLORS.primary;
   if (NativeButton) return <View style={buttonStyle}>
     <NativeButton style={StyleSheet.absoluteFill} title={title} symbol={symbol}
       buttonRole={role} buttonDisabled={Boolean(disabled || loading)} loading={loading}
@@ -33,11 +37,11 @@ export function GlassButton({ title = "", symbol = "", onPress, disabled = false
   return <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel || title}
     accessibilityState={{ disabled: disabled || loading, busy: loading }} disabled={disabled || loading}
     onPress={onPress} style={({ pressed }) => [buttonStyle, styles.fallback,
-      role === "accent" && styles.accent, role === "destructive" && styles.destructive, pressed && styles.pressed, (disabled || loading) && styles.disabled]}>
-    {loading ? <ActivityIndicator color={role === "accent" ? COLORS.white : role === "destructive" ? "#C12D26" : COLORS.primary} /> : <>
+      role === "accent" && styles.accent, role === "destructive" && styles.destructive, navigation && styles.navigation, pressed && (navigation ? styles.navigationPressed : styles.pressed), (disabled || loading) && styles.disabled]}>
+    {loading ? <ActivityIndicator color={foreground} /> : <>
       {!!symbol && <Ionicons name={fallbackSymbols[symbol] || "ellipse-outline"} size={20}
-        color={role === "accent" ? COLORS.white : role === "destructive" ? "#C12D26" : COLORS.primary} />}
-      {!!title && <Text style={[styles.buttonText, role === "accent" && styles.accentText, role === "destructive" && styles.destructiveText]}>{title}</Text>}
+        color={foreground} />}
+      {!!title && <Text style={[styles.buttonText, role === "accent" && styles.accentText, role === "destructive" && styles.destructiveText, neutral && styles.navigationText]}>{title}</Text>}
     </>}
   </Pressable>;
 }
@@ -48,13 +52,13 @@ export function FormHeader({ title, onBack, onSave, saving = false, saveDisabled
   const large = fontScale > 1.4;
   return <View style={[styles.header, { minHeight: Math.max(64, 40 * fontScale + 20) }]}>
     <View style={[styles.headerSide, large && styles.headerSideLarge]}>
-      {onBack && <GlassButton symbol="chevron.left" onPress={onBack} disabled={backDisabled}
+      {onBack && <GlassButton symbol="chevron.left" role="navigation" onPress={onBack} disabled={backDisabled}
         accessibilityLabel="Back" style={styles.headerBack} />}
     </View>
     <Text accessibilityRole="header" style={styles.title}>{title}</Text>
     <View style={[styles.headerSide, styles.headerTrailing, large && styles.headerSideLarge]}>
       {rightAction || (onSave && <GlassButton title={large ? "" : "Save"} symbol={large ? "checkmark" : ""}
-        onPress={onSave} loading={saving} disabled={saveDisabled} accessibilityLabel="Save"
+        onPress={onSave} role="navigation-action" loading={saving} disabled={saveDisabled} accessibilityLabel="Save"
         style={large ? styles.headerBack : styles.headerSave} />)}
     </View>
   </View>;
@@ -77,6 +81,9 @@ const styles = StyleSheet.create({
   accent: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   buttonText: { ...TYPOGRAPHY.button, color: COLORS.primary, textAlign: "center"},
   accentText: { color: COLORS.white },
+  navigation: { paddingHorizontal: 0, backgroundColor: "#FFFFFF", borderColor: "#E5E5EA" },
+  navigationText: { color: "#1C1C1E" },
+  navigationPressed: { backgroundColor: "#F5F5F7" },
   destructive: { borderColor: "#ECD7D3" },
   destructiveText: { color: "#C12D26" },
   pressed: { backgroundColor: "#EDE3DA" },

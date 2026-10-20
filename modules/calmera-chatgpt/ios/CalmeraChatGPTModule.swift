@@ -1025,15 +1025,22 @@ final class CalmeraFormButtonView: ExpoView {
 
   @objc func updateControl() {
     let prominent = buttonRole == "accent"
+    let navigation = buttonRole == "navigation" || buttonRole == "navigation-action"
+    let neutral = buttonRole == "navigation"
     let opaque = UIAccessibility.isReduceTransparencyEnabled
     var config: UIButton.Configuration
-    if #available(iOS 26.0, *), !opaque { config = prominent ? .prominentGlass() : .glass() }
-    else {
+    if #available(iOS 26.0, *), !opaque {
+      // Regular system glass retains a visible optical edge on our white
+      // pages. Clear glass disappears against this background. UIKit owns
+      // the shadow, edge, highlight and press response for both header roles.
+      config = prominent ? .prominentGlass() : .glass()
+    } else {
       config = .filled()
       config.baseBackgroundColor = prominent ? tint : .secondarySystemGroupedBackground
     }
     config.baseBackgroundColor = prominent ? tint : config.baseBackgroundColor
-    let foreground: UIColor = buttonDisabled && !loading ? .tertiaryLabel : (buttonRole == "destructive" ? .systemRed : (prominent ? .white : tint))
+    let foreground: UIColor = buttonDisabled && !loading ? .tertiaryLabel :
+      (buttonRole == "destructive" ? .systemRed : (prominent ? .white : (neutral ? .label : tint)))
     config.baseForegroundColor = foreground
     config.imageColorTransformer = UIConfigurationColorTransformer { _ in foreground }
     config.activityIndicatorColorTransformer = UIConfigurationColorTransformer { _ in foreground }
@@ -1041,7 +1048,16 @@ final class CalmeraFormButtonView: ExpoView {
     config.title = buttonTitle.isEmpty ? nil : buttonTitle
     config.image = symbol.isEmpty ? nil : UIImage(systemName: symbol)
     config.imagePadding = buttonTitle.isEmpty ? 0 : 8
-    config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(textStyle: .body, scale: .medium)
+    if navigation {
+      config.buttonSize = .medium
+      // Header symbols must fit the 44 pt touch target even at accessibility
+      // text sizes. Text keeps Dynamic Type; symbols grow only from 20 to 24 pt.
+      let symbolSize = min(24, UIFontMetrics(forTextStyle: .body).scaledValue(for: 20, compatibleWith: traitCollection))
+      config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: symbolSize, weight: .medium)
+      config.image = config.image?.withTintColor(foreground, renderingMode: .alwaysOriginal)
+    } else {
+      config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(textStyle: .body, scale: .medium)
+    }
     config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: buttonTitle.isEmpty ? 0 : 12,
       bottom: 8, trailing: buttonTitle.isEmpty ? 0 : 12)
     let font = UIFontMetrics(forTextStyle: .subheadline).scaledFont(for: .systemFont(ofSize: 14, weight: .semibold), compatibleWith: traitCollection)
@@ -1051,7 +1067,7 @@ final class CalmeraFormButtonView: ExpoView {
       return outgoing
     }
     config.showsActivityIndicator = loading
-    button.tintColor = tint
+    button.tintColor = neutral ? .label : tint
     button.configuration = config
     button.isEnabled = !buttonDisabled && !loading
     button.accessibilityLabel = buttonLabel.isEmpty ? buttonTitle : buttonLabel

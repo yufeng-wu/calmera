@@ -58,3 +58,16 @@ This verifies UI behavior and software unit consistency, not the nutritional met
 No physical iPhone use, personal record/credential inspection, real authentication action, goal/meal/session mutation, photo/microphone access, screenshot export, deletion, account change or backend deployment occurred. The simulator was returned to actual Today without observing personal records.
 
 The user selected keeping cal_mobile and cal_backend as the two Git repositories. That structure is recorded; this UI pass made no Git branch/index/history changes or pushes. Existing local modifications and untracked source remain intact for the reviewed baseline step.
+
+
+## October 19: native navigation buttons
+
+Shared FormHeader controls now distinguish neutral navigation from the primary text action. Back uses a deep neutral SF chevron in a 44 × 44 pt circle; Save retains Tangerine text in its existing 68 × 44 pt capsule. Existing title/body typography, symmetric header layout, disabled/loading states, and navigation/save handlers are retained. All pages using FormHeader inherit these changes, including Manual, Photo, Goals, ChatGPT, Voice language, editors, authentication back headers and guides.
+
+Both roles use UIButton.Configuration.glass() on iOS 26, with native corner configuration and press feedback. Regular glass preserves a visible boundary on white pages. There is no custom border, shadow or surrounding opacity/scale animation for these native buttons. Earlier iOS and Reduce Transparency retain the existing filled fallback. At accessibility text sizes, the existing Save checkmark substitution remains; navigation symbols grow from 20 to at most 24 pt so they fit inside the compact touch target, while titles retain Dynamic Type. Save symbols explicitly retain the action tint. Non-iOS navigation fallbacks use a white surface and neutral pressed state.
+
+Validation: scoped ESLint, all 60 existing JavaScript checks, git diff --check and the final Release iOS simulator build passed. Log: /tmp/calmera-header-glass-build.log. Installed only the dedicated com.yfwu02.mobile.chatgptdev simulator app. The actual Goals editor with ui-goals synthetic values rendered circular Back/capsule Save; Save reported "Test goals updated locally. Your account was not changed.", and Back returned to the form-check route. Manual and Photo preview components displayed the same header; photo-library actions stayed disabled. Accessibility-large was inspected, symbol oversizing corrected, and final standard/accessibility sizes reviewed. Simulator text size was restored to Large.
+
+No physical iPhone operation, personal record/credential inspection, real goal save, camera/microphone access, screenshot export or backend change occurred. Native press response is supplied by UIKit; no frame-rate benchmark was performed.
+
+Reference: https://developer.apple.com/documentation/uikit/uibutton/configuration-swift.struct/glass()
