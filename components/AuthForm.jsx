@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useRef } from "react";
-import { AccessibilityInfo, ActivityIndicator, Platform, Pressable, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { AccessibilityInfo, ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { Ionicons } from "@expo/vector-icons";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
@@ -8,12 +8,14 @@ import { FormHeader } from "@/components/GlassForm";
 
 export function AuthScreen({ title, subtitle, onBack, backDisabled = false, children, footer }) {
   const { fontScale } = useWindowDimensions();
+  const contentStyle = onBack ? styles.content : StyleSheet.flatten([styles.content, { paddingTop: 0 }]);
   return <View style={styles.screen}>
-    {onBack ? <FormHeader title="calmera" onBack={onBack} backDisabled={backDisabled} /> : <Text key={`brand-${fontScale}`} style={styles.wordmark}>calmera</Text>}
-    <KeyboardAwareScrollView style={styles.scroll} contentContainerStyle={styles.content}
+    {onBack && <FormHeader title="calmera" onBack={onBack} backDisabled={backDisabled} />}
+    <KeyboardAwareScrollView key={`auth-text-${fontScale}`} style={styles.scroll} contentContainerStyle={contentStyle}
       enableOnAndroid enableAutomaticScroll extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
       keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-      <View key={fontScale} style={styles.column}>
+      {!onBack && <Text key={`brand-${fontScale}`} style={styles.wordmark}>calmera</Text>}
+      <View style={[styles.column, !onBack && { marginTop: 12 }]}>
         <View style={styles.hero}>
           <Text accessibilityRole="header" style={styles.title}>{title}</Text>
           <Text style={styles.subtitle}>{subtitle}</Text>
@@ -26,11 +28,25 @@ export function AuthScreen({ title, subtitle, onBack, backDisabled = false, chil
 }
 
 export const AuthField = forwardRef(function AuthField({ label, error = false, code = false, hint, style, calmeraPreview = false, ...props }, ref) {
+  const { fontScale } = useWindowDimensions();
+  const resolvedStyle = StyleSheet.flatten([styles.input, code && styles.codeInput, error && styles.errorInput, style]);
+  const maximumScale = props.maxFontSizeMultiplier;
+  const scale = props.allowFontScaling === false ? 1
+    : typeof maximumScale === "number" && Number.isFinite(maximumScale) && maximumScale >= 1
+      ? Math.min(fontScale, maximumScale) : fontScale;
+  // RN 0.79 Fabric can retain stale native placeholder fonts after recycling.
+  // Send the current iOS font geometry explicitly and apply scaling only once.
+  const inputStyle = Platform.OS === "ios" ? {
+    ...resolvedStyle,
+    ...(typeof resolvedStyle.fontSize === "number" ? { fontSize: resolvedStyle.fontSize * scale } : {}),
+    ...(typeof resolvedStyle.lineHeight === "number" ? { lineHeight: resolvedStyle.lineHeight * scale } : {}),
+  } : resolvedStyle;
   return <View style={styles.field}>
     <Text style={styles.label}>{label}</Text>
     <TextInput ref={ref} accessibilityLabel={label} placeholderTextColor={COLORS.textLight}
-      style={[styles.input, code && styles.codeInput, error && styles.errorInput, style]}
+      style={inputStyle}
       autoCorrect={false} {...props}
+      allowFontScaling={Platform.OS === "ios" ? false : props.allowFontScaling}
       autoComplete={calmeraPreview ? "off" : props.autoComplete}
       textContentType={calmeraPreview ? "none" : props.textContentType} />
     {hint && <Text style={styles.hint}>{hint}</Text>}

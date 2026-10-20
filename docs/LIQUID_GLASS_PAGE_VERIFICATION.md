@@ -1,4 +1,39 @@
-# Full page refresh verification — 2026-10-19
+# Calmera UI verification
+
+## Current checkpoint — October 20, 2026
+
+This checkpoint supersedes the initial palette, test/review-state counts and Git notes in the dated October 19 record below. Detailed reproductions, individual build/test logs and limitations are in [the overnight polish log](SIMULATOR-POLISH-2026-10-19.md). A passed synthetic preview verifies the actual shared screen component and its isolated handlers; it does not verify the corresponding live service.
+
+The approved design now uses Tangerine `#BC5A19`, Apple Regular Liquid Glass with native shadows for controls including Add, and six saved backgrounds: Soft Tangerine (50%), Dawn, Glow, Aura, Matcha Latte and Mocha. Content cards retain the lighter surface treatment. The user-tuned standard typography and layout on Today, History and Settings are preserved; targeted accessibility fallbacks let content grow without capping text size.
+
+The test-only gallery contains 36 states, supplemented by the explicit synthetic Goals and native motion/tab routes. Coverage accumulated across the overnight passes; the entries below do not imply every case was rerun at this checkpoint.
+
+| Screen / shared flow | Verified evidence | Limits |
+|---|---|---|
+| Today / Add / Voice feedback | Shared native controls, isolated recording-return geometry/material checks, Increase Contrast adaptation, independent source review | No real microphone, transcription, inference or Voice meal writes; geometry checks are not an FPS benchmark |
+| History / meal cards | Synthetic month/day selection, cached loading/error/retry states, measured detail-height animation, maximum-text row/metadata layout, accessible Edit/Delete reveal | Current automated drag/scroll tooling is unreliable; no new physical-gesture claim or real deletion |
+| Settings | Grouped rows, separate Voice language and Theme entries, maximum-text top-row wrapping | No sign-out or account actions; not every offscreen row/landscape case checked |
+| Manual / Photo | Actual shared forms, isolated empty/selected/processing/error states, text-size remeasurement and draft preservation; source/deferred write guards | Camera/library/inference and real saves blocked in preview |
+| Edit Goals | Compact integer-only sliders, no keyboard on value tap, bounded loading/retry/save fixtures, stale alert-navigation guards, maximum-text wrapping | No real goal writes; actual slider drag not established by AX setValue |
+| Goal Survey | Canonical unit/default regressions, optional picker Clear/Done, recommendation/save validation, bounded token/response/rejection fixtures; picker geometry at standard and accessibility sizes | Existing nutrition methodology unchanged and not validated; backend write atomicity unchanged |
+| Meal editor | Fake credential/JSON timeout and explicit retry, local-only Save validation; deferred owner/task guards in shared persistence | No record access, actual updates or account switching |
+| ChatGPT connection | Fake connection/catalog recovery and model selection; source/deferred outcome and mutex tests | No authorization, provider, Keychain or live model calls; separate local logo work excluded from polish commits |
+| Voice language | Fake load failure/read retry, commit-then-reject reconciliation, later selection; deferred cross-mount write ordering | No real preference writes or Voice invocation; native storage promises remain uncancellable |
+| Theme | Six choices and test-only preference isolation, maximum-text first-tile wrapping and safe Back; source review of ordering/ready guards | No reproduced ordering bug; an unbounded native storage stall remains unverified |
+| Sign In / Sign Up / Password Reset | Local validation/stages, Email Next to Password, reset-completed/activation-failed recovery fixture, signup setup outcome tests; sign-in Small → maximum → Large retained a fictional draft and corrected native placeholder/caret sizing | No credentials, email, reset, activation or account creation; SDK operations are not globally bounded/cancellable |
+| Session editor / tutorial / welcome / scale / Live fallback | Earlier actual-component synthetic rendering, local navigation/validation and contained guide paging | These remain legacy-adjacent/dormant from current Settings/Add; raw legacy scale/welcome requests were not expanded or exercised |
+
+Latest complete JavaScript suite: **226 passed, 0 failed**, recorded in `/tmp/calmera-voice-preference-tests.log`. Subsequent picker/auth geometry and font-refresh changes passed scoped ESLint, whitespace checks, installed Release builds and targeted live size checks; the complete suite was not repeated for those local JSX changes. There is no new dependency, framework upgrade, backend/schema change or deployment in this overnight polish work.
+
+Sign-in’s branding-only wordmark now scrolls with the fields, preserving normal resting positions. iOS auth input font geometry follows the live system scale exactly once, fixing the reproduced stale-placeholder issue; Android behavior was preserved by source review only. Back-header auth pages retain their previous scroll/header structure.
+
+Live views remain in memory; no screenshots were saved/exported. The dedicated simulator is `F3584334-39B2-46E4-9E17-3AE2D9945376`, bundle `com.yfwu02.mobile.chatgptdev`. Original Large text and disabled Increase Contrast are restored after each accessibility pass. Physical iPhone behavior, personal records, real service integration, VoiceOver audio, live Reduce Motion/Transparency, smaller devices/tablets and comprehensive landscape/frame pacing remain unverified.
+
+Polish commits are tracked on `codex/chatgpt-inference-mvp` in the existing `cal_mobile` repository. Intentionally separate OpenAI-logo source/assets remain dirty and excluded; a dirty working tree therefore does not mean the committed polish is unsynced. Remote synchronization must be checked explicitly; the historical log does not contain a remote-status snapshot for every commit.
+
+## Historical initial refresh — October 19, 2026
+
+The following dated evidence is retained as history. Its 60-test/21-state counts, earlier colors, connection-page language section and pre-baseline Git status describe that initial pass, not the current app.
 
 ## Result
 
