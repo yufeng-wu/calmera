@@ -91,3 +91,71 @@ test("aborting photo save while token lookup waits cannot write later", async ()
   controller.abort(); await assert.rejects(pending, /meal_save_failed/);
   resolve("late synthetic token"); await new Promise(r => setImmediate(r)); assert.equal(calls, 0);
 });
+
+
+test("inactive persistence cannot start credentials or any meal write", async () => {
+  await assert.rejects(saveEstimatedEntries([meal], { ...options, isActive: () => false,
+    getToken: () => assert.fail("inactive persistence cannot read token"), fetchImpl: () => assert.fail("no write"),
+  }), error => error.message === "meal_save_failed" && error.cancelled && !error.mayHaveSaved && error.savedEntries.length === 0);
+});
+
+test("an owner handoff before focus cleanup blocks a late newer-owner token", async () => {
+  let resolveToken; let owner = "old"; let calls = 0;
+  const token = new Promise(resolve => { resolveToken = resolve; });
+  const pending = saveEstimatedEntries([meal, meal], { ...options, isActive: () => owner === "old", getToken: () => token,
+    fetchImpl: () => { calls++; } });
+  owner = "new"; resolveToken("new-owner synthetic-token");
+  await assert.rejects(pending, error => error.cancelled && !error.mayHaveSaved && error.savedEntries.length === 0);
+  assert.equal(calls, 0);
+});
+
+test("confirmed row parsed during owner departure is retained, but no second entry is dispatched", async () => {
+  let active = true; let calls = 0;
+  await assert.rejects(saveEstimatedEntries([meal, meal], { ...options, isActive: () => active,
+    fetchImpl: async () => { calls++; return { ok: true, json: async () => { active = false; return { id: 1, food_name: meal.foodName }; } }; },
+  }), error => error.message === "meal_save_uncertain" && error.cancelled && error.mayHaveSaved
+    && error.savedEntries.length === 1 && error.savedEntries[0].foodName === meal.foodName);
+  assert.equal(calls, 1);
+});
+
+test("owner departure during a later write preserves earlier entries and prevents parsing or another POST", async () => {
+  let resolveReply, markStarted; let active = true; let calls = 0; let lateReads = 0;
+  const reply = new Promise(resolve => { resolveReply = resolve; });
+  const started = new Promise(resolve => { markStarted = resolve; });
+  const pending = saveEstimatedEntries([meal, meal, meal], { ...options, isActive: () => active, fetchImpl: async () => {
+    calls++;
+    if (calls === 1) return { ok: true, json: async () => ({ id: 1 }) };
+    markStarted(); return reply;
+  } });
+  await started; active = false;
+  resolveReply({ ok: true, json: async () => { lateReads++; return { id: 2 }; } });
+  await assert.rejects(pending, error => error.cancelled && error.mayHaveSaved && error.savedEntries.length === 1 && error.savedEntries[0].id === 1);
+  assert.equal(calls, 2); assert.equal(lateReads, 0);
+});
+
+test("late multipart JSON after external cancellation cannot mutate savedEntries or start more writes", async () => {
+  let resolveJson, markStarted; let calls = 0;
+  const json = new Promise(resolve => { resolveJson = resolve; });
+  const started = new Promise(resolve => { markStarted = resolve; });
+  const controller = new AbortController();
+  const pending = saveEstimatedEntries([meal, meal, meal], { ...options, signal: controller.signal, fetchImpl: async () => {
+    calls++;
+    return calls === 1 ? { ok: true, json: async () => ({ id: 1 }) }
+      : { ok: true, json: () => { markStarted(); return json; } };
+  } });
+  await started; controller.abort(); let failure;
+  await assert.rejects(pending, error => { failure = error; return error.cancelled && error.mayHaveSaved && error.savedEntries.length === 1; });
+  resolveJson({ id: 2 }); await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(failure.savedEntries.map(entry => entry.id), [1]); assert.equal(calls, 2);
+});
+
+test("active multipart persistence reuses one token and preserves sequential per-food saves", async () => {
+  let tokenCalls = 0; const calls = [];
+  const result = await saveEstimatedEntries([meal, { ...meal, foodName: "Synthetic toast" }], { ...options,
+    getToken: async () => { tokenCalls++; return "synthetic-token"; }, isActive: () => true, fetchImpl: async (_, request) => {
+      calls.push(JSON.parse(request.body)); return { ok: true, json: async () => ({ id: calls.length }) };
+    },
+  });
+  assert.equal(tokenCalls, 1); assert.deepEqual(result.map(entry => entry.id), [1, 2]);
+  assert.deepEqual(calls.map(entry => entry.foodName), [meal.foodName, "Synthetic toast"]);
+});

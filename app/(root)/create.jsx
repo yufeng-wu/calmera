@@ -31,7 +31,9 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
   const exit = usePageExit(uiTestFixture ? "/ui-gallery" : "/dashboard");
   const insets = useSafeAreaInsets();
   const { getToken, userId } = useAuth();
-  const { setShouldRefresh } = useRefreshSignal();
+  const { store, setShouldRefresh } = useRefreshSignal();
+  const ownerRef = useRef(userId);
+  ownerRef.current = userId;
 
   const savingRef = useRef(false);
   const estimatingRef = useRef(false);
@@ -56,7 +58,7 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
   });
 
   const handleCreate = async () => {
-    if (!scope.isActive() || savingRef.current || estimatingRef.current) return;
+    if (ownerRef.current !== userId || !scope.isActive() || savingRef.current || estimatingRef.current) return;
     // form validation
     if (!foodName.trim()) return Alert.alert("Add a food", "Enter what you ate before saving.");
     if (!showMacros) {
@@ -72,37 +74,39 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
     }
     const task = scope.start();
     if (!task) return;
+    const currentOwner = () => ownerRef.current === userId && store.belongsTo(userId);
+    const current = () => task.isCurrent() && currentOwner();
     savingRef.current = task;
     navigation.setOptions({ gestureEnabled: false });
     Keyboard.dismiss();
     setIsLoading(true);
     let leavingAfterSave = false;
     try {
-      await mealRequest({ getToken, url: FOOD_ENTRIES_API_URL, signal: task.signal,
+      await mealRequest({ getToken, url: FOOD_ENTRIES_API_URL, signal: task.signal, isActive: current,
         body: { foodName, quantity, calories: Number(calories), protein: protein ? Number(protein) : 0,
           carbs: carbs ? Number(carbs) : 0, fat: fat ? Number(fat) : 0, mealType, createdAt: getLocalTimeWithOffset() } });
 
       // Signal home screen to refresh entries, then navigate back home
-      setShouldRefresh(true);
-      if (task.isCurrent()) { exit(); leavingAfterSave = true; }
+      if (currentOwner()) setShouldRefresh(true);
+      if (current()) { exit(); leavingAfterSave = true; }
     } catch (error) {
-      if (error.uncertain) setShouldRefresh(true);
-      if (!task.isCurrent()) return;
+      if (error.uncertain && currentOwner()) setShouldRefresh(true);
+      if (!current()) return;
       Alert.alert(error.uncertain ? "Couldn’t confirm save" : "Couldn’t save meal",
         error.uncertain ? "Your meal may already be saved. Your draft is still here; check History before trying again to avoid a duplicate."
           : error.timedOut ? "Saving took too long. Your draft is still here. Please try again." : error.message,
-        error.uncertain ? [{ text: "Keep editing", style: "cancel" }, { text: "View History", onPress: () => { if (task.isCurrent()) router.push("/history"); } }] : undefined);
+        error.uncertain ? [{ text: "Keep editing", style: "cancel" }, { text: "View History", onPress: () => { if (current()) router.push("/history"); } }] : undefined);
     } finally {
       task.finish();
       if (savingRef.current === task && !leavingAfterSave) {
         savingRef.current = false;
-        if (task.isCurrent()) { setIsLoading(false); navigation.setOptions({ gestureEnabled: true }); }
+        if (current()) { setIsLoading(false); navigation.setOptions({ gestureEnabled: true }); }
       }
     }
   };
 
   const handleEstimateMacros = async () => {
-    if (!scope.isActive() || estimatingRef.current || savingRef.current) return;
+    if (ownerRef.current !== userId || !scope.isActive() || estimatingRef.current || savingRef.current) return;
     if (!foodName.trim() || !quantity.trim()) {
       return Alert.alert(
         "Add food and amount",
@@ -114,12 +118,13 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
     }
     const task = scope.start();
     if (!task) return;
+    const current = () => task.isCurrent() && ownerRef.current === userId && store.belongsTo(userId);
     estimatingRef.current = task;
     navigation.setOptions({ gestureEnabled: false });
     setIsEstimating(true);
     try {
       const data = await estimateMacros(userId, foodName, quantity, { signal: task.signal });
-      if (!task.isCurrent()) return;
+      if (!current()) return;
 
       // If backend normalized the quantity (e.g., added "count(s)") reflect that in the UI
       if (data.normalizedQuantity) {
@@ -138,12 +143,12 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
       });
       setShowMacros(true);
     } catch (err) {
-      if (task.isCurrent()) inferenceError(err, router);
+      if (current()) inferenceError(err, router);
     } finally {
       task.finish();
       if (estimatingRef.current === task) {
         estimatingRef.current = false;
-        if (task.isCurrent()) { setIsEstimating(false); navigation.setOptions({ gestureEnabled: true }); }
+        if (current()) { setIsEstimating(false); navigation.setOptions({ gestureEnabled: true }); }
       }
     }
   };

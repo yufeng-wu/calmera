@@ -43,6 +43,8 @@ const screens = [
   { id: "recommendation-save-response", title: "Survey save response timeout", Component: Survey, stage: "save-response-timeout" },
   { id: "recommendation-save-error", title: "Survey save rejection", Component: Survey, stage: "save-error" },
   { id: "edit-meal", title: "Edit meal", Component: EditMeal },
+  { id: "edit-meal-load-token", title: "Meal load token timeout", Component: EditMeal, state: "load-token-timeout" },
+  { id: "edit-meal-load-json", title: "Meal load response timeout", Component: EditMeal, state: "load-json-timeout" },
   { id: "edit-session", title: "Edit scale item", Component: EditSession },
   { id: "history", title: "History", Component: History },
   { id: "history-loading", title: "History loading and retry", Component: History, state: "cold-loading" },

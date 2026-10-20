@@ -190,7 +190,7 @@ export default function SummaryScreen() {
           createdAt, getToken: async () => {
             const token = await getToken();
             return isSessionActive() ? token : null;
-          }, url: FOOD_ENTRIES_API_URL,
+          }, url: FOOD_ENTRIES_API_URL, isActive: isSessionActive,
         }),
       });
       if (savedEntries && isSessionActive()) {

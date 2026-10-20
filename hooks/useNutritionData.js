@@ -20,6 +20,7 @@ export function useNutritionData(date = new Date(), history = false) {
   const focused = useIsFocused();
   const [wakeVersion, setWakeVersion] = useState(0);
   const dateKey = localDateKey(date);
+  const isSessionActive = useCallback(() => ownerRef.current === userId && store.belongsTo(userId), [store, userId]);
   const loader = useCallback(({ resource, date: day, signal }) => {
     const url = resource === "profile" ? `${USERS_API_URL}/get-user`
       : resource === "history" ? `${FOOD_ENTRIES_API_URL}/summaries`
@@ -72,5 +73,5 @@ export function useNutritionData(date = new Date(), history = false) {
   [presentation.error, presentation.profileError, refresh, refreshProfile]);
   return { store, dateKey, ...presentation, goals, profile: snapshot.profile, dataByDate: snapshot.days,
     historyPending: Boolean(snapshot.pending.history), profilePending: Boolean(snapshot.pending.profile),
-    refresh, refreshProfile, retryError, deleteEntry, snapshot, loader };
+    refresh, refreshProfile, retryError, deleteEntry, isSessionActive, snapshot, loader };
 }

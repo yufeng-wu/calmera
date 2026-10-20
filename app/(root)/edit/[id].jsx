@@ -6,6 +6,7 @@ import { useAuth } from "@clerk/clerk-expo";
 import { useNavigation } from "@react-navigation/native";
 import useFormTaskScope from "@/hooks/useFormTaskScope";
 import { mealRequest } from "@/lib/mealRequest.mjs";
+import { readNutrition } from "@/lib/nutritionRequest.mjs";
 import { FOOD_ENTRIES_API_URL } from "@/constants/api";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
@@ -18,7 +19,7 @@ const previewEntry = {
   protein: 1, carbs: 27, fat: 0, meal_type: "Breakfast",
 };
 
-export default function EditFoodEntry({ calmeraPreview = false }) {
+export default function EditFoodEntry({ calmeraPreview = false, calmeraPreviewState = "ready" }) {
   const router = useRouter();
   const navigation = useNavigation();
   const { fontScale } = useWindowDimensions();
@@ -26,7 +27,9 @@ export default function EditFoodEntry({ calmeraPreview = false }) {
   const { getToken, userId } = useAuth();
   const tokenRef = useRef(getToken);
   tokenRef.current = getToken;
-  const { setShouldRefresh } = useRefreshSignal();
+  const { store, setShouldRefresh } = useRefreshSignal();
+  const ownerRef = useRef(userId);
+  ownerRef.current = userId;
   const savingRef = useRef(false);
   const estimatingRef = useRef(false);
   const [foodName, setFoodName] = useState("");
@@ -44,6 +47,12 @@ export default function EditFoodEntry({ calmeraPreview = false }) {
   const [lastEstimated, setLastEstimated] = useState({ foodName: "", quantity: "" });
   const [showMacros, setShowMacros] = useState(true);
   const entryId = Array.isArray(id) ? id[0] : id;
+  const entryRef = useRef(entryId);
+  entryRef.current = entryId;
+  const sameEntry = () => ownerRef.current === userId && entryRef.current === entryId;
+  const loadFixture = calmeraPreview && ["load-token-timeout", "load-json-timeout"].includes(calmeraPreviewState);
+  const loadCalls = useRef({ attempts: 0, requests: 0 });
+  const [loadTrace, setLoadTrace] = useState({ attempts: 0, requests: 0 });
   const goBack = usePageExit(calmeraPreview ? "/ui-gallery" : "/dashboard");
   const scope = useFormTaskScope(`${userId}:${entryId || "preview"}`, () => {
     savingRef.current = false; estimatingRef.current = false;
@@ -54,23 +63,34 @@ export default function EditFoodEntry({ calmeraPreview = false }) {
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const current = () => active && ownerRef.current === userId && entryRef.current === entryId;
     const fetchEntry = async () => {
       setIsFetching(true);
       setLoadError("");
       try {
         let data = previewEntry;
-        if (!calmeraPreview) {
-          if (!entryId) throw new Error("Invalid food entry. Go back and choose a meal again.");
-          const token = await tokenRef.current();
-          if (!active) return;
-          const resp = await fetch(`${FOOD_ENTRIES_API_URL}/${entryId}`, {
-            signal: controller.signal, headers: { Authorization: `Bearer ${token}` },
-          });
-          if (!resp.ok) throw new Error("Unable to load this food entry. Please try again.");
-          data = await resp.json();
+        if (!calmeraPreview || loadFixture) {
+          if (!calmeraPreview && !entryId) throw new Error("invalid_meal_id");
+          const options = { getToken: () => tokenRef.current(), url: `${FOOD_ENTRIES_API_URL}/${entryId}`,
+            signal: controller.signal, timeoutMs: 15000, isActive: current };
+          if (loadFixture) {
+            // Same bounded reader; the private review never accesses auth/network.
+            const attempt = ++loadCalls.current.attempts;
+            setLoadTrace({ ...loadCalls.current });
+            options.url = "https://calmera.invalid/meals/synthetic-ui-entry";
+            options.timeoutMs = 4000;
+            options.getToken = () => calmeraPreviewState === "load-token-timeout" && attempt === 1
+              ? new Promise(() => {}) : Promise.resolve("synthetic-token");
+            options.fetchImpl = async () => {
+              loadCalls.current.requests += 1;
+              if (current()) setLoadTrace({ ...loadCalls.current });
+              return { ok: true, json: () => calmeraPreviewState === "load-json-timeout" && attempt === 1
+                ? new Promise(() => {}) : Promise.resolve({ ...previewEntry }) };
+            };
+          }
+          data = await readNutrition(options);
         }
-        if (!active) return;
+        if (!current()) return;
         setFoodName(data.food_name ?? "");
         setCalories(String(data.calories ?? ""));
         setProtein(String(data.protein ?? ""));
@@ -81,18 +101,27 @@ export default function EditFoodEntry({ calmeraPreview = false }) {
         setLastEstimated({ foodName: data.food_name ?? "", quantity: String(data.quantity ?? "") });
         setShowMacros(true);
       } catch (error) {
-        if (active) setLoadError(error.name === "AbortError" ? "Loading took too long. Please try again." : error.message);
+        if (current()) setLoadError(error.message === "nutrition_request_timeout"
+          ? "Loading took too long. Please try again."
+          : error.message === "invalid_meal_id" ? "Go back and choose a meal again."
+            : error.message === "nutrition_http_404" ? "This meal is no longer available. Go back and choose another meal."
+              : error.message === "calmera_sign_in_required" ? "Sign in again to load this meal."
+                : "Unable to load this food entry. Please try again.");
       } finally {
-        clearTimeout(timeout);
-        if (active) setIsFetching(false);
+        if (current()) setIsFetching(false);
       }
     };
     fetchEntry();
-    return () => { active = false; clearTimeout(timeout); controller.abort(); };
-  }, [entryId, userId, calmeraPreview, retry]);
+    return () => { active = false; controller.abort(); };
+  }, [entryId, userId, calmeraPreview, loadFixture, calmeraPreviewState, retry]);
+
+  const taskCurrent = task => task.isCurrent() && sameEntry();
+  const refreshWrittenMeal = () => {
+    if (!calmeraPreview && ownerRef.current === userId && store.belongsTo(userId)) setShouldRefresh(true);
+  };
 
   const handleUpdate = async () => {
-    if (!scope.isActive() || savingRef.current || estimatingRef.current || isFetching || isEstimating || loadError) return;
+    if (!scope.isActive() || !sameEntry() || savingRef.current || estimatingRef.current || isFetching || isEstimating || loadError) return;
     if (!foodName.trim()) return Alert.alert("Error", "Food name is required");
     if (!calories || isNaN(parseFloat(calories)) || Number(calories) < 0)
       return Alert.alert("Error", "Calories must be a non-negative number");
@@ -105,27 +134,27 @@ export default function EditFoodEntry({ calmeraPreview = false }) {
     let leavingAfterSave = false;
     try {
       await mealRequest({ getToken: () => tokenRef.current(), url: `${FOOD_ENTRIES_API_URL}/${entryId}`,
-        method: "PUT", signal: task.signal,
+        method: "PUT", signal: task.signal, isActive: () => taskCurrent(task),
         body: { foodName, quantity, calories: Number(calories), protein: protein ? Number(protein) : 0,
           carbs: carbs ? Number(carbs) : 0, fat: fat ? Number(fat) : 0, mealType } });
-      setShouldRefresh(true);
-      if (task.isCurrent()) { goBack(); leavingAfterSave = true; }
+      refreshWrittenMeal();
+      if (taskCurrent(task)) { goBack(); leavingAfterSave = true; }
     } catch (error) {
-      if (error.mayHaveSaved) setShouldRefresh(true);
-      if (task.isCurrent()) Alert.alert("Couldn’t save changes", error.timedOut
+      if (error.mayHaveSaved) refreshWrittenMeal();
+      if (taskCurrent(task)) Alert.alert("Couldn’t save changes", error.timedOut
         ? error.mayHaveSaved ? "Saving took too long. Your changes are still here. Check History before trying again."
           : "Saving took too long. Your changes are still here. Please try again." : error.message);
     } finally {
       task.finish();
       if (savingRef.current === task && !leavingAfterSave) {
         savingRef.current = false;
-        if (task.isCurrent()) { setIsLoading(false); navigation.setOptions({ gestureEnabled: true }); }
+        if (taskCurrent(task)) { setIsLoading(false); navigation.setOptions({ gestureEnabled: true }); }
       }
     }
   };
 
   const handleEstimateMacros = async () => {
-    if (!scope.isActive() || estimatingRef.current || savingRef.current || isLoading) return;
+    if (!scope.isActive() || !sameEntry() || estimatingRef.current || savingRef.current || isLoading) return;
     if (!foodName.trim() || !quantity.trim())
       return Alert.alert("Error", "Food name and quantity are required for estimation");
     const task = scope.start();
@@ -137,7 +166,7 @@ export default function EditFoodEntry({ calmeraPreview = false }) {
       const data = calmeraPreview
         ? { ...previewEntry, normalizedQuantity: quantity }
         : await estimateMacros(userId, foodName, quantity, { signal: task.signal });
-      if (!task.isCurrent()) return;
+      if (!taskCurrent(task)) return;
       if (data.normalizedQuantity) setQuantity(data.normalizedQuantity);
       setCalories(String(data.calories ?? ""));
       setProtein(String(data.protein ?? ""));
@@ -145,12 +174,12 @@ export default function EditFoodEntry({ calmeraPreview = false }) {
       setFat(String(data.fat ?? ""));
       setLastEstimated({ foodName, quantity: data.normalizedQuantity || quantity });
       setShowMacros(true);
-    } catch (err) { if (task.isCurrent()) inferenceError(err, router); }
+    } catch (err) { if (taskCurrent(task)) inferenceError(err, router); }
     finally {
       task.finish();
       if (estimatingRef.current === task) {
         estimatingRef.current = false;
-        if (task.isCurrent()) { setIsEstimating(false); navigation.setOptions({ gestureEnabled: true }); }
+        if (taskCurrent(task)) { setIsEstimating(false); navigation.setOptions({ gestureEnabled: true }); }
       }
     }
   };
@@ -164,6 +193,9 @@ export default function EditFoodEntry({ calmeraPreview = false }) {
       enableOnAndroid enableAutomaticScroll extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
       keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" enableResetScrollToCoords={false}>
       {calmeraPreview && <Text style={[formStyles.caption, { marginHorizontal: 20 }]}>Synthetic preview · nothing is saved</Text>}
+      {loadFixture && <Text accessibilityLiveRegion="polite" style={[formStyles.caption, { marginHorizontal: 20 }]}>
+        Synthetic meal loads: {loadTrace.attempts} · GET requests: {loadTrace.requests}
+      </Text>}
       {isFetching ? <FormCard style={localStyles.statusCard}>
         <ActivityIndicator color={COLORS.primary} accessibilityLabel="Loading meal" />
         <Text style={formStyles.caption}>Loading your meal…</Text>

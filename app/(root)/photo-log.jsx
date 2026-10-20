@@ -28,7 +28,9 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
   const previewFixture = uiFixture && (calmeraFixture === "ui-photo-preview" || (calmeraPreview && calmeraPreviewState === "selected"));
   const exit = usePageExit(uiFixture ? "/ui-gallery" : "/dashboard");
   const { userId, getToken } = useAuth();
-  const { setShouldRefresh } = useRefreshSignal();
+  const { store, setShouldRefresh } = useRefreshSignal();
+  const ownerRef = useRef(userId);
+  ownerRef.current = userId;
   const [photo, setPhoto] = useState(photoTestFixture || previewFixture
     ? { dataURL: phoneTestNutritionLabel, syntheticFixture: true }
     : null);
@@ -61,9 +63,12 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
   }, [navigation, userId]));
 
   const isCurrent = ticket => focused.current && operation.current === ticket
-    && focusedOwner.current === ticket.owner && routeGeneration.current === ticket.generation && !ticket.controller.signal.aborted;
+    && ownerRef.current === ticket.owner && focusedOwner.current === ticket.owner
+    && routeGeneration.current === ticket.generation && !ticket.controller.signal.aborted;
+  const currentOwner = ticket => ownerRef.current === ticket.owner && store.belongsTo(ticket.owner);
   const beginOperation = kind => {
-    if (!focused.current || operation.current) return null;
+    if (!focused.current || operation.current || ownerRef.current !== userId
+      || focusedOwner.current !== userId) return null;
     const ticket = { kind, owner: focusedOwner.current, generation: routeGeneration.current, controller: new AbortController() };
     operation.current = ticket;
     // Lock the native edge gesture in the same event as the JS operation lock,
@@ -78,7 +83,8 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
     // page; a second native press can otherwise arrive in the pop transition.
     if (operation.current !== ticket || ticket.leaving) return;
     operation.current = null;
-    if (!focused.current || routeGeneration.current !== ticket.generation) return;
+    if (!focused.current || ownerRef.current !== ticket.owner || focusedOwner.current !== ticket.owner
+      || routeGeneration.current !== ticket.generation) return;
     setSelecting(false);
     setBusy(false);
     navigation.setOptions({ gestureEnabled: true });
@@ -134,8 +140,9 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
       if (!entries.length) throw new Error("no_food_detected");
       setProcessingStep("Saving your meal…");
       await saveEstimatedEntries(entries, { createdAt, url: FOOD_ENTRIES_API_URL,
-        signal: ticket.controller.signal,
+        signal: ticket.controller.signal, isActive: () => isCurrent(ticket),
         getToken: async () => {
+          if (!isCurrent(ticket)) throw new Error("photo_operation_cancelled");
           const token = await getToken();
           if (!isCurrent(ticket)) throw new Error("photo_operation_cancelled");
           return token;
@@ -143,7 +150,7 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
       });
       // Confirmed/potential writes still invalidate the cache if the route was
       // externally removed; stale work cannot show alerts or navigate afterward.
-      setShouldRefresh(true);
+      if (currentOwner(ticket)) setShouldRefresh(true);
       if (isCurrent(ticket)) {
         ticket.leaving = true;
         exit();
@@ -154,7 +161,7 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
       const message = error?.message || "";
       const mayHaveSaved = error?.mayHaveSaved === true || message === "meal_save_uncertain"
         || Boolean(error?.savedEntries?.length);
-      if (mayHaveSaved) setShouldRefresh(true);
+      if (mayHaveSaved && currentOwner(ticket)) setShouldRefresh(true);
       if (!isCurrent(ticket)) return;
       if (mayHaveSaved) {
         setUncertain(true);
