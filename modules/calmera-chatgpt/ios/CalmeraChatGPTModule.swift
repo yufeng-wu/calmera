@@ -1485,27 +1485,20 @@ final class CalmeraFormButtonView: ExpoView {
     let opaque = UIAccessibility.isReduceTransparencyEnabled
     var config: UIButton.Configuration
     if #available(iOS 26.0, *), !opaque {
-      // Regular system glass retains a visible optical edge on our white
-      // pages. Clear glass disappears against this background. UIKit owns
-      // the shadow, edge, highlight and press response for both header roles.
+      // Keep Regular glass unmodified: UIKit owns its fill, optical rim,
+      // adaptive shadow and press response, including the iOS 27 refinements.
       config = prominent ? .prominentGlass() : .glass()
+      if prominent { config.baseBackgroundColor = tint }
     } else {
       config = .filled()
       config.baseBackgroundColor = prominent ? tint : .secondarySystemGroupedBackground
     }
-    config.baseBackgroundColor = prominent ? tint : config.baseBackgroundColor
     let foreground: UIColor = buttonDisabled && !loading ? .tertiaryLabel :
       (buttonRole == "destructive" ? .systemRed : (prominent ? .white : (neutral ? .label : tint)))
     config.baseForegroundColor = foreground
     config.imageColorTransformer = UIConfigurationColorTransformer { _ in foreground }
     config.activityIndicatorColorTransformer = UIConfigurationColorTransformer { _ in foreground }
     config.cornerStyle = .capsule
-    if #available(iOS 26.0, *), navigation && !opaque {
-      // A restrained native background stroke defines the clear rim on white,
-      // matching the reference without adding a shadow or replacing Regular.
-      config.background.strokeColor = UIColor(white: 0, alpha: 0.12)
-      config.background.strokeWidth = 0.5
-    }
     config.title = buttonTitle.isEmpty ? nil : buttonTitle
     config.image = symbol.isEmpty ? nil : UIImage(systemName: symbol)
     config.imagePadding = buttonTitle.isEmpty ? 0 : 8
