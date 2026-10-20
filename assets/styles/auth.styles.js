@@ -14,7 +14,7 @@ export const styles = StyleSheet.create({
   form: { gap: 18 },
   field: { gap: 8 },
   label: { ...TYPOGRAPHY.bodyMedium, color: COLORS.text},
-  input: { ...TYPOGRAPHY.input, minHeight: 52, backgroundColor: COLORS.background, borderRadius: 16, paddingHorizontal: 15,
+  input: { ...TYPOGRAPHY.input, minHeight: 52, backgroundColor: COLORS.card, borderRadius: 16, paddingHorizontal: 15,
     paddingVertical: 13, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.border,
     color: COLORS.text},
   codeInput: { ...TYPOGRAPHY.code, textAlign: "center"},

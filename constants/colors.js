@@ -1,7 +1,9 @@
 // constants/colors.js
 const coffeeTheme = {
   primary: "#BC5A19",
-  background: "#FFFFFF",
+  // Page canvases reveal the shared ThemeCanvas; cards remain opaque white.
+  background: "transparent",
+  canvas: "#FFFBF9",
   text: "#4A3428",
   border: "#E5D3B7",
   white: "#FFFFFF",

@@ -10,6 +10,7 @@ import Settings from "@/app/(root)/(tabs)/settings";
 import History from "@/app/(root)/(tabs)/history";
 import ChatGPT from "@/app/(root)/chatgpt";
 import VoiceLanguage from "@/app/(root)/voice-language";
+import ThemeSettings from "@/app/(root)/theme";
 import Survey from "@/app/(root)/goals-survey";
 import EditMeal from "@/app/(root)/edit/[id]";
 import EditSession from "@/app/(root)/session-log-edit/[id]";
@@ -31,6 +32,7 @@ const screens = [
   { id: "chatgpt", title: "ChatGPT connected", Component: ChatGPT },
   { id: "chatgpt-disconnected", title: "Connect ChatGPT", Component: ChatGPT, state: "disconnected" },
   { id: "voice-language", title: "Voice language", Component: VoiceLanguage },
+  { id: "theme", title: "Theme", Component: ThemeSettings },
   { id: "survey", title: "Goals survey", Component: Survey },
   { id: "recommendation", title: "Survey recommendation", Component: Survey, stage: "recommendation" },
   { id: "edit-meal", title: "Edit meal", Component: EditMeal },

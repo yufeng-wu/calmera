@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
   resultUnit: { ...TYPOGRAPHY.caption, color: COLORS.textLight,},
   methodGroup: { gap: 12, paddingTop: 6 },
   sheetBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(35,26,21,0.28)" },
-  sheet: { backgroundColor: COLORS.background, borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 20, gap: 14 },
+  sheet: { backgroundColor: COLORS.card, borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 20, gap: 14 },
   sheetHandle: { height: 5, width: 36, alignSelf: "center", backgroundColor: "#CFC4BA", borderRadius: 3 },
   sheetHeader: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 12 },
   sheetTitle: { ...TYPOGRAPHY.pageTitle, flex: 1, minWidth: 80, color: COLORS.text},

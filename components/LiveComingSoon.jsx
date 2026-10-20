@@ -22,7 +22,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.background },
   content: { padding: 20 },
   card: { alignItems: "center", paddingVertical: 32, gap: 14 },
-  icon: { height: 64, width: 64, borderRadius: 32, backgroundColor: COLORS.background, alignItems: "center", justifyContent: "center" },
+  icon: { height: 64, width: 64, borderRadius: 32, backgroundColor: COLORS.card, alignItems: "center", justifyContent: "center" },
   title: { ...TYPOGRAPHY.pageTitle, color: COLORS.text},
   note: { ...TYPOGRAPHY.body, color: COLORS.textLight, textAlign: "center"},
 });

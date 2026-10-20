@@ -1,3 +1,4 @@
+import { useTheme } from "@/context/ThemeContext";
 import { useUser, useAuth } from "@clerk/clerk-expo";
 import {
   Text,
@@ -65,6 +66,8 @@ export default function SummaryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const { setShouldRefresh } = useRefreshSignal();
   const [fabExpanded, setFabExpanded] = useState(false);
+  const { setEnergized } = useTheme();
+  useEffect(() => { setEnergized(fabExpanded); return () => setEnergized(false); }, [fabExpanded, setEnergized]);
   const [recording, setRecording] = useState(null);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [analyzing, setAnalyzing] = useState(false);

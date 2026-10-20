@@ -1,3 +1,4 @@
+import { useTheme } from "@/context/ThemeContext";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
@@ -9,12 +10,13 @@ import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 
 export default function SettingsScreen({ calmeraPreview = false }) {
   const router = useRouter();
+  const { theme } = useTheme();
   const { fontScale } = useWindowDimensions();
   const { signOut } = useClerk();
   const [previewMessage, setPreviewMessage] = useState("");
   const openPage = (path, label) => {
     if (calmeraPreview) {
-      if (path === "/voice-language") router.push({ pathname: "/ui-gallery", params: { page: "voice-language" } });
+      if (path === "/voice-language" || path === "/theme") router.push({ pathname: "/ui-gallery", params: { page: path.slice(1) } });
       else setPreviewMessage(`${label} selected. Preview only.`);
       return;
     }
@@ -38,6 +40,8 @@ export default function SettingsScreen({ calmeraPreview = false }) {
           icon="sparkles-outline" onPress={() => openPage("/chatgpt", "ChatGPT connection")} />
         <SettingsRow title="Voice language" subtitle="Choose the language for voice logs" icon="mic-outline" divider
           onPress={() => openPage("/voice-language", "Voice language")} />
+        <SettingsRow title="Theme" subtitle={theme.name} icon="color-palette-outline" divider
+          onPress={() => openPage("/theme", "Theme")} />
         <SettingsRow title="Nutrition goals" subtitle="Adjust your daily targets" icon="options-outline" divider
           onPress={() => openPage("/update-goals", "Nutrition goals")} />
       </FormCard>
