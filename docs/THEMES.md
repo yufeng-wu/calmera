@@ -1,10 +1,11 @@
 # Saved Calmera themes
 
-Settings → Theme offers six permanent choices:
+Settings → Theme offers seven permanent choices:
 
 | Theme | Background |
 | --- | --- |
 | Soft Tangerine | The accepted 50% wash, #FFFBF9; initial default |
+| White | Pure #FFFFFF, without a tint or gradient |
 | Dawn | Peach-to-rose gradient |
 | Glow | Warm, slowly drifting ambient light |
 | Aura | Lavender, peach and mint ambient light |
@@ -13,7 +14,7 @@ Settings → Theme offers six permanent choices:
 
 Choices apply immediately throughout the app and save as a nonsecret theme ID in local AsyncStorage, separately for each Calmera account (with a separate guest key). No backend schema, inference, login, or database changes are required. Writes serialize per key, invalid/old IDs fall back to Soft Tangerine, and account/read/write generations guard stale completions. Save errors retain the visible choice and offer retry.
 
-The root supplies a fallback canvas, and each native-stack scene carries its own opaque theme canvas for push/pop transitions. Content cards, form inputs, picker sheets and other solid surfaces remain opaque. SafeScreen retains the established inset ownership. Original fonts and card/menu layouts remain. Opening Add changes only the native menu: it does not recolor, scale or restart the background.
+The root supplies a fallback canvas, and each native-stack scene carries its own opaque theme canvas for push/pop transitions. Content cards, form inputs, picker sheets and other solid surfaces remain opaque. SafeScreen retains the established inset ownership. Original fonts and card/menu layouts remain. White uses #FFFFFF in both the global and native-scene canvases; the existing six palette IDs and initial default are preserved. Opening Add changes only the native menu: it does not recolor, scale or restart the background.
 
 Dawn/Soft Tangerine are static. Glow/Aura use native-driver opacity/transform motion on static vector gradients, with no per-frame React/SVG updates. Reduce Motion keeps them still. The continuous loop stops when the app is inactive. The former right-side Add bloom and its shared state were removed after it reproduced as a moving shadow/color wash behind the menu. Theme thumbnails never animate, and each canvas has unique SVG gradient IDs.
 

@@ -20,6 +20,7 @@ export default function MotionCheck() {
   const [edgeStatus, setEdgeStatus] = useState({});
   const [result, setResult] = useState("Not run");
   const timers = useRef([]);
+  const scroll = useRef(null);
   const scenario = useRef(false);
   const observed = useRef(false);
   const previousVoiceWidth = useRef(0);
@@ -56,9 +57,11 @@ export default function MotionCheck() {
   };
   return <FormScreen style={styles.page} onEdgeStatus={({ nativeEvent }) => setEdgeStatus(nativeEvent)}>
     <FormHeader title="Motion check" onBack={() => router.replace("/ui-gallery")} />
-    <FormScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.caption}>Native header edge: bound {edgeStatus.bound || 0} · overlap {Math.round(edgeStatus.overlap || 0)} pt</Text>
+    <FormScrollView ref={scroll} contentContainerStyle={styles.content}>
+      <Text style={styles.caption}>Native header edge: bound {edgeStatus.bound || 0} · overlap {Math.round(edgeStatus.overlap || 0)} pt · backdrop {edgeStatus.backdropActive || 0}</Text>
       <Text style={styles.body}>Actual native Add menu. All recording and processing states are synthetic.</Text>
+      <GlassButton title="Scroll beneath header" onPress={() => scroll.current?.scrollTo({ y: 80, animated: true })} />
+      <GlassButton title="Return to top" onPress={() => scroll.current?.scrollTo({ y: 0, animated: true })} />
       <GlassButton title="Run recording layout check" onPress={run} />
       <GlassButton title="Toggle collapsed inset" onPress={() => { clear(); scenario.current = false; setMenu(value => ({ ...initial, extraInset: value.extraInset ? 0 : 64 })); }} />
       <Text accessibilityLiveRegion="polite" style={styles.body}>{result}</Text>

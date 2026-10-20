@@ -1249,6 +1249,8 @@ final class CalmeraHeaderScrollEdgeView: ExpoView {
   private let backdropMask = UIView()
   private let backdropFade = CAGradientLayer()
   private var backdropOpaque: Bool?
+  private var backdropRequired: Bool?
+  private var scrollObservation: NSKeyValueObservation?
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -1272,14 +1274,29 @@ final class CalmeraHeaderScrollEdgeView: ExpoView {
   }
 
   @objc private func updateBackdrop() {
+    refreshBackdrop(animated: false)
+    emitBoundStatus()
+  }
+
+  private func refreshBackdrop(animated: Bool) {
     let opaque = UIAccessibility.isReduceTransparencyEnabled
-    guard backdropOpaque != opaque else { return }
+    let offset = (boundScrollView?.contentOffset.y ?? 0)
+      + (boundScrollView?.adjustedContentInset.top ?? 0)
+    let required = opaque || offset > 0.5
+    guard backdropOpaque != opaque || backdropRequired != required else { return }
     backdropOpaque = opaque
-    // This backdrop is behind the header's real controls, never their ancestor.
-    // The gradient mask belongs directly to this decorative effect view, as
-    // required by UIVisualEffectView's mask/compositing contract.
-    backdrop.effect = opaque ? nil : UIBlurEffect(style: .systemMaterial)
-    backdrop.backgroundColor = opaque ? .systemBackground : .clear
+    backdropRequired = required
+    // At rest, Regular glass sits directly over the page canvas. Add only a
+    // lighter, fading scroll backdrop once content moves under the header.
+    // Animate the effect itself, never the alpha of a glass view or ancestor.
+    let changes = {
+      self.backdrop.effect = !opaque && required ? UIBlurEffect(style: .systemThinMaterial) : nil
+      self.backdrop.backgroundColor = opaque ? .systemBackground : .clear
+    }
+    if animated && window != nil && !UIAccessibility.isReduceMotionEnabled {
+      UIView.animate(withDuration: 0.18, delay: 0,
+        options: [.beginFromCurrentState, .allowUserInteraction], animations: changes)
+    } else { UIView.performWithoutAnimation(changes) }
   }
 
   override func didMoveToSuperview() {
@@ -1358,9 +1375,19 @@ final class CalmeraHeaderScrollEdgeView: ExpoView {
       boundScrollView = scroll
       edgeInteraction = interaction
       host.addInteraction(interaction)
+      scrollObservation = scroll.observe(\.contentOffset, options: [.initial, .new]) { [weak self] _, _ in
+        self?.refreshBackdrop(animated: true)
+        self?.emitBoundStatus()
+      }
     }
     scroll.topEdgeEffect.style = .soft
     scroll.topEdgeEffect.isHidden = false
+    refreshBackdrop(animated: false)
+    emitBoundStatus()
+  }
+
+  private func emitBoundStatus() {
+    guard reportStatus, let scroll = boundScrollView, let host = headerHost else { return }
     let viewport = scroll.convert(scroll.bounds, to: host)
     let intersection = host.bounds.intersection(viewport)
     let overlap = intersection.isNull ? 0 : max(0, intersection.height)
@@ -1387,6 +1414,8 @@ final class CalmeraHeaderScrollEdgeView: ExpoView {
   }
 
   private func detach() {
+    scrollObservation?.invalidate()
+    scrollObservation = nil
     if let interaction = edgeInteraction { headerHost?.removeInteraction(interaction) }
     if #available(iOS 26.0, *), let scroll = boundScrollView {
       if let style = previousStyle as? UIScrollEdgeEffect.Style {
@@ -1398,12 +1427,15 @@ final class CalmeraHeaderScrollEdgeView: ExpoView {
     headerHost = nil
     boundScrollView = nil
     previousStyle = nil
+    refreshBackdrop(animated: false)
   }
 
   private func emitStatus(available: Bool, bound: Bool, overlap: CGFloat = 0, code: Double) {
     guard reportStatus else { return }
     let status: [String: Double] = ["available": available ? 1 : 0, "bound": bound ? 1 : 0,
-      "overlap": Double((overlap * 10).rounded() / 10), "overlaps": overlap > 0 ? 1 : 0, "code": code]
+      "overlap": Double((overlap * 10).rounded() / 10), "overlaps": overlap > 0 ? 1 : 0, "code": code,
+      "backdropActive": backdropRequired == true ? 1 : 0,
+      "backdropOpaque": backdropOpaque == true ? 1 : 0]
     guard status != lastStatus else { return }
     lastStatus = status
     onStatus(status)
@@ -1468,6 +1500,12 @@ final class CalmeraFormButtonView: ExpoView {
     config.imageColorTransformer = UIConfigurationColorTransformer { _ in foreground }
     config.activityIndicatorColorTransformer = UIConfigurationColorTransformer { _ in foreground }
     config.cornerStyle = .capsule
+    if #available(iOS 26.0, *), navigation && !opaque {
+      // A restrained native background stroke defines the clear rim on white,
+      // matching the reference without adding a shadow or replacing Regular.
+      config.background.strokeColor = UIColor(white: 0, alpha: 0.12)
+      config.background.strokeWidth = 0.5
+    }
     config.title = buttonTitle.isEmpty ? nil : buttonTitle
     config.image = symbol.isEmpty ? nil : UIImage(systemName: symbol)
     config.imagePadding = buttonTitle.isEmpty ? 0 : 8

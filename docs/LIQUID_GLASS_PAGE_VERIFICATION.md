@@ -4,7 +4,7 @@
 
 This checkpoint supersedes the initial palette, test/review-state counts and Git notes in the dated October 19 record below. Detailed reproductions, individual build/test logs and limitations are in [the overnight polish log](SIMULATOR-POLISH-2026-10-19.md). A passed synthetic preview verifies the actual shared screen component and its isolated handlers; it does not verify the corresponding live service.
 
-The approved design now uses Tangerine `#BC5A19`, Apple Regular Liquid Glass with native shadows for controls including Add, and six saved backgrounds: Soft Tangerine (50%), Dawn, Glow, Aura, Matcha Latte and Mocha. Content cards retain the lighter surface treatment. The user-tuned standard typography and layout on Today, History and Settings are preserved; targeted accessibility fallbacks let content grow without capping text size.
+The approved design now uses Tangerine `#BC5A19`, Apple Regular Liquid Glass with native shadows for controls including Add, and seven saved backgrounds: Soft Tangerine (50%), White, Dawn, Glow, Aura, Matcha Latte and Mocha. Content cards retain the lighter surface treatment. The user-tuned standard typography and layout on Today, History and Settings are preserved; targeted accessibility fallbacks let content grow without capping text size.
 
 The test-only gallery contains 41 states, supplemented by the explicit synthetic Goals and native motion/tab routes. Coverage accumulated across the overnight passes; the entries below do not imply every case was rerun at this checkpoint.
 
@@ -19,7 +19,7 @@ The test-only gallery contains 41 states, supplemented by the explicit synthetic
 | Meal editor | Fake credential/JSON timeout and explicit retry, local-only Save validation including overflow/correction, consistent Food/Amount notices; confirmed-save navigation recovery/read-only fields/safe Back; deferred owner/task guards in shared persistence | No record access, actual updates or account switching; confirmation latch is mounted-form protection, not backend/restart idempotency |
 | ChatGPT connection | Fake connection/catalog recovery and model selection; source/deferred outcome and mutex tests | No authorization, provider, Keychain or live model calls; separate local logo work excluded from polish commits |
 | Voice language | Fake load failure/read retry, commit-then-reject reconciliation, later selection; deferred cross-mount write ordering | No real preference writes or Voice invocation; native storage promises remain uncancellable |
-| Theme | Six choices and test-only preference isolation, maximum-text first-tile wrapping and safe Back; source review of ordering/ready guards | No reproduced ordering bug; an unbounded native storage stall remains unverified |
+| Theme | Seven choices including a pure-white canvas and test-only preference isolation, maximum-text first-tile wrapping and safe Back; source review of ordering/ready guards | No reproduced ordering bug; an unbounded native storage stall remains unverified |
 | Sign In / Sign Up / Password Reset | Local validation/stages, Email Next to Password, reset-completed/activation-failed recovery fixture, signup setup outcome tests; sign-in Small → maximum → Large retained a fictional draft and corrected native placeholder/caret sizing; registration/reset native header edges and Back with the software keyboard | No credentials, email, reset, activation or account creation; SDK operations are not globally bounded/cancellable |
 | Session editor / tutorial / welcome / scale / Live fallback | Earlier actual-component synthetic rendering, local navigation/validation and contained guide paging | These remain legacy-adjacent/dormant from current Settings/Add; raw legacy scale/welcome requests were not expanded or exercised |
 
@@ -40,6 +40,12 @@ The 245-test suite, scoped lint, whitespace check and updated installed Release 
 ## October 20 follow-up — Add background stability
 
 Removed the reproduced right-side Add bloom: an extra spring-scaled radial backdrop made the menu appear to drag a colored shadow behind it. Add now leaves the canvas independent of menu state. All six palettes, ambient Glow/Aura drift, native Regular glass/shadows and menu/Voice animations remain. Each theme passed actual native Add open/close checks with synthetic meals, and live views retained glass boundaries without the extra color wash. The 245-test suite, scoped lint, whitespace check and installed Release build passed; no per-frame performance claim. See the latest polish-log section and THEMES.md.
+
+## October 20 follow-up — White and reference-aligned navigation glass
+
+White is a seventh saved theme with an exact #FFFFFF canvas. Headers retain native Regular buttons; extra header frost is absent at rest and uses a lighter native material only while content scrolls beneath. Normal navigation buttons have a restrained public UIKit 0.5pt neutral rim to match the supplied ChatGPT screenshot's edge, with native shadows/press behavior and approved type/layout retained. All seven theme round trips remain covered by the 245-test suite; lint, whitespace checks and the final installed Release build passed.
+
+Actual native scroll binding reported backdrop0→1→0, the synthetic Survey title/result remained readable, and the final actual Settings→White Theme→Back→Theme flow passed with White persisted. The requested White preference is selected and the actual Theme page is foreground in the simulator. This validates the implemented treatment, not ChatGPT's private code, pixel identity, cross-OS parity or frame pacing. See the latest polish-log section for evidence and limits.
 
 ## Historical initial refresh — October 19, 2026
 

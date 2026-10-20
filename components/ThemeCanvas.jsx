@@ -3,7 +3,7 @@ import { AccessibilityInfo, Animated, AppState, Easing, StyleSheet, View } from 
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
 
-import { BASE_CANVAS_COLOR } from "@/constants/appearance.mjs";
+import { canvasColorForTheme } from "@/constants/appearance.mjs";
 
 const GRADIENTS = {
   dawn: ["#FFF7E9", "#FFF3EC", "#FFEFF4"],
@@ -53,7 +53,7 @@ export default function ThemeCanvas({ variant = "solid", topInset = 0, motionEna
   const spots = SPOTS[variant];
   const gradient = GRADIENTS[variant];
   return <View pointerEvents="none" accessible={false} accessibilityElementsHidden
-    importantForAccessibility="no-hide-descendants" style={[styles.canvas, { top: -topInset }]}>
+    importantForAccessibility="no-hide-descendants" style={[styles.canvas, { top: -topInset, backgroundColor: canvasColorForTheme(variant) }]}>
     {gradient && <LinearGradient colors={gradient}
       locations={[0, 0.5, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />}
     {spots && <Animated.View style={[styles.overscan, {
@@ -74,10 +74,9 @@ export default function ThemeCanvas({ variant = "solid", topInset = 0, motionEna
         {spots.map((spot, index) => <Rect key={index} x="0" y="0" width="400" height="900" fill={`url(#calmera-canvas-${gradientId}-${variant}-${index})`} />)}
       </Svg>
     </Animated.View>}
-
   </View>;
 }
 const styles = StyleSheet.create({
-  canvas: { ...StyleSheet.absoluteFillObject, backgroundColor: BASE_CANVAS_COLOR, overflow: "hidden" },
+  canvas: { ...StyleSheet.absoluteFillObject, overflow: "hidden" },
   overscan: { position: "absolute", top: -28, bottom: -28, left: -28, right: -28 },
 });

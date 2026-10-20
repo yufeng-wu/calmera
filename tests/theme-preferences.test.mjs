@@ -4,7 +4,7 @@ import { createThemePreferences } from "../lib/themePreferences.mjs";
 import { APPEARANCE_THEMES, DEFAULT_THEME_ID } from "../constants/appearance.mjs";
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
 
-test("all permanent themes including Matcha Latte and Mocha persist and restore", async () => {
+test("all permanent themes including White, Matcha Latte and Mocha persist and restore", async () => {
   const map = new Map();
   const store = createThemePreferences({ getItem: async key => map.get(key), setItem: async (key, value) => map.set(key, value) });
   for (const theme of APPEARANCE_THEMES) {
