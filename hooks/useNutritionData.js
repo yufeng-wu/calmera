@@ -7,11 +7,14 @@ import { FOOD_ENTRIES_API_URL, USERS_API_URL } from "@/constants/api";
 import { localDateKey } from "@/lib/nutritionStore.mjs";
 import { nutritionViewState, retryNutritionError } from "@/lib/nutritionPresentation.mjs";
 import { readNutrition } from "@/lib/nutritionRequest.mjs";
+import { removeStoredNutritionEntry } from "@/lib/nutritionDelete.mjs";
 
 export function useNutritionData(date = new Date(), history = false) {
   const { userId, getToken, isLoaded } = useAuth();
   const tokenRef = useRef(getToken);
   tokenRef.current = getToken;
+  const ownerRef = useRef(userId);
+  ownerRef.current = userId;
   const { store, entriesRevision, goalsRevision, setShouldRefresh } = useRefreshSignal();
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
   const focused = useIsFocused();
@@ -22,8 +25,8 @@ export function useNutritionData(date = new Date(), history = false) {
       : resource === "history" ? `${FOOD_ENTRIES_API_URL}/summaries`
         : `${FOOD_ENTRIES_API_URL}/summary-by-date/${day}`;
     return readNutrition({ getToken: () => tokenRef.current(), url, signal,
-      isActive: () => store.isActive() });
-  }, [store]);
+      isActive: () => ownerRef.current === userId && store.belongsTo(userId) });
+  }, [store, userId]);
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "active") setWakeVersion((value) => value + 1);
@@ -48,24 +51,14 @@ export function useNutritionData(date = new Date(), history = false) {
     return Promise.all([data, store.loadProfile(loader, { force: true })]);
   }, [store, loader, history, dateKey]);
   const refreshProfile = useCallback(() => store.loadProfile(loader, { force: true }), [store, loader]);
-  const deleteEntry = useCallback(async (id) => {
-    if (!store.belongsTo(userId)) return;
-    const removal = store.removeOptimistically(dateKey, id);
-    if (!removal) return;
-    let succeeded = false;
-    try {
-      const token = await tokenRef.current();
-      if (!store.belongsTo(userId)) return;
-      if (!token) throw new Error("calmera_sign_in_required");
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 20000);
-      try {
-        const response = await fetch(`${FOOD_ENTRIES_API_URL}/${id}`, { method: "DELETE", signal: controller.signal, headers: { Authorization: `Bearer ${token}` } });
-        if (!response.ok) throw new Error("meal_delete_failed");
-        succeeded = true;
-      } finally { clearTimeout(timeout); }
-    } finally { store.finishRemoval(removal, succeeded); if (store.isActive()) setShouldRefresh(true); }
-  }, [store, dateKey, userId, setShouldRefresh]);
+  const deleteEntry = useCallback((id) => removeStoredNutritionEntry({
+    store, ownerKey: userId, dateKey, id,
+    getToken: () => tokenRef.current(), url: `${FOOD_ENTRIES_API_URL}/${id}`,
+    isActive: () => ownerRef.current === userId && store.belongsTo(userId),
+    onSettled: () => {
+      if (ownerRef.current === userId && store.belongsTo(userId)) setShouldRefresh(true);
+    },
+  }), [store, dateKey, userId, setShouldRefresh]);
   const goals = useMemo(() => {
     const p = snapshot.profile || {};
     return { calorieGoal: p.calorieGoal ?? p.calorie_goal ?? p.calories,
