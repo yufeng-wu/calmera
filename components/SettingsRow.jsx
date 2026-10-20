@@ -7,20 +7,23 @@ import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 export default function SettingsRow({ title, subtitle, icon, onPress, selected = false,
   destructive = false, disabled = false, divider = false, accessibilityRole = "button", accessibilityValue }) {
   const color = destructive ? COLORS.expense : COLORS.primary;
-  return <Pressable accessibilityRole={accessibilityRole}
+  const interactive = typeof onPress === "function";
+  const Row = interactive ? Pressable : View;
+  const rowStyles = [styles.row, divider && styles.divider];
+  return <Row accessible accessibilityRole={interactive ? accessibilityRole : "text"}
     accessibilityLabel={accessibilityValue ? title : [title, subtitle].filter(Boolean).join(". ")}
     accessibilityValue={accessibilityValue}
-    accessibilityState={{ disabled, ...(accessibilityRole === "radio" ? { checked: selected } : {}) }}
-    disabled={disabled} onPress={onPress}
-    style={({ pressed }) => [styles.row, divider && styles.divider, pressed && styles.pressed]}>
+    accessibilityState={interactive ? { disabled, ...(accessibilityRole === "radio" ? { checked: selected } : {}) } : undefined}
+    {...(interactive ? { disabled, onPress } : {})}
+    style={interactive ? ({ pressed }) => [...rowStyles, pressed && styles.pressed] : rowStyles}>
     {!!icon && <View style={styles.icon}><Ionicons name={icon} size={21} color={color} /></View>}
     <View style={styles.copy}>
       <Text style={[styles.title, destructive && { color: COLORS.expense }]}>{title}</Text>
       {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
     </View>
-    <Ionicons name={accessibilityRole === "radio" ? (selected ? "checkmark-circle" : "ellipse-outline") : "chevron-forward"}
-      size={accessibilityRole === "radio" ? 22 : 17} color={selected ? COLORS.primary : COLORS.textLight} />
-  </Pressable>;
+    {interactive && <Ionicons name={accessibilityRole === "radio" ? (selected ? "checkmark-circle" : "ellipse-outline") : "chevron-forward"}
+      size={accessibilityRole === "radio" ? 22 : 17} color={selected ? COLORS.primary : COLORS.textLight} />}
+  </Row>;
 }
 const styles = StyleSheet.create({
   row: { minHeight: 62, paddingVertical: 16, paddingHorizontal: 18, gap: 13, flexDirection: "row", alignItems: "center" },

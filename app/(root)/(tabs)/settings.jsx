@@ -3,7 +3,7 @@ import { TYPOGRAPHY } from "@/constants/typography";
 import { useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useRouter } from "expo-router";
-import { useClerk } from "@clerk/clerk-expo";
+import { useClerk, useUser } from "@clerk/clerk-expo";
 import { FormCard, formStyles } from "@/components/GlassForm";
 import SettingsRow from "@/components/SettingsRow";
 import useWarmSettingsRoutes from "@/hooks/useWarmSettingsRoutes";
@@ -15,6 +15,9 @@ export default function SettingsScreen({ calmeraPreview = false }) {
   const { theme } = useTheme();
   const { fontScale } = useWindowDimensions();
   const { signOut } = useClerk();
+  const { user, isLoaded, isSignedIn } = useUser();
+  const accountEmail = calmeraPreview ? "you@example.com"
+    : isLoaded && isSignedIn ? user?.primaryEmailAddress?.emailAddress : null;
   const [previewMessage, setPreviewMessage] = useState("");
   const openPage = (path, label) => {
     if (calmeraPreview) {
@@ -51,7 +54,8 @@ export default function SettingsScreen({ calmeraPreview = false }) {
       </FormCard>
       <Text style={styles.section}>ACCOUNT</Text>
       <FormCard variant="grouped" style={styles.group}>
-        <SettingsRow title="Sign out" icon="log-out-outline" destructive onPress={handleLogout} />
+        {!!accountEmail && <SettingsRow title="Email" subtitle={accountEmail} icon="mail-outline" />}
+        <SettingsRow title="Sign out" icon="log-out-outline" divider={!!accountEmail} destructive onPress={handleLogout} />
       </FormCard>
       {!!previewMessage && <Text accessibilityLiveRegion="polite" style={formStyles.caption}>{previewMessage}</Text>}
     </ScrollView>
