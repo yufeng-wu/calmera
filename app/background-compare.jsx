@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Redirect } from "expo-router";
 import Constants from "expo-constants";
@@ -26,10 +26,9 @@ const previewOnly = () => Alert.alert("Color comparison", "These are example mea
 const noAction = () => {};
 
 export default function BackgroundCompare() {
-  const { themeId: variant, selectTheme, ready, setEnergized } = useTheme();
+  const { themeId: variant, selectTheme, ready } = useTheme();
   const [expanded, setExpanded] = useState(false);
   const { fontScale } = useWindowDimensions();
-  useEffect(() => { setEnergized(expanded); return () => setEnergized(false); }, [expanded, setEnergized]);
   const insets = useSafeAreaInsets();
   const barHeight = 64 + insets.bottom;
   if (Constants.expoConfig?.extra?.calmeraFullAppTest !== true) return <Redirect href="/dashboard" />;

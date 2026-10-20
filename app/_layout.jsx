@@ -11,9 +11,9 @@ import { BASE_CANVAS_COLOR } from "@/constants/appearance.mjs";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 function ThemedApp({ fullBleedHeader }) {
-  const { themeId, energized } = useTheme();
+  const { themeId } = useTheme();
   return <>
-    <ThemeCanvas variant={themeId} energized={energized} />
+    <ThemeCanvas variant={themeId} />
     <SafeScreen transparent formOwnsTopInset={fullBleedHeader}><Slot /></SafeScreen>
     <StatusBar style="dark" />
   </>;

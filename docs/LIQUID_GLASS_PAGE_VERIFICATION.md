@@ -37,6 +37,10 @@ After the user reported a pause/flash opening Settings child pages, native-stack
 
 The 245-test suite, scoped lint, whitespace check and updated installed Release build passed. Synthetic Theme/Voice language navigation, real-route Goals fixture push/pop and Back during loading passed. Actual Settings→Theme→Back was also checked without preference/account/record changes; Matcha Latte remained selected. These settled UI checks do not establish per-frame smoothness or a measured first-open latency improvement. Detailed source-versus-runtime evidence is in the latest section of the polish log.
 
+## October 20 follow-up — Add background stability
+
+Removed the reproduced right-side Add bloom: an extra spring-scaled radial backdrop made the menu appear to drag a colored shadow behind it. Add now leaves the canvas independent of menu state. All six palettes, ambient Glow/Aura drift, native Regular glass/shadows and menu/Voice animations remain. Each theme passed actual native Add open/close checks with synthetic meals, and live views retained glass boundaries without the extra color wash. The 245-test suite, scoped lint, whitespace check and installed Release build passed; no per-frame performance claim. See the latest polish-log section and THEMES.md.
+
 ## Historical initial refresh — October 19, 2026
 
 The following dated evidence is retained as history. Its 60-test/21-state counts, earlier colors, connection-page language section and pre-baseline Git status describe that initial pass, not the current app.

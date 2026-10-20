@@ -6,9 +6,9 @@ import { BASE_CANVAS_COLOR } from "@/constants/appearance.mjs";
 // Native push/pop moves two complete scenes. A transparent incoming scene
 // otherwise exposes the outgoing page until UIKit detaches it at completion.
 function NavigationScene({ children, topInset }) {
-  const { themeId, energized } = useTheme();
+  const { themeId } = useTheme();
   return <View style={styles.scene}>
-    <ThemeCanvas variant={themeId} energized={energized} topInset={topInset} />
+    <ThemeCanvas variant={themeId} topInset={topInset} />
     {children}
   </View>;
 }

@@ -12,12 +12,10 @@ export function ThemeProvider({ children, review = false }) {
   const key = review ? "calmera.theme.review.v1" : isLoaded ? `calmera.theme.v1:${userId || "guest"}` : null;
   const [state, setState] = useState({ key: null, id: DEFAULT_THEME_ID, ready: false, saving: false, error: null });
   const [retry, setRetry] = useState(0);
-  const [energized, setEnergized] = useState(false);
   const generation = useRef(0);
   const write = useRef(0);
   useEffect(() => {
     const ticket = ++generation.current;
-    setEnergized(false);
     setState({ key, id: DEFAULT_THEME_ID, ready: false, saving: false, error: null });
     if (key) preferences.load(key).then(id => {
       if (generation.current === ticket) setState({ key, id, ready: true, saving: false, error: null });
@@ -46,8 +44,8 @@ export function ThemeProvider({ children, review = false }) {
   const current = state.key === key ? state : { id: DEFAULT_THEME_ID, ready: false, saving: false, error: null };
   const reload = useCallback(() => setRetry(value => value + 1), []);
   const value = useMemo(() => ({ themeId: current.id, theme: themeForId(current.id), ready: current.ready,
-    saving: current.saving, error: current.error, selectTheme, reload, energized, setEnergized, review }),
-  [current.id, current.ready, current.saving, current.error, selectTheme, reload, energized, review]);
+    saving: current.saving, error: current.error, selectTheme, reload, review }),
+  [current.id, current.ready, current.saving, current.error, selectTheme, reload, review]);
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 export function useTheme() {
