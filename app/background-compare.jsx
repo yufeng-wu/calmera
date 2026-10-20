@@ -45,7 +45,7 @@ export default function BackgroundCompare() {
     <ScrollView style={home.scrollView} onScrollBeginDrag={closeOpenMealActions}
       contentContainerStyle={{ paddingBottom: 116 + barHeight }} scrollIndicatorInsets={{ bottom: barHeight }}>
       <View style={[home.headerContainer, { paddingTop: 12 }]}>
-        <Text style={home.todayWordmark} accessibilityRole="header">calmera</Text>
+        <Text style={home.todayWordmark} accessibilityRole="header">foodwrap.</Text>
         <Text style={home.dateText}>Monday, October 19</Text>
         <NutritionSummaryCard summary={summary} goals={goals} onEditGoals={previewOnly} />
       </View>

@@ -26,7 +26,7 @@ export default function ThemeSettings({ calmeraPreview = false }) {
   return <FormScreen style={formStyles.screen}>
     <FormHeader title="Theme" onBack={back} />
     <FormScrollView key={`theme-text-${fontScale}`} contentContainerStyle={styles.content}>
-      <Text style={styles.intro}>Choose your Calmera mood.</Text>
+      <Text style={styles.intro}>Choose your foodwrap mood.</Text>
       <View style={styles.grid} accessibilityRole="radiogroup" accessibilityLabel="App theme">
         {APPEARANCE_THEMES.map(item => <Pressable key={item.id} accessibilityRole="radio"
           accessibilityLabel={`${item.name}. ${item.description}.`}

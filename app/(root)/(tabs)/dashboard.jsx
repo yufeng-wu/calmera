@@ -350,7 +350,7 @@ export default function SummaryScreen() {
         }
       >
         <View style={[styles.headerContainer, { paddingTop: 12 }]}>
-          <Text style={styles.todayWordmark} accessibilityRole="header">calmera</Text>
+          <Text style={styles.todayWordmark} accessibilityRole="header">foodwrap.</Text>
           <Text style={styles.dateText}>{formattedDate}</Text>
           {hasData ? <NutritionSummaryCard summary={summary} goals={goals} /> : <NutritionSummarySkeleton loading={isLoading} />}
           {(dataError || profileError) && <Pressable onPress={() => retryError().catch(() => {})} accessibilityRole="button" style={{ paddingVertical: 10 }}>

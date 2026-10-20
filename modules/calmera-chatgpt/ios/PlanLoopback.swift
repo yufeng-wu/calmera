@@ -120,7 +120,7 @@ final class PlanLoopback {
   }
 
   private func respond(_ connection: NWConnection, id: UUID, ok: Bool) {
-    let body = ok ? "Calmera authorization received. Return to the app." : "Invalid Calmera callback."
+    let body = ok ? "foodwrap authorization received. Return to the app." : "Invalid foodwrap callback."
     let response = "HTTP/1.1 \(ok ? "200 OK" : "400 Bad Request")\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: \(body.utf8.count)\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nConnection: close\r\n\r\n\(body)"
     connection.send(content: Data(response.utf8), completion: .contentProcessed { _ in
       connection.cancel()

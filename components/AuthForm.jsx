@@ -19,7 +19,7 @@ export function AuthScreen({ title, subtitle, onBack, backDisabled = false, chil
       key={`auth-text-${fontScale}`} style={styles.scroll} contentContainerStyle={contentStyle}
       enableOnAndroid enableAutomaticScroll extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
       keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-      {!onBack && <Text key={`brand-${fontScale}`} style={styles.wordmark}>calmera</Text>}
+      {!onBack && <Text key={`brand-${fontScale}`} style={styles.wordmark}>foodwrap.</Text>}
       <View style={[styles.column, !onBack && { marginTop: 12 }]}>
         <View style={styles.hero}>
           <Text accessibilityRole="header" style={styles.title}>{title}</Text>

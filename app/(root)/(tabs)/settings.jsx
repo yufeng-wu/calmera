@@ -36,7 +36,7 @@ export default function SettingsScreen({ calmeraPreview = false }) {
   return <View style={formStyles.screen}>
     <View style={styles.header}><Text accessibilityRole="header" style={styles.title}>Settings</Text></View>
     <ScrollView key={`text-size-${fontScale}`} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <Text style={styles.section}>CALMERA</Text>
+      <Text style={styles.section}>foodwrap.</Text>
       <FormCard variant="grouped" style={styles.group}>
         <SettingsRow title="ChatGPT connection" subtitle="Your account and model"
           icon="sparkles-outline" onPress={() => openPage("/chatgpt", "ChatGPT connection")} />

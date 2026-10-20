@@ -33,7 +33,7 @@ export default function DesignPreview() {
               <Pressable onPress={previewOnly} style={{ paddingHorizontal: 10, paddingVertical: 8 }}><Text style={home.premiumButtonText}>ChatGPT</Text></Pressable>
             </LinearGradient>
             <View style={home.header}><View style={home.headerLeft}>
-              <View style={home.welcomeContainer}><Text style={home.welcomeText}>Welcome back,</Text><Text style={home.usernameText}>Calmera Test</Text></View>
+              <View style={home.welcomeContainer}><Text style={home.welcomeText}>Welcome back,</Text><Text style={home.usernameText}>foodwrap test</Text></View>
               <Image source={require("../assets/images/logo.png")} style={home.headerLogo} contentFit="contain" />
             </View></View>
             <Text style={home.dateText}> Sunday, October 18</Text>

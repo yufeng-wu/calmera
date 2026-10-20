@@ -20,7 +20,7 @@ import plistlib, pathlib, sys
 project, build = map(pathlib.Path, sys.argv[1:])
 with (project / 'ios/mobile/Info.plist').open('rb') as f:
     info = plistlib.load(f)
-info['CFBundleDisplayName'] = 'Calmera Test'
+info['CFBundleDisplayName'] = 'foodwrap.'
 info['CFBundleURLTypes'] = [{'CFBundleURLSchemes': ['calmera-chatgpt-dev', 'com.yfwu02.mobile.chatgptdev']}]
 with (build / 'CalmeraTest-Info.plist').open('wb') as f:
     plistlib.dump(info, f)
@@ -28,7 +28,7 @@ with (build / 'CalmeraTest.entitlements').open('wb') as f:
     plistlib.dump({}, f)
 PYTHON
 if [[ "$PREPARE_ONLY" == true ]]; then
-  echo "Prepared Calmera Test Info.plist and entitlements only. No build, signing or installation."
+  echo "Prepared foodwrap test Info.plist and entitlements only. No build, signing or installation."
   exit 0
 fi
 cd "$PROJECT_ROOT"
@@ -41,4 +41,4 @@ EXPO_NO_DOTENV=1 EXPO_NO_TELEMETRY=1 xcodebuild \
   INFOPLIST_FILE="$BUILD_ROOT/CalmeraTest-Info.plist" \
   CODE_SIGN_ENTITLEMENTS="$BUILD_ROOT/CalmeraTest.entitlements" \
   build
-echo "Built Calmera Test with a separate bundle ID; no app was installed."
+echo "Built foodwrap test with a separate bundle ID; no app was installed."

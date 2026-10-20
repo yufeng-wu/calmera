@@ -167,7 +167,7 @@ export default function ChatGPTSettings({ calmeraPreview = false, calmeraPreview
       const outcome = await operation.promise;
       if (!current() || !outcome) return;
       setConnected(outcome.connected); setModels(outcome.choices); setModel(outcome.selected); setDetailsError(outcome.detailsError);
-      if (outcome.welcomed === false) Alert.alert("You are using your ChatGPT plan", "Eligible Calmera AI requests use your own ChatGPT plan. Calmera is free. Review usage and app limits in ChatGPT settings.", [
+      if (outcome.welcomed === false) Alert.alert("You are using your ChatGPT plan", "Eligible requests in foodwrap use your own ChatGPT plan. foodwrap is free. Review usage and app limits in ChatGPT settings.", [
         { text: "Got it", onPress: () => { if (current()) client.markWelcomed().catch(() => {}); } },
       ], { cancelable: false });
     } catch (error) { if (current()) Alert.alert("ChatGPT", friendlyError(error)); }
@@ -216,7 +216,7 @@ export default function ChatGPTSettings({ calmeraPreview = false, calmeraPreview
               <Text style={styles.status}>{busy ? "Connecting…" : savingModel ? "Saving model…" : checking ? "Checking connection…" : detailsLoading ? "Loading models…" : connectionError ? "Connection status unavailable" : connected ? "Connected on this phone" : "Not connected"}</Text>
             </View></View>
         </View>
-        <Text style={styles.text}>Use your own ChatGPT plan for Calmera AI. Your plan limits apply. Your food records stay in your existing Calmera account.</Text>
+        <Text style={styles.text}>Use your own ChatGPT plan in foodwrap. Your plan limits apply. Your food records stay in your existing foodwrap account.</Text>
         {!available && <Text style={styles.text}>This build does not include ChatGPT connection. Please use an updated iOS build.</Text>}
         {!checking && <GlassButton title={connected ? "Reconnect ChatGPT" : "Connect ChatGPT"} symbol="sparkles"
             loading={busy} disabled={!available || savingModel || detailsLoading} onPress={connect} style={styles.action} />}

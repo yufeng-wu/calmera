@@ -227,7 +227,7 @@ export default function SignUpScreen({ calmeraPreview = false, calmeraPreviewSta
   };
 
   return <AuthScreen title={emailVerified ? "Finish account setup" : pendingVerification ? "Check your email" : "Create your account"}
-    subtitle={emailVerified ? "Your email is verified. Finish setting up your Calmera account."
+    subtitle={emailVerified ? "Your email is verified. Finish setting up your foodwrap account."
       : pendingVerification ? `Enter the verification code sent to ${emailAddress}.` : "A little awareness, one meal at a time."}
     onBack={backToSignIn} backDisabled={busy || isCreatingUser}
     footer={<View style={styles.footer}>
@@ -237,7 +237,7 @@ export default function SignUpScreen({ calmeraPreview = false, calmeraPreviewSta
     <FormCard style={styles.form}>
       <AuthNotice error>{error}</AuthNotice>
       <AuthNotice>{info}</AuthNotice>
-      {isCreatingUser ? <AuthBusy>Setting up your Calmera account…</AuthBusy> : emailVerified ? <GlassButton
+      {isCreatingUser ? <AuthBusy>Setting up your foodwrap account…</AuthBusy> : emailVerified ? <GlassButton
         title="Finish account setup" role="accent" onPress={onFinishSetupPress} loading={busy} style={styles.action} /> : pendingVerification ? <>
         <AuthField calmeraPreview={calmeraPreview} label="Verification code" code value={code} onChangeText={(value) => { setCode(value); clearFieldError("code"); }}
           placeholder="Email code" keyboardType="number-pad" textContentType="oneTimeCode"

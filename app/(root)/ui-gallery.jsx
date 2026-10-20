@@ -88,7 +88,7 @@ export default function UIGallery() {
   if (!entry) return <View style={[styles.screen, { paddingTop: localInset }]}>
     <FormHeader title="UI review" />
     <ScrollView contentContainerStyle={styles.list}>
-      <Text style={styles.note}>Actual Calmera pages with synthetic data and local-only actions. Your account stays signed in; these examples cannot submit authentication, inference, or record changes.</Text>
+      <Text style={styles.note}>Actual foodwrap pages with synthetic data and local-only actions. Your account stays signed in; these examples cannot submit authentication, inference, or record changes.</Text>
       {screens.map(item => <GlassButton key={item.id} title={item.title} onPress={() => select(item.id)} />)}
     </ScrollView>
   </View>;
