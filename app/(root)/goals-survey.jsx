@@ -284,13 +284,15 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
       }}><FormCard>
         <Text accessibilityRole="header" style={styles.sectionTitle}>Recommended macros</Text>
         <Text style={styles.caption}>Daily estimates · adjust anytime</Text>
-        {[
-          ["Calories", recommendation.calorieGoal, "kcal"], ["Protein", recommendation.proteinGoal, "g"],
-          ["Carbs", recommendation.carbsGoal, "g"], ["Fat", recommendation.fatGoal, "g"],
-        ].map(([label, value, unit]) => <View key={label} style={styles.resultRow}>
-          <Text style={styles.resultLabel}>{label}</Text>
-          <Text style={styles.resultValue}>{value} <Text style={styles.resultUnit}>{unit}</Text></Text>
-        </View>)}
+        <View style={styles.resultRows}>
+          {[
+            ["Calories", recommendation.calorieGoal, "kcal"], ["Protein", recommendation.proteinGoal, "g"],
+            ["Carbs", recommendation.carbsGoal, "g"], ["Fat", recommendation.fatGoal, "g"],
+          ].map(([label, value, unit]) => <View key={label} style={styles.resultRow}>
+            <Text style={styles.resultLabel}>{label}</Text>
+            <Text style={styles.resultValue}>{value} <Text style={styles.resultUnit}>{unit}</Text></Text>
+          </View>)}
+        </View>
         <GlassButton title="Use these goals" symbol="checkmark" role="accent" onPress={handleSaveMacros} loading={loading} disabled={loading} />
         <View style={styles.methodGroup}>
           <Text style={styles.caption}>
@@ -353,10 +355,10 @@ const styles = StyleSheet.create({
   introTitle: { ...TYPOGRAPHY.pageTitle, color: COLORS.text},
   sectionTitle: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text},
   label: { ...TYPOGRAPHY.bodyMedium, color: COLORS.text},
-  field: { gap: 8, paddingVertical: 6 },
+  field: { gap: 8 },
   fieldControls: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 10 },
   valueButton: { flexGrow: 1, minWidth: 120 },
-  question: { gap: 12, paddingVertical: 6 },
+  question: { gap: 8 },
   choices: { flexDirection: "row", flexWrap: "wrap", gap: 6, padding: 4,
     borderRadius: 24, backgroundColor: "#F7F2EC" },
   choice: { flexGrow: 1, flexBasis: 0, minHeight: 44, paddingVertical: 12, paddingHorizontal: 12,
@@ -370,8 +372,9 @@ const styles = StyleSheet.create({
   supporting: { ...TYPOGRAPHY.body, color: COLORS.textLight,},
   caption: { ...TYPOGRAPHY.caption, color: COLORS.textLight,},
   helperGroup: { gap: 4, paddingHorizontal: 4 },
+  resultRows: { gap: 0 },
   resultRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: 8,
-    paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#EFE7DF" },
+    paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#EFE7DF" },
   resultLabel: { ...TYPOGRAPHY.body, color: COLORS.text, flexShrink: 1},
   resultValue: { ...TYPOGRAPHY.value, color: COLORS.primary, fontVariant: ["tabular-nums"]},
   resultUnit: { ...TYPOGRAPHY.caption, color: COLORS.textLight,},

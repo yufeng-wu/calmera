@@ -164,7 +164,7 @@ export default function SummaryScreen() {
     setRecordingSeconds(0);
     stopVoiceAnimations();
   };
-  const shortRecording = () => Alert.alert("Nothing recorded yet", "Hold Voice until the recording timer starts, speak your meal, then release.");
+  const shortRecording = () => Alert.alert("Nothing recorded yet", "Hold Voice until the timer starts, describe your meal, then release.");
 
   const stopRecording = async () => {
     const rec = recordingRef.current;
@@ -295,7 +295,7 @@ export default function SummaryScreen() {
 
   const handleVoiceShortPress = () => {
     if (voiceBusyRef.current || longPressTriggered.current) return;
-    Alert.alert("How to use voice log?", 'Hold Voice until the timer starts, say your meal, then release. For example: “A 16-ounce latte for breakfast.”');
+    Alert.alert("Log a meal by voice", 'Hold Voice until the timer starts, describe your meal, then release. For example: “A 16-ounce latte for breakfast.”');
   };
   const handleVoiceLongPress = () => {
     if (voiceBusyRef.current) return;

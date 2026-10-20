@@ -16,6 +16,7 @@ export default function ForgotPassword({ calmeraPreview = false, calmeraPreviewS
   const [stage, setStage] = useState(calmeraPreview && calmeraPreviewStage === "reset" ? "RESET"
     : calmeraPreview && calmeraPreviewStage === "verification" ? "VERIFY" : "REQUEST");
   const [error, setError] = useState("");
+  const [fieldError, setFieldError] = useState("");
   const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -30,10 +31,11 @@ export default function ForgotPassword({ calmeraPreview = false, calmeraPreviewS
   const submit = async () => {
     if (busyRef.current || (!calmeraPreview && !isLoaded)) return;
     setError("");
+    setFieldError("");
     setInfo("");
-    if (stage === "REQUEST" && !isAuthEmail(emailAddress)) return setError("Enter a valid email address.");
-    if (stage === "VERIFY" && !code.trim()) return setError("Enter the code from your email.");
-    if (stage === "RESET" && newPassword.length < 8) return setError("Choose a password with at least 8 characters.");
+    if (stage === "REQUEST" && !isAuthEmail(emailAddress)) { setFieldError("email"); return setError("Enter a valid email address."); }
+    if (stage === "VERIFY" && !code.trim()) { setFieldError("code"); return setError("Enter the code from your email."); }
+    if (stage === "RESET" && newPassword.length < 8) { setFieldError("password"); return setError("Choose a password with at least 8 characters."); }
     Keyboard.dismiss();
     if (calmeraPreview) {
       if (stage === "REQUEST") {
@@ -67,7 +69,7 @@ export default function ForgotPassword({ calmeraPreview = false, calmeraPreviewS
       }
     } catch {
       setError(stage === "REQUEST" ? "Unable to send a reset code. Check the email address and try again."
-        : stage === "VERIFY" ? "Invalid code. Please try again."
+        : stage === "VERIFY" ? "Couldn’t verify the code. Please try again."
           : "Unable to reset your password. Please ensure it meets the requirements.");
     } finally {
       busyRef.current = false;
@@ -88,16 +90,16 @@ export default function ForgotPassword({ calmeraPreview = false, calmeraPreviewS
     <FormCard style={styles.form}>
       <AuthNotice error>{error}</AuthNotice>
       <AuthNotice>{info}</AuthNotice>
-      {stage === "REQUEST" ? <AuthField calmeraPreview={calmeraPreview} label="Email" value={emailAddress} onChangeText={setEmailAddress}
+      {stage === "REQUEST" ? <AuthField calmeraPreview={calmeraPreview} label="Email" value={emailAddress} onChangeText={(value) => { setEmailAddress(value); setFieldError(current => current === "email" ? "" : current); }}
         autoCapitalize="none" keyboardType="email-address" textContentType="emailAddress"
-        autoComplete="email" placeholder="you@example.com" editable={!busy} error={!!error}
+        autoComplete="email" placeholder="you@example.com" editable={!busy} error={fieldError === "email"}
         returnKeyType="go" onSubmitEditing={submit} />
-        : stage === "VERIFY" ? <AuthField calmeraPreview={calmeraPreview} label="Verification code" code value={code} onChangeText={setCode}
+        : stage === "VERIFY" ? <AuthField calmeraPreview={calmeraPreview} label="Verification code" code value={code} onChangeText={(value) => { setCode(value); setFieldError(current => current === "code" ? "" : current); }}
           keyboardType="number-pad" textContentType="oneTimeCode" autoComplete="one-time-code"
-          placeholder="Email code" editable={!busy} error={!!error} returnKeyType="done" onSubmitEditing={submit} />
-          : <AuthField calmeraPreview={calmeraPreview} label="New password" value={newPassword} onChangeText={setNewPassword}
+          placeholder="Email code" editable={!busy} error={fieldError === "code"} returnKeyType="done" onSubmitEditing={submit} />
+          : <AuthField calmeraPreview={calmeraPreview} label="New password" value={newPassword} onChangeText={(value) => { setNewPassword(value); setFieldError(current => current === "password" ? "" : current); }}
             secureTextEntry autoCapitalize="none" textContentType="newPassword" autoComplete="new-password"
-            placeholder="New password" hint="At least 8 characters." editable={!busy} error={!!error}
+            placeholder="New password" hint="At least 8 characters." editable={!busy} error={fieldError === "password"}
             returnKeyType="go" onSubmitEditing={submit} />}
       <GlassButton title={stage === "REQUEST" ? "Send reset code" : stage === "VERIFY" ? "Verify code" : "Reset password"}
         role="accent" onPress={submit} loading={busy} disabled={!calmeraPreview && !isLoaded} style={styles.action} />

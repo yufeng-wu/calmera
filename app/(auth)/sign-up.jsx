@@ -16,11 +16,13 @@ export default function SignUpScreen({ calmeraPreview = false, calmeraPreviewSta
   const { getToken } = useAuth();
   const router = useRouter();
   const busyRef = useRef(false);
+  const passwordInput = useRef(null);
   const [emailAddress, setEmailAddress] = useState(calmeraPreview && calmeraPreviewStage === "verification" ? "calmera@example.invalid" : "");
   const [password, setPassword] = useState("");
   const [pendingVerification, setPendingVerification] = useState(calmeraPreview && calmeraPreviewStage === "verification");
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
+  const [fieldError, setFieldError] = useState("");
   const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
@@ -36,9 +38,10 @@ export default function SignUpScreen({ calmeraPreview = false, calmeraPreviewSta
   const onSignUpPress = async () => {
     if (busyRef.current || (!calmeraPreview && !isLoaded)) return;
     setError("");
+    setFieldError("");
     setInfo("");
-    if (!isAuthEmail(emailAddress)) return setError("Enter a valid email address.");
-    if (!password) return setError("Choose a password for your account.");
+    if (!isAuthEmail(emailAddress)) { setFieldError("email"); return setError("Enter a valid email address."); }
+    if (!password) { setFieldError("password"); return setError("Choose a password for your account."); }
     Keyboard.dismiss();
     if (calmeraPreview) {
       setInfo("Preview verification. No email or account creation request was sent.");
@@ -52,7 +55,7 @@ export default function SignUpScreen({ calmeraPreview = false, calmeraPreviewSta
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
       setPendingVerification(true);
     } catch (err) {
-      if (err.errors?.[0]?.code === "form_identifier_exists") setError("Email already in use.");
+      if (err.errors?.[0]?.code === "form_identifier_exists") { setFieldError("email"); setError("Email already in use."); }
       else setError(err.errors?.[0]?.longMessage || "Unable to create your account. Please try again.");
     } finally {
       busyRef.current = false;
@@ -63,8 +66,9 @@ export default function SignUpScreen({ calmeraPreview = false, calmeraPreviewSta
   const onVerifyPress = async () => {
     if (busyRef.current || (!calmeraPreview && !isLoaded)) return;
     setError("");
+    setFieldError("");
     setInfo("");
-    if (!code.trim()) return setError("Enter the verification code from your email.");
+    if (!code.trim()) { setFieldError("code"); return setError("Enter the verification code from your email."); }
     Keyboard.dismiss();
     if (calmeraPreview) return setInfo("Preview verification complete. No authentication or database request was sent.");
     busyRef.current = true;
@@ -122,19 +126,20 @@ export default function SignUpScreen({ calmeraPreview = false, calmeraPreviewSta
       <AuthNotice error>{error}</AuthNotice>
       <AuthNotice>{info}</AuthNotice>
       {isCreatingUser ? <AuthBusy>Setting up your Calmera account…</AuthBusy> : pendingVerification ? <>
-        <AuthField calmeraPreview={calmeraPreview} label="Verification code" code value={code} onChangeText={setCode}
+        <AuthField calmeraPreview={calmeraPreview} label="Verification code" code value={code} onChangeText={(value) => { setCode(value); setFieldError(current => current === "code" ? "" : current); }}
           placeholder="Email code" keyboardType="number-pad" textContentType="oneTimeCode"
-          autoComplete="one-time-code" editable={!busy} error={!!error}
+          autoComplete="one-time-code" editable={!busy} error={fieldError === "code"}
           returnKeyType="done" onSubmitEditing={onVerifyPress} />
         <GlassButton title="Verify email" role="accent" onPress={onVerifyPress}
           loading={busy} disabled={!calmeraPreview && !isLoaded} style={styles.action} />
       </> : <>
-        <AuthField calmeraPreview={calmeraPreview} label="Email" value={emailAddress} onChangeText={setEmailAddress}
+        <AuthField calmeraPreview={calmeraPreview} label="Email" value={emailAddress} onChangeText={(value) => { setEmailAddress(value); setFieldError(current => current === "email" ? "" : current); }}
           autoCapitalize="none" keyboardType="email-address" textContentType="emailAddress"
-          autoComplete="email" placeholder="you@example.com" editable={!busy} error={!!error} />
-        <AuthField calmeraPreview={calmeraPreview} label="Password" value={password} onChangeText={setPassword} secureTextEntry
+          autoComplete="email" placeholder="you@example.com" editable={!busy} error={fieldError === "email"}
+          returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => passwordInput.current?.focus()} />
+        <AuthField ref={passwordInput} calmeraPreview={calmeraPreview} label="Password" value={password} onChangeText={(value) => { setPassword(value); setFieldError(current => current === "password" ? "" : current); }} secureTextEntry
           textContentType="newPassword" autoComplete="new-password" autoCapitalize="none"
-          placeholder="Choose a password" editable={!busy} error={!!error}
+          placeholder="Choose a password" editable={!busy} error={fieldError === "password"}
           returnKeyType="go" onSubmitEditing={onSignUpPress} />
         <GlassButton title="Create account" role="accent" onPress={onSignUpPress}
           loading={busy} disabled={!calmeraPreview && !isLoaded} style={styles.action} />

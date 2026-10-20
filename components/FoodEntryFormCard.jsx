@@ -166,8 +166,10 @@ export const FoodEntryFormCard = ({
 
       {showMacros && (
         <FormCard style={form.card}>
-          <Text style={form.sectionTitle}>Nutrition</Text>
-          <Text style={form.helperText}>Review or enter your estimates.</Text>
+          <View style={form.sectionHeading}>
+            <Text style={form.sectionTitle}>Nutrition</Text>
+            <Text style={form.helperText}>Review or enter your estimates.</Text>
+          </View>
           <View style={[form.macroGrid, stackedMacros && form.macroGridStacked]}>
             {[
               { label: "Calories", suffix: "kcal", value: calories, setter: setCalories },
@@ -197,9 +199,10 @@ export const FoodEntryFormCard = ({
 };
 
 const form = StyleSheet.create({
-  container: { paddingHorizontal: 20, paddingTop: 12, gap: 18 },
-  card: { padding: 18, borderRadius: 24 },
-  sectionTitle: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text, marginBottom: 14},
+  container: { paddingHorizontal: 20, paddingTop: 12, gap: 16 },
+  card: { padding: 18, borderRadius: 24, gap: 12 },
+  sectionHeading: { gap: 4 },
+  sectionTitle: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text},
   mealOptions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   mealOption: {
     flexBasis: "47%", flexGrow: 1, minHeight: 46, borderRadius: 16,
@@ -212,18 +215,18 @@ const form = StyleSheet.create({
   mealOptionText: { ...TYPOGRAPHY.bodyMedium, color: COLORS.text},
   mealOptionTextSelected: { color: COLORS.primary, fontWeight: "600" },
   field: { minWidth: 0 },
-  fieldLabel: { ...TYPOGRAPHY.bodyMedium, color: COLORS.textLight, marginBottom: 5},
+  fieldLabel: { ...TYPOGRAPHY.bodyMedium, color: COLORS.textLight, marginBottom: 4},
   fieldBody: { flexDirection: "row", alignItems: "center", minHeight: 44 },
   fieldIcon: { marginRight: 12 },
   input: { ...TYPOGRAPHY.input, flex: 1, minWidth: 0, paddingVertical: 9, paddingHorizontal: 0, color: COLORS.text},
   suffix: { ...TYPOGRAPHY.caption, color: COLORS.textLight, marginLeft: 6},
-  separator: { height: StyleSheet.hairlineWidth, backgroundColor: "#EAE2DB", marginVertical: 14 },
+  separator: { height: StyleSheet.hairlineWidth, backgroundColor: "#EAE2DB" },
   estimateSection: { gap: 4 },
   estimateButton: { minHeight: 50 },
   manualButton: { minHeight: 44, paddingHorizontal: 12, paddingVertical: 11, alignItems: "center", justifyContent: "center" },
   manualButtonText: { ...TYPOGRAPHY.button, color: COLORS.primary, textAlign: "center"},
-  helperText: { ...TYPOGRAPHY.caption, color: COLORS.textLight, marginTop: -7, marginBottom: 16},
-  macroGrid: { flexDirection: "row", flexWrap: "wrap", columnGap: 14, rowGap: 14 },
+  helperText: { ...TYPOGRAPHY.caption, color: COLORS.textLight},
+  macroGrid: { flexDirection: "row", flexWrap: "wrap", columnGap: 12, rowGap: 12 },
   macroGridStacked: { flexDirection: "column" },
   macroField: { flexBasis: "45%", flexGrow: 1, backgroundColor: "#F8F3EF", borderRadius: 16, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 3 },
   macroFieldStacked: { flexBasis: "auto", width: "100%" },

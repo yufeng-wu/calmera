@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { forwardRef, useEffect, useRef } from "react";
 import { AccessibilityInfo, ActivityIndicator, Platform, Pressable, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { Ionicons } from "@expo/vector-icons";
@@ -25,17 +25,17 @@ export function AuthScreen({ title, subtitle, onBack, backDisabled = false, chil
   </View>;
 }
 
-export function AuthField({ label, error = false, code = false, hint, style, calmeraPreview = false, ...props }) {
+export const AuthField = forwardRef(function AuthField({ label, error = false, code = false, hint, style, calmeraPreview = false, ...props }, ref) {
   return <View style={styles.field}>
     <Text style={styles.label}>{label}</Text>
-    <TextInput accessibilityLabel={label} placeholderTextColor={COLORS.textLight}
+    <TextInput ref={ref} accessibilityLabel={label} placeholderTextColor={COLORS.textLight}
       style={[styles.input, code && styles.codeInput, error && styles.errorInput, style]}
       autoCorrect={false} {...props}
       autoComplete={calmeraPreview ? "off" : props.autoComplete}
       textContentType={calmeraPreview ? "none" : props.textContentType} />
     {hint && <Text style={styles.hint}>{hint}</Text>}
   </View>;
-}
+});
 
 // Android uses the live region below; iOS needs an explicit announcement.
 // Delay until the message is laid out, and cancel stale/unmounted messages.

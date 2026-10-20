@@ -34,7 +34,7 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
     : null);
   const [busy, setBusy] = useState(false);
   const [selecting, setSelecting] = useState(false);
-  const [processingStep, setProcessingStep] = useState("Analyzing your meal photo…");
+  const [processingStep, setProcessingStep] = useState("Estimating nutrition…");
   const [uncertain, setUncertain] = useState(false);
   const operation = useRef(null);
   const routeGeneration = useRef(0);
@@ -106,7 +106,7 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
       // or picker failures as a ChatGPT connection problem or image-size issue.
       if (error?.code === "ERR_CANCELED" || error?.message === "photo_cancelled") return;
       Alert.alert(source === "camera" ? "Camera unavailable" : "Photo unavailable", source === "camera"
-        ? "The camera could not be opened. Camera access may be off or unavailable on this device. You can choose a meal photo with Photos instead."
+        ? "The camera isn’t available. Choose a meal photo from Photos instead."
         : "This photo could not be opened. Please choose another meal photo and try again.");
     } finally { finishOperation(ticket); }
   }
@@ -120,7 +120,7 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
       return;
     }
     const selectedPhoto = photo;
-    setProcessingStep("Analyzing your meal photo…");
+    setProcessingStep("Estimating nutrition…");
     try {
       const createdAt = getLocalTimeWithOffset();
       const { client, model } = await nutritionClient(userId);
@@ -172,7 +172,7 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
   return (
     <FormScreen style={styles.container}>
       <FormHeader title="Photo" onBack={leavePhoto} backDisabled={busy || selecting} />
-      <FormScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <FormScrollView key={`photo-text-${fontScale}`} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {uiFixture && (
           <Text style={styles.fixtureNote}>
             UI preview · Photo access and saving are disabled.
@@ -180,7 +180,7 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
         )}
         <View style={styles.intro}>
           <Text style={styles.title}>A photo of your meal</Text>
-          <Text style={styles.subtitle}>Take a photo or choose one to get started.</Text>
+          <Text style={styles.subtitle}>Take a photo or choose one from Photos.</Text>
         </View>
 
         <FormCard style={styles.previewCard}>
@@ -235,13 +235,13 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
             <View style={styles.status} accessibilityRole="text" accessibilityLiveRegion="polite">
               <Ionicons name="information-circle-outline" size={23} color={COLORS.primary} />
               <View style={styles.statusCopy}>
-                <Text style={styles.statusTitle}>Check History before retrying</Text>
-                <Text style={styles.statusDetail}>Your meal may already be saved. Check it first to avoid a duplicate.</Text>
+                <Text style={styles.statusTitle}>Check History</Text>
+                <Text style={styles.statusDetail}>Your meal may already be saved. Check History before trying again.</Text>
               </View>
             </View>
           )}
           <GlassButton
-            title={uncertain ? "Check History before retrying" : uiFixture ? "Preview processing" : "Log photo"}
+            title={uiFixture ? "Preview processing" : "Log photo"}
             symbol="sparkles"
             role="accent"
             onPress={logPhoto}
@@ -267,15 +267,15 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 36, gap: 20 },
-  intro: { gap: 7, paddingHorizontal: 4 },
+  content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 36, gap: 16 },
+  intro: { gap: 8, paddingHorizontal: 4 },
   title: { ...TYPOGRAPHY.pageTitle, color: COLORS.text,},
   subtitle: { ...TYPOGRAPHY.body, color: COLORS.textLight,},
   previewCard: { padding: 12, gap: 14 },
   preview: { borderRadius: 22, overflow: "hidden", backgroundColor: "#F6F1EC" },
   previewWithPhoto: { aspectRatio: 1.15 },
   photo: { width: "100%", height: "100%", resizeMode: "contain" },
-  placeholder: { minHeight: 280, alignItems: "center", justifyContent: "center", padding: 20, gap: 10 },
+  placeholder: { minHeight: 216, alignItems: "center", justifyContent: "center", padding: 20, gap: 10 },
   cameraBadge: { width: 78, height: 78, borderRadius: 39, backgroundColor: COLORS.white, alignItems: "center", justifyContent: "center", marginBottom: 3 },
   placeholderTitle: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text, textAlign: "center"},
   placeholderNote: { ...TYPOGRAPHY.caption, color: COLORS.textLight, textAlign: "center", maxWidth: 230},

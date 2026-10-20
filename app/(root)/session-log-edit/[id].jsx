@@ -118,7 +118,7 @@ export default function EditSessionLogEntry({ calmeraPreview = false }) {
   return <FormScreen style={formStyles.screen}>
     <FormHeader title="Edit Item" onBack={goBack} onSave={handleSave} saving={isSaving} backDisabled={isSaving}
       saveDisabled={isFetching || isEstimating || !!loadError} />
-    <FormScrollView keyboardAware key={`editor-text-${fontScale}`} style={formStyles.screen} contentContainerStyle={{ paddingTop: 12, paddingBottom: 40, gap: 18 }}
+    <FormScrollView keyboardAware key={`editor-text-${fontScale}`} style={formStyles.screen} contentContainerStyle={{ paddingTop: isFetching || loadError ? 12 : 0, paddingBottom: 40, gap: 18 }}
       enableOnAndroid enableAutomaticScroll extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
       keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" enableResetScrollToCoords={false}>
       {calmeraPreview && <Text style={[formStyles.caption, { marginHorizontal: 20 }]}>Synthetic preview · nothing is saved</Text>}

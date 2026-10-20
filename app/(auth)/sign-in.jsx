@@ -10,9 +10,11 @@ export default function Page({ calmeraPreview = false } = {}) {
   const { signIn, setActive, isLoaded } = useSignIn();
   const router = useRouter();
   const busyRef = useRef(false);
+  const passwordInput = useRef(null);
   const [emailAddress, setEmailAddress] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [fieldError, setFieldError] = useState("");
   const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -27,9 +29,10 @@ export default function Page({ calmeraPreview = false } = {}) {
   const onSignInPress = async () => {
     if (busyRef.current || (!calmeraPreview && !isLoaded)) return;
     setError("");
+    setFieldError("");
     setInfo("");
-    if (!isAuthEmail(emailAddress)) return setError("Enter a valid email address.");
-    if (!password) return setError("Enter your password.");
+    if (!isAuthEmail(emailAddress)) { setFieldError("email"); return setError("Enter a valid email address."); }
+    if (!password) { setFieldError("password"); return setError("Enter your password."); }
     if (calmeraPreview) return setInfo("Preview sign-in complete. No authentication request was sent.");
     busyRef.current = true;
     setBusy(true);
@@ -43,8 +46,8 @@ export default function Page({ calmeraPreview = false } = {}) {
       }
     } catch (err) {
       const code = err.errors?.[0]?.code;
-      if (code === "form_identifier_not_found") setError("No account found for this email address.");
-      else if (code === "form_password_incorrect") setError("Invalid password. Please try again.");
+      if (code === "form_identifier_not_found") { setFieldError("email"); setError("No account found for this email address."); }
+      else if (code === "form_password_incorrect") { setFieldError("password"); setError("Invalid password. Please try again."); }
       else setError(err.errors?.[0]?.longMessage || "Unable to sign in. Please try again.");
     } finally {
       busyRef.current = false;
@@ -60,12 +63,13 @@ export default function Page({ calmeraPreview = false } = {}) {
     <FormCard style={styles.form}>
       <AuthNotice error>{error}</AuthNotice>
       <AuthNotice>{info}</AuthNotice>
-      <AuthField calmeraPreview={calmeraPreview} label="Email" value={emailAddress} onChangeText={setEmailAddress}
+      <AuthField calmeraPreview={calmeraPreview} label="Email" value={emailAddress} onChangeText={(value) => { setEmailAddress(value); setFieldError(current => current === "email" ? "" : current); }}
         autoCapitalize="none" keyboardType="email-address" textContentType="emailAddress"
-        autoComplete="email" placeholder="you@example.com" editable={!busy} error={!!error} />
-      <AuthField calmeraPreview={calmeraPreview} label="Password" value={password} onChangeText={setPassword}
+        autoComplete="email" placeholder="you@example.com" editable={!busy} error={fieldError === "email"}
+        returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => passwordInput.current?.focus()} />
+      <AuthField ref={passwordInput} calmeraPreview={calmeraPreview} label="Password" value={password} onChangeText={(value) => { setPassword(value); setFieldError(current => current === "password" ? "" : current); }}
         secureTextEntry textContentType="password" autoComplete="current-password"
-        autoCapitalize="none" placeholder="Your password" editable={!busy} error={!!error}
+        autoCapitalize="none" placeholder="Your password" editable={!busy} error={fieldError === "password"}
         returnKeyType="go" onSubmitEditing={onSignInPress} />
       <AuthLink onPress={() => navigate("/forgot-password")} style={styles.trailingLink} disabled={busy}>
         Forgot password?

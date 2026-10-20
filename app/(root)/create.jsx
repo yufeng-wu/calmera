@@ -1,5 +1,5 @@
 import { estimateMacros, inferenceError } from "@/lib/chatgpt/nutrition";
-import { Text, Alert, Platform, StyleSheet, Keyboard } from "react-native";
+import { Text, Alert, Platform, StyleSheet, Keyboard, useWindowDimensions } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Constants from "expo-constants";
@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const CreateScreen = ({ calmeraPreview = false } = {}) => {
   const router = useRouter();
+  const { fontScale } = useWindowDimensions();
   const navigation = useNavigation();
   const { calmeraFixture } = useLocalSearchParams();
   // A fixed synthetic fixture is available only in the separate full-test build.
@@ -57,15 +58,15 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
   const handleCreate = async () => {
     if (!scope.isActive() || savingRef.current || estimatingRef.current) return;
     // form validation
-    if (!foodName.trim()) return Alert.alert("Error", "Food name is required");
+    if (!foodName.trim()) return Alert.alert("Add a food", "Enter what you ate before saving.");
     if (!showMacros) {
       return Alert.alert(
-        "Need Macros",
-        "Please estimate the macros with AI or enter them manually before saving."
+        "Add nutrition",
+        "Estimate with ChatGPT or enter the nutrition values before saving."
       );
     }
     if (!calories || isNaN(parseFloat(calories)) || parseFloat(calories) < 0)
-      return Alert.alert("Error", "Calories must be a non-negative number");
+      return Alert.alert("Check calories", "Enter a calorie amount of 0 or more.");
     if (uiTestFixture) {
       return Alert.alert("Preview only", "The form is valid. Nothing was sent or saved.");
     }
@@ -104,8 +105,8 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
     if (!scope.isActive() || estimatingRef.current || savingRef.current) return;
     if (!foodName.trim() || !quantity.trim()) {
       return Alert.alert(
-        "Error",
-        "Food name and quantity are required for estimation"
+        "Add food and amount",
+        "Enter what you ate and how much before estimating."
       );
     }
     if (uiTestFixture) {
@@ -164,7 +165,7 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
         saveDisabled={isLoading || isEstimating}
         backDisabled={isLoading}
       />
-      <FormScrollView keyboardAware
+      <FormScrollView key={`manual-text-${fontScale}`} keyboardAware
         style={screen.scroll}
         contentContainerStyle={{ paddingBottom: insets.bottom + 28 }}
         enableOnAndroid={true}
