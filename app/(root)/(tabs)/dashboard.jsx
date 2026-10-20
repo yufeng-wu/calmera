@@ -24,6 +24,7 @@ import { useRouter } from "expo-router";
 import { NutritionSummaryCard } from "@/components/NutritionSummaryCard";
 import { FoodEntryItem, closeOpenMealActions } from "@/components/FoodEntryItem";
 import NoRecordYet from "@/components/NoRecordYet";
+import FoodwrapWordmark from "@/components/FoodwrapWordmark";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { Audio } from "expo-av";
 import Constants from "expo-constants";
@@ -350,7 +351,7 @@ export default function SummaryScreen() {
         }
       >
         <View style={[styles.headerContainer, { paddingTop: 12 }]}>
-          <Text style={styles.todayWordmark} accessibilityRole="header">foodwrap.</Text>
+          <FoodwrapWordmark style={{ marginBottom: 16 }} />
           <Text style={styles.dateText}>{formattedDate}</Text>
           {hasData ? <NutritionSummaryCard summary={summary} goals={goals} /> : <NutritionSummarySkeleton loading={isLoading} />}
           {(dataError || profileError) && <Pressable onPress={() => retryError().catch(() => {})} accessibilityRole="button" style={{ paddingVertical: 10 }}>
