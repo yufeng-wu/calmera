@@ -211,7 +211,6 @@ export default function UpdateGoals() {
         contentContainerStyle={styles.content}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
-        contentInsetAdjustmentBehavior="automatic"
       >
         <Text style={styles.eyebrow}>DAILY TARGETS</Text>
         <Text style={styles.description}>Adjust your daily goals with the sliders.</Text>
@@ -222,9 +221,9 @@ export default function UpdateGoals() {
               <Text style={styles.description}>Loading your goals…</Text>
             </View>
           ) : loadError ? (
-            <View style={styles.loading} accessibilityLiveRegion="polite">
-              <Text style={styles.helpTitle}>Couldn’t load your goals</Text>
-              <Text style={styles.description}>{loadError === "timeout"
+            <View style={styles.errorFeedback} accessibilityLiveRegion="polite">
+              <Text style={[styles.helpTitle, styles.centeredText]}>Couldn’t load your goals</Text>
+              <Text style={[styles.description, styles.centeredText]}>{loadError === "timeout"
                 ? "The request took too long. Please try again."
                 : "Check your connection and try again."}</Text>
               <GlassButton title="Try again" symbol="arrow.clockwise"
@@ -290,6 +289,8 @@ const styles = StyleSheet.create({
   goalCard: { paddingHorizontal: 18, paddingVertical: 6, gap: 0 },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: "#EDE6DF" },
   loading: { minHeight: 280, alignItems: "center", justifyContent: "center", gap: 14 },
+  errorFeedback: { alignItems: "center", paddingVertical: 20, gap: 12 },
+  centeredText: { textAlign: "center" },
   helpCard: { padding: 18, gap: 12 },
   helpHeading: { flexDirection: "row", alignItems: "center", gap: 8 },
   helpTitle: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text,},
