@@ -56,11 +56,11 @@ export default function SettingsScreen({ calmeraPreview = false }) {
         <Text style={styles.section}>ACCOUNT</Text>
         {!!accountEmail && <View accessible accessibilityRole="text" accessibilityLabel={`Signed in as ${accountEmail}`} style={styles.accountIdentity}>
           <Text style={styles.accountCaption}>Signed in as</Text>
-          <Text style={styles.accountCaption}>{accountEmail}</Text>
+          <Text style={styles.accountEmail}>{accountEmail}</Text>
         </View>}
       </View>
       <FormCard variant="grouped" style={styles.group}>
-        <SettingsRow title="Sign out" icon="log-out-outline" destructive onPress={handleLogout} />
+        <SettingsRow title="Sign out" icon="log-out-outline" showAccessory={false} destructive onPress={handleLogout} />
       </FormCard>
       {!!previewMessage && <Text accessibilityLiveRegion="polite" style={formStyles.caption}>{previewMessage}</Text>}
     </ScrollView>
@@ -75,4 +75,5 @@ const styles = StyleSheet.create({
   accountHeading: { gap: 4 },
   accountIdentity: { marginHorizontal: 4 },
   accountCaption: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
+  accountEmail: { ...TYPOGRAPHY.captionMedium, color: COLORS.text },
 });

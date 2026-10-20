@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 
 export default function SettingsRow({ title, subtitle, icon, onPress, selected = false,
-  destructive = false, disabled = false, divider = false, accessibilityRole = "button", accessibilityValue }) {
+  destructive = false, disabled = false, divider = false, showAccessory = true, accessibilityRole = "button", accessibilityValue }) {
   const color = destructive ? COLORS.expense : COLORS.primary;
   const interactive = typeof onPress === "function";
   const Row = interactive ? Pressable : View;
@@ -21,7 +21,7 @@ export default function SettingsRow({ title, subtitle, icon, onPress, selected =
       <Text style={[styles.title, destructive && { color: COLORS.expense }]}>{title}</Text>
       {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
     </View>
-    {interactive && <Ionicons name={accessibilityRole === "radio" ? (selected ? "checkmark-circle" : "ellipse-outline") : "chevron-forward"}
+    {interactive && showAccessory && <Ionicons name={accessibilityRole === "radio" ? (selected ? "checkmark-circle" : "ellipse-outline") : "chevron-forward"}
       size={accessibilityRole === "radio" ? 22 : 17} color={selected ? COLORS.primary : COLORS.textLight} />}
   </Row>;
 }
