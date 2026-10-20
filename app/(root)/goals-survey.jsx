@@ -95,7 +95,12 @@ function SurveyPickerSheet({ visible, title, onDone, onClose, onClear, children,
   const insets = useSafeAreaInsets();
   const { height, fontScale } = useWindowDimensions();
   const largeText = fontScale > 1.4;
-  const actionStyle = [styles.sheetSmallAction, largeText && { minWidth: Math.ceil(64 * fontScale), maxWidth: "100%" }];
+  const actionScale = Math.max(1, fontScale);
+  // These two short labels need text-sized space, not the shared multi-line
+  // action height. Keep native fonts/materials and let the row wrap if needed.
+  const actionWidth = Math.ceil(Math.max(64, 24 + 40 * actionScale) / 4) * 4;
+  const actionHeight = Math.ceil(Math.max(48, 20 + 22 * actionScale) / 4) * 4;
+  const actionStyle = [styles.sheetSmallAction, { width: actionWidth, height: actionHeight, maxWidth: "100%" }];
   if (!visible) return null;
   return <Modal visible transparent animationType="slide" presentationStyle="overFullScreen" onRequestClose={onClose}>
     <View style={styles.sheetBackdrop}>
