@@ -52,10 +52,15 @@ export default function SettingsScreen({ calmeraPreview = false }) {
         <SettingsRow title="Nutrition goals" subtitle="Adjust your daily targets" icon="options-outline" divider
           onPress={() => openPage("/update-goals", "Nutrition goals")} />
       </FormCard>
-      <Text style={styles.section}>ACCOUNT</Text>
+      <View style={styles.accountHeading}>
+        <Text style={styles.section}>ACCOUNT</Text>
+        {!!accountEmail && <View accessible accessibilityRole="text" accessibilityLabel={`Signed in as ${accountEmail}`} style={styles.accountIdentity}>
+          <Text style={styles.accountCaption}>Signed in as</Text>
+          <Text style={styles.accountCaption}>{accountEmail}</Text>
+        </View>}
+      </View>
       <FormCard variant="grouped" style={styles.group}>
-        {!!accountEmail && <SettingsRow title="Email" subtitle={accountEmail} icon="mail-outline" />}
-        <SettingsRow title="Sign out" icon="log-out-outline" divider={!!accountEmail} destructive onPress={handleLogout} />
+        <SettingsRow title="Sign out" icon="log-out-outline" destructive onPress={handleLogout} />
       </FormCard>
       {!!previewMessage && <Text accessibilityLiveRegion="polite" style={formStyles.caption}>{previewMessage}</Text>}
     </ScrollView>
@@ -67,4 +72,7 @@ const styles = StyleSheet.create({
   content: { padding: 20, paddingTop: 14, paddingBottom: 150, gap: 12 },
   section: { ...TYPOGRAPHY.eyebrow, color: COLORS.textLight, marginTop: 6, marginLeft: 4},
   group: { padding: 0, gap: 0, overflow: "hidden" },
+  accountHeading: { gap: 4 },
+  accountIdentity: { marginHorizontal: 4 },
+  accountCaption: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
 });
