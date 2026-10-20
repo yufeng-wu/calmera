@@ -51,3 +51,17 @@ test("switching display units does not invalidate the canonical recommendation",
   assert.equal(surveyInputSignature({ ...canonical, weightUnit: "kg", heightUnit: "cm" }),
     surveyInputSignature({ ...canonical, weightUnit: "lbs", heightUnit: "ft" }));
 });
+
+
+test("unspecified sex uses the existing female estimate only without body fat", () => {
+  const unspecified = { ...canonical, sex: "na" };
+  assert.equal(surveyBmr(unspecified), surveyBmr(canonical));
+  assert.deepEqual(surveyGoals(unspecified), surveyGoals(canonical));
+  assert.notEqual(surveyBmr(unspecified), surveyBmr({ ...canonical, sex: "male" }));
+
+  const bodyFatInput = { ...canonical, bodyFat: 20 };
+  for (const sex of ["female", "male", "na"]) {
+    assert.equal(surveyBmr({ ...bodyFatInput, sex }), surveyBmr(bodyFatInput));
+    assert.deepEqual(surveyGoals({ ...bodyFatInput, sex }), surveyGoals(bodyFatInput));
+  }
+});

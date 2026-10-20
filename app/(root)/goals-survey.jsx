@@ -3,6 +3,7 @@ import { TYPOGRAPHY } from "@/constants/typography";
 import React, { useContext, useRef, useState } from "react";
 import { AccessibilityInfo, Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Picker } from "@react-native-picker/picker";
+import Constants from "expo-constants";
 import { useNavigation, StackActions } from "@react-navigation/native";
 import { useAuth } from "@clerk/clerk-expo";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
@@ -54,14 +55,16 @@ const cmToFeetIn = (cm) => {
 };
 const feetInToCm = (ft, inch) => (ft * 12 + (inch || 0)) * 2.54;
 
-function SurveyChoices({ label, options, selectedValue, onValueChange, compact = false, disabled = false }) {
+function SurveyChoices({ label, options, selectedValue, onValueChange, compact = false, columns, shortLabels = false, disabled = false }) {
   const { fontScale } = useWindowDimensions();
+  const minimumWidth = shortLabels ? 44 * Math.max(1, fontScale) : Math.min(160, 64 * Math.max(1, fontScale));
   return <View style={[styles.choices, compact && styles.unitChoices]}>
     {options.map(({ label: text, value }) => <Pressable key={value}
       accessibilityRole="radio" accessibilityLabel={`${label}, ${text}`}
       accessibilityState={{ checked: selectedValue === value, disabled }} disabled={disabled} onPress={() => onValueChange(value)}
       style={({ pressed }) => [styles.choice, compact && styles.unitChoice,
-        !compact && { minWidth: Math.min(160, 64 * Math.max(1, fontScale)) },
+        !compact && { minWidth: minimumWidth, flexBasis: minimumWidth },
+        columns === 2 && { flexBasis: fontScale >= 1.5 ? "100%" : "45%" },
         selectedValue === value && styles.choiceSelected, pressed && styles.choicePressed]}>
       {selectedValue === value && <GlassSurface style={StyleSheet.absoluteFill} />}
       <Text style={[styles.choiceText, selectedValue === value && styles.choiceTextSelected]}>{text}</Text>
@@ -135,10 +138,12 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
   const { store, setShouldRefresh, setShouldRefreshGoals } = useRefreshSignal();
   const scrollViewRef = useRef(null);
   const saveFixture = calmeraPreview && ["save-token-timeout", "save-response-timeout", "save-error"].includes(calmeraPreviewStage);
-  const seeded = calmeraPreview && (calmeraPreviewStage === "recommendation" || saveFixture);
+  const disclosureFixture = calmeraPreview && Constants.expoConfig?.extra?.calmeraFullAppTest === true
+    && ["recommendation-unspecified", "recommendation-body-fat"].includes(calmeraPreviewStage);
+  const seeded = calmeraPreview && (calmeraPreviewStage === "recommendation" || saveFixture || disclosureFixture);
   const [age, setAge] = useState(seeded ? 30 : null);
-  const [sex, setSex] = useState(seeded ? "female" : null);
-  const [bodyFat, setBodyFat] = useState(null);
+  const [sex, setSex] = useState(seeded ? disclosureFixture ? "na" : "female" : null);
+  const [bodyFat, setBodyFat] = useState(disclosureFixture && calmeraPreviewStage === "recommendation-body-fat" ? 20 : null);
   const [weightKg, setWeightKg] = useState(seeded ? 70 : null);
   const [weightUnit, setWeightUnit] = useState("kg");
   const [heightCm, setHeightCm] = useState(seeded ? 175 : null);
@@ -155,7 +160,7 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
   const [exerciseActivity, setExerciseActivity] = useState(seeded ? "moderate" : null);
   const inputSignature = surveyInputSignature({ weightKg, heightCm, age, sex, bodyFat, workActivity, exerciseActivity, goal });
   const [recommendationResult, setRecommendationResult] = useState(() => seeded
-    ? { signature: inputSignature, goals: { calorieGoal: 2298, proteinGoal: 140, carbsGoal: 309, fatGoal: 56 } } : null);
+    ? { signature: inputSignature, goals: surveyGoals({ weightKg, heightCm, age, sex, bodyFat, workActivity, exerciseActivity, goal }) } : null);
   const recommendation = recommendationResult?.signature === inputSignature ? recommendationResult.goals : null;
   const [picker, setPicker] = useState({ field: null, visible: false });
   const [pendingAge, setPendingAge] = useState(25);
@@ -171,7 +176,7 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
   const [headerHeight, setHeaderHeight] = useState(Math.max(64, 40 * fontScale + 20) + safeTopInset);
   const [reduceMotion, setReduceMotion] = useState(true);
   const recommendationY = useRef(null);
-  const pendingReveal = useRef(seeded);
+  const pendingReveal = useRef(seeded && !disclosureFixture);
   React.useEffect(() => {
     let active = true;
     AccessibilityInfo.isReduceMotionEnabled().then(value => { if (active) setReduceMotion(value); });
@@ -285,6 +290,8 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
   const fieldName = { age: "Age", weight: `Weight (${weightUnit})`, height: heightUnit === "cm" ? "Height (cm)" : "Height",
     bodyFat: "Body fat %" }[picker.field];
   const workSelection = workActivityOptions.find(option => option.value === workActivity);
+  const sexAssumption = sex === "na" && bodyFat === null
+    ? "Sex wasn’t specified, so this estimate uses the female equation." : null;
 
   return <FormScreen style={formStyles.screen} onHeaderHeightChange={setHeaderHeight}>
     <FormHeader title="Goal Survey" onBack={goBack} backDisabled={loading} />
@@ -310,13 +317,14 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
         <View style={styles.question}>
           <Text style={styles.label}>Sex</Text>
           <SurveyChoices disabled={loading} label="Sex" options={sexOptions} selectedValue={sex} onValueChange={changeInput(setSex)} />
+          {sexAssumption && <Text style={styles.caption}>{sexAssumption}</Text>}
         </View>
       </FormCard>
       <FormCard>
         <Text accessibilityRole="header" style={styles.sectionTitle}>Your activity</Text>
         <View style={styles.question}>
           <Text style={styles.label}>How active are you at your job?</Text>
-          <SurveyChoices disabled={loading} label="Work activity" options={workActivityOptions} selectedValue={workActivity} onValueChange={changeInput(setWorkActivity)} />
+          <SurveyChoices disabled={loading} label="Work activity" columns={2} options={workActivityOptions} selectedValue={workActivity} onValueChange={changeInput(setWorkActivity)} />
           {!!workSelection && <View style={styles.helperGroup}>
             <Text style={styles.supporting}>{workSelection.desc}</Text>
             <Text style={styles.caption}>{workSelection.example}</Text>
@@ -324,7 +332,7 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
         </View>
         <View style={styles.question}>
           <Text style={styles.label}>How often do you exercise each week?</Text>
-          <SurveyChoices disabled={loading} label="Exercise sessions per week" options={exerciseActivityOptions} selectedValue={exerciseActivity} onValueChange={changeInput(setExerciseActivity)} />
+          <SurveyChoices disabled={loading} label="Exercise sessions per week" shortLabels options={exerciseActivityOptions} selectedValue={exerciseActivity} onValueChange={changeInput(setExerciseActivity)} />
         </View>
       </FormCard>
       <FormCard>
@@ -352,6 +360,7 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
         {saveFixture && <Text accessibilityLiveRegion="polite" style={styles.caption}>
           Synthetic save attempts: {fixtureTrace.attempts} · PUT requests: {fixtureTrace.puts}
         </Text>}
+        {sexAssumption && <Text style={styles.caption}>{sexAssumption}</Text>}
         <GlassButton title="Use these goals" symbol="checkmark" role="accent" onPress={handleSaveMacros} loading={loading} disabled={loading} />
         <View style={styles.methodGroup}>
           <Text style={styles.caption}>

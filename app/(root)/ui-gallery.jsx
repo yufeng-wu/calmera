@@ -43,6 +43,8 @@ const screens = [
   { id: "theme", title: "Theme", Component: ThemeSettings },
   { id: "survey", title: "Goals survey", Component: Survey },
   { id: "recommendation", title: "Survey recommendation", Component: Survey, stage: "recommendation" },
+  { id: "recommendation-unspecified", title: "Survey unspecified sex", Component: Survey, stage: "recommendation-unspecified" },
+  { id: "recommendation-body-fat", title: "Survey body-fat equation", Component: Survey, stage: "recommendation-body-fat" },
   { id: "recommendation-save-token", title: "Survey save token timeout", Component: Survey, stage: "save-token-timeout" },
   { id: "recommendation-save-response", title: "Survey save response timeout", Component: Survey, stage: "save-response-timeout" },
   { id: "recommendation-save-error", title: "Survey save rejection", Component: Survey, stage: "save-error" },
