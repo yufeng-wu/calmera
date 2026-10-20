@@ -4,15 +4,19 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 import { Ionicons } from "@expo/vector-icons";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { styles } from "@/assets/styles/auth.styles";
-import { FormHeader } from "@/components/GlassForm";
+import { FormHeader, FormScreen, FormScrollView } from "@/components/GlassForm";
 import useInputFontGeometry from "@/hooks/useInputFontGeometry";
 
 export function AuthScreen({ title, subtitle, onBack, backDisabled = false, children, footer }) {
   const { fontScale } = useWindowDimensions();
   const contentStyle = onBack ? styles.content : StyleSheet.flatten([styles.content, { paddingTop: 0 }]);
-  return <View style={styles.screen}>
+  const nativeHeaderEdge = Boolean(onBack) && Platform.OS === "ios" && Number.parseInt(String(Platform.Version), 10) >= 26;
+  const Screen = nativeHeaderEdge ? FormScreen : View;
+  const Scroll = nativeHeaderEdge ? FormScrollView : KeyboardAwareScrollView;
+  return <Screen style={styles.screen}>
     {onBack && <FormHeader title="calmera" onBack={onBack} backDisabled={backDisabled} />}
-    <KeyboardAwareScrollView key={`auth-text-${fontScale}`} style={styles.scroll} contentContainerStyle={contentStyle}
+    <Scroll {...(nativeHeaderEdge ? { keyboardAware: true } : {})}
+      key={`auth-text-${fontScale}`} style={styles.scroll} contentContainerStyle={contentStyle}
       enableOnAndroid enableAutomaticScroll extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
       keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
       {!onBack && <Text key={`brand-${fontScale}`} style={styles.wordmark}>calmera</Text>}
@@ -24,8 +28,8 @@ export function AuthScreen({ title, subtitle, onBack, backDisabled = false, chil
         {children}
         {footer}
       </View>
-    </KeyboardAwareScrollView>
-  </View>;
+    </Scroll>
+  </Screen>;
 }
 
 export const AuthField = forwardRef(function AuthField({ label, error = false, code = false, hint, style, calmeraPreview = false, ...props }, ref) {

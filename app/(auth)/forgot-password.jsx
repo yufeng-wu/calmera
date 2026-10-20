@@ -117,7 +117,7 @@ export default function ForgotPassword({ calmeraPreview = false, calmeraPreviewS
           setError("Your password was updated, but we couldn’t sign you in. Sign in with your new password.");
         } else setError(outcome.kind === "reset-incomplete"
           ? "Unable to complete your password reset. Please try again."
-          : "Unable to reset your password. Please ensure it meets the requirements.");
+          : "Unable to reset your password. Please try again.");
       }
     } catch {
       if (!isCurrent(ticket)) return;
@@ -127,7 +127,7 @@ export default function ForgotPassword({ calmeraPreview = false, calmeraPreviewS
       }
       setError(stage === "REQUEST" ? "Unable to send a reset code. Check the email address and try again."
         : stage === "VERIFY" ? "Couldn’t verify the code. Please try again."
-          : "Unable to reset your password. Please ensure it meets the requirements.");
+          : "Unable to reset your password. Please try again.");
     } finally {
       if (busyRef.current === ticket) {
         busyRef.current = null;

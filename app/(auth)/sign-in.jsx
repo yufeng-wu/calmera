@@ -48,7 +48,7 @@ export default function Page({ calmeraPreview = false } = {}) {
         await setActive({ session: attempt.createdSessionId });
         router.replace("/");
       } else {
-        setError("Your account needs an additional verification step. Please try signing in again.");
+        setError("Sign-in needs another step. This version of Calmera can’t complete it yet.");
       }
     } catch (err) {
       const code = err.errors?.[0]?.code;
