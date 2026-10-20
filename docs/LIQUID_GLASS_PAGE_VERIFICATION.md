@@ -31,6 +31,12 @@ Live views remain in memory; no screenshots were saved/exported. The dedicated s
 
 Polish commits are tracked on `codex/chatgpt-inference-mvp` in the existing `cal_mobile` repository. Intentionally separate OpenAI-logo source/assets remain dirty and excluded; a dirty working tree therefore does not mean the committed polish is unsynced. Remote synchronization must be checked explicitly; the historical log does not contain a remote-status snapshot for every commit.
 
+## October 20 follow-up — Settings transitions
+
+After the user reported a pause/flash opening Settings child pages, native-stack scenes now each carry the current opaque theme canvas instead of relying only on a transparent global backdrop. The approved rectangular native animator and existing inset/typography/layout remain. Settings warms route modules after interactions without mounting screens or starting data/service work. Theme no longer includes Compare glass materials, including in the test build.
+
+The 245-test suite, scoped lint, whitespace check and updated installed Release build passed. Synthetic Theme/Voice language navigation, real-route Goals fixture push/pop and Back during loading passed. Actual Settings→Theme→Back was also checked without preference/account/record changes; Matcha Latte remained selected. These settled UI checks do not establish per-frame smoothness or a measured first-open latency improvement. Detailed source-versus-runtime evidence is in the latest section of the polish log.
+
 ## Historical initial refresh — October 19, 2026
 
 The following dated evidence is retained as history. Its 60-test/21-state counts, earlier colors, connection-page language section and pre-baseline Git status describe that initial pass, not the current app.

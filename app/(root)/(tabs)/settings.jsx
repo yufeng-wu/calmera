@@ -6,10 +6,12 @@ import { useRouter } from "expo-router";
 import { useClerk } from "@clerk/clerk-expo";
 import { FormCard, formStyles } from "@/components/GlassForm";
 import SettingsRow from "@/components/SettingsRow";
+import useWarmSettingsRoutes from "@/hooks/useWarmSettingsRoutes";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 
 export default function SettingsScreen({ calmeraPreview = false }) {
   const router = useRouter();
+  useWarmSettingsRoutes();
   const { theme } = useTheme();
   const { fontScale } = useWindowDimensions();
   const { signOut } = useClerk();
