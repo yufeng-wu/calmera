@@ -7,6 +7,7 @@ import { useNavigation } from "@react-navigation/native";
 import useFormTaskScope from "@/hooks/useFormTaskScope";
 import { mealRequest } from "@/lib/mealRequest.mjs";
 import { validateMealNutrition } from "@/lib/mealNutritionValidation.mjs";
+import { createConfirmedMealSave } from "@/lib/confirmedMealSave.mjs";
 import { readNutrition } from "@/lib/nutritionRequest.mjs";
 import { FOOD_ENTRIES_API_URL } from "@/constants/api";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
@@ -31,6 +32,12 @@ export default function EditFoodEntry({ calmeraPreview = false, calmeraPreviewSt
   const { store, setShouldRefresh } = useRefreshSignal();
   const ownerRef = useRef(userId);
   ownerRef.current = userId;
+  const confirmedSave = useRef(null);
+  if (!confirmedSave.current) confirmedSave.current = createConfirmedMealSave();
+  const [confirmedKey, setConfirmedKey] = useState(null);
+  const fixtureSaves = useRef(0);
+  const fixtureExitFailed = useRef(false);
+  const [simulatedSaves, setSimulatedSaves] = useState(0);
   const savingRef = useRef(false);
   const estimatingRef = useRef(false);
   const [foodName, setFoodName] = useState("");
@@ -51,6 +58,8 @@ export default function EditFoodEntry({ calmeraPreview = false, calmeraPreviewSt
   const entryRef = useRef(entryId);
   entryRef.current = entryId;
   const sameEntry = () => ownerRef.current === userId && entryRef.current === entryId;
+  const navigationFixture = calmeraPreview && calmeraPreviewState === "saved-navigation-error";
+  const saveKey = calmeraPreview ? "calmera-editor-preview" : `${userId}:${entryId}`;
   const loadFixture = calmeraPreview && ["load-token-timeout", "load-json-timeout"].includes(calmeraPreviewState);
   const loadCalls = useRef({ attempts: 0, requests: 0 });
   const [loadTrace, setLoadTrace] = useState({ attempts: 0, requests: 0 });
@@ -58,8 +67,15 @@ export default function EditFoodEntry({ calmeraPreview = false, calmeraPreviewSt
   const scope = useFormTaskScope(`${userId}:${entryId || "preview"}`, () => {
     savingRef.current = false; estimatingRef.current = false;
     setIsLoading(false); setIsEstimating(false);
+    setConfirmedKey(confirmedSave.current.hasConfirmed(saveKey) ? saveKey : null);
     navigation.setOptions({ gestureEnabled: true });
   });
+  const hasConfirmed = confirmedSave.current.hasConfirmed(saveKey);
+  const back = () => {
+    if (!confirmedSave.current.hasConfirmed(saveKey)) return goBack();
+    try { goBack(); }
+    catch { if (sameEntry() && scope.isActive()) setConfirmedKey(saveKey); }
+  };
 
   useEffect(() => {
     let active = true;
@@ -122,11 +138,11 @@ export default function EditFoodEntry({ calmeraPreview = false, calmeraPreviewSt
   };
 
   const handleUpdate = async () => {
-    if (!scope.isActive() || !sameEntry() || savingRef.current || estimatingRef.current || isFetching || isEstimating || loadError) return;
+    if (!scope.isActive() || !sameEntry() || savingRef.current || estimatingRef.current || isFetching || isEstimating || loadError || confirmedSave.current.hasConfirmed(saveKey)) return;
     if (!foodName.trim()) return Alert.alert("Add a food", "Enter what you ate before saving.");
     const nutrition = validateMealNutrition({ calories, protein, carbs, fat });
     if (nutrition.error) return Alert.alert(nutrition.error.title, nutrition.error.message);
-    if (calmeraPreview) return Alert.alert("Preview only", "Changes validated. No meal was updated.");
+    if (calmeraPreview && !navigationFixture) return Alert.alert("Preview only", "Changes validated. No meal was updated.");
     const task = scope.start();
     if (!task) return;
     savingRef.current = task;
@@ -134,11 +150,23 @@ export default function EditFoodEntry({ calmeraPreview = false, calmeraPreviewSt
     setIsLoading(true);
     let leavingAfterSave = false;
     try {
-      await mealRequest({ getToken: () => tokenRef.current(), url: `${FOOD_ENTRIES_API_URL}/${entryId}`,
-        method: "PUT", signal: task.signal, isActive: () => taskCurrent(task),
-        body: { foodName, quantity, ...nutrition.values, mealType } });
-      refreshWrittenMeal();
-      if (taskCurrent(task)) { goBack(); leavingAfterSave = true; }
+      const outcome = await confirmedSave.current.run({ key: saveKey, isCurrent: () => taskCurrent(task),
+        persist: navigationFixture ? async () => {
+          fixtureSaves.current += 1;
+          if (taskCurrent(task)) setSimulatedSaves(fixtureSaves.current);
+        } : () => mealRequest({ getToken: () => tokenRef.current(), url: `${FOOD_ENTRIES_API_URL}/${entryId}`,
+          method: "PUT", signal: task.signal, isActive: () => taskCurrent(task),
+          body: { foodName, quantity, ...nutrition.values, mealType } }),
+        onConfirmed: refreshWrittenMeal,
+        exit: () => {
+          if (navigationFixture && !fixtureExitFailed.current) {
+            fixtureExitFailed.current = true; throw new Error("synthetic_navigation_unavailable");
+          }
+          goBack();
+        },
+      });
+      if (outcome.kind === "left") leavingAfterSave = true;
+      else if (confirmedSave.current.hasConfirmed(saveKey) && sameEntry() && scope.isActive()) setConfirmedKey(saveKey);
     } catch (error) {
       if (error.mayHaveSaved) refreshWrittenMeal();
       if (taskCurrent(task)) Alert.alert("Couldn’t save changes", error.timedOut
@@ -154,7 +182,7 @@ export default function EditFoodEntry({ calmeraPreview = false, calmeraPreviewSt
   };
 
   const handleEstimateMacros = async () => {
-    if (!scope.isActive() || !sameEntry() || estimatingRef.current || savingRef.current || isLoading) return;
+    if (!scope.isActive() || !sameEntry() || estimatingRef.current || savingRef.current || isLoading || confirmedSave.current.hasConfirmed(saveKey)) return;
     if (!foodName.trim() || !quantity.trim())
       return Alert.alert("Add food and amount", "Enter what you ate and how much before estimating.");
     const task = scope.start();
@@ -183,16 +211,22 @@ export default function EditFoodEntry({ calmeraPreview = false, calmeraPreviewSt
       }
     }
   };
-  const estimateDisabled = isLoading || !foodName.trim() || !quantity.trim()
+  const estimateDisabled = isLoading || hasConfirmed || !foodName.trim() || !quantity.trim()
     || (foodName.trim() === lastEstimated.foodName && quantity.trim() === lastEstimated.quantity);
 
   return <FormScreen style={formStyles.screen}>
-    <FormHeader title="Edit Meal" onBack={goBack} onSave={handleUpdate} saving={isLoading} backDisabled={isLoading}
-      saveDisabled={isFetching || isEstimating || !!loadError} />
+    <FormHeader title="Edit Meal" onBack={back} onSave={handleUpdate} saving={isLoading} backDisabled={isLoading}
+      saveDisabled={isFetching || isEstimating || !!loadError || hasConfirmed} />
     <FormScrollView keyboardAware key={`editor-text-${fontScale}`} style={formStyles.screen} contentContainerStyle={{ paddingTop: isFetching || loadError ? 12 : 0, paddingBottom: 40, gap: 18 }}
       enableOnAndroid enableAutomaticScroll extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
       keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" enableResetScrollToCoords={false}>
       {calmeraPreview && <Text style={[formStyles.caption, { marginHorizontal: 20 }]}>Synthetic preview · nothing is saved</Text>}
+      {navigationFixture && <Text accessibilityLiveRegion="polite" style={[formStyles.caption, { marginHorizontal: 20 }]}>Simulated saves: {simulatedSaves}</Text>}
+      {hasConfirmed && confirmedKey === saveKey && <FormCard style={{ marginHorizontal: 20 }}>
+        <Text style={formStyles.sectionTitle}>Meal saved</Text>
+        <Text style={formStyles.caption}>Go back to continue.</Text>
+        <GlassButton title="Go back" onPress={back} />
+      </FormCard>}
       {loadFixture && <Text accessibilityLiveRegion="polite" style={[formStyles.caption, { marginHorizontal: 20 }]}>
         Synthetic meal loads: {loadTrace.attempts} · GET requests: {loadTrace.requests}
       </Text>}
@@ -208,7 +242,7 @@ export default function EditFoodEntry({ calmeraPreview = false, calmeraPreviewSt
         calories={calories} setCalories={setCalories} protein={protein} setProtein={setProtein}
         carbs={carbs} setCarbs={setCarbs} fat={fat} setFat={setFat}
         mealType={mealType} setMealType={setMealType} onEstimateMacros={handleEstimateMacros}
-        isEstimating={isEstimating} busy={isLoading || isEstimating} estimateDisabled={estimateDisabled} showMacros={showMacros} />}
+        isEstimating={isEstimating} busy={isLoading || isEstimating || hasConfirmed} estimateDisabled={estimateDisabled} showMacros={showMacros} />}
     </FormScrollView>
   </FormScreen>;
 }

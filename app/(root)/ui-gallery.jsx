@@ -49,6 +49,7 @@ const screens = [
   { id: "recommendation-save-response", title: "Survey save response timeout", Component: Survey, stage: "save-response-timeout" },
   { id: "recommendation-save-error", title: "Survey save rejection", Component: Survey, stage: "save-error" },
   { id: "edit-meal", title: "Edit meal", Component: EditMeal },
+  { id: "edit-save-navigation-error", title: "Meal saved navigation recovery", Component: EditMeal, state: "saved-navigation-error" },
   { id: "edit-meal-load-token", title: "Meal load token timeout", Component: EditMeal, state: "load-token-timeout" },
   { id: "edit-meal-load-json", title: "Meal load response timeout", Component: EditMeal, state: "load-json-timeout" },
   { id: "edit-session", title: "Edit scale item", Component: EditSession },
@@ -61,8 +62,10 @@ const screens = [
   { id: "scale", title: "Scale display", Component: Scale },
   { id: "live", title: "Legacy Live fallback", Component: LiveFallback },
   { id: "manual", title: "Manual", Component: Manual },
+  { id: "manual-save-navigation-error", title: "Manual saved navigation recovery", Component: Manual, state: "saved-navigation-error" },
   { id: "photo", title: "Photo empty", Component: Photo },
   { id: "photo-selected", title: "Photo selected", Component: Photo, state: "selected" },
+  { id: "photo-save-navigation-error", title: "Photo saved navigation recovery", Component: Photo, state: "saved-navigation-error" },
 ];
 
 // Actual production components with local-only behavior. No account switching,

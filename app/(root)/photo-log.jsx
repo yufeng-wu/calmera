@@ -15,6 +15,7 @@ import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { pickMealPhoto } from "@/lib/chatgpt/planClient";
 import { nutritionClient, inferenceError } from "@/lib/chatgpt/nutrition";
 import { saveEstimatedEntries } from "@/lib/chatgpt/entryPersistence.mjs";
+import { createConfirmedMealSave } from "@/lib/confirmedMealSave.mjs";
 import { getLocalTimeWithOffset } from "@/lib/utils";
 
 export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewState = "empty" } = {}) {
@@ -25,7 +26,8 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
   const testBuild = Constants.expoConfig?.extra?.calmeraFullAppTest === true;
   const photoTestFixture = testBuild && calmeraFixture === "label-phone";
   const uiFixture = testBuild && (calmeraPreview || ["ui-photo-empty", "ui-photo-preview"].includes(calmeraFixture));
-  const previewFixture = uiFixture && (calmeraFixture === "ui-photo-preview" || (calmeraPreview && calmeraPreviewState === "selected"));
+  const savedNavigationFixture = testBuild && calmeraPreview && calmeraPreviewState === "saved-navigation-error";
+  const previewFixture = uiFixture && (savedNavigationFixture || calmeraFixture === "ui-photo-preview" || (calmeraPreview && calmeraPreviewState === "selected"));
   const exit = usePageExit(uiFixture ? "/ui-gallery" : "/dashboard");
   const { userId, getToken } = useAuth();
   const { store, setShouldRefresh } = useRefreshSignal();
@@ -38,6 +40,12 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
   const [selecting, setSelecting] = useState(false);
   const [processingStep, setProcessingStep] = useState("Estimating nutrition…");
   const [uncertain, setUncertain] = useState(false);
+  const confirmedSave = useRef(null);
+  if (!confirmedSave.current) confirmedSave.current = createConfirmedMealSave();
+  const [savedStatus, setSavedStatus] = useState({ owner: null, saved: false });
+  const mealSaved = savedStatus.owner === userId && savedStatus.saved;
+  const previewSaves = useRef(0);
+  const [previewSaveCount, setPreviewSaveCount] = useState(0);
   const operation = useRef(null);
   const routeGeneration = useRef(0);
   const focused = useRef(false);
@@ -49,6 +57,7 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
     routeGeneration.current += 1;
     setBusy(false);
     setSelecting(false);
+    setSavedStatus({ owner: userId, saved: confirmedSave.current.hasConfirmed(userId) });
     navigation.setOptions({ gestureEnabled: true });
     return () => {
       // A native picker does not change React Navigation focus. An actual route
@@ -66,9 +75,20 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
     && ownerRef.current === ticket.owner && focusedOwner.current === ticket.owner
     && routeGeneration.current === ticket.generation && !ticket.controller.signal.aborted;
   const currentOwner = ticket => ownerRef.current === ticket.owner && store.belongsTo(ticket.owner);
+  const hydrateConfirmed = ticket => {
+    if (!focused.current || ownerRef.current !== ticket.owner || focusedOwner.current !== ticket.owner) return;
+    setSavedStatus({ owner: ticket.owner, saved: true });
+    const replacement = operation.current;
+    if (replacement && replacement !== ticket && replacement.owner === ticket.owner && !replacement.leaving) {
+      replacement.controller.abort();
+      operation.current = null;
+      setBusy(false); setSelecting(false);
+      navigation.setOptions({ gestureEnabled: true });
+    }
+  };
   const beginOperation = kind => {
     if (!focused.current || operation.current || ownerRef.current !== userId
-      || focusedOwner.current !== userId) return null;
+      || focusedOwner.current !== userId || confirmedSave.current.hasConfirmed(userId)) return null;
     const ticket = { kind, owner: focusedOwner.current, generation: routeGeneration.current, controller: new AbortController() };
     operation.current = ticket;
     // Lock the native edge gesture in the same event as the JS operation lock,
@@ -89,8 +109,17 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
     setBusy(false);
     navigation.setOptions({ gestureEnabled: true });
   };
-  const leavePhoto = () => { if (!operation.current) exit(); };
+  const leavePhoto = () => {
+    if (operation.current || !focused.current || ownerRef.current !== userId || focusedOwner.current !== userId) return;
+    try { exit(); }
+    catch {
+      if (focused.current && ownerRef.current === userId && focusedOwner.current === userId) {
+        Alert.alert(confirmedSave.current.hasConfirmed(userId) ? "Meal saved" : "Couldn’t go back", "Please try going back again.");
+      }
+    }
+  };
   const resetPreview = () => {
+    if (!uiFixture || confirmedSave.current.hasConfirmed(userId)) return;
     operation.current?.controller.abort();
     operation.current = null;
     setSelecting(false);
@@ -118,50 +147,75 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
   }
 
   async function logPhoto() {
-    if (!photo || uncertain) return;
+    if (!photo || uncertain || confirmedSave.current.hasConfirmed(userId)) return;
     const ticket = beginOperation("log");
     if (!ticket) return;
-    if (uiFixture) {
+    if (uiFixture && !savedNavigationFixture) {
       setProcessingStep("Preview only. No photo is sent or saved.");
       return;
     }
     const selectedPhoto = photo;
     setProcessingStep("Estimating nutrition…");
     try {
-      const createdAt = getLocalTimeWithOffset();
-      const { client, model } = await nutritionClient(userId);
-      if (!isCurrent(ticket)) return;
-      const result = await client.estimate({ text: "", image: selectedPhoto.dataURL, model,
-        signal: ticket.controller.signal });
+      const createdAt = savedNavigationFixture ? "2026-10-19T12:00:00-04:00" : getLocalTimeWithOffset();
+      let result;
+      if (savedNavigationFixture) {
+        result = await Promise.resolve([{ foodName: "Synthetic oat bar", quantity: "1 bar", mealType: "Snack",
+          calories: 180, protein: 4, carbs: 28, fat: 6 }]);
+      } else {
+        const { client, model } = await nutritionClient(userId);
+        if (!isCurrent(ticket)) return;
+        result = await client.estimate({ text: "", image: selectedPhoto.dataURL, model,
+          signal: ticket.controller.signal });
+      }
       if (!isCurrent(ticket)) return;
       const entries = selectedPhoto.syntheticFixture ? result.map(entry => ({
         ...entry, foodName: `${entry.foodName} - CALMERA PHONE PHOTO TEST 2026-10-18`,
       })) : result;
       if (!entries.length) throw new Error("no_food_detected");
       setProcessingStep("Saving your meal…");
-      await saveEstimatedEntries(entries, { createdAt, url: FOOD_ENTRIES_API_URL,
-        signal: ticket.controller.signal, isActive: () => isCurrent(ticket),
-        getToken: async () => {
-          if (!isCurrent(ticket)) throw new Error("photo_operation_cancelled");
-          const token = await getToken();
-          if (!isCurrent(ticket)) throw new Error("photo_operation_cancelled");
-          return token;
+      const outcome = await confirmedSave.current.run({
+        key: ticket.owner,
+        persist: async () => {
+          if (savedNavigationFixture) {
+            previewSaves.current += 1;
+            if (isCurrent(ticket)) setPreviewSaveCount(previewSaves.current);
+            return entries;
+          }
+          return saveEstimatedEntries(entries, { createdAt, url: FOOD_ENTRIES_API_URL,
+            signal: ticket.controller.signal, isActive: () => isCurrent(ticket),
+            getToken: async () => {
+              if (!isCurrent(ticket)) throw new Error("photo_operation_cancelled");
+              const token = await getToken();
+              if (!isCurrent(ticket)) throw new Error("photo_operation_cancelled");
+              return token;
+            },
+          });
+        },
+        // Confirmed writes invalidate only their current owner's cache, even
+        // after blur. A failed refresh or exit cannot undo the confirmed save.
+        onConfirmed: () => {
+          if (!savedNavigationFixture && currentOwner(ticket)) setShouldRefresh(true);
+          // A late confirmation may belong to this owner’s refocused form,
+          // while the old ticket must never navigate or alert that new focus.
+          if (!isCurrent(ticket)) hydrateConfirmed(ticket);
+        },
+        isCurrent: () => isCurrent(ticket),
+        exit: () => {
+          ticket.leaving = true;
+          if (savedNavigationFixture) throw new Error("synthetic_navigation_failure");
+          exit();
         },
       });
-      // Confirmed/potential writes still invalidate the cache if the route was
-      // externally removed; stale work cannot show alerts or navigate afterward.
-      if (currentOwner(ticket)) setShouldRefresh(true);
-      if (isCurrent(ticket)) {
-        ticket.leaving = true;
-        exit();
-      }
+      if (outcome.kind !== "left" && operation.current === ticket) ticket.leaving = false;
+      if (outcome.kind !== "left" && confirmedSave.current.hasConfirmed(ticket.owner)) hydrateConfirmed(ticket);
     } catch (error) {
-      // A failed navigation dispatch must still release the operation lock.
+      // Only inference/persistence failures reach this recovery path.
       if (operation.current === ticket) ticket.leaving = false;
       const message = error?.message || "";
       const mayHaveSaved = error?.mayHaveSaved === true || message === "meal_save_uncertain"
         || Boolean(error?.savedEntries?.length);
-      if (mayHaveSaved && currentOwner(ticket)) setShouldRefresh(true);
+      if (mayHaveSaved && !savedNavigationFixture && currentOwner(ticket)) setShouldRefresh(true);
       if (!isCurrent(ticket)) return;
       if (mayHaveSaved) {
         setUncertain(true);
@@ -182,7 +236,7 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
       <FormScrollView key={`photo-text-${fontScale}`} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {uiFixture && (
           <Text style={styles.fixtureNote}>
-            UI preview · Photo access and saving are disabled.
+            {savedNavigationFixture ? "Synthetic navigation check · nothing is sent or saved." : "UI preview · Photo access and saving are disabled."}
           </Text>
         )}
         <View style={styles.intro}>
@@ -211,7 +265,7 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
               accessibilityLabel="Take photo"
               style={styles.option}
               onPress={() => selectPhoto("camera")}
-              disabled={busy || selecting || uiFixture}
+              disabled={busy || selecting || uiFixture || mealSaved}
             />
             <GlassButton
               title="Photos"
@@ -219,7 +273,7 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
               accessibilityLabel="Choose photo"
               style={styles.option}
               onPress={() => selectPhoto("library")}
-              disabled={busy || selecting || uiFixture}
+              disabled={busy || selecting || uiFixture || mealSaved}
             />
           </View>
         </FormCard>
@@ -238,6 +292,16 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
               </View>
             </View>
           )}
+          {mealSaved && (
+            <View style={styles.status} accessibilityRole="text" accessibilityLiveRegion="polite">
+              <Ionicons name="checkmark-circle-outline" size={23} color={COLORS.primary} accessible={false} />
+              <View style={styles.statusCopy}>
+                <Text style={styles.statusTitle}>Meal saved</Text>
+                <Text style={styles.statusDetail}>Go back to continue.</Text>
+              </View>
+            </View>
+          )}
+          {savedNavigationFixture && <Text style={styles.statusDetail}>Synthetic saves: {previewSaveCount}</Text>}
           {uncertain && (
             <View style={styles.status} accessibilityRole="text" accessibilityLiveRegion="polite">
               <Ionicons name="information-circle-outline" size={23} color={COLORS.primary} />
@@ -248,19 +312,20 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
             </View>
           )}
           <GlassButton
-            title={uiFixture ? "Preview processing" : "Log photo"}
+            title={mealSaved ? "Meal saved" : savedNavigationFixture ? "Test saved navigation" : uiFixture ? "Preview processing" : "Log photo"}
             symbol="sparkles"
             role="accent"
             onPress={logPhoto}
             loading={busy}
-            disabled={!photo || busy || selecting || uncertain}
+            disabled={!photo || busy || selecting || uncertain || mealSaved}
             style={styles.logButton}
-            accessibilityLabel={uiFixture ? "Preview processing without sending or saving" : "Estimate and log photo with ChatGPT"}
+            accessibilityLabel={mealSaved ? "Meal saved" : savedNavigationFixture ? "Test synthetic save and navigation recovery" : uiFixture ? "Preview processing without sending or saving" : "Estimate and log photo with ChatGPT"}
           />
+          {mealSaved && <GlassButton title="Go back" symbol="chevron.left" onPress={leavePhoto} disabled={busy || selecting} style={styles.logButton} />}
           {uncertain && (
             <GlassButton title="View History" symbol="clock" onPress={() => { if (!operation.current) router.replace("/history"); }} disabled={busy || selecting} style={styles.logButton} />
           )}
-          {uiFixture && busy && (
+          {uiFixture && !savedNavigationFixture && busy && (
             <GlassButton title="Reset preview" symbol="arrow.counterclockwise" onPress={resetPreview} style={styles.logButton} />
           )}
           <Text style={styles.note}>

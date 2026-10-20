@@ -7,6 +7,7 @@ import { useNavigation } from "@react-navigation/native";
 import useFormTaskScope from "@/hooks/useFormTaskScope";
 import { mealRequest } from "@/lib/mealRequest.mjs";
 import { validateMealNutrition } from "@/lib/mealNutritionValidation.mjs";
+import { createConfirmedMealSave } from "@/lib/confirmedMealSave.mjs";
 import { FOOD_ENTRIES_API_URL } from "@/constants/api";
 import { useRef, useState } from "react";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
@@ -14,10 +15,10 @@ import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { FoodEntryFormCard } from "@/components/FoodEntryFormCard";
 import { getLocalTimeWithOffset } from "@/lib/utils";
 import usePageExit from "@/hooks/usePageExit";
-import { FormScreen, FormScrollView, FormHeader } from "@/components/GlassForm";
+import { FormScreen, FormScrollView, FormHeader, FormCard, GlassButton, formStyles } from "@/components/GlassForm";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const CreateScreen = ({ calmeraPreview = false } = {}) => {
+const CreateScreen = ({ calmeraPreview = false, calmeraPreviewState = "ready" } = {}) => {
   const router = useRouter();
   const { fontScale } = useWindowDimensions();
   const navigation = useNavigation();
@@ -29,6 +30,7 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
   // The visual fixture uses this same form, with all network operations blocked.
   const uiTestFixture = Constants.expoConfig?.extra?.calmeraFullAppTest === true &&
     (calmeraPreview || calmeraFixture === "ui-manual");
+  const navigationFixture = uiTestFixture && calmeraPreviewState === "saved-navigation-error";
   const exit = usePageExit(uiTestFixture ? "/ui-gallery" : "/dashboard");
   const insets = useSafeAreaInsets();
   const { getToken, userId } = useAuth();
@@ -36,13 +38,20 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
   const ownerRef = useRef(userId);
   ownerRef.current = userId;
 
+  const confirmedSave = useRef(null);
+  if (!confirmedSave.current) confirmedSave.current = createConfirmedMealSave();
+  const saveKey = uiTestFixture ? "calmera-manual-preview" : userId;
+  const [confirmedKey, setConfirmedKey] = useState(null);
+  const fixtureSaves = useRef(0);
+  const fixtureExitFailed = useRef(false);
+  const [simulatedSaves, setSimulatedSaves] = useState(0);
   const savingRef = useRef(false);
   const estimatingRef = useRef(false);
   const [foodName, setFoodName] = useState(phoneTestFixture ? "Banana - CALMERA PHONE TEST 2026-10-18" : uiTestFixture ? "Banana" : "");
-  const [calories, setCalories] = useState("");
-  const [protein, setProtein] = useState("");
-  const [carbs, setCarbs] = useState("");
-  const [fat, setFat] = useState("");
+  const [calories, setCalories] = useState(navigationFixture ? "105" : "");
+  const [protein, setProtein] = useState(navigationFixture ? "1" : "");
+  const [carbs, setCarbs] = useState(navigationFixture ? "27" : "");
+  const [fat, setFat] = useState(navigationFixture ? "0" : "");
   const [mealType, setMealType] = useState("Breakfast");
   const [isLoading, setIsLoading] = useState(false);
   const [quantity, setQuantity] = useState(phoneTestFixture || uiTestFixture ? "118 g" : "");
@@ -51,15 +60,22 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
     foodName: "",
     quantity: "",
   });
-  const [showMacros, setShowMacros] = useState(false);
+  const [showMacros, setShowMacros] = useState(navigationFixture);
   const scope = useFormTaskScope(userId, () => {
     savingRef.current = false; estimatingRef.current = false;
     setIsLoading(false); setIsEstimating(false);
+    setConfirmedKey(confirmedSave.current.hasConfirmed(saveKey) ? saveKey : null);
     navigation.setOptions({ gestureEnabled: true });
   });
+  const hasConfirmed = confirmedSave.current.hasConfirmed(saveKey);
+  const back = () => {
+    if (!confirmedSave.current.hasConfirmed(saveKey)) return exit();
+    try { exit(); }
+    catch { if (ownerRef.current === userId && scope.isActive()) setConfirmedKey(saveKey); }
+  };
 
   const handleCreate = async () => {
-    if (ownerRef.current !== userId || !scope.isActive() || savingRef.current || estimatingRef.current) return;
+    if (ownerRef.current !== userId || !scope.isActive() || savingRef.current || estimatingRef.current || confirmedSave.current.hasConfirmed(saveKey)) return;
     // form validation
     if (!foodName.trim()) return Alert.alert("Add a food", "Enter what you ate before saving.");
     if (!showMacros) {
@@ -70,12 +86,12 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
     }
     const nutrition = validateMealNutrition({ calories, protein, carbs, fat });
     if (nutrition.error) return Alert.alert(nutrition.error.title, nutrition.error.message);
-    if (uiTestFixture) {
+    if (uiTestFixture && !navigationFixture) {
       return Alert.alert("Preview only", "The form is valid. Nothing was sent or saved.");
     }
     const task = scope.start();
     if (!task) return;
-    const currentOwner = () => ownerRef.current === userId && store.belongsTo(userId);
+    const currentOwner = () => ownerRef.current === userId && (uiTestFixture || store.belongsTo(userId));
     const current = () => task.isCurrent() && currentOwner();
     savingRef.current = task;
     navigation.setOptions({ gestureEnabled: false });
@@ -83,14 +99,27 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
     setIsLoading(true);
     let leavingAfterSave = false;
     try {
-      await mealRequest({ getToken, url: FOOD_ENTRIES_API_URL, signal: task.signal, isActive: current,
-        body: { foodName, quantity, ...nutrition.values, mealType, createdAt: getLocalTimeWithOffset() } });
-
-      // Signal home screen to refresh entries, then navigate back home
-      if (currentOwner()) setShouldRefresh(true);
-      if (current()) { exit(); leavingAfterSave = true; }
+      const outcome = await confirmedSave.current.run({ key: saveKey, isCurrent: current,
+        persist: navigationFixture ? async () => {
+          fixtureSaves.current += 1;
+          if (current()) setSimulatedSaves(fixtureSaves.current);
+        } : () => mealRequest({ getToken, url: FOOD_ENTRIES_API_URL, signal: task.signal, isActive: current,
+          body: { foodName, quantity, ...nutrition.values, mealType, createdAt: getLocalTimeWithOffset() } }),
+        onConfirmed: () => { if (!uiTestFixture && currentOwner()) setShouldRefresh(true); },
+        exit: () => {
+          if (navigationFixture && !fixtureExitFailed.current) {
+            fixtureExitFailed.current = true; throw new Error("synthetic_navigation_unavailable");
+          }
+          exit();
+        },
+      });
+      if (outcome.kind === "left") leavingAfterSave = true;
+      else if (confirmedSave.current.hasConfirmed(saveKey) && ownerRef.current === userId && scope.isActive()) {
+        // Rehydrate only immutable confirmation metadata after same-owner refocus.
+        setConfirmedKey(saveKey);
+      }
     } catch (error) {
-      if (error.uncertain && currentOwner()) setShouldRefresh(true);
+      if (!uiTestFixture && error.uncertain && currentOwner()) setShouldRefresh(true);
       if (!current()) return;
       Alert.alert(error.uncertain ? "Couldn’t confirm save" : "Couldn’t save meal",
         error.uncertain ? "Your meal may already be saved. Your draft is still here; check History before trying again to avoid a duplicate."
@@ -106,7 +135,7 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
   };
 
   const handleEstimateMacros = async () => {
-    if (ownerRef.current !== userId || !scope.isActive() || estimatingRef.current || savingRef.current) return;
+    if (ownerRef.current !== userId || !scope.isActive() || estimatingRef.current || savingRef.current || confirmedSave.current.hasConfirmed(saveKey)) return;
     if (!foodName.trim() || !quantity.trim()) {
       return Alert.alert(
         "Add food and amount",
@@ -154,7 +183,7 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
   };
 
   const estimateDisabled =
-    isLoading ||
+    isLoading || hasConfirmed ||
     !foodName.trim() ||
     !quantity.trim() ||
     (foodName.trim() === lastEstimated.foodName &&
@@ -164,10 +193,10 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
     <FormScreen style={screen.container}>
       <FormHeader
         title="Manual"
-        onBack={exit}
+        onBack={back}
         onSave={handleCreate}
         saving={isLoading}
-        saveDisabled={isLoading || isEstimating}
+        saveDisabled={isLoading || isEstimating || hasConfirmed}
         backDisabled={isLoading}
       />
       <FormScrollView key={`manual-text-${fontScale}`} keyboardAware
@@ -183,6 +212,12 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
         {uiTestFixture && (
           <Text style={screen.fixtureNote}>Visual test · nothing is sent or saved</Text>
         )}
+        {navigationFixture && <Text accessibilityLiveRegion="polite" style={screen.fixtureNote}>Simulated saves: {simulatedSaves}</Text>}
+        {hasConfirmed && confirmedKey === saveKey && <FormCard style={{ marginHorizontal: 20 }}>
+          <Text style={formStyles.sectionTitle}>Meal saved</Text>
+          <Text style={formStyles.caption}>Go back to continue.</Text>
+          <GlassButton title="Go back" onPress={back} />
+        </FormCard>}
         <FoodEntryFormCard
           foodName={foodName}
           setFoodName={setFoodName}
@@ -200,7 +235,7 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
           setMealType={setMealType}
           onEstimateMacros={handleEstimateMacros}
           isEstimating={isEstimating}
-          busy={isLoading || isEstimating}
+          busy={isLoading || isEstimating || hasConfirmed}
           estimateDisabled={estimateDisabled}
           showMacros={showMacros}
           onEnterMacros={() => setShowMacros(true)}
