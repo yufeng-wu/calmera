@@ -28,6 +28,7 @@ const screens = [
   { id: "sign-in", title: "Sign In", Component: SignIn },
   { id: "sign-up", title: "Create account", Component: SignUp },
   { id: "verification", title: "Email verification", Component: SignUp, stage: "verification" },
+  { id: "signup-setup", title: "Verified account setup", Component: SignUp, stage: "setup" },
   { id: "forgot-password", title: "Reset password", Component: ForgotPassword },
   { id: "reset-code", title: "Reset verification", Component: ForgotPassword, stage: "verification" },
   { id: "reset", title: "New password", Component: ForgotPassword, stage: "reset" },
