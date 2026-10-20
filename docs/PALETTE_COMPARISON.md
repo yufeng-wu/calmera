@@ -1,8 +1,16 @@
-# Tangerine / Basil & Oat palette comparison
+# Palette comparison
 
 The user requested a Sweetgreen-inspired alternative to the existing Tangerine palette, with both versions shown before choosing. This is a local comparison, not an app-wide palette selection.
 
-## Proposals
+## Current revision — Green & Ivory
+
+After reviewing the first comparison, the user asked for green as the main color with an off-white background. The green proposal is now **Green & Ivory**: accent #355C45, neutral ivory canvas #FCFBF7, white cards #FFFFFF, border #E3E5DE and restrained sage highlight #EBF0E1. The original green-washed Basil & Oat study is preserved in commit bb5a597; it is no longer the current second button.
+
+The visible choices are Tangerine / Green & Ivory. The internal preview ID remains basil, so all native green tint handling and interactions are unchanged. This is still a local comparison, not an applied global palette or saved preference.
+
+The refined screen was built and shown live on iOS 27. Native AX reported Green & Ivory selected, and the in-memory view confirmed neutral off-white behind white cards with green wordmark, amounts, Add and Today accents. Typography, layout and data were unchanged. Scoped lint, whitespace checks and Release build passed (/tmp/foodwrap-green-ivory-lint.log and /tmp/foodwrap-green-ivory-build.log). Only palette constants changed; no redundant full-suite rerun was added. No screenshot was saved/exported or real preference changed.
+
+## Original proposals
 
 | Token | Tangerine | Basil & Oat |
 | --- | --- | --- |
