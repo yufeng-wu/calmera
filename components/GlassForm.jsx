@@ -71,7 +71,7 @@ const fallbackSymbols = {
 
 // UIKit owns the glass material and press response. Never fade an effect ancestor.
 export function GlassButton({ title = "", symbol = "", onPress, disabled = false, loading = false,
-  style, accessibilityLabel, role = "default" }) {
+  style, accessibilityLabel, role = "default", onMetrics }) {
   const { fontScale } = useWindowDimensions();
   const requested = StyleSheet.flatten(style) || {};
   const minimumHeight = typeof requested.height === "number" ? requested.height
@@ -84,7 +84,7 @@ export function GlassButton({ title = "", symbol = "", onPress, disabled = false
   if (NativeButton) return <View style={buttonStyle}>
     <NativeButton style={StyleSheet.absoluteFill} title={title} symbol={symbol}
       buttonRole={role} buttonDisabled={Boolean(disabled || loading)} loading={loading}
-      buttonLabel={accessibilityLabel || title} onPress={onPress} />
+      buttonLabel={accessibilityLabel || title} onPress={onPress} metricsEnabled={Boolean(onMetrics)} onMetrics={onMetrics} />
   </View>;
   return <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel || title}
     accessibilityState={{ disabled: disabled || loading, busy: loading }} disabled={disabled || loading}
@@ -99,7 +99,7 @@ export function GlassButton({ title = "", symbol = "", onPress, disabled = false
 }
 
 // The app's SafeScreen already supplies the top inset. Keep navigation symmetric.
-export function FormHeader({ title, onBack, onSave, saving = false, saveDisabled = false, backDisabled = false, rightAction }) {
+export function FormHeader({ title, onBack, onSave, saving = false, saveDisabled = false, backDisabled = false, rightAction, onSaveMetrics }) {
   const { fontScale } = useWindowDimensions();
   const large = fontScale > 1.4;
   const edge = useContext(HeaderScrollContext);
@@ -114,7 +114,7 @@ export function FormHeader({ title, onBack, onSave, saving = false, saveDisabled
     <Text accessibilityRole="header" style={styles.title}>{title}</Text>
     <View style={[styles.headerSide, styles.headerTrailing, large && styles.headerSideLarge]}>
       {rightAction || (onSave && <GlassButton title={large ? "" : "Save"} symbol={large ? "checkmark" : ""}
-        onPress={onSave} role="navigation-action" loading={saving} disabled={saveDisabled} accessibilityLabel="Save"
+        onPress={onSave} role="navigation-action" loading={saving} disabled={saveDisabled} accessibilityLabel="Save" onMetrics={onSaveMetrics}
         style={large ? styles.headerBack : styles.headerSave} />)}
     </View>
   </View>;

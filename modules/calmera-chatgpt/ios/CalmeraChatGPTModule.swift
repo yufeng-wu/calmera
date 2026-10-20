@@ -27,7 +27,8 @@ public final class CalmeraChatGPTModule: Module {
     }
     View(CalmeraFormButtonView.self) {
       ViewName("FormButton")
-      Events("onPress")
+      Events("onPress", "onMetrics")
+      Prop("metricsEnabled") { (view: CalmeraFormButtonView, value: Bool) in view.metricsEnabled = value }
       Prop("title") { (view: CalmeraFormButtonView, value: String) in view.buttonTitle = value }
       Prop("symbol") { (view: CalmeraFormButtonView, value: String) in view.symbol = value }
       Prop("buttonRole") { (view: CalmeraFormButtonView, value: String) in view.buttonRole = value }
@@ -1453,6 +1454,9 @@ final class CalmeraHeaderScrollEdgeView: ExpoView {
 // No opacity/scale animation around material; UIKit supplies its own press effect.
 final class CalmeraFormButtonView: ExpoView {
   let onPress = EventDispatcher()
+  let onMetrics = EventDispatcher()
+  var metricsEnabled = false
+  private var lastMetrics: [String: Double] = [:]
   var buttonTitle = ""
   var symbol = ""
   var buttonRole = "default"
@@ -1521,13 +1525,21 @@ final class CalmeraFormButtonView: ExpoView {
       return outgoing
     }
     config.showsActivityIndicator = loading
+    if navigation && loading {
+      // Fixed-size Save capsules cannot fit a spinner beside their title.
+      // Replace the content in place; keep the native glass and outer bounds.
+      config.title = nil
+      config.image = nil
+      config.imagePadding = 0
+      config.contentInsets = .zero
+    }
     button.tintColor = neutral ? .label : tint
     button.configuration = config
     button.isEnabled = !buttonDisabled && !loading
     button.accessibilityLabel = buttonLabel.isEmpty ? buttonTitle : buttonLabel
     button.accessibilityValue = loading ? "Processing" : nil
     button.titleLabel?.adjustsFontForContentSizeCategory = true
-    button.titleLabel?.numberOfLines = 2
+    button.titleLabel?.numberOfLines = navigation ? 1 : 2
     button.titleLabel?.textAlignment = .center
     if #available(iOS 26.0, *) { button.cornerConfiguration = .capsule() }
     setNeedsLayout()
@@ -1536,6 +1548,14 @@ final class CalmeraFormButtonView: ExpoView {
   override func layoutSubviews() {
     super.layoutSubviews()
     button.frame = bounds
+    if metricsEnabled && bounds.width > 0 && bounds.height > 0 {
+      let size = button.intrinsicContentSize
+      let metrics: [String: Double] = ["width": Double(bounds.width), "height": Double(bounds.height),
+        "buttonWidth": Double(button.bounds.width), "buttonHeight": Double(button.bounds.height),
+        "intrinsicWidth": Double(size.width), "intrinsicHeight": Double(size.height),
+        "loading": loading ? 1 : 0, "hasTitle": button.configuration?.title?.isEmpty == false ? 1 : 0]
+      if metrics != lastMetrics { lastMetrics = metrics; onMetrics(metrics) }
+    }
   }
   deinit { NotificationCenter.default.removeObserver(self) }
 }

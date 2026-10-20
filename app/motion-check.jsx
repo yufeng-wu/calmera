@@ -18,6 +18,10 @@ export default function MotionCheck() {
   const [menu, setMenu] = useState(initial);
   const [metrics, setMetrics] = useState({});
   const [edgeStatus, setEdgeStatus] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [saveMetrics, setSaveMetrics] = useState({});
+  const [compactSaveMetrics, setCompactSaveMetrics] = useState({});
+  const saveTimer = useRef(null);
   const [result, setResult] = useState("Not run");
   const timers = useRef([]);
   const scroll = useRef(null);
@@ -26,9 +30,14 @@ export default function MotionCheck() {
   const previousVoiceWidth = useRef(0);
   const latestMetrics = useRef({});
   const clear = () => { timers.current.forEach(clearTimeout); timers.current = []; };
-  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+  useEffect(() => () => { timers.current.forEach(clearTimeout); clearTimeout(saveTimer.current); }, []);
   if (Constants.expoConfig?.extra?.calmeraFullAppTest !== true || !NativeMenu) return <Redirect href="/" />;
   const baseline = 64 + insets.bottom;
+  const save = () => {
+    if (saveTimer.current) return;
+    setSaving(true);
+    saveTimer.current = setTimeout(() => { saveTimer.current = null; setSaving(false); }, 8000);
+  };
   const run = () => {
     clear(); scenario.current = true; observed.current = false; previousVoiceWidth.current = 0;
     setResult("Running synthetic hold → inset/width change → Processing… → Add");
@@ -56,9 +65,16 @@ export default function MotionCheck() {
     if (name === "close") setMenu(value => ({ ...value, expanded: false }));
   };
   return <FormScreen style={styles.page} onEdgeStatus={({ nativeEvent }) => setEdgeStatus(nativeEvent)}>
-    <FormHeader title="Motion check" onBack={() => router.replace("/ui-gallery")} />
+    <FormHeader title="Motion check" onBack={() => router.replace("/ui-gallery")}
+      onSave={save} saving={saving} onSaveMetrics={({ nativeEvent }) => setSaveMetrics(nativeEvent)} />
     <FormScrollView ref={scroll} contentContainerStyle={styles.content}>
       <Text style={styles.caption}>Native header edge: bound {edgeStatus.bound || 0} · overlap {Math.round(edgeStatus.overlap || 0)} pt · backdrop {edgeStatus.backdropActive || 0}</Text>
+      <Text style={styles.caption}>Save: {saveMetrics.width} × {saveMetrics.height} pt · intrinsic {saveMetrics.intrinsicWidth} × {saveMetrics.intrinsicHeight} pt · loading {saveMetrics.loading || 0} · title {saveMetrics.hasTitle || 0}</Text>
+      <GlassButton symbol="checkmark" role="navigation-action" accessibilityLabel="Compact Save check"
+        style={{ width: 44, height: 44 }} onPress={save} loading={saving}
+        onMetrics={({ nativeEvent }) => setCompactSaveMetrics(nativeEvent)} />
+      <Text style={styles.caption}>Compact Save: {compactSaveMetrics.width} × {compactSaveMetrics.height} pt · intrinsic {compactSaveMetrics.intrinsicWidth} × {compactSaveMetrics.intrinsicHeight} pt · loading {compactSaveMetrics.loading || 0}</Text>
+      <Text style={styles.caption}>Save runs an 8-second local simulation; no data is submitted.</Text>
       <Text style={styles.body}>Actual native Add menu. All recording and processing states are synthetic.</Text>
       <GlassButton title="Scroll beneath header" onPress={() => scroll.current?.scrollTo({ y: 80, animated: true })} />
       <GlassButton title="Return to top" onPress={() => scroll.current?.scrollTo({ y: 0, animated: true })} />
