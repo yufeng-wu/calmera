@@ -1,4 +1,5 @@
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -52,6 +53,8 @@ export default function ThemeSettings({ calmeraPreview = false }) {
       </Text>
       {!!error && <GlassButton title="Try again" symbol="arrow.clockwise" onPress={() => error === "load" ? reload() : selectTheme(themeId).catch(() => {})} />}
       <Text style={styles.description}>Glow and Aura move gently. They stay still when Reduce Motion is enabled.</Text>
+      {Constants.expoConfig?.extra?.calmeraFullAppTest === true && <GlassButton title="Compare glass materials" symbol="square.on.square"
+        onPress={() => router.push("/glass-compare")} />}
       {review && <Text style={styles.description}>UI review · this choice is saved only in the test preference.</Text>}
     </ScrollView>
   </View>;

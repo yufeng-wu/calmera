@@ -21,7 +21,7 @@ function ThemedApp() {
 export default function RootLayout() {
   const pathname = usePathname();
   const review = Constants.expoConfig?.extra?.calmeraFullAppTest === true
-    && ["/ui-gallery", "/background-compare", "/theme-check"].includes(pathname);
+    && ["/ui-gallery", "/background-compare", "/glass-compare", "/theme-check"].includes(pathname);
   const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || Constants.expoConfig.extra.clerkPublishableKey;
 
   if (!publishableKey) {

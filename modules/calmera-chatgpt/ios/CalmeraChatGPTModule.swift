@@ -8,6 +8,15 @@ public final class CalmeraChatGPTModule: Module {
   public func definition() -> ModuleDefinition {
     Name("CalmeraChatGPT")
     View(CalmeraGlassView.self) {}
+    // Isolated material comparison; production controls keep their appearance.
+    View(CalmeraMaterialSampleView.self) {
+      ViewName("MaterialSample")
+      Events("onPress")
+      Prop("materialStyle") { (view: CalmeraMaterialSampleView, value: String) in view.materialStyle = value }
+      Prop("shadowStyle") { (view: CalmeraMaterialSampleView, value: String) in view.shadowStyle = value }
+      Prop("sampleLabel") { (view: CalmeraMaterialSampleView, value: String) in view.sampleLabel = value }
+      OnViewDidUpdateProps { (view: CalmeraMaterialSampleView) in view.updateSample() }
+    }
     View(CalmeraFormButtonView.self) {
       ViewName("FormButton")
       Events("onPress")
@@ -116,6 +125,117 @@ public final class CalmeraChatGPTModule: Module {
     }.runOnQueue(.main)
     OnDestroy { self.callback.stop() }
   }
+}
+
+
+// Native, touchable samples for the test-only Glass materials page. Extra
+// shadows live on the outer host; the effect itself is never clipped or faded.
+final class CalmeraMaterialSampleView: ExpoView {
+  let onPress = EventDispatcher()
+  var materialStyle = "regular"
+  var shadowStyle = "native"
+  var sampleLabel = "Add"
+  private let material = UIVisualEffectView()
+  private let button = UIButton(type: .system)
+  private var configurationKey = ""
+  private var actualMaterial = ""
+  private let accent = UIColor(red: 188/255, green: 90/255, blue: 25/255, alpha: 1)
+
+  required init(appContext: AppContext? = nil) {
+    super.init(appContext: appContext)
+    backgroundColor = .clear
+    isOpaque = false
+    clipsToBounds = false
+    overrideUserInterfaceStyle = .light
+    material.backgroundColor = .clear
+    material.clipsToBounds = false
+    addSubview(material)
+    material.contentView.addSubview(button)
+    button.addTarget(self, action: #selector(tapped), for: .touchUpInside)
+    for name in [UIContentSizeCategory.didChangeNotification,
+      UIAccessibility.reduceTransparencyStatusDidChangeNotification,
+      UIAccessibility.darkerSystemColorsStatusDidChangeNotification] {
+      NotificationCenter.default.addObserver(self, selector: #selector(accessibilityChanged), name: name, object: nil)
+    }
+    updateSample()
+  }
+
+  @objc private func accessibilityChanged() {
+    configurationKey = ""
+    updateSample()
+  }
+
+  func updateSample() {
+    let opaque = UIAccessibility.isReduceTransparencyEnabled
+    let key = "\(materialStyle)-\(shadowStyle)-\(opaque)-\(UIAccessibility.isDarkerSystemColorsEnabled)-\(traitCollection.preferredContentSizeCategory.rawValue)"
+    button.accessibilityLabel = sampleLabel
+    if configurationKey == key { return }
+    configurationKey = key
+    var configuration = UIButton.Configuration.plain()
+    configuration.title = "Add"
+    configuration.image = UIImage(systemName: "plus")
+    configuration.imagePadding = 6
+    configuration.baseForegroundColor = accent
+    configuration.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4)
+    configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { [weak self] incoming in
+      var outgoing = incoming
+      outgoing.font = UIFontMetrics(forTextStyle: .subheadline).scaledFont(
+        for: .systemFont(ofSize: 14, weight: .semibold), compatibleWith: self?.traitCollection)
+      return outgoing
+    }
+    button.configuration = configuration
+    button.titleLabel?.adjustsFontForContentSizeCategory = true
+    material.effect = nil
+    material.backgroundColor = opaque ? .secondarySystemBackground : .clear
+    if opaque {
+      actualMaterial = "Opaque accessibility fallback"
+    } else if #available(iOS 26.0, *), ["regular", "tinted", "clear"].contains(materialStyle) {
+      let effect = UIGlassEffect(style: materialStyle == "clear" ? .clear : .regular)
+      effect.isInteractive = true
+      if materialStyle == "tinted" { effect.tintColor = accent.withAlphaComponent(0.10) }
+      material.effect = effect
+      actualMaterial = materialStyle == "clear" ? "UIGlassEffect.clear" : "UIGlassEffect.regular"
+    } else {
+      let style: UIBlurEffect.Style
+      switch materialStyle {
+      case "ultraThin": style = .systemUltraThinMaterial; actualMaterial = "UIBlurEffect.systemUltraThinMaterial"
+      case "thin": style = .systemThinMaterial; actualMaterial = "UIBlurEffect.systemThinMaterial"
+      default: style = .systemMaterial; actualMaterial = "UIBlurEffect.systemMaterial"
+      }
+      material.effect = UIBlurEffect(style: style)
+    }
+    // These are additional fixed shadows; Apple still owns its adaptive shadow.
+    layer.shadowColor = UIColor.black.cgColor
+    switch shadowStyle {
+    case "soft": layer.shadowOpacity = 0.07; layer.shadowRadius = 10; layer.shadowOffset = CGSize(width: 0, height: 3)
+    case "lifted": layer.shadowOpacity = 0.14; layer.shadowRadius = 18; layer.shadowOffset = CGSize(width: 0, height: 7)
+    default: layer.shadowOpacity = 0; layer.shadowRadius = 0; layer.shadowOffset = .zero
+    }
+    setNeedsLayout()
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    material.frame = bounds
+    button.frame = material.contentView.bounds
+    if #available(iOS 26.0, *), ["regular", "tinted", "clear"].contains(materialStyle) {
+      material.cornerConfiguration = .capsule()
+      material.clipsToBounds = false
+    } else {
+      material.layer.cornerRadius = bounds.height / 2
+      material.clipsToBounds = true
+    }
+    layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: bounds.height / 2).cgPath
+  }
+
+  @objc private func tapped() {
+    UISelectionFeedbackGenerator().selectionChanged()
+    onPress(["material": actualMaterial, "shadow": shadowStyle,
+      "width": Double(bounds.width), "height": Double(bounds.height),
+      "reduceTransparency": UIAccessibility.isReduceTransparencyEnabled])
+  }
+
+  deinit { NotificationCenter.default.removeObserver(self) }
 }
 
 
