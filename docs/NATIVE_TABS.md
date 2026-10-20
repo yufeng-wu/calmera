@@ -6,6 +6,18 @@ Implementation stays on Expo SDK 53 / React Native 0.79.2. The existing Calmera 
 
 No SDK/package upgrade, new external UI dependency, private UIKit API or custom gesture recognizer was introduced. The system draws the iOS 26 selection effect. Current compiled SDK is Xcode 26 / iOS 26.
 
+## October 19: material clarity and optical edges
+
+The tab bar remains the system UITabBarController with its system selection lens. The overlay now explicitly keeps the tab bar and placeholder controllers translucent/nonopaque, extends their clear content beneath the bar, and avoids a replacement custom bar background. Existing React Navigation ownership, tap dispatch and scroll padding remain.
+
+The compact Add/close capsule uses native UIGlassEffect.clear in normal contrast. Its longer Photo/Manual/Voice options retain regular glass for label readability. Increase Contrast uses regular material for Add too; Reduce Transparency retains its existing opaque fallback. On iOS 26, native cornerConfiguration.capsule owns the optical rim, and material/clipping hosts allow the native edge and shadow outside the capsule. Earlier iOS keeps the rounded material fallback. Existing menu spring, equal option widths and anchored Voice return are retained.
+
+Scoped ESLint, all 60 existing mobile tests and the Release simulator build passed. Synthetic text/color rows were inspected behind the actual UIKit controls; blurred text was visible through the tab material. Native center-tab activation selected History and dispatched one event. Add expanded normally and a 2.5 s synthetic Voice hold produced start/end, Processing and an idle Add title. Voice-return diagnostics sampled 25 frames with a 4.73 pt maximum local settling displacement. The last-row check reached offset 1449 with the final row above both floating controls. These checks use local synthetic callbacks, with no microphone, account records, inference or phone operations.
+
+Increase Contrast was enabled for visual inspection of stronger system outlines and then restored to its original disabled value. No screenshot was saved/exported. Free-finger scrubbing was not newly measured; UIKit still owns that gesture.
+
+References: https://developer.apple.com/documentation/technologyoverviews/adopting-liquid-glass and https://developer.apple.com/documentation/uikit/uitabbar/istranslucent
+
 ## Floating-content correction and selected icon
 
 - Today now uses the selected **Meal** SF Symbol (`fork.knife`) in UIKit, with a matching restaurant icon in the non-iOS fallback.

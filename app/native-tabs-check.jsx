@@ -43,6 +43,7 @@ export default function NativeTabsCheck() {
       </View>
       {Array.from({ length: 12 }, (_, index) => <View key={index} style={{ minHeight: 100, padding: 24, backgroundColor: index % 2 ? "#E8EDE4" : "#EFE0D4", borderBottomWidth: 1, borderColor: "#FFFFFF" }}>
         <Text style={{ fontSize: 18, color: COLORS.text }}>{index === 11 ? "LAST ROW — fully reachable" : `Layout test row ${index + 1}`}</Text>
+        <Text style={{ fontSize: 14, lineHeight: 21, color: COLORS.text }}>Synthetic content behind native glass. Meal details · 450 kcal · protein 20 g · text stays scrollable beneath the floating controls.</Text>
       </View>)}
     </ScrollView>
     <AddMealMenu bottomInset={barHeight} expanded={expanded} onToggle={() => setExpanded(!expanded)} onClose={() => setExpanded(false)}

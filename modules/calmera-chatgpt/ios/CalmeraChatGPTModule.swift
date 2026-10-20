@@ -175,6 +175,14 @@ final class CalmeraSystemTabsView: ExpoView, UITabBarControllerDelegate {
     controller.view.isOpaque = false
     controller.view.clipsToBounds = false
     controller.overrideUserInterfaceStyle = .light
+    // Keep the real system glass and selection lens. A transparent host lets
+    // React Native content behind this overlay participate in the backdrop.
+    controller.edgesForExtendedLayout = .all
+    controller.extendedLayoutIncludesOpaqueBars = true
+    controller.tabBar.backgroundColor = .clear
+    controller.tabBar.isOpaque = false
+    controller.tabBar.isTranslucent = true
+    controller.tabBar.clipsToBounds = false
     controller.tabBar.tintColor = UIColor(red: 188/255, green: 90/255, blue: 25/255, alpha: 1)
     let definitions = [
       ("Today", "fork.knife", "fork.knife"),
@@ -183,6 +191,8 @@ final class CalmeraSystemTabsView: ExpoView, UITabBarControllerDelegate {
     ]
     controller.viewControllers = definitions.enumerated().map { index, definition in
       let page = UIViewController()
+      page.edgesForExtendedLayout = .all
+      page.extendedLayoutIncludesOpaqueBars = true
       page.view.backgroundColor = .clear
       page.view.isOpaque = false
       page.view.isUserInteractionEnabled = false
@@ -297,13 +307,23 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
     clipsToBounds = false
     overrideUserInterfaceStyle = .light
     configureContainer()
+    container.backgroundColor = .clear
+    container.clipsToBounds = false
+    container.contentView.clipsToBounds = false
     addSubview(container)
     let titles = ["Photo", "Manual", "Voice", "Add"]
     let symbols = ["camera", "pencil", "mic", "plus"]
     for index in 0..<4 {
       let glass = UIVisualEffectView()
-      glass.layer.cornerRadius = 28
-      glass.clipsToBounds = true
+      // Let UIKit draw the optical rim and shadow outside the capsule. Layer
+      // clipping cuts off the native glass edge and makes it look like a fill.
+      if #available(iOS 26.0, *) {
+        glass.cornerConfiguration = .capsule()
+        glass.clipsToBounds = false
+      } else {
+        glass.layer.cornerRadius = 28
+        glass.clipsToBounds = true
+      }
       let button = UIButton(type: .custom)
       button.tag = index
       button.accessibilityLabel = ["Log a meal from a photo", "Add a meal with text", "Hold to log a meal by voice", "Add a meal"][index]
@@ -375,6 +395,7 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
     addGestureRecognizer(dismiss)
     NotificationCenter.default.addObserver(self, selector: #selector(accessibilityChanged), name: UIAccessibility.reduceTransparencyStatusDidChangeNotification, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(accessibilityChanged), name: UIContentSizeCategory.didChangeNotification, object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(accessibilityChanged), name: UIAccessibility.darkerSystemColorsStatusDidChangeNotification, object: nil)
   }
 
   private func configureContainer() {
@@ -394,10 +415,13 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
     render()
   }
 
-  private func material() -> UIVisualEffect? {
+  private func material(for index: Int) -> UIVisualEffect? {
     if UIAccessibility.isReduceTransparencyEnabled { return nil }
     if #available(iOS 26.0, *) {
-      let glass = UIGlassEffect(style: .regular)
+      // The compact Add affordance can be clearer; longer option/recording
+      // labels keep regular material. Increase Contrast strengthens Add too.
+      let clearAdd = index == 3 && !UIAccessibility.isDarkerSystemColorsEnabled
+      let glass = UIGlassEffect(style: clearAdd ? .clear : .regular)
       glass.isInteractive = true
       return glass
     }
@@ -464,12 +488,14 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
         let processingWidth = min(self.bounds.width - 40, max(width, self.rowWidths[2].constant + 32))
         let targetWidth = index == 3 ? self.triggerWidth : index == 2 && self.analyzing ? processingWidth : width
         self.glasses[index].frame = index == 3 || show ? self.frame(for: index, width: targetWidth) : trigger
-        self.glasses[index].layer.cornerRadius = (index == 3 ? self.triggerHeight : self.itemHeight) / 2
+        if #unavailable(iOS 26.0) {
+          self.glasses[index].layer.cornerRadius = (index == 3 ? self.triggerHeight : self.itemHeight) / 2
+        }
         // A recording/processing label change is not a new glass element.
         // Keep its material identity; replacing it during a frame animation can
         // trigger an unrelated container materialization from a default origin.
         if first || previousVisibility[index] != show {
-          self.glasses[index].effect = show ? self.material() : nil
+          self.glasses[index].effect = show ? self.material(for: index) : nil
         }
         self.glasses[index].backgroundColor = show && UIAccessibility.isReduceTransparencyEnabled ? .secondarySystemGroupedBackground : .clear
         self.rows[index].alpha = show ? 1 : 0
