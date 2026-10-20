@@ -1055,7 +1055,7 @@ final class CalmeraGoalsMenuView: ExpoView, UIContextMenuInteractionDelegate {
 
 // Real UIKit glass actions own highlighting and material adaptation.
 // Gesture Handler drives this native material with its UI-thread progress.
-// Geometry and glass material converge to zero before the row's hidden state.
+// Droplet geometry converges to zero while the native material stays assigned.
 final class CalmeraMealActionsView: ExpoView {
   let onAction = EventDispatcher()
   let onMetrics = EventDispatcher()
@@ -1069,7 +1069,6 @@ final class CalmeraMealActionsView: ExpoView {
   private var materials: [UIVisualEffectView] = []
   private var buttons: [UIButton] = []
   private var labels: [UILabel] = []
-  private var effectAnimator: UIViewPropertyAnimator?
   private var configurationKey = ""
   private var lastMetrics: [String: Double] = [:]
   private var lastProgressBucket = -1
@@ -1130,8 +1129,6 @@ final class CalmeraMealActionsView: ExpoView {
     let key = traitCollection.preferredContentSizeCategory.rawValue + "-\(opaque)-\(UIAccessibility.isDarkerSystemColorsEnabled)"
     if key != configurationKey {
       configurationKey = key
-      effectAnimator?.stopAnimation(true)
-      effectAnimator = nil
       if #available(iOS 26.0, *), !opaque {
         let group = UIGlassContainerEffect()
         // Separate at the final 8pt gap; merge naturally while retracting.
@@ -1140,31 +1137,20 @@ final class CalmeraMealActionsView: ExpoView {
       } else { container.effect = nil }
       let font = UIFontMetrics(forTextStyle: .subheadline).scaledFont(for: .systemFont(ofSize: 14, weight: .medium), compatibleWith: traitCollection)
       for (index, material) in materials.enumerated() {
-        material.effect = nil
+        // Keep the material mounted through repeated reveals. Droplet
+        // geometry owns visibility; do not fade the effect or depend on a
+        // paused nil-to-glass animation for a fully open action.
+        if opaque { material.effect = nil }
+        else if #available(iOS 26.0, *) {
+          let glass = UIGlassEffect(style: .regular)
+          glass.isInteractive = true
+          material.effect = glass
+        } else { material.effect = UIBlurEffect(style: .systemMaterial) }
         material.backgroundColor = opaque ? .secondarySystemBackground : .clear
         let color: UIColor = index == 0 ? editTint : .systemRed
         buttons[index].tintColor = color
         labels[index].font = font
         labels[index].textColor = color
-      }
-      if !opaque {
-        let effects: [UIVisualEffect] = materials.map { _ in
-          if #available(iOS 26.0, *) {
-            let glass = UIGlassEffect(style: .regular)
-            glass.isInteractive = true
-            return glass
-          }
-          return UIBlurEffect(style: .systemMaterial)
-        }
-        // Scrub the real material, not alpha on its compositing ancestor.
-        let animator = UIViewPropertyAnimator(duration: 1, curve: .linear) { [weak self] in
-          guard let self else { return }
-          for (index, material) in self.materials.enumerated() { material.effect = effects[index] }
-        }
-        animator.pausesOnCompletion = true
-        animator.startAnimation()
-        animator.pauseAnimation()
-        effectAnimator = animator
       }
     }
     setNeedsLayout()
@@ -1186,7 +1172,8 @@ final class CalmeraMealActionsView: ExpoView {
     let visibleHeight = fullHeight * p
     let labelPhase = min(1, max(0, (p - 0.45) / 0.45))
     let labelOpacity = labelPhase * labelPhase * (3 - 2 * labelPhase)
-    effectAnimator?.fractionComplete = p
+    // The original UI-thread progress still drives the same droplet geometry;
+    // the actual glass effect and native shadow are never scrubbed or faded.
     for (index, material) in materials.enumerated() {
       // Both droplets share one right-edge seed. Separation accelerates later
       // than size, keeping real overlapping glass until near the open state.
@@ -1215,7 +1202,9 @@ final class CalmeraMealActionsView: ExpoView {
         "labelSize": Double(labels.first?.font.pointSize ?? 0), "symbolSize": 0,
         "usesNativeGlass": glass, "opaqueFallback": UIAccessibility.isReduceTransparencyEnabled ? 1 : 0,
         "revealProgress": Double((p * 1000).rounded() / 1000), "renderedWidth": Double((visibleWidth * 10).rounded() / 10),
-        "materialProgress": Double((p * 1000).rounded() / 1000), "sharedGlassContainer": glass]
+        "materialAssignedCount": Double(materials.filter { $0.effect != nil }.count),
+        "visibleMaterialCount": Double(materials.filter { !$0.isHidden && $0.window != nil
+          && $0.bounds.width > 0 && $0.bounds.height > 0 }.count), "sharedGlassContainer": glass]
       // Geometry-only fixture diagnostics, emitted at most once per tenth step.
       if bucket != lastProgressBucket || (checkpoint && lastMetrics["revealProgress"] != metrics["revealProgress"]) ||
         lastMetrics["buttonWidth"] != metrics["buttonWidth"] || lastMetrics["buttonHeight"] != metrics["buttonHeight"] {
@@ -1231,7 +1220,6 @@ final class CalmeraMealActionsView: ExpoView {
   }
 
   deinit {
-    effectAnimator?.stopAnimation(true)
     NotificationCenter.default.removeObserver(self)
   }
 }

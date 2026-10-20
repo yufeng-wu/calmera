@@ -105,7 +105,7 @@ export default function MealSwipeCheck() {
       <Text allowFontScaling={false} style={{ fontSize: 22, fontWeight: "600", color: COLORS.text }}>Meal swipe check</Text>
       <Text allowFontScaling={false}>Actual FoodEntryItem component · synthetic fixtures only · no database access.</Text>
       <Text allowFontScaling={false}>Swipe state: {state} · Last action: {event} · Scroll offset: {offset}</Text>
-      <Text allowFontScaling={false}>Native controls: {metrics.buttonWidth ?? "—"} × {metrics.buttonHeight ?? "—"} pt · label={metrics.labelSize ?? "—"} · symbol={metrics.symbolSize ?? "—"} · glass={metrics.usesNativeGlass ?? "—"} · opaque={metrics.opaqueFallback ?? "—"} · progress={metrics.revealProgress ?? "—"} · intermediate steps={observedProgress.current.size}</Text>
+      <Text allowFontScaling={false}>Native controls: {metrics.buttonWidth ?? "—"} × {metrics.buttonHeight ?? "—"} pt · label={metrics.labelSize ?? "—"} · symbol={metrics.symbolSize ?? "—"} · glass={metrics.usesNativeGlass ?? "—"} · opaque={metrics.opaqueFallback ?? "—"} · progress={metrics.revealProgress ?? "—"} · intermediate steps={observedProgress.current.size} · assigned={metrics.materialAssignedCount ?? "—"} · visible={metrics.visibleMaterialCount ?? "—"}</Text>
       <Text allowFontScaling={false}>Drag a card left about 30 points and release. On Mac Simulator, click and hold while dragging. Tap a closed card for macros.</Text>
       <Pressable accessibilityRole="button" accessibilityLabel="Run first card width reflow check"
         onPress={runDetailsReflow} style={{ minHeight: 44, justifyContent: "center" }}>

@@ -1,4 +1,4 @@
-import { View, Text, Pressable, StyleSheet, useWindowDimensions, AccessibilityInfo } from "react-native";
+import { View, Text, Pressable, StyleSheet, useWindowDimensions, AccessibilityInfo, Platform } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming, useReducedMotion, ReduceMotion, useAnimatedReaction, runOnJS } from "react-native-reanimated";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import * as Haptics from "expo-haptics";
@@ -10,7 +10,7 @@ import { styles } from "../assets/styles/home.styles";
 import { COLORS } from "../constants/colors";
 import { getFoodEmoji } from "@/lib/foodIcons.mjs";
 import { formatTime } from "../lib/utils";
-import MealSwipeActions, { MEAL_EFFECT_OUTSET } from "./MealSwipeActions";
+import MealSwipeActions, { MEAL_EFFECT_OUTSET, MealActionRail } from "./MealSwipeActions";
 
 // Only a UI controller reference is shared. Opening another row closes the old one.
 let activeRow = null;
@@ -77,14 +77,17 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
   const router = useRouter();
   const swipeable = useRef(null);
   const isOpen = useRef(false);
+  const nativeReveal = useSharedValue(0);
+  const nativeActions = Platform.OS === "ios";
   useEffect(() => {
     // A changed text size or rotation changes the action width. Close once,
     // then let the next gesture measure the new rail instead of keeping a stale offset.
     swipeable.current?.reset();
+    nativeReveal.value = 0;
     isOpen.current = false;
     setActionsVisible(false);
     if (activeRow === swipeable) activeRow = null;
-  }, [actionWidth]);
+  }, [actionWidth, nativeReveal]);
   const { foodName = item.food_name, calories, protein, carbs, fat, localTime = item.local_time } = item;
   const macros = `Protein ${Number(protein)}g   Carbs ${Number(carbs)}g   Fat ${Number(fat)}g`;
 
@@ -95,10 +98,11 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
   useFocusEffect(useCallback(() => () => {
     // Tab changes dismiss controls; reset avoids a stale open row on return.
     swipeable.current?.reset();
+    nativeReveal.value = 0;
     isOpen.current = false;
     setActionsVisible(false);
     if (activeRow === swipeable) activeRow = null;
-  }, []));
+  }, [nativeReveal]));
   const claimRow = () => {
     if (activeRow && activeRow !== swipeable) activeRow.current?.close();
     activeRow = swipeable;
@@ -118,6 +122,10 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
   };
 
   return <View style={swipeStyles.row}>
+    {nativeActions && <View pointerEvents="box-none" style={swipeStyles.actionOverlay}>
+      <MealSwipeActions overlay width={actionWidth} progress={nativeReveal} visible={actionsVisible}
+        onEdit={edit} onDelete={remove} onMetrics={onActionMetrics} />
+    </View>}
     <Swipeable ref={swipeable} pointerEvents="box-none" friction={1} rightThreshold={22}
       dragOffsetFromLeftEdge={12} dragOffsetFromRightEdge={10}
       overshootLeft={false} overshootRight={!reducedMotion} overshootFriction={9}
@@ -136,8 +144,10 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
         if (activeRow === swipeable) activeRow = null;
         onSwipeStateChange?.("closed");
       }}
-      renderRightActions={(progress) => <MealSwipeActions width={actionWidth} progress={progress}
-        visible={actionsVisible} onEdit={edit} onDelete={remove} onMetrics={onActionMetrics} />}>
+      renderRightActions={(progress, translation) => nativeActions
+        ? <MealActionRail translation={translation} reveal={nativeReveal} width={actionWidth * 2 + 20} />
+        : <MealSwipeActions width={actionWidth} progress={progress}
+          visible={actionsVisible} onEdit={edit} onDelete={remove} onMetrics={onActionMetrics} />}>
       <Pressable style={({ pressed }) => [styles.foodEntryCard, swipeStyles.card, pressed && swipeStyles.pressedCard]}
         onPress={toggleExpand} onLongPress={revealActions} delayLongPress={450}
         accessibilityRole="button" accessibilityState={{ expanded: isExpanded }}
@@ -178,6 +188,7 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
 
 const swipeStyles = StyleSheet.create({
   row: { marginBottom: 10 },
+  actionOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 1 },
   swipeable: { overflow: "visible", padding: MEAL_EFFECT_OUTSET,
     marginVertical: -MEAL_EFFECT_OUTSET, marginHorizontal: -MEAL_EFFECT_OUTSET },
   card: { marginBottom: 0, minHeight: 70 },
