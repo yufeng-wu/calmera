@@ -34,3 +34,11 @@ Apple's guidance supports Regular for general controls, reserves Clear for suita
 - Theme's comparison link and Back navigation were exercised in isolated UI review mode.
 - Automation's scroll/drag operation was unavailable, so no claim is made about a completed manual scroll check. Family selection exposes all six materials without needing to scroll at the original text size.
 - No physical iPhone, personal records, authentication changes, or backend changes. This is a simulator visual comparison, not a frame-rate benchmark or a physical-device accessibility audit.
+
+## Final selected production treatment
+
+The user selected Regular Liquid Glass with Apple's native shadow for all floating controls, including Add. The provisional additional Soft shadow for Add was removed. Production Add/Close, Photo/Manual/Voice, form controls, meal actions and the native tab bar continue using their existing native system material/shadow. No extra fixed shadow, material tint, layer, or animation change is applied to the iOS Add control. Content-card styling and typography are unchanged.
+
+The material comparison remains available only in the full-app test build. Its Soft/Lifted samples are independent demonstrations and do not configure production controls.
+
+Final verification: the Release build in `/tmp/calmera-default-glass-build.log` succeeded. The simulator was updated, and the actual Today components with invented meals showed the native Add capsule; opening exposed Photo/Manual/Voice, and closing restored the full Add label. The provisional custom-shadow class and its diagnostic code are absent. The physical iPhone was not used.
