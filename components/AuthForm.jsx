@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { styles } from "@/assets/styles/auth.styles";
 import { FormHeader } from "@/components/GlassForm";
+import useInputFontGeometry from "@/hooks/useInputFontGeometry";
 
 export function AuthScreen({ title, subtitle, onBack, backDisabled = false, children, footer }) {
   const { fontScale } = useWindowDimensions();
@@ -28,25 +29,13 @@ export function AuthScreen({ title, subtitle, onBack, backDisabled = false, chil
 }
 
 export const AuthField = forwardRef(function AuthField({ label, error = false, code = false, hint, style, calmeraPreview = false, ...props }, ref) {
-  const { fontScale } = useWindowDimensions();
-  const resolvedStyle = StyleSheet.flatten([styles.input, code && styles.codeInput, error && styles.errorInput, style]);
-  const maximumScale = props.maxFontSizeMultiplier;
-  const scale = props.allowFontScaling === false ? 1
-    : typeof maximumScale === "number" && Number.isFinite(maximumScale) && maximumScale >= 1
-      ? Math.min(fontScale, maximumScale) : fontScale;
-  // RN 0.79 Fabric can retain stale native placeholder fonts after recycling.
-  // Send the current iOS font geometry explicitly and apply scaling only once.
-  const inputStyle = Platform.OS === "ios" ? {
-    ...resolvedStyle,
-    ...(typeof resolvedStyle.fontSize === "number" ? { fontSize: resolvedStyle.fontSize * scale } : {}),
-    ...(typeof resolvedStyle.lineHeight === "number" ? { lineHeight: resolvedStyle.lineHeight * scale } : {}),
-  } : resolvedStyle;
+  const inputGeometry = useInputFontGeometry([styles.input, code && styles.codeInput, error && styles.errorInput, style], props);
   return <View style={styles.field}>
     <Text style={styles.label}>{label}</Text>
     <TextInput ref={ref} accessibilityLabel={label} placeholderTextColor={COLORS.textLight}
-      style={inputStyle}
+      style={inputGeometry.style}
       autoCorrect={false} {...props}
-      allowFontScaling={Platform.OS === "ios" ? false : props.allowFontScaling}
+      allowFontScaling={inputGeometry.allowFontScaling}
       autoComplete={calmeraPreview ? "off" : props.autoComplete}
       textContentType={calmeraPreview ? "none" : props.textContentType} />
     {hint && <Text style={styles.hint}>{hint}</Text>}

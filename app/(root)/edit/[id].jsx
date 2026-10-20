@@ -6,6 +6,7 @@ import { useAuth } from "@clerk/clerk-expo";
 import { useNavigation } from "@react-navigation/native";
 import useFormTaskScope from "@/hooks/useFormTaskScope";
 import { mealRequest } from "@/lib/mealRequest.mjs";
+import { validateMealNutrition } from "@/lib/mealNutritionValidation.mjs";
 import { readNutrition } from "@/lib/nutritionRequest.mjs";
 import { FOOD_ENTRIES_API_URL } from "@/constants/api";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
@@ -122,9 +123,9 @@ export default function EditFoodEntry({ calmeraPreview = false, calmeraPreviewSt
 
   const handleUpdate = async () => {
     if (!scope.isActive() || !sameEntry() || savingRef.current || estimatingRef.current || isFetching || isEstimating || loadError) return;
-    if (!foodName.trim()) return Alert.alert("Error", "Food name is required");
-    if (!calories || isNaN(parseFloat(calories)) || Number(calories) < 0)
-      return Alert.alert("Error", "Calories must be a non-negative number");
+    if (!foodName.trim()) return Alert.alert("Add a food", "Enter what you ate before saving.");
+    const nutrition = validateMealNutrition({ calories, protein, carbs, fat });
+    if (nutrition.error) return Alert.alert(nutrition.error.title, nutrition.error.message);
     if (calmeraPreview) return Alert.alert("Preview only", "Changes validated. No meal was updated.");
     const task = scope.start();
     if (!task) return;
@@ -135,8 +136,7 @@ export default function EditFoodEntry({ calmeraPreview = false, calmeraPreviewSt
     try {
       await mealRequest({ getToken: () => tokenRef.current(), url: `${FOOD_ENTRIES_API_URL}/${entryId}`,
         method: "PUT", signal: task.signal, isActive: () => taskCurrent(task),
-        body: { foodName, quantity, calories: Number(calories), protein: protein ? Number(protein) : 0,
-          carbs: carbs ? Number(carbs) : 0, fat: fat ? Number(fat) : 0, mealType } });
+        body: { foodName, quantity, ...nutrition.values, mealType } });
       refreshWrittenMeal();
       if (taskCurrent(task)) { goBack(); leavingAfterSave = true; }
     } catch (error) {
@@ -156,7 +156,7 @@ export default function EditFoodEntry({ calmeraPreview = false, calmeraPreviewSt
   const handleEstimateMacros = async () => {
     if (!scope.isActive() || !sameEntry() || estimatingRef.current || savingRef.current || isLoading) return;
     if (!foodName.trim() || !quantity.trim())
-      return Alert.alert("Error", "Food name and quantity are required for estimation");
+      return Alert.alert("Add food and amount", "Enter what you ate and how much before estimating.");
     const task = scope.start();
     if (!task) return;
     estimatingRef.current = task;

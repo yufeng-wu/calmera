@@ -6,6 +6,7 @@ import Constants from "expo-constants";
 import { useNavigation } from "@react-navigation/native";
 import useFormTaskScope from "@/hooks/useFormTaskScope";
 import { mealRequest } from "@/lib/mealRequest.mjs";
+import { validateMealNutrition } from "@/lib/mealNutritionValidation.mjs";
 import { FOOD_ENTRIES_API_URL } from "@/constants/api";
 import { useRef, useState } from "react";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
@@ -67,8 +68,8 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
         "Estimate with ChatGPT or enter the nutrition values before saving."
       );
     }
-    if (!calories || isNaN(parseFloat(calories)) || parseFloat(calories) < 0)
-      return Alert.alert("Check calories", "Enter a calorie amount of 0 or more.");
+    const nutrition = validateMealNutrition({ calories, protein, carbs, fat });
+    if (nutrition.error) return Alert.alert(nutrition.error.title, nutrition.error.message);
     if (uiTestFixture) {
       return Alert.alert("Preview only", "The form is valid. Nothing was sent or saved.");
     }
@@ -83,8 +84,7 @@ const CreateScreen = ({ calmeraPreview = false } = {}) => {
     let leavingAfterSave = false;
     try {
       await mealRequest({ getToken, url: FOOD_ENTRIES_API_URL, signal: task.signal, isActive: current,
-        body: { foodName, quantity, calories: Number(calories), protein: protein ? Number(protein) : 0,
-          carbs: carbs ? Number(carbs) : 0, fat: fat ? Number(fat) : 0, mealType, createdAt: getLocalTimeWithOffset() } });
+        body: { foodName, quantity, ...nutrition.values, mealType, createdAt: getLocalTimeWithOffset() } });
 
       // Signal home screen to refresh entries, then navigate back home
       if (currentOwner()) setShouldRefresh(true);

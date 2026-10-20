@@ -12,10 +12,12 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { FormCard, GlassButton } from "@/components/GlassForm";
+import useInputFontGeometry from "@/hooks/useInputFontGeometry";
 
 const MEAL_TYPES = ["Breakfast", "Lunch", "Dinner", "Snack"];
 
 const FormField = React.forwardRef(function FormField({ label, symbol, suffix, style, inputStyle, ...inputProps }, ref) {
+  const inputGeometry = useInputFontGeometry([form.input, inputStyle], inputProps);
   return (
     <View style={[form.field, style]}>
       <Text style={form.fieldLabel}>{label}</Text>
@@ -34,7 +36,8 @@ const FormField = React.forwardRef(function FormField({ label, symbol, suffix, s
           {...inputProps}
           accessibilityLabel={inputProps.accessibilityLabel || label}
           placeholderTextColor={COLORS.textLight}
-          style={[form.input, inputStyle]}
+          style={inputGeometry.style}
+          allowFontScaling={inputGeometry.allowFontScaling}
         />
         {suffix && <Text style={form.suffix}>{suffix}</Text>}
       </View>
