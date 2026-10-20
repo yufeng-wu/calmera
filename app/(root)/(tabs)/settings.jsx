@@ -55,8 +55,7 @@ export default function SettingsScreen({ calmeraPreview = false }) {
       <View style={styles.accountHeading}>
         <Text style={styles.section}>ACCOUNT</Text>
         {!!accountEmail && <View accessible accessibilityRole="text" accessibilityLabel={`Signed in as ${accountEmail}`} style={styles.accountIdentity}>
-          <Text style={styles.accountCaption}>Signed in as</Text>
-          <Text style={styles.accountEmail}>{accountEmail}</Text>
+          <Text style={styles.accountCaption}>Signed in as <Text style={styles.accountEmail}>{accountEmail}</Text></Text>
         </View>}
       </View>
       <FormCard variant="grouped" style={styles.group}>
