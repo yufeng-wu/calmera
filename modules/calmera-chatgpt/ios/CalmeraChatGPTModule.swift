@@ -280,6 +280,10 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
   private var rowWidths: [NSLayoutConstraint] = []
   private var triggerTitleWidth: NSLayoutConstraint?
   private let processingIndicator = UIActivityIndicatorView(style: .medium)
+  private var typographyRefreshPending = false
+  private var animationGeneration = 0
+  private var settledGeneration = 0
+  private var triggerMaterialAssignments = 0
   private var priorExpanded: Bool?
   private var priorRecording = false
   private var priorAnalyzing = false
@@ -293,11 +297,11 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
   private var voiceReturnBadSamples = 0
   private var voiceReturnStartWidth: CGFloat = 0
   private let tint = UIColor(red: 188/255, green: 90/255, blue: 25/255, alpha: 1)
-  private var itemHeight: CGFloat { max(48, UIFontMetrics(forTextStyle: .body).scaledValue(for: 48)) }
-  private var triggerHeight: CGFloat { max(56, UIFontMetrics(forTextStyle: .body).scaledValue(for: 56)) }
+  private var itemHeight: CGFloat { max(48, ceil((labels.first?.font.lineHeight ?? 17) + 24)) }
+  private var triggerHeight: CGFloat { max(56, ceil((labels.last?.font.lineHeight ?? 17) + 24)) }
   private var triggerWidth: CGFloat {
     if expanded { return triggerHeight }
-    return max(84, labels[3].intrinsicContentSize.width + 52)
+    return max(84, ceil(labels[3].intrinsicContentSize.width) + 56)
   }
 
   required init(appContext: AppContext? = nil) {
@@ -351,7 +355,7 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
       NSLayoutConstraint.activate([icon.widthAnchor.constraint(equalToConstant: 20), icon.heightAnchor.constraint(equalToConstant: 20)])
       let label = UILabel()
       label.text = titles[index]
-      label.font = UIFontMetrics(forTextStyle: .subheadline).scaledFont(for: .systemFont(ofSize: 14, weight: .semibold))
+      label.font = UIFontMetrics(forTextStyle: .subheadline).scaledFont(for: .systemFont(ofSize: 14, weight: .semibold), compatibleWith: traitCollection)
       label.adjustsFontForContentSizeCategory = true
       label.textColor = tint
       label.numberOfLines = 1
@@ -394,7 +398,7 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
     dismiss.delegate = self
     addGestureRecognizer(dismiss)
     NotificationCenter.default.addObserver(self, selector: #selector(accessibilityChanged), name: UIAccessibility.reduceTransparencyStatusDidChangeNotification, object: nil)
-    NotificationCenter.default.addObserver(self, selector: #selector(accessibilityChanged), name: UIContentSizeCategory.didChangeNotification, object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(contentSizeChanged), name: UIContentSizeCategory.didChangeNotification, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(accessibilityChanged), name: UIAccessibility.darkerSystemColorsStatusDidChangeNotification, object: nil)
   }
 
@@ -408,20 +412,48 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
 
   @objc private func accessibilityChanged() {
     configureContainer()
-    for label in labels {
-      label.font = UIFontMetrics(forTextStyle: .subheadline).scaledFont(for: .systemFont(ofSize: 14, weight: .semibold))
-    }
     priorExpanded = nil
-    render()
+    refreshTypography()
   }
 
-  private func material(for index: Int) -> UIVisualEffect? {
+  @objc private func contentSizeChanged() { scheduleTypographyRefresh() }
+
+  override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+    super.traitCollectionDidChange(previousTraitCollection)
+    if previousTraitCollection?.preferredContentSizeCategory != traitCollection.preferredContentSizeCategory {
+      scheduleTypographyRefresh()
+    }
+  }
+
+  private func scheduleTypographyRefresh() {
+    guard !typographyRefreshPending else { return }
+    typographyRefreshPending = true
+    // A content-size notification can precede UILabel's trait/font update.
+    // Coalesce notification + trait changes and measure the resolved category.
+    DispatchQueue.main.async { [weak self] in
+      guard let self else { return }
+      self.typographyRefreshPending = false
+      guard self.window != nil else { return }
+      self.refreshTypography()
+    }
+  }
+
+  private func refreshTypography() {
+    for label in labels {
+      label.font = UIFontMetrics(forTextStyle: .subheadline).scaledFont(
+        for: .systemFont(ofSize: 14, weight: .semibold), compatibleWith: traitCollection)
+    }
+    // Size changes update geometry only; keep the mounted glass identities.
+    render(animated: false, force: true)
+  }
+
+  private func material() -> UIVisualEffect? {
     if UIAccessibility.isReduceTransparencyEnabled { return nil }
     if #available(iOS 26.0, *) {
-      // The compact Add affordance can be clearer; longer option/recording
-      // labels keep regular material. Increase Contrast strengthens Add too.
-      let clearAdd = index == 3 && !UIAccessibility.isDarkerSystemColorsEnabled
-      let glass = UIGlassEffect(style: clearAdd ? .clear : .regular)
+      // Add/Close floats over plain white as often as over meal content. Keep
+      // the same regular glass as its options; clear glass loses its boundary
+      // on white. UIKit owns the adaptive optical edge and shadow.
+      let glass = UIGlassEffect(style: .regular)
       glass.isInteractive = true
       return glass
     }
@@ -469,6 +501,8 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
       buttons[index].isUserInteractionEnabled = visible[index] && !(recording && index < 2)
     }
     if !changed { glasses[2].layoutIfNeeded(); return }
+    animationGeneration += 1
+    let generation = animationGeneration
     stopVoiceGrowth()
     let startsRecording = recording && !priorRecording
     let releasesRecording = priorRecording && !recording
@@ -495,9 +529,10 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
         // Keep its material identity; replacing it during a frame animation can
         // trigger an unrelated container materialization from a default origin.
         if first || previousVisibility[index] != show {
-          self.glasses[index].effect = show ? self.material(for: index) : nil
+          self.glasses[index].effect = show ? self.material() : nil
+          if index == 3 && self.motionDiagnostics { self.triggerMaterialAssignments += 1 }
         }
-        self.glasses[index].backgroundColor = show && UIAccessibility.isReduceTransparencyEnabled ? .secondarySystemGroupedBackground : .clear
+        self.glasses[index].backgroundColor = show && UIAccessibility.isReduceTransparencyEnabled ? .secondarySystemBackground : .clear
         self.rows[index].alpha = show ? 1 : 0
         self.glasses[index].layoutIfNeeded()
       }
@@ -517,11 +552,17 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
         usingSpringWithDamping: releasesRecording ? 0.80 : expanded ? 0.82 : 0.95, initialSpringVelocity: 0,
         options: options, animations: update,
         completion: { [weak self] _ in
-          self?.settleTriggerTitle()
-          if let returnGeneration { self?.finishVoiceReturnCheck(returnGeneration) }
+          guard let self else { return }
+          // Voice sampling has its own generation guard and must stop even
+          // if a newer menu transition (e.g. Close during Processing) won.
+          if let returnGeneration { self.finishVoiceReturnCheck(returnGeneration) }
+          guard generation == self.animationGeneration else { return }
+          self.settledGeneration = generation
+          self.settleTriggerTitle()
+          self.reportMetrics()
         })
     } else {
-      update(); settleTriggerTitle()
+      update(); settledGeneration = generation; settleTriggerTitle()
       if let returnGeneration { finishVoiceReturnCheck(returnGeneration) }
     }
     if startsRecording { growVoice() }
@@ -545,19 +586,41 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
       glasses[index].layoutIfNeeded()
       buttons[index].layoutIfNeeded()
       metrics[key] = Double(glasses[index].bounds.width)
-      metrics[key + "Left"] = Double(rows[index].frame.minX)
-      metrics[key + "Right"] = Double(buttons[index].bounds.width - rows[index].frame.maxX)
+      let rowInGlass = rows[index].convert(rows[index].bounds, to: glasses[index])
+      metrics[key + "Left"] = Double(rowInGlass.minX)
+      metrics[key + "Right"] = Double(glasses[index].bounds.width - rowInGlass.maxX)
     }
     metrics["addTitleVisible"] = !labels[3].isHidden && labels[3].alpha > 0.99 && (triggerTitleWidth?.constant ?? 0) > 0 ? 1 : 0
     metrics["processing"] = analyzing ? 1 : 0
     metrics["voiceHeight"] = Double(glasses[2].bounds.height)
     if motionDiagnostics {
+      // Public UIView/material state only. No private glass layers or pixels;
+      // these checks complement (not replace) a white-background visual review.
+      let opaque = UIAccessibility.isReduceTransparencyEnabled
+      let shown = glasses.indices.filter { visible[$0] }
+      metrics["menuExpanded"] = expanded ? 1 : 0
+      metrics["animationGeneration"] = Double(animationGeneration)
+      metrics["settledGeneration"] = Double(settledGeneration)
+      metrics["triggerMaterialAssignments"] = Double(triggerMaterialAssignments)
+      metrics["visibleSurfaces"] = Double(shown.count)
+      metrics["missingMaterials"] = Double(shown.filter { !opaque && glasses[$0].effect == nil }.count)
+      metrics["clippedSurfaces"] = Double(shown.filter { glasses[$0].clipsToBounds }.count)
+      metrics["effectHostClipped"] = clipsToBounds || container.clipsToBounds || container.contentView.clipsToBounds ? 1 : 0
+      metrics["triggerWidth"] = Double(glasses[3].bounds.width)
+      metrics["triggerHeight"] = Double(glasses[3].bounds.height)
+      metrics["opaqueFallback"] = opaque ? 1 : 0
+      if #available(iOS 26.0, *) {
+        metrics["triggerNativeGlass"] = glasses[3].effect is UIGlassEffect ? 1 : 0
+        metrics["nonGlassMaterials"] = Double(shown.filter {
+          !opaque && !(glasses[$0].effect is UIGlassEffect)
+        }.count)
+      }
       metrics["voiceReturnSamples"] = Double(voiceReturnSamples)
       metrics["voiceReturnBadSamples"] = Double(voiceReturnBadSamples)
       metrics["voiceReturnMaxAnchorError"] = Double(voiceReturnMaxAnchorError)
       metrics["voiceReturnStartWidth"] = Double(voiceReturnStartWidth)
-      metrics["voiceRight"] = Double(glasses[2].frame.maxX)
-      metrics["voiceTop"] = Double(glasses[2].frame.minY)
+      metrics["voiceAnchorRight"] = Double(glasses[2].frame.maxX)
+      metrics["voiceAnchorTop"] = Double(glasses[2].frame.minY)
     }
     onMetrics(metrics)
   }
