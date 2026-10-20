@@ -31,6 +31,7 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
     return () => listener.remove();
   }, []);
   const { fontScale, width: screenWidth } = useWindowDimensions();
+  const veryLargeText = fontScale > 2.3;
   const actionScale = Math.max(1, fontScale);
   const actionWidth = Math.min(Math.ceil(72 * actionScale), Math.max(72, (screenWidth - 52) / 2));
   // The details remain measured while closed, so the first tap and Dynamic Type
@@ -146,16 +147,16 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
         accessibilityActions={[{ name: "activate", label: isExpanded ? "Hide nutrition" : "Show nutrition" },
           { name: "showActions", label: "Show meal actions" }, { name: "edit", label: "Edit meal" }, { name: "delete", label: "Delete meal" }]}
         onAccessibilityAction={accessibilityAction}>
-        <View style={styles.transactionContent}>
+        <View style={[styles.transactionContent, veryLargeText && swipeStyles.largeTextContent]}>
           <View style={styles.categoryIconContainer}>
             <Text style={{ fontSize: 25 }} allowFontScaling={false} accessible={false}>{getFoodEmoji(foodName)}</Text>
           </View>
-          <View style={styles.transactionLeft}><Text style={styles.transactionTitle}>{foodName}</Text></View>
-          <View style={styles.transactionRight}>
+          <View style={[styles.transactionLeft, veryLargeText && swipeStyles.largeTextTitle]}><Text style={styles.transactionTitle}>{foodName}</Text></View>
+          <View style={[styles.transactionRight, veryLargeText && swipeStyles.largeTextMetadata]}>
             <Text style={[styles.transactionAmount, { color: COLORS.primary }]}>{parseFloat(calories).toFixed(0)} kcal</Text>
             <Text style={styles.transactionDate}>{formatTime(localTime)}</Text>
           </View>
-          <View style={styles.indicatorContainer}>
+          <View style={[styles.indicatorContainer, veryLargeText && swipeStyles.largeTextIndicator]}>
             <Animated.View style={chevronStyle}>
               <Ionicons name="chevron-down" size={20} color={COLORS.textLight} />
             </Animated.View>
@@ -181,6 +182,12 @@ const swipeStyles = StyleSheet.create({
     marginVertical: -MEAL_EFFECT_OUTSET, marginHorizontal: -MEAL_EFFECT_OUTSET },
   card: { marginBottom: 0, minHeight: 70 },
   pressedCard: { opacity: 0.94 },
+  // Keep the same text hosts, but let metadata take its own row rather than
+  // squeezing the title between the badge and a scaled right-hand column.
+  largeTextContent: { flexWrap: "wrap", alignItems: "flex-start" },
+  largeTextTitle: { minWidth: 0, paddingRight: 30 },
+  largeTextMetadata: { flexBasis: "100%", alignItems: "flex-start", paddingLeft: 52, paddingRight: 30, marginTop: 8 },
+  largeTextIndicator: { position: "absolute", top: 25, right: 15 },
   detailsClip: { overflow: "hidden" },
   detailsText: { flex: 1 },
   detailsContent: { position: "absolute", top: 0, left: 0, right: 0 },
