@@ -38,6 +38,8 @@ const screens = [
   { id: "chatgpt-disconnected", title: "Connect ChatGPT", Component: ChatGPT, state: "disconnected" },
   { id: "chatgpt-catalog-error", title: "ChatGPT model recovery", Component: ChatGPT, state: "catalog-error" },
   { id: "voice-language", title: "Voice language", Component: VoiceLanguage },
+  { id: "voice-language-load-error", title: "Voice language load recovery", Component: VoiceLanguage, state: "load-error" },
+  { id: "voice-language-save-error", title: "Voice language save recovery", Component: VoiceLanguage, state: "save-error" },
   { id: "theme", title: "Theme", Component: ThemeSettings },
   { id: "survey", title: "Goals survey", Component: Survey },
   { id: "recommendation", title: "Survey recommendation", Component: Survey, stage: "recommendation" },

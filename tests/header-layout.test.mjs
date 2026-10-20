@@ -11,7 +11,7 @@ test("adopted iOS26 forms own the safe area without shifting ordinary tabs", () 
   }
 });
 test("only adopted gallery pages get full-bleed headers", () => {
-  for (const page of ["manual", "theme", "chatgpt-catalog-error", "recommendation", "recommendation-save-token", "recommendation-save-response", "recommendation-save-error", "photo-selected", "edit-meal", "edit-meal-load-token", "edit-meal-load-json", "edit-session"]) {
+  for (const page of ["manual", "theme", "chatgpt-catalog-error", "voice-language-load-error", "voice-language-save-error", "recommendation", "recommendation-save-token", "recommendation-save-response", "recommendation-save-error", "photo-selected", "edit-meal", "edit-meal-load-token", "edit-meal-load-json", "edit-session"]) {
     assert.equal(formOwnsTopInset("/ui-gallery", page, "ios", 26), true);
   }
   assert.equal(formOwnsTopInset("/ui-gallery", ["theme"], "ios", 26), true);

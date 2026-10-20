@@ -181,7 +181,11 @@ export default function SummaryScreen() {
         recording: rec, isActive: isSessionActive,
         onStage: (stage) => markVoice(stage), onDuration: (duration) => markVoice("duration", duration),
         inspectClip: voiceClipMetadata, onFileDuration: (duration) => markVoice("file_duration", duration),
-        transcribe: async (uri) => transcribeMealAudio(uri, await getVoiceLanguage(user.id)),
+        transcribe: async (uri) => {
+          const language = await getVoiceLanguage(user.id, { isActive: isSessionActive });
+          if (!isSessionActive()) throw new Error("voice_operation_cancelled");
+          return transcribeMealAudio(uri, language);
+        },
         estimate: async (transcript) => {
           const { client, model } = await nutritionClient(user.id);
           return client.estimate({ text: transcript, model });
