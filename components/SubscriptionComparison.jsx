@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/constants/colors";
 
 const rows = [
-  { label: "Live Mode", sub: "Only at Calmera", free: false },
+  { label: "Live Mode", sub: "Only at calmera", free: false },
   { label: "Photo Log", free: false },
   { label: "Voice Log", free: false },
   { label: "Manual Logging", free: true },

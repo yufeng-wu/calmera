@@ -48,7 +48,7 @@ export default function Page({ calmeraPreview = false } = {}) {
         await setActive({ session: attempt.createdSessionId });
         router.replace("/");
       } else {
-        setError("Sign-in needs another step. This version of foodwrap can’t complete it yet.");
+        setError("Sign-in needs another step. This version of calmera can’t complete it yet.");
       }
     } catch (err) {
       const code = err.errors?.[0]?.code;
@@ -61,9 +61,9 @@ export default function Page({ calmeraPreview = false } = {}) {
     }
   };
 
-  return <AuthScreen title="Welcome back" subtitle="Sign in to your foodwrap account."
+  return <AuthScreen title="Welcome back" subtitle="Sign in to your calmera account."
     footer={<View style={styles.footer}>
-      <Text style={styles.footerText}>New to foodwrap?</Text>
+      <Text style={styles.footerText}>New to calmera?</Text>
       <AuthLink onPress={() => navigate("/sign-up")} disabled={busy}>Create an account</AuthLink>
     </View>}>
     <FormCard style={styles.form}>

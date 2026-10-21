@@ -6,20 +6,21 @@ import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { styles } from "@/assets/styles/auth.styles";
 import { FormHeader, FormScreen, FormScrollView } from "@/components/GlassForm";
 import useInputFontGeometry from "@/hooks/useInputFontGeometry";
+import FoodwrapWordmark from "@/components/FoodwrapWordmark";
 
 export function AuthScreen({ title, subtitle, onBack, backDisabled = false, children, footer }) {
-  const { fontScale } = useWindowDimensions();
+  const { fontScale, width } = useWindowDimensions();
   const contentStyle = onBack ? styles.content : StyleSheet.flatten([styles.content, { paddingTop: 0 }]);
   const nativeHeaderEdge = Boolean(onBack) && Platform.OS === "ios" && Number.parseInt(String(Platform.Version), 10) >= 26;
   const Screen = nativeHeaderEdge ? FormScreen : View;
   const Scroll = nativeHeaderEdge ? FormScrollView : KeyboardAwareScrollView;
   return <Screen style={styles.screen}>
-    {onBack && <FormHeader title="calmera" onBack={onBack} backDisabled={backDisabled} />}
+    {onBack && <FormHeader title="calmera." titleContent={<FoodwrapWordmark maxWidth={Math.max(1, width - 176)} />} onBack={onBack} backDisabled={backDisabled} />}
     <Scroll {...(nativeHeaderEdge ? { keyboardAware: true } : {})}
       key={`auth-text-${fontScale}`} style={styles.scroll} contentContainerStyle={contentStyle}
       enableOnAndroid enableAutomaticScroll extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
       keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-      {!onBack && <Text key={`brand-${fontScale}`} style={styles.wordmark}>foodwrap.</Text>}
+      {!onBack && <FoodwrapWordmark style={{ marginVertical: 12 }} />}
       <View style={[styles.column, !onBack && { marginTop: 12 }]}>
         <View style={styles.hero}>
           <Text accessibilityRole="header" style={styles.title}>{title}</Text>

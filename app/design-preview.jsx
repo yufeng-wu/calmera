@@ -3,7 +3,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import Constants from "expo-constants";
 import { Redirect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
+import FoodwrapWordmark from "@/components/FoodwrapWordmark";
 import { LinearGradient } from "expo-linear-gradient";
 import { COLORS, RAINBOW_COLORS } from "@/constants/colors";
 import { styles as home } from "@/assets/styles/home.styles";
@@ -33,8 +33,8 @@ export default function DesignPreview() {
               <Pressable onPress={previewOnly} style={{ paddingHorizontal: 10, paddingVertical: 8 }}><Text style={home.premiumButtonText}>ChatGPT</Text></Pressable>
             </LinearGradient>
             <View style={home.header}><View style={home.headerLeft}>
-              <View style={home.welcomeContainer}><Text style={home.welcomeText}>Welcome back,</Text><Text style={home.usernameText}>foodwrap test</Text></View>
-              <Image source={require("../assets/images/logo.png")} style={home.headerLogo} contentFit="contain" />
+              <View style={home.welcomeContainer}><Text style={home.welcomeText}>Welcome back,</Text><Text style={home.usernameText}>calmera test</Text></View>
+              <FoodwrapWordmark />
             </View></View>
             <Text style={home.dateText}> Sunday, October 18</Text>
             <NutritionSummaryCard onEditGoals={previewOnly} summary={{ calories: 385, protein: 9.3, carbs: 59, fat: 14.4 }} goals={{ calorieGoal: 2000, proteinGoal: 100, carbsGoal: 250, fatGoal: 65 }} />

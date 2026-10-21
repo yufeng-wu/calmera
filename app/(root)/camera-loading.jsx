@@ -85,7 +85,7 @@ export function LegacyCameraLoadingScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Live AI @ Calmera</Text>
+      <Text style={styles.title}>Live AI @ calmera</Text>
       <ActivityIndicator size="large" color={COLORS.primary || "#000"} />
       <Text style={styles.status}>{status}</Text>
       <View style={styles.progressBarBackground}>

@@ -1,4 +1,5 @@
 import { useContext } from "react";
+import { useIsFocused } from "@react-navigation/native";
 import { Platform, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { SafeScreenTopContext } from "@/components/SafeScreen";
@@ -24,8 +25,46 @@ import Scale from "@/app/(root)/update-scale-type";
 import Manual from "@/app/(root)/create";
 import Photo from "@/app/(root)/photo-log";
 import LiveFallback from "@/components/LiveComingSoon";
+import FoodwrapWordmark from "@/components/FoodwrapWordmark";
+import AccountProfileGate, { AccountLoadingScreen } from "@/components/AccountProfileGate";
+import FoodwrapRefreshScrollView from "@/components/FoodwrapRefreshScrollView";
+import FoodwrapLoading from "@/components/FoodwrapLoading";
+
+function TodayRefreshPreview() {
+  const focused = useIsFocused();
+  const refresh = () => new Promise(resolve => setTimeout(resolve, 1400));
+  return <FoodwrapRefreshScrollView active={focused} onRefresh={refresh}
+    contentContainerStyle={{ flexGrow: 1, paddingTop: 12, paddingHorizontal: 20 }}>
+    <FoodwrapWordmark style={{ marginBottom: 16 }} />
+    <Text style={[styles.note, { textAlign: "center" }]}>Pull down, then release to refresh</Text>
+    <View style={{ marginTop: 24, padding: 24, borderRadius: 24, backgroundColor: "#FFFFFF80" }}>
+      <Text style={{ color: COLORS.text, fontSize: 22, marginBottom: 12 }}>Today</Text>
+      <Text style={styles.note}>Your meals stay visible while the native control refreshes them.</Text>
+    </View>
+  </FoodwrapRefreshScrollView>;
+}
+
+function TodayLoadingPreview({ calmeraPreviewState }) {
+  const focused = useIsFocused();
+  return <View style={{ flex: 1, paddingTop: 12 }}>
+    <FoodwrapWordmark style={{ marginBottom: 16 }} />
+    <Text style={[styles.note, { textAlign: "center", paddingHorizontal: 20 }]}>
+      {calmeraPreviewState === "reduced" ? "Reduced Motion preview" : "Today loading preview"}
+    </Text>
+    <View style={{ flex: 1, justifyContent: "center" }}>
+      <FoodwrapLoading active={focused} staticOnly={calmeraPreviewState === "reduced"} />
+    </View>
+  </View>;
+}
 
 const screens = [
+  { id: "account-loading", title: "App loading", Component: AccountLoadingScreen },
+  { id: "account-profile-missing", title: "Missing account recovery", Component: AccountProfileGate },
+  { id: "account-profile-error", title: "Account check retry", Component: AccountProfileGate, state: "error" },
+  { id: "today-refresh", title: "Today pull to refresh", Component: TodayRefreshPreview },
+  { id: "today-loading", title: "Today logo loading", Component: TodayLoadingPreview },
+  { id: "today-loading-reduced", title: "Today loading reduced motion", Component: TodayLoadingPreview, state: "reduced" },
+
   { id: "sign-in", title: "Sign In", Component: SignIn },
   { id: "sign-up", title: "Create account", Component: SignUp },
   { id: "verification", title: "Email verification", Component: SignUp, stage: "verification" },
@@ -88,7 +127,7 @@ export default function UIGallery() {
   if (!entry) return <View style={[styles.screen, { paddingTop: localInset }]}>
     <FormHeader title="UI review" />
     <ScrollView contentContainerStyle={styles.list}>
-      <Text style={styles.note}>Actual foodwrap pages with synthetic data and local-only actions. Your account stays signed in; these examples cannot submit authentication, inference, or record changes.</Text>
+      <Text style={styles.note}>Actual calmera pages with synthetic data and local-only actions. Your account stays signed in; these examples cannot submit authentication, inference, or record changes.</Text>
       {screens.map(item => <GlassButton key={item.id} title={item.title} onPress={() => select(item.id)} />)}
     </ScrollView>
   </View>;

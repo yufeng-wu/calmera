@@ -11,7 +11,7 @@ module.exports = ({ config }) => {
   };
   if (process.env.CALMERA_FULL_APP_TEST === "1") return {
     ...freeConfig,
-    name: "foodwrap.",
+    name: "calmera.",
     extra: { ...extra, calmeraFullAppTest: true },
     scheme: "calmera-chatgpt-dev",
     ios: { ...config.ios, bundleIdentifier: "com.yfwu02.mobile.chatgptdev" },
@@ -19,7 +19,7 @@ module.exports = ({ config }) => {
   if (process.env.CALMERA_PHONE_TEST !== "1") return freeConfig;
   return {
     ...freeConfig,
-    name: "foodwrap.",
+    name: "calmera.",
     scheme: "calmera-ai-test",
     ios: { ...config.ios, bundleIdentifier: "com.yfwu02.mobile.chatgpttest", buildNumber: "1" },
   };

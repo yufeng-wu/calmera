@@ -28,7 +28,7 @@ test("registration uses issued IDs, PKCE and only the official loopback route", 
   const first = new URL(authorizationURL(params));
   assert.equal(first.origin, "https://auth.openai.com");
   assert.equal(first.searchParams.get("client_id"), "dynamic_agent_client");
-  assert.equal(first.searchParams.get("agent_name_hint"), "foodwrap.");
+  assert.equal(first.searchParams.get("agent_name_hint"), "calmera.");
   assert.equal(first.searchParams.get("code_challenge_method"), "S256");
   const returning = new URL(authorizationURL({ ...params, clientId: "oaiapp_test" }));
   assert.equal(returning.searchParams.has("agent_name_hint"), false);

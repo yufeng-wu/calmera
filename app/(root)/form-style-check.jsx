@@ -12,7 +12,7 @@ export default function FormStyleCheck() {
   const goals = () => router.push("/update-goals?calmeraFixture=ui-goals");
   return <ScrollView contentContainerStyle={styles.content}>
     <Text style={styles.title}>Form interaction check</Text>
-    <Text style={styles.note}>Actual foodwrap forms · synthetic fixtures · no profile, photo library, inference or database access.</Text>
+    <Text style={styles.note}>Actual calmera forms · synthetic fixtures · no profile, photo library, inference or database access.</Text>
     <Text style={styles.note}>Long press this summary and select Edit goals to check the native menu-to-screen transition.</Text>
     <NutritionSummaryCard summary={{ calories: 550, protein: 32, carbs: 73, fat: 14.5 }}
       goals={{ calorieGoal: 2000, proteinGoal: 150, carbsGoal: 200, fatGoal: 50 }} onEditGoals={goals} />

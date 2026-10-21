@@ -1,19 +1,22 @@
 import { TYPOGRAPHY } from "@/constants/typography";
 import { useEffect, useRef, useState } from "react";
-import { FlatList, Image, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { FlatList, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { FormHeader, GlassButton, formStyles } from "@/components/GlassForm";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
+import FoodwrapWordmark from "@/components/FoodwrapWordmark";
 
-export const GUIDE_IMAGES = [
-  require("@/assets/images/calmera-guide-1.png"), require("@/assets/images/calmera-guide-2.png"),
-  require("@/assets/images/calmera-guide-3.png"), require("@/assets/images/calmera-guide-4.png"),
+const GUIDE_STEPS = [
+  { title: "Zero your scale", description: "Place your empty bowl on the scale, then set the display to 0 g. Keep the display in view until calmera reads zero." },
+  { title: "Add one food at a time", description: "Point your camera at the scale and add your first ingredient. Wait for it to be logged before adding the next one." },
+  { title: "Review your meal", description: "Check the foods, weights and nutrition estimates in your session. Edit any item that needs a correction." },
+  { title: "Keep the camera steady", description: "A phone stand helps keep your food and the scale display in view while you prepare your meal." },
 ];
-export default function GuideGallery({ title = "Calmera guide", onBack, finalPage }) {
+export default function GuideGallery({ title = "calmera guide", onBack, finalPage }) {
   const { width, fontScale } = useWindowDimensions();
   const largeText = fontScale > 1.3;
   const list = useRef(null);
   const [page, setPage] = useState(0);
-  const items = finalPage ? [...GUIDE_IMAGES, "selector"] : GUIDE_IMAGES;
+  const items = finalPage ? [...GUIDE_STEPS, "selector"] : GUIDE_STEPS;
   useEffect(() => { list.current?.scrollToOffset({ offset: page * width, animated: false }); }, [width, page, fontScale]);
   const goNext = () => {
     if (page === items.length - 1) { onBack(); return; }
@@ -26,10 +29,12 @@ export default function GuideGallery({ title = "Calmera guide", onBack, finalPag
       getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
       onMomentumScrollEnd={event => setPage(Math.max(0, Math.min(items.length - 1, Math.round(event.nativeEvent.contentOffset.x / width))))}
       renderItem={({ item, index }) => <View style={[styles.page, { width }]}>
-        {item === "selector" ? finalPage : <View style={styles.imageCard}>
-          <Image source={item} resizeMode="contain" style={styles.image}
-            accessibilityLabel={`Calmera tutorial, page ${index + 1} of ${GUIDE_IMAGES.length}`} accessibilityIgnoresInvertColors />
-        </View>}
+        {item === "selector" ? finalPage : <ScrollView style={styles.stepCard} contentContainerStyle={styles.stepContent}>
+          <FoodwrapWordmark style={{ marginBottom: 28 }} />
+          <Text style={styles.stepNumber}>STEP {index + 1} OF {GUIDE_STEPS.length}</Text>
+          <Text accessibilityRole="header" style={styles.stepTitle}>{item.title}</Text>
+          <Text style={styles.stepDescription}>{item.description}</Text>
+        </ScrollView>}
       </View>} />
     <View style={[styles.footer, largeText && styles.footerLarge]}>
       <View style={[styles.progress, largeText && styles.progressLarge]} accessibilityLabel={`Page ${page + 1} of ${items.length}`}>
@@ -44,8 +49,11 @@ export default function GuideGallery({ title = "Calmera guide", onBack, finalPag
 const styles = StyleSheet.create({
   gallery: { flex: 1 },
   page: { flex: 1, padding: 16, paddingTop: 8 },
-  imageCard: { flex: 1, backgroundColor: COLORS.card, borderRadius: 24, overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: "#EFE7DF" },
-  image: { width: "100%", height: "100%" },
+  stepCard: { flex: 1, backgroundColor: COLORS.card, borderRadius: 24, borderWidth: StyleSheet.hairlineWidth, borderColor: "#EFE7DF" },
+  stepContent: { flexGrow: 1, justifyContent: "center", padding: 28, gap: 14 },
+  stepNumber: { ...TYPOGRAPHY.caption, color: COLORS.textLight, textAlign: "center" },
+  stepTitle: { ...TYPOGRAPHY.authTitle, color: COLORS.text, textAlign: "center" },
+  stepDescription: { ...TYPOGRAPHY.body, color: COLORS.textLight, textAlign: "center" },
   footer: { minHeight: 78, paddingHorizontal: 20, paddingBottom: 20, paddingTop: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 18 },
   footerLarge: { flexDirection: "column", alignItems: "stretch", gap: 12 },
   progressLarge: { flex: 0, alignSelf: "center" },

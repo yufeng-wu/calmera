@@ -79,7 +79,7 @@ export default function ChatGPTPlanTest({ onBack, standalone = false }) {
   }
 
   function disconnect() {
-    Alert.alert("Remove this test connection?", "Only the development probe's credentials are removed. Regular foodwrap connections and food data are untouched.", [
+    Alert.alert("Remove this test connection?", "Only the development probe's credentials are removed. Regular calmera connections and food data are untouched.", [
       { text: "Cancel", style: "cancel" }, { text: "Disconnect", onPress: async () => {
         await client.disconnect(); setConnected(false); setModel(null); setResult(null);
       } },
@@ -89,11 +89,11 @@ export default function ChatGPTPlanTest({ onBack, standalone = false }) {
   return <View style={createStyles.container}>
     <View style={createStyles.header}>
       {onBack ? <TouchableOpacity onPress={onBack} disabled={busy} accessibilityLabel="Back"><Ionicons name="arrow-back" size={24} color={COLORS.text} /></TouchableOpacity> : <View style={{ width: 24 }} />}
-      <Text style={createStyles.headerTitle}>{standalone ? "foodwrap. · ChatGPT test" : "Test ChatGPT · Development"}</Text><View style={{ width: 24 }} />
+      <Text style={createStyles.headerTitle}>{standalone ? "calmera. · ChatGPT test" : "Test ChatGPT · Development"}</Text><View style={{ width: 24 }} />
     </View>
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <View style={createStyles.card}>
-        <Text style={styles.note}>Inference test only. No foodwrap account or database is used. Nothing is saved as a meal.</Text>
+        <Text style={styles.note}>Inference test only. No calmera account or database is used. Nothing is saved as a meal.</Text>
         <Text style={styles.note}>Test descriptions and selected photos go directly to OpenAI under your own ChatGPT plan. Usage limits apply.</Text>
         <TouchableOpacity style={styles.button} onPress={() => connect()} disabled={busy || !storageReady || !isChatGPTAvailable()}><Text style={styles.buttonText}>{connected ? "Reconnect ChatGPT" : "Continue with ChatGPT"}</Text></TouchableOpacity>
         <Text style={styles.note}>{storageReady ? "Secure storage ready" : "Checking secure storage…"}</Text>

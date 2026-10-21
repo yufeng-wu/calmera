@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "foodwrap.",
+    "name": "calmera.",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -11,12 +11,12 @@
       "buildNumber": "8",
       "supportsTablet": true,
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Allow foodwrap to use the microphone for voice logging.",
+        "NSMicrophoneUsageDescription": "Allow calmera to use the microphone for voice logging.",
         "NSSpeechRecognitionUsageDescription": "This app uses speech recognition to process your voice logs, but your audio data is not stored on our servers.",
         "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "Allow foodwrap to use the camera to capture meal photos and read scale displays.",
-        "NSPhotoLibraryUsageDescription": "Allow foodwrap to access your photo library to load/import meal photos.",
-        "NSPhotoLibraryAddUsageDescription": "Allow foodwrap to save captured photos to your photo library."
+        "NSCameraUsageDescription": "Allow calmera to use the camera to capture meal photos and read scale displays.",
+        "NSPhotoLibraryUsageDescription": "Allow calmera to access your photo library to load/import meal photos.",
+        "NSPhotoLibraryAddUsageDescription": "Allow calmera to save captured photos to your photo library."
       },
       "bundleIdentifier": "com.yfwu02.mobile"
     },
@@ -43,7 +43,7 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#FFFBF9"
         }
       ],
       [

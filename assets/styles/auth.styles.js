@@ -7,7 +7,6 @@ export const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 40 },
   column: { width: "100%", maxWidth: 520, alignSelf: "center", gap: 16 },
-  wordmark: { ...TYPOGRAPHY.brand, color: COLORS.primary, textAlign: "center", paddingVertical: 12},
   hero: { paddingHorizontal: 4, paddingTop: 0, gap: 8 },
   title: { ...TYPOGRAPHY.authTitle, color: COLORS.text},
   subtitle: { ...TYPOGRAPHY.body, color: COLORS.textLight},

@@ -7,6 +7,7 @@ import { FOOD_ENTRIES_API_URL, USERS_API_URL } from "@/constants/api";
 import { localDateKey } from "@/lib/nutritionStore.mjs";
 import { nutritionViewState, retryNutritionError } from "@/lib/nutritionPresentation.mjs";
 import { readNutrition } from "@/lib/nutritionRequest.mjs";
+import { completeNutritionRefresh } from "@/lib/completeNutritionRefresh.mjs";
 import { removeStoredNutritionEntry } from "@/lib/nutritionDelete.mjs";
 
 export function useNutritionData(date = new Date(), history = false) {
@@ -49,7 +50,7 @@ export function useNutritionData(date = new Date(), history = false) {
   }, [store, loader, focused, isLoaded, userId, dateKey, history, entriesRevision, goalsRevision, wakeVersion]);
   const refresh = useCallback(() => {
     const data = history ? store.loadHistory(loader, { force: true }) : store.loadDay(dateKey, loader, { force: true });
-    return Promise.all([data, store.loadProfile(loader, { force: true })]);
+    return completeNutritionRefresh([data, store.loadProfile(loader, { force: true })]);
   }, [store, loader, history, dateKey]);
   const refreshProfile = useCallback(() => store.loadProfile(loader, { force: true }), [store, loader]);
   const deleteEntry = useCallback((id) => removeStoredNutritionEntry({

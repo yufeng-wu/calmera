@@ -45,6 +45,38 @@ const FormField = React.forwardRef(function FormField({ label, symbol, suffix, s
   );
 });
 
+export function MealTypeOptions({ mealType, setMealType, disabled = false }) {
+  const { fontScale } = useWindowDimensions();
+  const formBusy = disabled;
+  return (
+          <View style={form.mealOptions} accessibilityRole="radiogroup">
+            {MEAL_TYPES.map((type) => (
+              <Pressable
+                key={type}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: mealType === type, disabled: formBusy }}
+                disabled={formBusy}
+                accessibilityLabel={type}
+                onPress={() => setMealType?.(type)}
+                style={({ pressed }) => [
+                  form.mealOption,
+                  fontScale >= 1.5 && form.mealOptionStacked,
+                  mealType === type && form.mealOptionSelected,
+                  pressed && form.mealOptionPressed,
+                ]}
+              >
+                <Text style={[
+                  form.mealOptionText,
+                  mealType === type && form.mealOptionTextSelected,
+                ]}>
+                  {type}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+  );
+}
+
 // State remains in each create/edit screen. Optional props preserve those callers.
 export const FoodEntryFormCard = ({
   foodName,
@@ -81,37 +113,15 @@ export const FoodEntryFormCard = ({
       {showMealType && (
         <FormCard style={form.card}>
           <Text style={form.sectionTitle}>Meal</Text>
-          <View style={form.mealOptions} accessibilityRole="radiogroup">
-            {MEAL_TYPES.map((type) => (
-              <Pressable
-                key={type}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: mealType === type, disabled: formBusy }}
-                disabled={formBusy}
-                accessibilityLabel={type}
-                onPress={() => setMealType?.(type)}
-                style={({ pressed }) => [
-                  form.mealOption,
-                  fontScale >= 1.5 && form.mealOptionStacked,
-                  mealType === type && form.mealOptionSelected,
-                  pressed && form.mealOptionPressed,
-                ]}
-              >
-                <Text style={[
-                  form.mealOptionText,
-                  mealType === type && form.mealOptionTextSelected,
-                ]}>
-                  {type}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+          <MealTypeOptions mealType={mealType} setMealType={setMealType} disabled={formBusy} />
         </FormCard>
       )}
 
       <FormCard style={form.card}>
         <FormField
           label="Food"
+          autoCorrect={false}
+          spellCheck={false}
           symbol="restaurant-outline"
           placeholder="What did you eat?"
           value={foodName}
@@ -125,6 +135,8 @@ export const FoodEntryFormCard = ({
         <FormField
           ref={amountInput}
           label="Amount"
+          autoCorrect={false}
+          spellCheck={false}
           symbol="cube-outline"
           placeholder={gramsOnly ? "Weight in grams" : "e.g. 150 g or 2 slices"}
           keyboardType={gramsOnly ? "numeric" : "default"}

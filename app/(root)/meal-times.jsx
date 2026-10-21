@@ -97,7 +97,7 @@ export default function MealTimes({ calmeraPreview = false, calmeraPreviewState 
   return <FormScreen style={formStyles.screen}>
     <FormHeader title="Meal times" onBack={back} onSave={save} saving={saving} saveDisabled={!ready || !dirty || !valid} />
     <FormScrollView key={`meal-times-text-${fontScale}`} contentContainerStyle={formStyles.content}>
-      <Text style={styles.intro}>When you don’t name a meal in a voice log, foodwrap uses these times.</Text>
+      <Text style={styles.intro}>When you don’t name a meal in a voice log, calmera uses these times.</Text>
       {loading ? <FormCard style={styles.feedback}><ActivityIndicator color={COLORS.primary} />
         <Text style={formStyles.caption}>Loading your meal times…</Text></FormCard>
         : error ? <FormCard><Text style={formStyles.sectionTitle}>

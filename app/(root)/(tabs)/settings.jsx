@@ -7,6 +7,7 @@ import { useClerk, useUser } from "@clerk/clerk-expo";
 import { FormCard, formStyles } from "@/components/GlassForm";
 import SettingsRow from "@/components/SettingsRow";
 import useWarmSettingsRoutes from "@/hooks/useWarmSettingsRoutes";
+import OpenAILogo from "@/components/OpenAILogo";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 
 export default function SettingsScreen({ calmeraPreview = false }) {
@@ -39,10 +40,10 @@ export default function SettingsScreen({ calmeraPreview = false }) {
   return <View style={formStyles.screen}>
     <View style={styles.header}><Text accessibilityRole="header" style={styles.title}>Settings</Text></View>
     <ScrollView key={`text-size-${fontScale}`} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <Text style={styles.section}>FOODWRAP.</Text>
+      <Text style={styles.section}>CALMERA.</Text>
       <FormCard variant="grouped" style={styles.group}>
         <SettingsRow title="ChatGPT connection" subtitle="Your account and model"
-          icon="sparkles-outline" onPress={() => openPage("/chatgpt", "ChatGPT connection")} />
+          iconElement={<OpenAILogo />} onPress={() => openPage("/chatgpt", "ChatGPT connection")} />
         <SettingsRow title="Voice language" subtitle="Choose the language for voice logs" icon="mic-outline" divider
           onPress={() => openPage("/voice-language", "Voice language")} />
         <SettingsRow title="Meal times" subtitle="Default meals for voice logs" icon="time-outline" divider

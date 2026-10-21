@@ -50,7 +50,7 @@ export default function GlassCompare() {
   return <View style={styles.page}>
     <FormHeader title={large ? "Glass" : "Glass materials"} onBack={() => router.canGoBack() ? router.back() : router.replace("/theme")} />
     <ScrollView key={`glass-text-${fontScale}`} contentContainerStyle={styles.content}>
-      <Text style={styles.intro}>Apple materials, on your foodwrap backgrounds.</Text>
+      <Text style={styles.intro}>Apple materials, on your calmera backgrounds.</Text>
       <View style={styles.choices} accessibilityRole="radiogroup" accessibilityLabel="Comparison background">
         {APPEARANCE_THEMES.map(theme => <Choice key={theme.id} label={theme.label} selected={theme.id === themeId}
           disabled={!ready} onPress={() => selectTheme(theme.id).catch(() => setStatus("Couldn’t save the review background. Try again."))} />)}

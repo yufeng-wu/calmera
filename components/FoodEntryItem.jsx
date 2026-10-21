@@ -77,11 +77,14 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
   const router = useRouter();
   const swipeable = useRef(null);
   const isOpen = useRef(false);
+  const pendingEdit = useRef(null);
+  const navigatingToEdit = useRef(false);
   const nativeReveal = useSharedValue(0);
   const nativeActions = Platform.OS === "ios";
   useEffect(() => {
     // A changed text size or rotation changes the action width. Close once,
     // then let the next gesture measure the new rail instead of keeping a stale offset.
+    pendingEdit.current = null;
     swipeable.current?.reset();
     nativeReveal.value = 0;
     isOpen.current = false;
@@ -95,20 +98,38 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
     swipeable.current?.close();
     if (activeRow === swipeable) activeRow = null;
   }, []);
-  useFocusEffect(useCallback(() => () => {
-    // Tab changes dismiss controls; reset avoids a stale open row on return.
-    swipeable.current?.reset();
-    nativeReveal.value = 0;
-    isOpen.current = false;
-    setActionsVisible(false);
-    if (activeRow === swipeable) activeRow = null;
+  useFocusEffect(useCallback(() => {
+    navigatingToEdit.current = false;
+    return () => {
+      pendingEdit.current = null;
+      // Tab changes dismiss controls; reset avoids a stale open row on return.
+      swipeable.current?.reset();
+      nativeReveal.value = 0;
+      isOpen.current = false;
+      setActionsVisible(false);
+      if (activeRow === swipeable) activeRow = null;
+    };
   }, [nativeReveal]));
   const claimRow = () => {
     if (activeRow && activeRow !== swipeable) activeRow.current?.close();
     activeRow = swipeable;
   };
   const revealActions = () => { claimRow(); swipeable.current?.openRight(); };
-  const edit = () => { close(); if (onEdit) onEdit(item); else router.push(`/edit/${item.id}`); };
+  const edit = () => {
+    if (pendingEdit.current || navigatingToEdit.current) return;
+    const openEditor = () => {
+      if (onEdit) return onEdit(item);
+      navigatingToEdit.current = true;
+      try { router.push(`/edit/${item.id}`); }
+      catch (error) { navigatingToEdit.current = false; throw error; }
+    };
+    if (isOpen.current && swipeable.current) {
+      // Finish the row's close before starting the native push. Blurring the
+      // list mid-spring resets its translation and flashes the action rail.
+      pendingEdit.current = openEditor;
+      close();
+    } else openEditor();
+  };
   const remove = () => { close(); onDelete?.(item.id); };
   const toggleExpand = () => {
     if (isOpen.current) { close(); return; }
@@ -131,7 +152,7 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
       overshootLeft={false} overshootRight={!reducedMotion} overshootFriction={9}
       enableTrackpadTwoFingerGesture animationOptions={swipeSpring}
       containerStyle={swipeStyles.swipeable}
-      onSwipeableOpenStartDrag={() => { claimRow(); onSwipeStateChange?.("dragging"); }}
+      onSwipeableOpenStartDrag={() => { pendingEdit.current = null; claimRow(); onSwipeStateChange?.("dragging"); }}
       onSwipeableWillOpen={() => {
         claimRow(); isOpen.current = true; setActionsVisible(true);
         onSwipeStateChange?.("opening");
@@ -143,6 +164,9 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
         isOpen.current = false; setActionsVisible(false);
         if (activeRow === swipeable) activeRow = null;
         onSwipeStateChange?.("closed");
+        const openEditor = pendingEdit.current;
+        pendingEdit.current = null;
+        openEditor?.();
       }}
       renderRightActions={(progress, translation) => nativeActions
         ? <MealActionRail translation={translation} reveal={nativeReveal} width={actionWidth * 2 + 20} />

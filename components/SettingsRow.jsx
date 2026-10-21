@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 
-export default function SettingsRow({ title, subtitle, icon, onPress, selected = false,
+export default function SettingsRow({ title, subtitle, icon, iconElement, onPress, selected = false,
   destructive = false, disabled = false, divider = false, showAccessory = true, accessibilityRole = "button", accessibilityValue }) {
   const color = destructive ? COLORS.expense : COLORS.primary;
   const interactive = typeof onPress === "function";
@@ -16,7 +16,7 @@ export default function SettingsRow({ title, subtitle, icon, onPress, selected =
     accessibilityState={interactive ? { disabled, ...(accessibilityRole === "radio" ? { checked: selected } : {}) } : undefined}
     {...(interactive ? { disabled, onPress } : {})}
     style={interactive ? ({ pressed }) => [...rowStyles, pressed && styles.pressed] : rowStyles}>
-    {!!icon && <View style={styles.icon}><Ionicons name={icon} size={21} color={color} /></View>}
+    {(iconElement || icon) && <View style={styles.icon}>{iconElement || <Ionicons name={icon} size={21} color={color} />}</View>}
     <View style={styles.copy}>
       <Text style={[styles.title, destructive && { color: COLORS.expense }]}>{title}</Text>
       {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}

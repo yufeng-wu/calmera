@@ -54,7 +54,7 @@ export function LegacyGoPremium() {
       // Initialize & show Stripe Payment Sheet (Apple Pay auto-appears when available)
       const { error: initError } = await initPaymentSheet({
         paymentIntentClientSecret: clientSecret,
-        merchantDisplayName: "Calmera",
+        merchantDisplayName: "calmera",
         merchantCountryCode: "US",
         returnURL: Linking.createURL("stripe-redirect"),
         applePay: {

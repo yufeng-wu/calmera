@@ -149,7 +149,7 @@ export default function ForgotPassword({ calmeraPreview = false, calmeraPreviewS
   };
 
   return <AuthScreen title={passwordUpdated ? "Password updated" : title}
-    subtitle={passwordUpdated ? (busy ? "Finishing sign-in…" : completedSuccessfully ? "Continue to foodwrap." : "Continue to sign in.") : subtitle} onBack={backToSignIn} backDisabled={busy}
+    subtitle={passwordUpdated ? (busy ? "Finishing sign-in…" : completedSuccessfully ? "Continue to calmera." : "Continue to sign in.") : subtitle} onBack={backToSignIn} backDisabled={busy}
     footer={passwordUpdated ? null : <View style={styles.footer}>
       <Text style={styles.footerText}>Remember your password?</Text>
       <AuthLink onPress={backToSignIn} disabled={busy}>Sign in</AuthLink>

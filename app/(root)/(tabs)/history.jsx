@@ -3,8 +3,6 @@ import {
   ActivityIndicator,
   Text,
   StyleSheet,
-  ScrollView,
-  RefreshControl,
   TouchableOpacity,
   LayoutAnimation,
   UIManager,
@@ -18,6 +16,8 @@ import { useState, useEffect, useCallback, useRef, useMemo, useSyncExternalStore
 import AnimatedRe, { Layout as ReLayout } from "react-native-reanimated";
 
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useIsFocused } from "@react-navigation/native";
+import FoodwrapRefreshScrollView from "@/components/FoodwrapRefreshScrollView";
 import { useNutritionData } from "@/hooks/useNutritionData";
 import { NutritionSummaryCard } from "@/components/NutritionSummaryCard";
 import { FoodEntryItem, closeOpenMealActions } from "@/components/FoodEntryItem";
@@ -176,10 +176,11 @@ export default function HistoryScreen({ calmeraPreview = false, calmeraPreviewSt
 
 function HistoryConnected() {
   const tabBarHeight = useBottomTabBarHeight();
+  const isFocused = useIsFocused();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const data = useNutritionData(selectedDate, true);
   return <HistoryView selectedDate={selectedDate} setSelectedDate={setSelectedDate} data={data}
-    floatingBarInset={Platform.OS === "ios" ? tabBarHeight : 0} />;
+    floatingBarInset={Platform.OS === "ios" ? tabBarHeight : 0} active={isFocused} />;
 }
 
 function HistoryPreview({ state }) {
@@ -272,11 +273,10 @@ function HistoryRecoveryPreview({ mode }) {
   return <HistoryView selectedDate={selectedDate} setSelectedDate={setSelectedDate} data={data} preview />;
 }
 
-function HistoryView({ selectedDate, setSelectedDate, data, floatingBarInset = 0, preview = false }) {
+function HistoryView({ selectedDate, setSelectedDate, data, floatingBarInset = 0, preview = false, active = true }) {
   const { fontScale } = useWindowDimensions();
   const { dataByDate, profile, goals, error, profileError, refresh, retryError, deleteEntry, historyLoading,
     historyPending = false, profilePending = false } = data;
-  const [refreshing, setRefreshing] = useState(false);
   const [retryContext, setRetryContext] = useState(null);
   const retryRef = useRef(false);
   const mounted = useRef(true);
@@ -296,10 +296,6 @@ function HistoryView({ selectedDate, setSelectedDate, data, floatingBarInset = 0
       if (mounted.current) setRetryContext(null);
     }
   }, [retryError, error, profileError, historyPending, profilePending]);
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try { await refresh(); } catch {} finally { setRefreshing(false); }
-  }, [refresh]);
   const calorieGoal = goals.calorieGoal;
   const signUpDate = useMemo(() => profile?.createdAtLocalDate
     ? new Date(`${profile.createdAtLocalDate.split("T")[0]}T00:00:00`) : null, [profile?.createdAtLocalDate]);
@@ -448,11 +444,10 @@ function HistoryView({ selectedDate, setSelectedDate, data, floatingBarInset = 0
   return (
     <View style={styles.container}>
       {/* Date navigation & summary */}
-      <ScrollView key={`history-text-${fontScale}`} onScrollBeginDrag={closeOpenMealActions} directionalLockEnabled alwaysBounceHorizontal={false}
+      <FoodwrapRefreshScrollView key={`history-text-${fontScale}`} active={active} onRefresh={refresh} onScrollBeginDrag={closeOpenMealActions} directionalLockEnabled alwaysBounceHorizontal={false}
         style={styles.scrollView}
         contentContainerStyle={{ paddingBottom: 40 + floatingBarInset }}
         scrollIndicatorInsets={{ bottom: floatingBarInset }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <View style={styles.headerContainer}>
           <FormCard variant="grouped" style={styles.calendarCard}>
@@ -528,7 +523,7 @@ function HistoryView({ selectedDate, setSelectedDate, data, floatingBarInset = 0
             <Text style={styles.emptyText}>{historyLoading ? "" : error ? "" : "No entries for this date."}</Text>
           )}
         </AnimatedContent>
-      </ScrollView>
+      </FoodwrapRefreshScrollView>
     </View>
   );
 }

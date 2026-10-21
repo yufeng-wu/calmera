@@ -11,7 +11,7 @@ import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { USERS_API_URL } from "@/constants/api";
 import usePageExit from "@/hooks/usePageExit";
 
-export default function CalmeraWelcomeScreen({ calmeraPreview = false }) {
+export default function FoodwrapWelcomeScreen({ calmeraPreview = false }) {
   const router = useRouter();
   const { fontScale } = useWindowDimensions();
   const navigation = useNavigation();
@@ -37,12 +37,12 @@ export default function CalmeraWelcomeScreen({ calmeraPreview = false }) {
     } catch { Alert.alert("Error", "Unable to save scale type"); }
     finally { savingRef.current = false; setSaving(false); }
   };
-  return <GuideGallery title="Welcome to Calmera" onBack={leave} finalPage={
+  return <GuideGallery title="Welcome to calmera" onBack={leave} finalPage={
     <ScrollView key={`text-size-${fontScale}`} contentContainerStyle={styles.selector} showsVerticalScrollIndicator={false}>
       <View style={styles.intro}><Text accessibilityRole="header" style={styles.title}>Select your scale type</Text>
-        <Text style={styles.description}>Choose the display that matches your kitchen scale. This helps Calmera read its measurements correctly.</Text></View>
+        <Text style={styles.description}>Choose the display that matches your kitchen scale. This helps calmera read its measurements correctly.</Text></View>
       <ScaleOptions selected={selected} onSelect={setSelected} disabled={saving} />
-      <GlassButton title="Start Using Calmera AI" symbol="arrow.right" onPress={start} loading={saving}
+      <GlassButton title="Start Using calmera AI" symbol="arrow.right" onPress={start} loading={saving}
         disabled={!selected} style={styles.start} />
       {!!previewMessage && <Text accessibilityLiveRegion="polite" style={styles.description}>{previewMessage}</Text>}
     </ScrollView>

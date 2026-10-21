@@ -1,13 +1,10 @@
 import { useUser, useAuth } from "@clerk/clerk-expo";
 import {
   Text,
-  ActivityIndicator,
   Pressable,
   View,
   Platform,
   UIManager,
-  ScrollView,
-  RefreshControl,
   Alert,
   Animated,
   Easing,
@@ -15,7 +12,7 @@ import {
   Linking,
 } from "react-native";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useDailyNutrition } from "../../../hooks/useDailyNutrition";
 import NutritionSummarySkeleton from "@/components/NutritionSummarySkeleton";
@@ -24,6 +21,8 @@ import { useRouter } from "expo-router";
 import { NutritionSummaryCard } from "@/components/NutritionSummaryCard";
 import { FoodEntryItem, closeOpenMealActions } from "@/components/FoodEntryItem";
 import NoRecordYet from "@/components/NoRecordYet";
+import FoodwrapRefreshScrollView from "@/components/FoodwrapRefreshScrollView";
+import FoodwrapLoading from "@/components/FoodwrapLoading";
 import FoodwrapWordmark from "@/components/FoodwrapWordmark";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { Audio } from "expo-av";
@@ -31,14 +30,13 @@ import Constants from "expo-constants";
 import { processRecordedMeal } from "@/lib/chatgpt/voiceCapture.mjs";
 import { voiceFeedbackDiagnostics } from "@/lib/chatgpt/voiceFeedbackDiagnostics.mjs";
 import { FOOD_ENTRIES_API_URL } from "@/constants/api";
-import { createPlanClient } from "@/lib/chatgpt/planClient";
+import { createPlanClient, preloadNutritionModels } from "@/lib/chatgpt/planClient";
 import { nutritionClient, transcribeMealAudio, voiceClipMetadata, getVoiceLanguage, inferenceError } from "@/lib/chatgpt/nutrition";
 import { mealTimePreferences } from "@/lib/mealTimeSettings";
 import { estimateVoiceMeal } from "@/lib/chatgpt/mealTimeEstimate.mjs";
 import { saveEstimatedEntries } from "@/lib/chatgpt/entryPersistence.mjs";
 import { getLocalTimeWithOffset } from "@/lib/utils";
 import AnimatedRe, { Layout as ReLayout } from "react-native-reanimated";
-import { COLORS } from "@/constants/colors";
 import AddMealMenu, { ADD_MENU_OPTION_WIDTH } from "@/components/AddMealMenu";
 
 const AnimatedMealGroupContainer = AnimatedRe.createAnimatedComponent(View);
@@ -60,12 +58,12 @@ const MealGroup = ({ title, entries, onDelete }) => {
 };
 
 export default function SummaryScreen() {
+  const isFocused = useIsFocused();
   const { user } = useUser();
   const { getToken } = useAuth();
   const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
   const floatingBarInset = Platform.OS === "ios" ? tabBarHeight : 0;
-  const [refreshing, setRefreshing] = useState(false);
   const { setShouldRefresh } = useRefreshSignal();
   const [fabExpanded, setFabExpanded] = useState(false);
   const [recording, setRecording] = useState(null);
@@ -97,10 +95,6 @@ export default function SummaryScreen() {
   const { entries, summary, goals, hasData, error: dataError, profileError, retryError, isSessionActive, isLoading, loadData, deleteEntry, addEntries } =
     useDailyNutrition();
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    try { await loadData(); } catch {} finally { setRefreshing(false); }
-  };
 
   const handleDelete = (id) => {
     Alert.alert(
@@ -142,7 +136,13 @@ export default function SummaryScreen() {
     voicePhase1AnimRef.current?.stop();
     voiceGrowAnimRef.current?.stop();
   }, [closeMenu]));
+  const prepareMeal = () => { void preloadNutritionModels(user?.id); };
+  const toggleAddMenu = () => {
+    if (!fabExpanded) prepareMeal();
+    setFabExpanded((value) => !value);
+  };
   const collapseFabThenNavigate = (path) => {
+    prepareMeal();
     setFabExpanded(false);
     router.push(path);
   };
@@ -301,10 +301,12 @@ export default function SummaryScreen() {
 
   const handleVoiceShortPress = () => {
     if (voiceBusyRef.current || longPressTriggered.current) return;
+    prepareMeal();
     Alert.alert("Log a meal by voice", 'Hold Voice until the timer starts, describe your meal, then release. For example: “A 16-ounce latte for breakfast.”');
   };
   const handleVoiceLongPress = () => {
     if (voiceBusyRef.current) return;
+    prepareMeal();
     voiceBusyRef.current = true;
     stopRequestedRef.current = false;
     longPressTriggered.current = true;
@@ -340,15 +342,16 @@ export default function SummaryScreen() {
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   });
 
+  if (isLoading) return <View style={[styles.container, { justifyContent: "center" }]}>
+    <FoodwrapLoading active={isFocused} showCaption={false} />
+  </View>;
+
   return (
     <View style={styles.container}>
-      <ScrollView onScrollBeginDrag={closeOpenMealActions} directionalLockEnabled alwaysBounceHorizontal={false}
+      <FoodwrapRefreshScrollView active={isFocused} onRefresh={loadData} onScrollBeginDrag={closeOpenMealActions} directionalLockEnabled alwaysBounceHorizontal={false}
         style={styles.scrollView}
         contentContainerStyle={{ paddingBottom: SCROLL_BOTTOM_PADDING }}
         scrollIndicatorInsets={{ bottom: floatingBarInset }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
       >
         <View style={[styles.headerContainer, { paddingTop: 12 }]}>
           <FoodwrapWordmark style={{ marginBottom: 16 }} />
@@ -360,10 +363,7 @@ export default function SummaryScreen() {
         </View>
 
         <View style={styles.transactionsContainer}>
-          {isLoading ? <View style={{ padding: 20, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8 }}>
-            <ActivityIndicator size="small" color={COLORS.primary} />
-            <Text style={styles.macrosText}>Getting your meals…</Text>
-          </View> : dataError && !hasData ? null : entries.length > 0 ? (
+          {dataError && !hasData ? null : entries.length > 0 ? (
             mealOrder.map((meal) => (
               <MealGroup
                 key={meal}
@@ -376,9 +376,9 @@ export default function SummaryScreen() {
             <NoRecordYet />
           )}
         </View>
-      </ScrollView>
+      </FoodwrapRefreshScrollView>
 
-      <AddMealMenu bottomInset={floatingBarInset} expanded={fabExpanded} onToggle={() => setFabExpanded((value) => !value)}
+      <AddMealMenu bottomInset={floatingBarInset} expanded={fabExpanded} onToggle={toggleAddMenu}
         onClose={closeMenu} onText={() => collapseFabThenNavigate("/create")}
         onPhoto={() => collapseFabThenNavigate("/photo-log")}
         onVoicePress={handleVoiceShortPress} onVoiceLongPress={handleVoiceLongPress}

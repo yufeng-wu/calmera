@@ -7,6 +7,7 @@ import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, V
 import { requireNativeViewManager } from "expo-modules-core";
 import { Ionicons } from "@expo/vector-icons";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
+import OpenAILogo, { OPENAI_BLOSSOM_SYMBOL } from "./OpenAILogo";
 
 const NativeButton = Platform.OS === "ios" ? requireNativeViewManager("CalmeraChatGPT", "FormButton") : null;
 const nativeEdgeSupported = Platform.OS === "ios" && Number.parseInt(String(Platform.Version), 10) >= 26;
@@ -91,15 +92,15 @@ export function GlassButton({ title = "", symbol = "", onPress, disabled = false
     onPress={onPress} style={({ pressed }) => [buttonStyle, styles.fallback,
       role === "accent" && styles.accent, role === "destructive" && styles.destructive, navigation && styles.navigation, pressed && (navigation ? styles.navigationPressed : styles.pressed), (disabled || loading) && styles.disabled]}>
     {loading ? <ActivityIndicator color={foreground} /> : <>
-      {!!symbol && <Ionicons name={fallbackSymbols[symbol] || "ellipse-outline"} size={20}
-        color={foreground} />}
+      {!!symbol && (symbol === OPENAI_BLOSSOM_SYMBOL ? <OpenAILogo /> : <Ionicons name={fallbackSymbols[symbol] || "ellipse-outline"} size={20}
+        color={foreground} />)}
       {!!title && <Text style={[styles.buttonText, role === "accent" && styles.accentText, role === "destructive" && styles.destructiveText, neutral && styles.navigationText]}>{title}</Text>}
     </>}
   </Pressable>;
 }
 
 // The app's SafeScreen already supplies the top inset. Keep navigation symmetric.
-export function FormHeader({ title, onBack, onSave, saving = false, saveDisabled = false, backDisabled = false, rightAction, onSaveMetrics }) {
+export function FormHeader({ title, titleContent, onBack, onSave, saving = false, saveDisabled = false, backDisabled = false, rightAction, onSaveMetrics }) {
   const { fontScale } = useWindowDimensions();
   const large = fontScale > 1.4;
   const edge = useContext(HeaderScrollContext);
@@ -111,7 +112,8 @@ export function FormHeader({ title, onBack, onSave, saving = false, saveDisabled
       {onBack && <GlassButton symbol="chevron.left" role="navigation" onPress={onBack} disabled={backDisabled}
         accessibilityLabel="Back" style={styles.headerBack} />}
     </View>
-    <Text accessibilityRole="header" style={styles.title}>{title}</Text>
+    {titleContent ? <View style={{ flex: 1, alignItems: "center" }}>{titleContent}</View>
+      : <Text accessibilityRole="header" style={styles.title}>{title}</Text>}
     <View style={[styles.headerSide, styles.headerTrailing, large && styles.headerSideLarge]}>
       {rightAction || (onSave && <GlassButton title={large ? "" : "Save"} symbol={large ? "checkmark" : ""}
         onPress={onSave} role="navigation-action" loading={saving} disabled={saveDisabled} accessibilityLabel="Save" onMetrics={onSaveMetrics}

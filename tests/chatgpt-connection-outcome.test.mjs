@@ -19,7 +19,11 @@ test("successful authorization is reported before model details fail", async () 
     models: async () => { events.push("catalog"); throw new Error("synthetic catalog failure"); },
   }), { authorize: true, onConnection: value => events.push(value) });
   assert.deepEqual(events, ["authorized", true, "catalog"]);
-  assert.deepEqual(outcome, { connected: true, choices: [], selected: "", detailsError: true, welcomed: null });
+  assert.equal(outcome.connected, true);
+  assert.equal(outcome.state, "temporary");
+  assert.equal(outcome.issue.action, "retry");
+  assert.deepEqual(outcome.choices, []);
+  assert.equal(outcome.selected, "");
 });
 
 test("confirmed credential presence remains connected when catalog lookup fails", async () => {
@@ -122,4 +126,45 @@ test("synchronous connection presentation invalidation prevents all optional rea
   });
   assert.equal(result, null);
   assert.equal(modelCalls, 0);
+});
+
+test("new-account authorization is forwarded explicitly before publishing a connection", async () => {
+  let authorized = false;
+  const outcome = await readChatGPTConnection(fakeClient({
+    connect: async options => { assert.deepEqual(options, { newAccount: true }); authorized = true; },
+  }), {
+    authorize: true, connectOptions: { newAccount: true },
+    onConnection: value => { assert.equal(authorized, true); assert.equal(value, true); },
+  });
+  assert.equal(outcome.connected, true);
+});
+
+
+test("stored credentials with an expired authorization never publish the ready state", async () => {
+  const error = Object.assign(new Error("openai_http_400"), { status: 400, apiCode: "invalid_grant" });
+  const outcome = await readChatGPTConnection(fakeClient({ models: async () => { throw error; } }));
+  assert.equal(outcome.connected, true);
+  assert.equal(outcome.state, "sign-in");
+  assert.equal(outcome.issue.action, "sign-in");
+  assert.equal(outcome.choices.length, 0);
+});
+
+test("an empty eligible catalog is unavailable rather than a successful connection", async () => {
+  const outcome = await readChatGPTConnection(fakeClient({ models: async () => [] }));
+  assert.equal(outcome.state, "restricted");
+  assert.equal(outcome.issue.action, null);
+});
+
+test("an explicit model choice and optional account metadata survive a successful availability check", async () => {
+  const account = { email: "person@example.com", hasRegistration: true };
+  const outcome = await readChatGPTConnection(fakeClient({ account: async () => account }));
+  assert.equal(outcome.state, "ready");
+  assert.equal(outcome.account, account);
+  assert.equal(outcome.preferred, "synthetic-fast");
+});
+
+test("missing optional display metadata cannot turn a usable connection into an error", async () => {
+  const outcome = await readChatGPTConnection(fakeClient({ account: async () => { throw new Error("synthetic metadata failure"); } }));
+  assert.equal(outcome.state, "ready");
+  assert.equal(outcome.account, null);
 });

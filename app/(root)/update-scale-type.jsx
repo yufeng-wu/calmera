@@ -56,7 +56,7 @@ export default function UpdateScaleType({ calmeraPreview = false }) {
     <FormHeader title="Scale display" onBack={leave} onSave={handleSave} saving={loading} saveDisabled={isFetching || loadError} />
     <FormScrollView key={`text-size-${fontScale}`} contentContainerStyle={formStyles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.intro}><Text accessibilityRole="header" style={styles.title}>Your kitchen scale</Text>
-        <Text style={styles.caption}>Choose the display that matches your scale so Calmera can read it correctly.</Text></View>
+        <Text style={styles.caption}>Choose the display that matches your scale so calmera can read it correctly.</Text></View>
       {isFetching ? <FormCard style={styles.feedback}><ActivityIndicator color={COLORS.primary} /><Text style={styles.caption}>Loading your scale type…</Text></FormCard>
         : loadError ? <FormCard><Text style={styles.title}>Couldn’t load your scale type</Text><Text style={styles.caption}>Your saved setting has not changed. Please try again.</Text>
           <GlassButton title="Try again" onPress={() => setRetry(value => value + 1)} /></FormCard>

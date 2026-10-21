@@ -1502,6 +1502,7 @@ final class CalmeraFormButtonView: ExpoView {
   }
 
   @objc func updateControl() {
+    let branded = symbol == "openai.blossom"
     let prominent = buttonRole == "accent"
     let navigation = buttonRole == "navigation" || buttonRole == "navigation-action"
     let neutral = buttonRole == "navigation"
@@ -1519,11 +1520,15 @@ final class CalmeraFormButtonView: ExpoView {
     let foreground: UIColor = buttonDisabled && !loading ? .tertiaryLabel :
       (buttonRole == "destructive" ? .systemRed : (prominent ? .white : (neutral ? .label : tint)))
     config.baseForegroundColor = foreground
-    config.imageColorTransformer = UIConfigurationColorTransformer { _ in foreground }
+    // Service marks keep their original black pixels, independent of the
+    // Tangerine title tint and UIKit's SF Symbol color transformations.
+    config.imageColorTransformer = branded ? nil : UIConfigurationColorTransformer { _ in foreground }
     config.activityIndicatorColorTransformer = UIConfigurationColorTransformer { _ in foreground }
     config.cornerStyle = .capsule
     config.title = buttonTitle.isEmpty ? nil : buttonTitle
-    config.image = symbol.isEmpty ? nil : UIImage(systemName: symbol)
+    config.image = branded
+      ? UIImage(named: "OpenAIBlossom")?.withRenderingMode(.alwaysOriginal)
+      : (symbol.isEmpty ? nil : UIImage(systemName: symbol))
     config.imagePadding = buttonTitle.isEmpty ? 0 : 8
     if navigation {
       config.buttonSize = .medium
@@ -1531,7 +1536,7 @@ final class CalmeraFormButtonView: ExpoView {
       // text sizes. Text keeps Dynamic Type; symbols grow only from 20 to 24 pt.
       let symbolSize = min(24, UIFontMetrics(forTextStyle: .body).scaledValue(for: 20, compatibleWith: traitCollection))
       config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: symbolSize, weight: .medium)
-      config.image = config.image?.withTintColor(foreground, renderingMode: .alwaysOriginal)
+      if !branded { config.image = config.image?.withTintColor(foreground, renderingMode: .alwaysOriginal) }
     } else {
       config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(textStyle: .body, scale: .medium)
     }

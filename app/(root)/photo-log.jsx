@@ -1,9 +1,9 @@
 import { TYPOGRAPHY } from "@/constants/typography";
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Image, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Alert, Image, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, usePreventRemove } from "@react-navigation/native";
 import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
 import usePageExit from "@/hooks/usePageExit";
@@ -13,12 +13,18 @@ import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { FOOD_ENTRIES_API_URL } from "@/constants/api";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { pickMealPhoto } from "@/lib/chatgpt/planClient";
-import { nutritionClient, inferenceError } from "@/lib/chatgpt/nutrition";
-import { saveEstimatedEntries } from "@/lib/chatgpt/entryPersistence.mjs";
+import { nutritionClient, inferenceError, estimateMacros } from "@/lib/chatgpt/nutrition";
+import PhotoMealReview from "@/components/PhotoMealReview";
+import { createPhotoMealReview, savePhotoMealReview } from "@/lib/photoMealReview.mjs";
 import { createConfirmedMealSave } from "@/lib/confirmedMealSave.mjs";
 import { getLocalTimeWithOffset } from "@/lib/utils";
 
-export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewState = "empty" } = {}) {
+export default function PhotoLogScreen(props) {
+  const { userId } = useAuth();
+  return <PhotoLogForm key={userId || "signed-out"} {...props} />;
+}
+
+function PhotoLogForm({ calmeraPreview = false, calmeraPreviewState = "empty" } = {}) {
   const router = useRouter();
   const navigation = useNavigation();
   const { fontScale } = useWindowDimensions();
@@ -36,9 +42,10 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
   const [photo, setPhoto] = useState(photoTestFixture || previewFixture
     ? { dataURL: phoneTestNutritionLabel, syntheticFixture: true }
     : null);
+  const [review, setReview] = useState(null);
+  const [editor, setEditor] = useState(null);
   const [busy, setBusy] = useState(false);
   const [selecting, setSelecting] = useState(false);
-  const [processingStep, setProcessingStep] = useState("Estimating nutrition…");
   const [uncertain, setUncertain] = useState(false);
   const confirmedSave = useRef(null);
   if (!confirmedSave.current) confirmedSave.current = createConfirmedMealSave();
@@ -87,7 +94,7 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
     }
   };
   const beginOperation = kind => {
-    if (!focused.current || operation.current || ownerRef.current !== userId
+    if (uncertain || !focused.current || operation.current || ownerRef.current !== userId
       || focusedOwner.current !== userId || confirmedSave.current.hasConfirmed(userId)) return null;
     const ticket = { kind, owner: focusedOwner.current, generation: routeGeneration.current, controller: new AbortController() };
     operation.current = ticket;
@@ -134,7 +141,7 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
     try {
       const selected = await pickMealPhoto(source);
       if (!isCurrent(ticket)) return;
-      if (selected) { setPhoto(selected); setUncertain(false); }
+      if (selected) { setPhoto(selected); setReview(null); setEditor(null); setUncertain(false); }
     } catch (error) {
       if (!isCurrent(ticket)) return;
       // Normal picker cancellation returns null. Do not describe camera access
@@ -146,43 +153,86 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
     } finally { finishOperation(ticket); }
   }
 
-  async function logPhoto() {
-    if (!photo || uncertain || confirmedSave.current.hasConfirmed(userId)) return;
-    const ticket = beginOperation("log");
-    if (!ticket) return;
-    if (uiFixture && !savedNavigationFixture) {
-      setProcessingStep("Preview only. No photo is sent or saved.");
+  usePreventRemove(Boolean(review && !mealSaved && !uncertain) || busy || selecting, ({ data }) => {
+    if (confirmedSave.current.hasConfirmed(userId) || operation.current?.leaving) {
+      navigation.dispatch(data.action);
       return;
     }
+    if (operation.current) return;
+    if (editor) { setEditor(null); return; }
+    Alert.alert("Discard meal review?", "Your foods haven’t been saved.", [
+      { text: "Keep reviewing", style: "cancel" },
+      { text: "Discard", style: "destructive", onPress: () => navigation.dispatch(data.action) },
+    ]);
+  });
+
+  const changePhoto = () => {
+    if (operation.current || uncertain || mealSaved) return;
+    Alert.alert("Change photo", "Choosing a new photo will replace this unsaved review.", [
+      { text: "Camera", onPress: () => selectPhoto("camera") },
+      { text: "Photos", onPress: () => selectPhoto("library") },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
+
+  async function estimatePhoto() {
+    if (!photo || uncertain || confirmedSave.current.hasConfirmed(userId)) return;
+    const ticket = beginOperation("estimate");
+    if (!ticket) return;
     const selectedPhoto = photo;
-    setProcessingStep("Estimating nutrition…");
+    const createdAt = getLocalTimeWithOffset();
     try {
-      const createdAt = savedNavigationFixture ? "2026-10-19T12:00:00-04:00" : getLocalTimeWithOffset();
       let result;
-      if (savedNavigationFixture) {
-        result = await Promise.resolve([{ foodName: "Synthetic oat bar", quantity: "1 bar", mealType: "Snack",
-          calories: 180, protein: 4, carbs: 28, fat: 6 }]);
+      if (uiFixture) {
+        result = [{ foodName: "Oat bar", quantity: "1 bar", mealType: "Snack", calories: 180, protein: 4, carbs: 28, fat: 6 }];
       } else {
         const { client, model } = await nutritionClient(userId);
         if (!isCurrent(ticket)) return;
-        result = await client.estimate({ text: "", image: selectedPhoto.dataURL, model,
-          signal: ticket.controller.signal });
+        result = await client.estimate({ text: "", image: selectedPhoto.dataURL, model, signal: ticket.controller.signal });
       }
       if (!isCurrent(ticket)) return;
-      const entries = selectedPhoto.syntheticFixture ? result.map(entry => ({
-        ...entry, foodName: `${entry.foodName} - CALMERA PHONE PHOTO TEST 2026-10-18`,
-      })) : result;
-      if (!entries.length) throw new Error("no_food_detected");
-      setProcessingStep("Saving your meal…");
+      if (!result.length) throw new Error("no_food_detected");
+      const entries = photoTestFixture ? result.map(entry => ({ ...entry, foodName: `${entry.foodName} - FOODWRAP PHOTO TEST` })) : result;
+      // Estimation ends at an editable local draft. It cannot submit a meal.
+      setReview(createPhotoMealReview(entries, ticket.owner, createdAt));
+    } catch (error) {
+      if (isCurrent(ticket)) inferenceError(error, router);
+    } finally { finishOperation(ticket); }
+  }
+
+  async function reestimateFood() {
+    if (!editor || !editor.values.foodName.trim() || !editor.values.quantity.trim()) return;
+    const ticket = beginOperation("estimate-item");
+    if (!ticket) return;
+    const values = editor.values;
+    try {
+      const result = uiFixture ? { calories: 180, protein: 4, carbs: 28, fat: 6 }
+        : await estimateMacros(ticket.owner, values.foodName.trim(), values.quantity.trim(), { signal: ticket.controller.signal });
+      if (!isCurrent(ticket)) return;
+      const quantity = result.normalizedQuantity || values.quantity;
+      setEditor(current => current ? { ...current, values: { ...current.values, quantity,
+        ...Object.fromEntries(["calories", "protein", "carbs", "fat"].map(key => [key, String(result[key])])) },
+        estimated: { foodName: values.foodName, quantity } } : current);
+    } catch (error) { if (isCurrent(ticket)) inferenceError(error, router); }
+    finally { finishOperation(ticket); }
+  }
+
+  async function saveReview() {
+    if (!review?.entries.length || uncertain || confirmedSave.current.hasConfirmed(userId)) return;
+    if (uiFixture && !savedNavigationFixture) return Alert.alert("Preview only", "Your review is ready. No meal was saved.");
+    const ticket = beginOperation("save");
+    if (!ticket) return;
+    const draft = review;
+    try {
       const outcome = await confirmedSave.current.run({
         key: ticket.owner,
         persist: async () => {
           if (savedNavigationFixture) {
             previewSaves.current += 1;
             if (isCurrent(ticket)) setPreviewSaveCount(previewSaves.current);
-            return entries;
+            return draft.entries;
           }
-          return saveEstimatedEntries(entries, { createdAt, url: FOOD_ENTRIES_API_URL,
+          return savePhotoMealReview(draft, ticket.owner, { url: FOOD_ENTRIES_API_URL,
             signal: ticket.controller.signal, isActive: () => isCurrent(ticket),
             getToken: async () => {
               if (!isCurrent(ticket)) throw new Error("photo_operation_cancelled");
@@ -199,6 +249,7 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
           // A late confirmation may belong to this owner’s refocused form,
           // while the old ticket must never navigate or alert that new focus.
           if (!isCurrent(ticket)) hydrateConfirmed(ticket);
+          else setSavedStatus({ owner: ticket.owner, saved: true });
         },
         isCurrent: () => isCurrent(ticket),
         exit: () => {
@@ -224,36 +275,35 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
         const reason = error?.reason || message;
         if (/sign_in|refresh|401|development_build/.test(reason)) inferenceError({ message: reason }, router);
         else Alert.alert("Couldn’t save meal", error?.timedOut
-          ? "Saving took too long. Your photo is still here. Please try again."
-          : "Your meal was not saved. Your photo is still here. Please try again.");
+          ? "Saving took too long. Your review is still here. Please try again."
+          : "Your meal was not saved. Your review is still here. Please try again.");
       } else inferenceError(error, router);
     } finally { finishOperation(ticket); }
   }
 
+  const canChangeDraft = () => focused.current && !operation.current && !uncertain
+    && !confirmedSave.current.hasConfirmed(userId) && ownerRef.current === userId;
+  if (review) return <PhotoMealReview photo={photo} review={review} setReview={value => { if (canChangeDraft()) setReview(value); }}
+    editor={editor} setEditor={value => { if (canChangeDraft()) setEditor(value); }} busy={busy} selecting={selecting} uncertain={uncertain} mealSaved={mealSaved}
+    onBack={leavePhoto} onSave={saveReview} onChangePhoto={changePhoto} onReestimate={reestimateFood}
+    onViewHistory={() => { if (!operation.current) router.replace("/history"); }} />;
+
   return (
     <FormScreen style={styles.container}>
-      <FormHeader title="Photo" onBack={leavePhoto} backDisabled={busy || selecting} />
+      <FormHeader title="Photo Log" onBack={leavePhoto} backDisabled={busy || selecting} />
       <FormScrollView key={`photo-text-${fontScale}`} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {uiFixture && (
           <Text style={styles.fixtureNote}>
             {savedNavigationFixture ? "Synthetic navigation check · nothing is sent or saved." : "UI preview · Photo access and saving are disabled."}
           </Text>
         )}
-        <View style={styles.intro}>
-          <Text style={styles.title}>A photo of your meal</Text>
-          <Text style={styles.subtitle}>Take a photo or choose one from Photos.</Text>
-        </View>
-
         <FormCard style={styles.previewCard}>
           <View style={[styles.preview, photo && styles.previewWithPhoto]}>
             {photo ? (
               <Image source={{ uri: photo.dataURL }} style={styles.photo} accessibilityLabel="Selected meal photo" />
             ) : (
               <View style={styles.placeholder}>
-                <View style={styles.cameraBadge}>
-                  <Ionicons name="camera-outline" size={38} color={COLORS.primary} />
-                </View>
-                <Text style={styles.placeholderTitle}>Your meal goes here</Text>
+                <Text style={styles.placeholderTitle}>Take a photo or upload one</Text>
                 <Text style={styles.placeholderNote}>Include the whole plate for a clearer estimate.</Text>
               </View>
             )}
@@ -265,7 +315,7 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
               accessibilityLabel="Take photo"
               style={styles.option}
               onPress={() => selectPhoto("camera")}
-              disabled={busy || selecting || uiFixture || mealSaved}
+              disabled={busy || selecting || uiFixture || mealSaved || uncertain}
             />
             <GlassButton
               title="Photos"
@@ -273,25 +323,12 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
               accessibilityLabel="Choose photo"
               style={styles.option}
               onPress={() => selectPhoto("library")}
-              disabled={busy || selecting || uiFixture || mealSaved}
+              disabled={busy || selecting || uiFixture || mealSaved || uncertain}
             />
           </View>
         </FormCard>
 
         <View style={styles.footer}>
-          {selecting && <View style={styles.status} accessibilityRole="text" accessibilityLiveRegion="polite">
-            <ActivityIndicator color={COLORS.primary} />
-            <Text style={styles.statusDetail}>Preparing your photo…</Text>
-          </View>}
-          {busy && (
-            <View style={styles.status} accessibilityRole="text" accessibilityLiveRegion="polite">
-              <ActivityIndicator color={COLORS.primary} />
-              <View style={styles.statusCopy}>
-                <Text style={styles.statusTitle}>Processing…</Text>
-                <Text style={styles.statusDetail}>{processingStep}</Text>
-              </View>
-            </View>
-          )}
           {mealSaved && (
             <View style={styles.status} accessibilityRole="text" accessibilityLiveRegion="polite">
               <Ionicons name="checkmark-circle-outline" size={23} color={COLORS.primary} accessible={false} />
@@ -312,14 +349,14 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
             </View>
           )}
           <GlassButton
-            title={mealSaved ? "Meal saved" : savedNavigationFixture ? "Test saved navigation" : uiFixture ? "Preview processing" : "Log photo"}
+            title={busy ? "Estimating…" : "Estimate Nutrition"}
             symbol="sparkles"
             role="accent"
-            onPress={logPhoto}
+            onPress={estimatePhoto}
             loading={busy}
             disabled={!photo || busy || selecting || uncertain || mealSaved}
             style={styles.logButton}
-            accessibilityLabel={mealSaved ? "Meal saved" : savedNavigationFixture ? "Test synthetic save and navigation recovery" : uiFixture ? "Preview processing without sending or saving" : "Estimate and log photo with ChatGPT"}
+            accessibilityLabel={busy ? "Estimating nutrition" : "Estimate nutrition from photo"}
           />
           {mealSaved && <GlassButton title="Go back" symbol="chevron.left" onPress={leavePhoto} disabled={busy || selecting} style={styles.logButton} />}
           {uncertain && (
@@ -340,15 +377,11 @@ export default function PhotoLogScreen({ calmeraPreview = false, calmeraPreviewS
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 36, gap: 16 },
-  intro: { gap: 8, paddingHorizontal: 4 },
-  title: { ...TYPOGRAPHY.pageTitle, color: COLORS.text,},
-  subtitle: { ...TYPOGRAPHY.body, color: COLORS.textLight,},
   previewCard: { padding: 12, gap: 14 },
   preview: { borderRadius: 22, overflow: "hidden", backgroundColor: "#F6F1EC" },
   previewWithPhoto: { aspectRatio: 1.15 },
   photo: { width: "100%", height: "100%", resizeMode: "contain" },
   placeholder: { minHeight: 216, alignItems: "center", justifyContent: "center", padding: 20, gap: 10 },
-  cameraBadge: { width: 78, height: 78, borderRadius: 39, backgroundColor: COLORS.white, alignItems: "center", justifyContent: "center", marginBottom: 3 },
   placeholderTitle: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text, textAlign: "center"},
   placeholderNote: { ...TYPOGRAPHY.caption, color: COLORS.textLight, textAlign: "center", maxWidth: 230},
   actions: { flexDirection: "row", gap: 12, paddingBottom: 2 },

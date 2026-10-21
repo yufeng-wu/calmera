@@ -6,6 +6,7 @@ import { useAuth } from "@clerk/clerk-expo";
 import { useNavigation } from "@react-navigation/native";
 import useFormTaskScope from "@/hooks/useFormTaskScope";
 import { mealRequest } from "@/lib/mealRequest.mjs";
+import { mealEditorValues, storedMealForEditor } from "@/lib/mealEditorDraft.mjs";
 import { validateMealNutrition } from "@/lib/mealNutritionValidation.mjs";
 import { createConfirmedMealSave } from "@/lib/confirmedMealSave.mjs";
 import { readNutrition } from "@/lib/nutritionRequest.mjs";
@@ -22,14 +23,27 @@ const previewEntry = {
 };
 
 export default function EditFoodEntry({ calmeraPreview = false, calmeraPreviewState = "ready" }) {
+  const { id } = useLocalSearchParams();
+  const { getToken, userId } = useAuth();
+  const entryId = Array.isArray(id) ? id[0] : id;
+  // A new route/account gets its own draft; an old draft can never flash while
+  // the next meal's request starts or become editable under another account.
+  return <EditFoodEntryForm key={`${userId}:${entryId}:${calmeraPreview}:${calmeraPreviewState}`}
+    entryId={entryId} getToken={getToken} userId={userId}
+    calmeraPreview={calmeraPreview} calmeraPreviewState={calmeraPreviewState} />;
+}
+
+function EditFoodEntryForm({ entryId, getToken, userId, calmeraPreview, calmeraPreviewState }) {
   const router = useRouter();
   const navigation = useNavigation();
   const { fontScale } = useWindowDimensions();
-  const { id } = useLocalSearchParams();
-  const { getToken, userId } = useAuth();
   const tokenRef = useRef(getToken);
   tokenRef.current = getToken;
   const { store, setShouldRefresh } = useRefreshSignal();
+  const loadFixture = calmeraPreview && ["load-token-timeout", "load-json-timeout"].includes(calmeraPreviewState);
+  const [initialEntry] = useState(() => calmeraPreview
+    ? loadFixture ? null : previewEntry : storedMealForEditor(store, userId, entryId));
+  const initialValues = mealEditorValues(initialEntry || {});
   const ownerRef = useRef(userId);
   ownerRef.current = userId;
   const confirmedSave = useRef(null);
@@ -40,27 +54,25 @@ export default function EditFoodEntry({ calmeraPreview = false, calmeraPreviewSt
   const [simulatedSaves, setSimulatedSaves] = useState(0);
   const savingRef = useRef(false);
   const estimatingRef = useRef(false);
-  const [foodName, setFoodName] = useState("");
-  const [quantity, setQuantity] = useState("");
-  const [calories, setCalories] = useState("");
-  const [protein, setProtein] = useState("");
-  const [carbs, setCarbs] = useState("");
-  const [fat, setFat] = useState("");
-  const [mealType, setMealType] = useState("Breakfast");
+  const [foodName, setFoodName] = useState(initialValues.foodName);
+  const [quantity, setQuantity] = useState(initialValues.quantity);
+  const [calories, setCalories] = useState(initialValues.calories);
+  const [protein, setProtein] = useState(initialValues.protein);
+  const [carbs, setCarbs] = useState(initialValues.carbs);
+  const [fat, setFat] = useState(initialValues.fat);
+  const [mealType, setMealType] = useState(initialValues.mealType);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [retry, setRetry] = useState(0);
   const [isEstimating, setIsEstimating] = useState(false);
-  const [lastEstimated, setLastEstimated] = useState({ foodName: "", quantity: "" });
+  const [lastEstimated, setLastEstimated] = useState({ foodName: initialValues.foodName, quantity: initialValues.quantity });
   const [showMacros, setShowMacros] = useState(true);
-  const entryId = Array.isArray(id) ? id[0] : id;
   const entryRef = useRef(entryId);
   entryRef.current = entryId;
   const sameEntry = () => ownerRef.current === userId && entryRef.current === entryId;
   const navigationFixture = calmeraPreview && calmeraPreviewState === "saved-navigation-error";
   const saveKey = calmeraPreview ? "calmera-editor-preview" : `${userId}:${entryId}`;
-  const loadFixture = calmeraPreview && ["load-token-timeout", "load-json-timeout"].includes(calmeraPreviewState);
   const loadCalls = useRef({ attempts: 0, requests: 0 });
   const [loadTrace, setLoadTrace] = useState({ attempts: 0, requests: 0 });
   const goBack = usePageExit(calmeraPreview ? "/ui-gallery" : "/dashboard");
@@ -108,14 +120,15 @@ export default function EditFoodEntry({ calmeraPreview = false, calmeraPreviewSt
           data = await readNutrition(options);
         }
         if (!current()) return;
-        setFoodName(data.food_name ?? "");
-        setCalories(String(data.calories ?? ""));
-        setProtein(String(data.protein ?? ""));
-        setCarbs(String(data.carbs ?? ""));
-        setFat(String(data.fat ?? ""));
-        setMealType(data.meal_type ?? "Breakfast");
-        setQuantity(String(data.quantity ?? ""));
-        setLastEstimated({ foodName: data.food_name ?? "", quantity: String(data.quantity ?? "") });
+        const values = mealEditorValues(data);
+        setFoodName(values.foodName);
+        setCalories(values.calories);
+        setProtein(values.protein);
+        setCarbs(values.carbs);
+        setFat(values.fat);
+        setMealType(values.mealType);
+        setQuantity(values.quantity);
+        setLastEstimated({ foodName: values.foodName, quantity: values.quantity });
         setShowMacros(true);
       } catch (error) {
         if (current()) setLoadError(error.message === "nutrition_request_timeout"
@@ -182,7 +195,7 @@ export default function EditFoodEntry({ calmeraPreview = false, calmeraPreviewSt
   };
 
   const handleEstimateMacros = async () => {
-    if (!scope.isActive() || !sameEntry() || estimatingRef.current || savingRef.current || isLoading || confirmedSave.current.hasConfirmed(saveKey)) return;
+    if (!scope.isActive() || !sameEntry() || estimatingRef.current || savingRef.current || isLoading || isFetching || loadError || confirmedSave.current.hasConfirmed(saveKey)) return;
     if (!foodName.trim() || !quantity.trim())
       return Alert.alert("Add food and amount", "Enter what you ate and how much before estimating.");
     const task = scope.start();
@@ -211,13 +224,15 @@ export default function EditFoodEntry({ calmeraPreview = false, calmeraPreviewSt
       }
     }
   };
-  const estimateDisabled = isLoading || hasConfirmed || !foodName.trim() || !quantity.trim()
+  const estimateDisabled = isLoading || isFetching || !!loadError || hasConfirmed || !foodName.trim() || !quantity.trim()
     || (foodName.trim() === lastEstimated.foodName && quantity.trim() === lastEstimated.quantity);
+
+  const showLoadingCard = isFetching && !initialEntry;
 
   return <FormScreen style={formStyles.screen}>
     <FormHeader title="Edit Meal" onBack={back} onSave={handleUpdate} saving={isLoading} backDisabled={isLoading}
       saveDisabled={isFetching || isEstimating || !!loadError || hasConfirmed} />
-    <FormScrollView keyboardAware key={`editor-text-${fontScale}`} style={formStyles.screen} contentContainerStyle={{ paddingTop: isFetching || loadError ? 12 : 0, paddingBottom: 40, gap: 18 }}
+    <FormScrollView keyboardAware key={`editor-text-${fontScale}`} style={formStyles.screen} contentContainerStyle={{ paddingTop: showLoadingCard || loadError ? 12 : 0, paddingBottom: 40, gap: 18 }}
       enableOnAndroid enableAutomaticScroll extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
       keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" enableResetScrollToCoords={false}>
       {calmeraPreview && <Text style={[formStyles.caption, { marginHorizontal: 20 }]}>Synthetic preview · nothing is saved</Text>}
@@ -230,7 +245,7 @@ export default function EditFoodEntry({ calmeraPreview = false, calmeraPreviewSt
       {loadFixture && <Text accessibilityLiveRegion="polite" style={[formStyles.caption, { marginHorizontal: 20 }]}>
         Synthetic meal loads: {loadTrace.attempts} · GET requests: {loadTrace.requests}
       </Text>}
-      {isFetching ? <FormCard style={localStyles.statusCard}>
+      {showLoadingCard ? <FormCard style={localStyles.statusCard}>
         <ActivityIndicator color={COLORS.primary} accessibilityLabel="Loading meal" />
         <Text style={formStyles.caption}>Loading your meal…</Text>
       </FormCard> : loadError ? <FormCard style={{ marginHorizontal: 20 }}>
@@ -242,7 +257,7 @@ export default function EditFoodEntry({ calmeraPreview = false, calmeraPreviewSt
         calories={calories} setCalories={setCalories} protein={protein} setProtein={setProtein}
         carbs={carbs} setCarbs={setCarbs} fat={fat} setFat={setFat}
         mealType={mealType} setMealType={setMealType} onEstimateMacros={handleEstimateMacros}
-        isEstimating={isEstimating} busy={isLoading || isEstimating || hasConfirmed} estimateDisabled={estimateDisabled} showMacros={showMacros} />}
+        isEstimating={isEstimating} busy={isFetching || isLoading || isEstimating || hasConfirmed} estimateDisabled={estimateDisabled} showMacros={showMacros} />}
     </FormScrollView>
   </FormScreen>;
 }
