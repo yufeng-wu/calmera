@@ -79,6 +79,23 @@ test("partial, failed, incomplete, wrong-MIME and malformed streams never yield 
   }
 });
 
+test("progress follows real stream events once per stage and never exposes provider content", async () => {
+  const stages = [];
+  const frames = [
+    { type: "response.created", response: { id: "private-id" } },
+    { type: "response.in_progress" },
+    { type: "response.output_text.delta", delta: "private-partial-text" },
+    { type: "response.output_text.delta", delta: "more-private-text" },
+    { type: "response.in_progress" }, completed,
+  ];
+  assert.equal(await completedText(stream(frames.map(frame).join(""), undefined, 1), { onProgress: stage => stages.push(stage) }), JSON.stringify(meal));
+  assert.deepEqual(stages, ["received", "analyzing", "receiving", "completed"]);
+  const failedStages = [];
+  await assert.rejects(completedText(stream(frame(frames[0]) + frame({ type: "response.failed" })), { onProgress: stage => failedStages.push(stage) }));
+  assert.deepEqual(failedStages, ["received"]);
+  assert.equal(await completedText(stream(frame(completed)), { onProgress() { throw new Error("UI callback failed"); } }), JSON.stringify(meal));
+});
+
 test("malformed model output cannot turn into a meal; clarification stays unsaved", () => {
   assert.deepEqual(parseMeal(JSON.stringify(meal)), meal);
   assert.deepEqual(parseMeal('{"needsClarification":"What was in the bowl?"}'), { needsClarification: "What was in the bowl?" });

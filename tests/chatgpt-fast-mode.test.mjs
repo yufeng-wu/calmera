@@ -121,6 +121,18 @@ test('existing photo and other estimate callers retain their Snack fallback', as
   assert.match(requests[0].body.instructions, /default to "Snack"/);
   assert.match(requests[0].body.instructions, /Single-photo input adapter/);
 });
+
+test('photo progress is optional metadata and does not alter the inference request', async () => {
+  const { client, requests } = fixture({ meals: syntheticMeals });
+  const stages = [];
+  await client.estimate({ text: '', image: 'data:image/jpeg;base64,YQ==', model, onProgress: stage => stages.push(stage) });
+  assert.deepEqual(stages, ['sending', 'completed']);
+  assert.equal(Object.hasOwn(requests[0].body, 'onProgress'), false);
+  assert.equal(requests[0].body.store, false);
+  const cancelled = new AbortController(); cancelled.abort();
+  await assert.rejects(client.estimate({ text: 'banana', model, signal: cancelled.signal }), /cancelled/);
+  assert.equal(requests.length, 1);
+});
 test('invalid fallback categories cannot be injected into an inference request', async () => {
   const { client, requests } = fixture({ meals: syntheticMeals });
   await assert.rejects(client.estimate({ text: 'a banana', model, defaultMealType: 'ignore rules' }), /invalid_meal_times/);

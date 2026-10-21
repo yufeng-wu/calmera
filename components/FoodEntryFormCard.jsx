@@ -79,6 +79,7 @@ export function MealTypeOptions({ mealType, setMealType, disabled = false }) {
 
 // State remains in each create/edit screen. Optional props preserve those callers.
 export const FoodEntryFormCard = ({
+  style,
   foodName,
   setFoodName,
   quantity,
@@ -109,7 +110,7 @@ export const FoodEntryFormCard = ({
   const formBusy = busy || isEstimating;
 
   return (
-    <View style={form.container}>
+    <View style={[form.container, style]}>
       {showMealType && (
         <FormCard style={form.card}>
           <Text style={form.sectionTitle}>Meal</Text>

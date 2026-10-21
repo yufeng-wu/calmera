@@ -1,11 +1,13 @@
 import { TYPOGRAPHY } from "@/constants/typography";
 import { useCallback, useRef, useState } from "react";
-import { Alert, Image, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Alert, Image, Linking, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useFocusEffect, useNavigation, usePreventRemove } from "@react-navigation/native";
 import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
+import usePhotoLogConnection from "@/hooks/usePhotoLogConnection";
+import { canEstimatePhoto, photoConnectionPresentation, PHOTO_ESTIMATION_PROGRESS, NO_FOOD_DETECTED } from "@/lib/photoLogPresentation.mjs";
 import usePageExit from "@/hooks/usePageExit";
 import { FormScreen, FormScrollView, FormHeader, FormCard, GlassButton } from "@/components/GlassForm";
 import { phoneTestNutritionLabel } from "@/lib/chatgpt/phoneTestFixtures.mjs";
@@ -15,7 +17,7 @@ import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { pickMealPhoto } from "@/lib/chatgpt/planClient";
 import { nutritionClient, inferenceError, estimateMacros } from "@/lib/chatgpt/nutrition";
 import PhotoMealReview from "@/components/PhotoMealReview";
-import { createPhotoMealReview, savePhotoMealReview } from "@/lib/photoMealReview.mjs";
+import { createPhotoMealReview, savePhotoMealReview, PHOTO_MEAL_TYPES } from "@/lib/photoMealReview.mjs";
 import { createConfirmedMealSave } from "@/lib/confirmedMealSave.mjs";
 import { getLocalTimeWithOffset } from "@/lib/utils";
 
@@ -42,6 +44,8 @@ function PhotoLogForm({ calmeraPreview = false, calmeraPreviewState = "empty" } 
   const [photo, setPhoto] = useState(photoTestFixture || previewFixture
     ? { dataURL: phoneTestNutritionLabel, syntheticFixture: true }
     : null);
+  const { connection, refresh: refreshConnection } = usePhotoLogConnection(userId, uiFixture);
+  const [progress, setProgress] = useState("preparing");
   const [review, setReview] = useState(null);
   const [editor, setEditor] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -176,9 +180,10 @@ function PhotoLogForm({ calmeraPreview = false, calmeraPreviewState = "empty" } 
   };
 
   async function estimatePhoto() {
-    if (!photo || uncertain || confirmedSave.current.hasConfirmed(userId)) return;
+    if (!canEstimatePhoto({ photo, connection, busy, selecting, uncertain, mealSaved }) || confirmedSave.current.hasConfirmed(userId)) return;
     const ticket = beginOperation("estimate");
     if (!ticket) return;
+    setProgress("preparing");
     const selectedPhoto = photo;
     const createdAt = getLocalTimeWithOffset();
     try {
@@ -188,7 +193,8 @@ function PhotoLogForm({ calmeraPreview = false, calmeraPreviewState = "empty" } 
       } else {
         const { client, model } = await nutritionClient(userId);
         if (!isCurrent(ticket)) return;
-        result = await client.estimate({ text: "", image: selectedPhoto.dataURL, model, signal: ticket.controller.signal });
+        result = await client.estimate({ text: "", image: selectedPhoto.dataURL, model, signal: ticket.controller.signal,
+          onProgress: stage => { if (isCurrent(ticket)) setProgress(stage); } });
       }
       if (!isCurrent(ticket)) return;
       if (!result.length) throw new Error("no_food_detected");
@@ -196,7 +202,10 @@ function PhotoLogForm({ calmeraPreview = false, calmeraPreviewState = "empty" } 
       // Estimation ends at an editable local draft. It cannot submit a meal.
       setReview(createPhotoMealReview(entries, ticket.owner, createdAt));
     } catch (error) {
-      if (isCurrent(ticket)) inferenceError(error, router);
+      if (isCurrent(ticket)) {
+        if (/no_food/.test(error?.message || "")) Alert.alert(NO_FOOD_DETECTED.title, NO_FOOD_DETECTED.message);
+        else { inferenceError(error, router); refreshConnection(); }
+      }
     } finally { finishOperation(ticket); }
   }
 
@@ -217,12 +226,12 @@ function PhotoLogForm({ calmeraPreview = false, calmeraPreviewState = "empty" } 
     finally { finishOperation(ticket); }
   }
 
-  async function saveReview() {
-    if (!review?.entries.length || uncertain || confirmedSave.current.hasConfirmed(userId)) return;
+  async function saveReview(mealType, reviewedDraft = review) {
+    if (!PHOTO_MEAL_TYPES.includes(mealType) || !reviewedDraft?.entries.length || uncertain || confirmedSave.current.hasConfirmed(userId)) return;
     if (uiFixture && !savedNavigationFixture) return Alert.alert("Preview only", "Your review is ready. No meal was saved.");
     const ticket = beginOperation("save");
     if (!ticket) return;
-    const draft = review;
+    const draft = { ...reviewedDraft, mealType };
     try {
       const outcome = await confirmedSave.current.run({
         key: ticket.owner,
@@ -284,10 +293,12 @@ function PhotoLogForm({ calmeraPreview = false, calmeraPreviewState = "empty" } 
   const canChangeDraft = () => focused.current && !operation.current && !uncertain
     && !confirmedSave.current.hasConfirmed(userId) && ownerRef.current === userId;
   if (review) return <PhotoMealReview photo={photo} review={review} setReview={value => { if (canChangeDraft()) setReview(value); }}
-    editor={editor} setEditor={value => { if (canChangeDraft()) setEditor(value); }} busy={busy} selecting={selecting} uncertain={uncertain} mealSaved={mealSaved}
+    estimating={operation.current?.kind === "estimate-item"} editor={editor} setEditor={value => { if (canChangeDraft()) setEditor(value); }} busy={busy} selecting={selecting} uncertain={uncertain} mealSaved={mealSaved}
     onBack={leavePhoto} onSave={saveReview} onChangePhoto={changePhoto} onReestimate={reestimateFood}
     onViewHistory={() => { if (!operation.current) router.replace("/history"); }} />;
 
+  const connectionCopy = photoConnectionPresentation(connection);
+  const progressCopy = PHOTO_ESTIMATION_PROGRESS[progress] || PHOTO_ESTIMATION_PROGRESS.preparing;
   return (
     <FormScreen style={styles.container}>
       <FormHeader title="Photo Log" onBack={leavePhoto} backDisabled={busy || selecting} />
@@ -348,13 +359,26 @@ function PhotoLogForm({ calmeraPreview = false, calmeraPreviewState = "empty" } 
               </View>
             </View>
           )}
+          {!mealSaved && !uncertain && <View style={styles.status} accessibilityRole="text" accessibilityLiveRegion="polite">
+            <Ionicons name={busy ? "sync-outline" : connectionCopy.icon} size={23} color={COLORS.primary} accessible={false} />
+            <View style={styles.statusCopy}>
+              <Text style={styles.statusTitle}>{busy ? progressCopy.title : connectionCopy.title}</Text>
+              <Text style={styles.statusDetail}>{busy ? progressCopy.detail : connection.state === "ready" && photo
+                ? "Connected to OpenAI. Your photo is ready to estimate." : connectionCopy.detail}</Text>
+            </View>
+          </View>}
+          {!busy && connectionCopy.action && <GlassButton
+            title={connectionCopy.action === "sign-in" ? "Connect ChatGPT" : connectionCopy.action === "usage" ? "Manage usage" : "Check connection again"}
+            onPress={() => connectionCopy.action === "sign-in" ? router.push("/chatgpt") : connectionCopy.action === "usage"
+              ? Linking.openURL("https://chatgpt.com/settings/usage").catch(() => {}) : refreshConnection()}
+            disabled={selecting || mealSaved || uncertain} />}
           <GlassButton
             title={busy ? "Estimating…" : "Estimate Nutrition"}
             symbol="sparkles"
             role="accent"
             onPress={estimatePhoto}
             loading={busy}
-            disabled={!photo || busy || selecting || uncertain || mealSaved}
+            disabled={!canEstimatePhoto({ photo, connection, busy, selecting, uncertain, mealSaved })}
             style={styles.logButton}
             accessibilityLabel={busy ? "Estimating nutrition" : "Estimate nutrition from photo"}
           />
