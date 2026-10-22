@@ -60,7 +60,7 @@ export const FormScrollView = forwardRef(function FormScrollView({ keyboardAware
     onLayout={event => { updateTag(); onLayout?.(event); }} />;
 });
 const fallbackSymbols = {
-  "chevron.left": "chevron-back", checkmark: "checkmark", sparkles: "sparkles-outline",
+  ellipsis: "ellipsis-horizontal", "chevron.left": "chevron-back", checkmark: "checkmark", sparkles: "sparkles-outline",
   camera: "camera-outline", "camera.fill": "camera", photo: "image-outline", "photo.on.rectangle": "images-outline",
   pencil: "pencil", "slider.horizontal.3": "options-outline", "arrow.right": "arrow-forward",
   "plus": "add", "keyboard": "keypad-outline", "arrow.up.right": "open-outline",

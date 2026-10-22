@@ -168,3 +168,52 @@ test("missing optional display metadata cannot turn a usable connection into an 
   assert.equal(outcome.state, "ready");
   assert.equal(outcome.account, null);
 });
+
+test("a model-list outage preserves the linked email and the user's saved API default without another OAuth flow", async () => {
+  const account = { email: "person@example.com", hasRegistration: true };
+  const outcome = await readChatGPTConnection(fakeClient({
+    account: async () => account,
+    connect: async () => assert.fail("a catalog outage must not start sign-in"),
+    models: async () => { throw new TypeError("synthetic model-list outage"); },
+    getSelectedModel: async () => "synthetic-fast",
+  }));
+  assert.equal(outcome.connected, true);
+  assert.equal(outcome.account, account);
+  assert.equal(outcome.preferred, "synthetic-fast");
+  assert.equal(outcome.preferenceError, false);
+  assert.notEqual(outcome.issue.kind, "sign-in");
+  assert.equal(outcome.selected, "");
+});
+
+test("recovering the model list restores the saved default without rewriting the preference", async () => {
+  let attempts = 0;
+  const client = fakeClient({
+    models: async () => { if (++attempts === 1) throw new TypeError("synthetic outage"); return catalog; },
+    setSelectedModel: async () => assert.fail("loading model choices must not change the API default"),
+  });
+  assert.equal((await readChatGPTConnection(client)).preferred, "synthetic-fast");
+  const recovered = await readChatGPTConnection(client);
+  assert.equal(recovered.state, "ready");
+  assert.equal(recovered.preferred, "synthetic-fast");
+  assert.equal(recovered.selected, "synthetic-fast");
+});
+
+test("a failed preference read cannot invent an Automatic checkmark or hide a confirmed expired login", async () => {
+  const expired = Object.assign(new Error("openai_http_400"), { status: 400, apiCode: "invalid_grant" });
+  const outcome = await readChatGPTConnection(fakeClient({
+    models: async () => { throw expired; },
+    getSelectedModel: async () => { throw new Error("synthetic keychain read failure"); },
+  }));
+  assert.equal(outcome.preferenceError, true);
+  assert.equal(outcome.selected, "");
+  assert.equal(outcome.state, "sign-in");
+});
+
+test("a departed page cannot read a saved default after its model-list failure arrives late", async () => {
+  let active = true;
+  const result = await readChatGPTConnection(fakeClient({
+    models: async () => { active = false; throw new TypeError("synthetic late outage"); },
+    getSelectedModel: async () => assert.fail("the old focus cannot read preferences"),
+  }), { isCurrent: () => active });
+  assert.equal(result, null);
+});

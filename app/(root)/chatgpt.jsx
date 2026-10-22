@@ -18,7 +18,7 @@ import { createPlanClient, isChatGPTAvailable } from "@/lib/chatgpt/planClient";
 
 const PREVIEW_MODELS = [{ slug: "calmera-preview", display_name: "ChatGPT model" }, { slug: "calmera-preview-fast", display_name: "ChatGPT fast model" }];
 const settingsOperations = createSettingsOperations();
-const emptyConnection = () => ({ connected: false, state: "disconnected", account: null, choices: [], selected: "", preferred: null, issue: null });
+const emptyConnection = () => ({ connected: false, state: "disconnected", account: null, choices: [], selected: "", preferred: null, preferenceError: false, issue: null });
 
 function chooseAction(title, options) {
   if (Platform.OS === "ios") ActionSheetIOS.showActionSheetWithOptions({
@@ -121,7 +121,11 @@ function ChatGPTSettingsForm({ userId, calmeraPreview = false, calmeraPreviewSta
     }
   }
 
-  const retry = () => runOperation("check", current => readChatGPTConnection(client, { isCurrent: current }), setConnection);
+  const retry = () => runOperation("check", current => readChatGPTConnection(client, { isCurrent: current }), result => {
+    if (!result) return;
+    setConnection(result);
+    if (result.issue?.kind === "sign-in") setView("connection");
+  });
   const connect = newAccount => runOperation("connect", current => readChatGPTConnection(client, {
     authorize: true, connectOptions: { newAccount }, readWelcome: true, isCurrent: current,
   }), result => {
@@ -147,59 +151,66 @@ function ChatGPTSettingsForm({ userId, calmeraPreview = false, calmeraPreviewSta
     ]);
   };
   const selectModel = slug => {
-    if (slug === connection.preferred) { setView("connection"); return; }
+    if (!connection.preferenceError && slug === connection.preferred) { setView("connection"); return; }
     runOperation("model", () => client.setSelectedModel(slug), () => {
-      setConnection(previous => ({ ...previous, preferred: slug, selected: selectNutritionModel(previous.choices, slug) || "" }));
+      setConnection(previous => ({ ...previous, preferred: slug, preferenceError: false, selected: selectNutritionModel(previous.choices, slug) || "" }));
       setView("connection");
     });
   };
   const manageUsage = () => { if (!calmeraPreview) Linking.openURL("https://chatgpt.com/settings/usage").catch(() => setNotice("ChatGPT settings couldn’t open. Please try again.")); };
 
-  const ready = connection.state === "ready";
   const preferredModel = connection.choices.find(item => item.slug === connection.preferred);
   const issue = available ? connection.issue : connectionIssue(new Error("development_build_required"));
   const pending = Boolean(action);
-  const title = action === "check" ? "Checking connection…" : action === "connect" ? "Connecting to ChatGPT…"
-    : action === "disconnect" ? "Disconnecting…" : issue?.title || (ready ? "Connected" : "Connect your ChatGPT plan");
-  const detail = action ? null : issue?.message || (ready ? "Using your ChatGPT plan for meal estimates." : "Estimate meal nutrition with your own ChatGPT plan.");
-  const primary = pending ? null : issue?.action || (!connection.connected && !issue ? "sign-in" : null);
+  const needsSignIn = issue?.kind === "sign-in";
+  const linked = connection.connected && !needsSignIn;
+  const title = action === "connect" ? "Connecting ChatGPT…" : action === "disconnect" ? "Disconnecting…"
+    : linked ? "ChatGPT connected" : needsSignIn ? "ChatGPT sign-in required" : action === "check" ? "Checking ChatGPT…" : issue?.title || "Connect ChatGPT";
+  const email = connection.account?.email;
+  const defaultLabel = connection.preferenceError ? "Choose a model" : preferredModel?.display_name || connection.preferred || "Automatic";
+  const automaticSelected = !connection.preferenceError && (!connection.preferred || (!connection.detailsError && !preferredModel));
+  const savedChoiceUnconfirmed = connection.detailsError && connection.preferred && !preferredModel;
+  const canSignIn = available && !pending && (needsSignIn || (!connection.connected && !issue));
+  const canRetry = available && !pending && !linked && !canSignIn && issue?.action === "retry";
 
   return <FormScreen style={formStyles.screen}>
-    <FormHeader title={view === "models" ? "Model" : "ChatGPT"} onBack={view === "models" ? () => { if (!pending) { setView("connection"); setNotice(null); } } : leave} backDisabled={view === "models" && pending} />
+    <FormHeader title={view === "models" ? "Default model" : "ChatGPT"} onBack={view === "models" ? () => { if (!pending) { setView("connection"); setNotice(null); } } : leave} backDisabled={view === "models" && pending} />
     <FormScrollView key={`chatgpt-${view}-${fontScale}`} contentContainerStyle={formStyles.content} showsVerticalScrollIndicator={false}>
       {view === "models" ? <>
-        <Text style={styles.sectionNote}>Choose a model for your meal estimates.</Text>
+        <Text style={styles.sectionNote}>Your default model for calmera’s AI requests.</Text>
         <FormCard style={styles.group}>
           <SettingsRow title="Automatic" subtitle="Calmera chooses an available model." accessibilityRole="radio"
-            selected={!preferredModel} onPress={() => selectModel(null)} disabled={pending} />
+            selected={automaticSelected} onPress={() => selectModel(null)} disabled={pending} />
+          {savedChoiceUnconfirmed && <SettingsRow title={connection.preferred} subtitle="Saved default" divider accessibilityRole="radio"
+            selected onPress={() => selectModel(connection.preferred)} disabled={pending} />}
           {connection.choices.map(item => <SettingsRow key={item.slug} title={item.display_name || item.slug} divider accessibilityRole="radio"
             selected={connection.preferred === item.slug} onPress={() => selectModel(item.slug)} disabled={pending} />)}
         </FormCard>
-        {connection.preferred && !preferredModel && <Text style={styles.sectionNote}>Your saved model isn’t available for this account. Automatic selection is being used.</Text>}
-        {action === "model" && <ActivityIndicator color={COLORS.primary} accessibilityLabel="Saving model" />}
+        {connection.detailsError && <View style={styles.modelFeedback}>
+          <Text style={styles.sectionNote}>{issue?.message || "Available models couldn’t be loaded. Your default hasn’t changed."}</Text>
+          {issue?.action === "retry" && <GlassButton title="Try again" symbol="arrow.clockwise" onPress={retry} disabled={pending} />}
+        </View>}
+        {connection.preferred && !preferredModel && !connection.detailsError && <Text style={styles.sectionNote}>Your saved model isn’t available for this account. Automatic selection is being used.</Text>}
+        {pending && <ActivityIndicator color={COLORS.primary} accessibilityLabel={action === "model" ? "Saving default model" : "Loading available models"} />}
       </> : <>
-        <FormCard style={styles.statusCard}>
-          <View style={styles.statusHeading}>
-            <View style={styles.brandBadge}><OpenAILogo /></View>
+        <FormCard style={styles.group}>
+          <View style={styles.connectionHeader}>
+            <View style={styles.brand}><OpenAILogo /></View>
             <View style={styles.statusCopy} accessibilityLiveRegion="polite">
-              <View style={styles.titleRow}>
-                <Text accessibilityRole="header" style={styles.title}>{title}</Text>
-                {pending ? <ActivityIndicator color={COLORS.primary} accessible={false} /> : ready && <View style={styles.connectedDot} />}
-              </View>
-              {detail && <Text style={styles.detail}>{detail}</Text>}
+              <Text accessibilityRole="header" style={styles.title}>{title}</Text>
+              {email ? <Text style={styles.email}>{email}</Text> : !pending && <Text style={styles.detail}>{linked ? "Connected on this phone" : "Use your ChatGPT plan in calmera."}</Text>}
             </View>
+            {pending ? <ActivityIndicator color={COLORS.primary} accessible={false} /> : connection.account && <GlassButton symbol="ellipsis" role="navigation"
+              accessibilityLabel="Manage ChatGPT account" onPress={manageAccount} style={styles.accountMenu} />}
           </View>
-          {primary && <GlassButton title={primary === "sign-in" ? "Continue with ChatGPT" : primary === "usage" ? "Manage usage" : "Try again"}
-            symbol={primary === "sign-in" ? OPENAI_BLOSSOM_SYMBOL : primary === "usage" ? "arrow.up.right" : "arrow.clockwise"}
-            onPress={primary === "sign-in" ? signIn : primary === "usage" ? manageUsage : retry} disabled={!available} style={styles.primary} />}
+          {(canSignIn || canRetry) && <View style={styles.signInAction}>
+            <GlassButton title={canSignIn ? "Continue with ChatGPT" : "Try again"} symbol={canSignIn ? OPENAI_BLOSSOM_SYMBOL : "arrow.clockwise"} onPress={canSignIn ? signIn : retry} />
+          </View>}
+          {linked && <SettingsRow title="Default model" subtitle={defaultLabel} icon="sparkles-outline" divider
+            onPress={() => { if (!pending) { setNotice(null); setView("models"); } }} disabled={pending} />}
         </FormCard>
-        {(connection.account || ready) && <FormCard style={styles.group}>
-          {connection.account && <SettingsRow title="Account" subtitle={connection.account.email || "Saved ChatGPT account"}
-            icon="person-outline" onPress={manageAccount} disabled={pending} />}
-          {ready && <SettingsRow title="Model" subtitle={preferredModel?.display_name || preferredModel?.slug || "Automatic"} icon="sparkles-outline"
-            divider={Boolean(connection.account)} onPress={() => { if (!pending) { setNotice(null); setView("models"); } }} disabled={pending} />}
-        </FormCard>}
-        {connection.connected && primary !== "usage" && <Pressable accessibilityRole="link" accessibilityLabel="Manage usage in ChatGPT"
+        {!linked && !canSignIn && !pending && issue && <Text style={styles.sectionNote}>{issue.message}</Text>}
+        {connection.connected && <Pressable accessibilityRole="link" accessibilityLabel="Manage usage in ChatGPT"
           disabled={pending} onPress={manageUsage} style={styles.usageLink}>
           <Text style={styles.linkText}>Manage usage in ChatGPT</Text><Ionicons name="open-outline" size={14} color={COLORS.primary} />
         </Pressable>}
@@ -213,16 +224,16 @@ function ChatGPTSettingsForm({ userId, calmeraPreview = false, calmeraPreviewSta
   </FormScreen>;
 }
 const styles = StyleSheet.create({
-  statusCard: { gap: 20 },
-  statusHeading: { flexDirection: "row", alignItems: "flex-start", gap: 14 },
-  brandBadge: { width: 44, height: 44, borderRadius: 14, backgroundColor: "#F7F0E9", alignItems: "center", justifyContent: "center" },
-  statusCopy: { flex: 1, gap: 6 },
-  titleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  title: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text, flexShrink: 1 },
-  detail: { ...TYPOGRAPHY.body, color: COLORS.textLight },
-  connectedDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#6F9E7C" },
-  primary: { minHeight: 50 },
   group: { padding: 0, gap: 0, overflow: "hidden" },
+  connectionHeader: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 18, paddingVertical: 18 },
+  brand: { width: 26, minHeight: 26, alignItems: "center", justifyContent: "center" },
+  statusCopy: { flex: 1, gap: 5 },
+  title: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text },
+  email: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
+  detail: { ...TYPOGRAPHY.body, color: COLORS.textLight },
+  accountMenu: { width: 44, minHeight: 44, height: 44 },
+  signInAction: { paddingHorizontal: 18, paddingBottom: 18 },
+  modelFeedback: { gap: 12 },
   sectionNote: { ...TYPOGRAPHY.caption, color: COLORS.textLight, marginHorizontal: 4 },
   usageLink: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 7, minHeight: 44, paddingHorizontal: 4, marginTop: -10 },
   linkText: { ...TYPOGRAPHY.captionMedium, color: COLORS.primary },

@@ -38,7 +38,7 @@ export default function SettingsScreen({ calmeraPreview = false }) {
     ]);
   };
   return <View style={formStyles.screen}>
-    <View style={styles.header}><Text accessibilityRole="header" style={styles.title}>Settings</Text></View>
+    <View key={`settings-header-${fontScale}`} style={[styles.header, { minHeight: Math.max(64, 40 * fontScale + 20) }]}><Text accessibilityRole="header" style={styles.title}>Settings</Text></View>
     <ScrollView key={`text-size-${fontScale}`} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <Text style={styles.section}>CALMERA.</Text>
       <FormCard variant="grouped" style={styles.group}>
