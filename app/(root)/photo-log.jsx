@@ -45,7 +45,7 @@ function PhotoLogForm({ calmeraPreview = false, calmeraPreviewState = "empty" } 
     ? { dataURL: phoneTestNutritionLabel, syntheticFixture: true }
     : null);
   const { connection, refresh: refreshConnection } = usePhotoLogConnection(userId, uiFixture);
-  const [progress, setProgress] = useState("preparing");
+  const [progress, setProgress] = useState("sending");
   const [review, setReview] = useState(null);
   const [editor, setEditor] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -183,7 +183,7 @@ function PhotoLogForm({ calmeraPreview = false, calmeraPreviewState = "empty" } 
     if (!canEstimatePhoto({ photo, connection, busy, selecting, uncertain, mealSaved }) || confirmedSave.current.hasConfirmed(userId)) return;
     const ticket = beginOperation("estimate");
     if (!ticket) return;
-    setProgress("preparing");
+    setProgress("sending");
     const selectedPhoto = photo;
     const createdAt = getLocalTimeWithOffset();
     try {
@@ -298,7 +298,7 @@ function PhotoLogForm({ calmeraPreview = false, calmeraPreviewState = "empty" } 
     onViewHistory={() => { if (!operation.current) router.replace("/history"); }} />;
 
   const connectionCopy = photoConnectionPresentation(connection);
-  const progressCopy = PHOTO_ESTIMATION_PROGRESS[progress] || PHOTO_ESTIMATION_PROGRESS.preparing;
+  const progressCopy = PHOTO_ESTIMATION_PROGRESS[progress] || PHOTO_ESTIMATION_PROGRESS.sending;
   return (
     <FormScreen style={styles.container}>
       <FormHeader title="Photo Log" onBack={leavePhoto} backDisabled={busy || selecting} />
@@ -368,8 +368,8 @@ function PhotoLogForm({ calmeraPreview = false, calmeraPreviewState = "empty" } 
             </View>
           </View>}
           {!busy && connectionCopy.action && <GlassButton
-            title={connectionCopy.action === "sign-in" ? "Connect ChatGPT" : connectionCopy.action === "usage" ? "Manage usage" : "Check connection again"}
-            onPress={() => connectionCopy.action === "sign-in" ? router.push("/chatgpt") : connectionCopy.action === "usage"
+            title={connectionCopy.actionLabel}
+            onPress={() => ["sign-in", "settings"].includes(connectionCopy.action) ? router.push("/chatgpt") : connectionCopy.action === "usage"
               ? Linking.openURL("https://chatgpt.com/settings/usage").catch(() => {}) : refreshConnection()}
             disabled={selecting || mealSaved || uncertain} />}
           <GlassButton

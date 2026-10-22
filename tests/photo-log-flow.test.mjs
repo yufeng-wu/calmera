@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import vm from "node:vm";
 import * as reviewModel from "../lib/photoMealReview.mjs";
 import * as editorDraft from "../lib/mealEditorDraft.mjs";
+import { connectionIssue } from "../lib/chatgpt/connectionStatus.mjs";
 import { canEstimatePhoto, photoConnectionPresentation } from "../lib/photoLogPresentation.mjs";
 
 const require = createRequire(import.meta.url);
@@ -68,7 +69,40 @@ test("photo estimation requires a verified ready connection and a photo", () => 
     assert.equal(canEstimatePhoto({ ...ready, connection: { state } }), false);
   }
   for (const flag of ["busy", "selecting", "uncertain", "mealSaved"]) assert.equal(canEstimatePhoto({ ...ready, [flag]: true }), false);
-  assert.equal(photoConnectionPresentation({ state: "restricted", issue: { action: null } }).action, null);
+  assert.equal(photoConnectionPresentation({ state: "restricted", issue: { action: null } }).action, "settings");
+});
+
+test("unavailable photo connections share one message and open settings without suggesting reauthorization", () => {
+  const errors = [new Error("development_build_required"), new Error("no_eligible_models"),
+    Object.assign(new Error("openai_http_403"), { apiCode: "subscription_sharing_user_not_eligible" }),
+    Object.assign(new Error("openai_http_400"), { apiCode: "invalid_client" })];
+  const presentations = errors.map(error => {
+    const issue = connectionIssue(error);
+    assert.equal(issue.action, null);
+    return photoConnectionPresentation({ state: issue.kind, issue });
+  });
+  assert.equal(new Set(presentations.map(value => value.title)).size, 1);
+  assert.equal(new Set(presentations.map(value => value.detail)).size, 1);
+  assert.ok(presentations.every(value => value.action === "settings"));
+});
+
+test("simplified photo messages retain distinct sign-in, permission, usage and retry actions", () => {
+  const cases = [
+    [new Error("chatgpt_refresh_required"), "sign-in"],
+    [new Error("plan_permission_required"), "sign-in"],
+    [Object.assign(new Error("openai_http_429"), { apiCode: "subscription_sharing_usage_limit_exceeded" }), "usage"],
+    [new Error("openai_http_429"), "retry"],
+    [new Error("openai_http_503"), "retry"],
+  ];
+  for (const [error, action] of cases) {
+    const issue = connectionIssue(error);
+    const presentation = photoConnectionPresentation({ state: issue.kind, issue });
+    assert.equal(presentation.action, action);
+    assert.ok(presentation.actionLabel);
+  }
+  const permission = connectionIssue(new Error("plan_permission_required"));
+  const expired = connectionIssue(new Error("chatgpt_refresh_required"));
+  assert.notEqual(permission.title, expired.title);
 });
 
 test("Save opens four categories; Cancel leaves the review unsaved", () => {
