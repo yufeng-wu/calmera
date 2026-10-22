@@ -87,7 +87,7 @@ test("Save includes pending inline edits and submits the selected category exact
   const fixture = reviewFixture(); let tree = fixture.render();
   find(tree, node => node.props?.accessibilityLabel === "Edit Rice").props.onPress();
   tree = fixture.render();
-  assert.equal(find(tree, node => node.type === "FormHeader").props.title, "Review meal");
+  assert.equal(find(tree, node => node.type === "FormHeader").props.title, "Review");
   const form = find(tree, node => node.type === "FoodEntryFormCard");
   form.props.setFoodName("Brown rice"); form.props.setQuantity("150 g"); form.props.setCalories("180");
   tree = fixture.render();

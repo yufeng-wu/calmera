@@ -1,6 +1,6 @@
 import { TYPOGRAPHY } from "@/constants/typography";
 import { useCallback, useRef, useState } from "react";
-import { Alert, Image, Linking, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Alert, Image, Linking, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useFocusEffect, useNavigation, usePreventRemove } from "@react-navigation/native";
@@ -315,7 +315,6 @@ function PhotoLogForm({ calmeraPreview = false, calmeraPreviewState = "empty" } 
             ) : (
               <View style={styles.placeholder}>
                 <Text style={styles.placeholderTitle}>Take a photo or upload one</Text>
-                <Text style={styles.placeholderNote}>Include the whole plate for a clearer estimate.</Text>
               </View>
             )}
           </View>
@@ -360,11 +359,12 @@ function PhotoLogForm({ calmeraPreview = false, calmeraPreviewState = "empty" } 
             </View>
           )}
           {!mealSaved && !uncertain && <View style={styles.status} accessibilityRole="text" accessibilityLiveRegion="polite">
-            <Ionicons name={busy ? "sync-outline" : connectionCopy.icon} size={23} color={COLORS.primary} accessible={false} />
+            {connection.state === "checking"
+              ? <ActivityIndicator size="small" color={COLORS.textLight} accessible={false} />
+              : <View style={[styles.connectionIndicator, { backgroundColor: connection.state === "ready" ? "#2E7D32" : "#C12D26" }]} accessible={false} />}
             <View style={styles.statusCopy}>
               <Text style={styles.statusTitle}>{busy ? progressCopy.title : connectionCopy.title}</Text>
-              <Text style={styles.statusDetail}>{busy ? progressCopy.detail : connection.state === "ready" && photo
-                ? "Connected to OpenAI. Your photo is ready to estimate." : connectionCopy.detail}</Text>
+              <Text style={styles.statusDetail}>{busy ? progressCopy.detail : connectionCopy.detail}</Text>
             </View>
           </View>}
           {!busy && connectionCopy.action && <GlassButton
@@ -407,7 +407,6 @@ const styles = StyleSheet.create({
   photo: { width: "100%", height: "100%", resizeMode: "contain" },
   placeholder: { minHeight: 216, alignItems: "center", justifyContent: "center", padding: 20, gap: 10 },
   placeholderTitle: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text, textAlign: "center"},
-  placeholderNote: { ...TYPOGRAPHY.caption, color: COLORS.textLight, textAlign: "center", maxWidth: 230},
   actions: { flexDirection: "row", gap: 12, paddingBottom: 2 },
   actionsStacked: { flexDirection: "column" },
   option: { flex: 1, minHeight: 50 },
@@ -415,6 +414,7 @@ const styles = StyleSheet.create({
   logButton: { minHeight: 52 },
   note: { ...TYPOGRAPHY.caption, color: COLORS.textLight, textAlign: "center", paddingHorizontal: 8, marginTop: 2},
   status: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 8, paddingVertical: 5 },
+  connectionIndicator: { width: 12, height: 12, borderRadius: 6, marginHorizontal: 5 },
   statusCopy: { flex: 1, gap: 3 },
   statusTitle: { ...TYPOGRAPHY.button, color: COLORS.text,},
   statusDetail: { ...TYPOGRAPHY.caption, color: COLORS.textLight,},

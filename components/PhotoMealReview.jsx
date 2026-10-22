@@ -81,7 +81,7 @@ export default function PhotoMealReview({ photo, review, setReview, editor, setE
   };
 
   return <FormScreen>
-    <FormHeader title="Review meal" onBack={onBack} backDisabled={busy || selecting || Boolean(categoryDraft)} />
+    <FormHeader title="Review" onBack={onBack} backDisabled={busy || selecting || Boolean(categoryDraft)} />
     <FormScrollView keyboardAware enableOnAndroid extraScrollHeight={20} enableResetScrollToCoords={false}
       contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
       <View style={[styles.photoRow, large && styles.stacked]}>
@@ -89,14 +89,17 @@ export default function PhotoMealReview({ photo, review, setReview, editor, setE
         <GlassButton title="Change photo" onPress={onChangePhoto} disabled={locked} accessibilityLabel="Change meal photo" style={styles.changePhoto} />
       </View>
       <FormCard>
-        <Text style={styles.heading}>Estimated total</Text>
+        <View style={styles.totalHeading}>
+          <Text style={styles.heading}>Estimated total</Text>
+          <Text style={styles.detectedCount}>{review.entries.length} {review.entries.length === 1 ? "food" : "foods"} detected</Text>
+        </View>
         <Text style={styles.calories}>{number(totals.calories)} <Text style={styles.calorieUnit}>kcal</Text></Text>
         <View style={styles.macros}>
           {nutrients.slice(1).map(([label, key, unit]) =>
             <View key={key} style={[styles.macro, large && { flexBasis: "100%" }]}><Text style={styles.caption}>{label}</Text><Text style={styles.value}>{number(totals[key])} {unit}</Text></View>)}
         </View>
       </FormCard>
-      <Text style={styles.heading}>Breakdown <Text style={styles.caption}>({review.entries.length} {review.entries.length === 1 ? "food" : "foods"} detected)</Text></Text>
+      <Text style={styles.heading}>Breakdown</Text>
       {review.entries.length ? <FormCard style={styles.foodList}>
         {review.entries.map((entry, index) => {
           const expanded = editor?.id === entry.id;
@@ -154,6 +157,8 @@ const styles = StyleSheet.create({
   stacked: { flexDirection: "column", alignItems: "stretch" },
   heading: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text },
   caption: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
+  totalHeading: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", alignItems: "baseline", gap: 8 },
+  detectedCount: { ...TYPOGRAPHY.captionMedium, color: COLORS.primary, marginLeft: "auto", textAlign: "right" },
   calories: { ...TYPOGRAPHY.authTitle, color: COLORS.text, fontVariant: ["tabular-nums"] },
   calorieUnit: { ...TYPOGRAPHY.body, color: COLORS.textLight },
   macros: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
