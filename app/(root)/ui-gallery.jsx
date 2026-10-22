@@ -22,7 +22,7 @@ import EditSession from "@/app/(root)/session-log-edit/[id]";
 import Guide from "@/app/(root)/calmera-guide";
 import Welcome from "@/app/(root)/calmera-welcome";
 import Scale from "@/app/(root)/update-scale-type";
-import Manual from "@/app/(root)/create";
+import TextLog from "@/app/(root)/create";
 import Photo from "@/app/(root)/photo-log";
 import LiveFallback from "@/components/LiveComingSoon";
 import FoodwrapWordmark from "@/components/FoodwrapWordmark";
@@ -104,8 +104,10 @@ const screens = [
   { id: "welcome", title: "Welcome and scale setup", Component: Welcome },
   { id: "scale", title: "Scale display", Component: Scale },
   { id: "live", title: "Legacy Live fallback", Component: LiveFallback },
-  { id: "manual", title: "Manual", Component: Manual },
-  { id: "manual-save-navigation-error", title: "Manual saved navigation recovery", Component: Manual, state: "saved-navigation-error" },
+  { id: "manual", title: "Text Log", Component: TextLog },
+  { id: "manual-save-navigation-error", title: "Text saved navigation recovery", Component: TextLog, state: "saved-navigation-error" },
+  { id: "text-review", title: "Text meal review", Component: TextLog, state: "review" },
+  { id: "photo-review", title: "Photo meal review", Component: Photo, state: "review" },
   { id: "photo", title: "Photo empty", Component: Photo },
   { id: "photo-selected", title: "Photo selected", Component: Photo, state: "selected" },
   { id: "photo-save-navigation-error", title: "Photo saved navigation recovery", Component: Photo, state: "saved-navigation-error" },

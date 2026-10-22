@@ -6,8 +6,8 @@ import { readChatGPTConnection } from "@/lib/chatgpt/connectionOutcome.mjs";
 import { connectionIssue } from "@/lib/chatgpt/connectionStatus.mjs";
 
 // A fresh catalog request checks authorization and API reachability without
-// uploading a photo or starting an inference. Late checks cannot update a new focus.
-export default function usePhotoLogConnection(userId, preview = false) {
+// sending a meal or starting an inference. Late checks cannot update a new focus.
+export default function useMealLogConnection(userId, preview = false) {
   const [connection, setConnection] = useState({ state: "checking" });
   const active = useRef(false);
   const generation = useRef(0);
