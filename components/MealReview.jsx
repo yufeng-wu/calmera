@@ -17,9 +17,10 @@ const amount = value => value.replace(/\s*\(([^)]+)\)/g, " · $1");
 export default function MealReview({ photo, text, review, setReview, busy, estimating, selecting,
   mealSaved, uncertain, onBack, onSave, onChangeInput, onReestimate, onViewHistory }) {
   const { bottom } = useSafeAreaInsets();
-  const { fontScale } = useWindowDimensions();
+  const { fontScale, width } = useWindowDimensions();
   const reducedMotion = useReducedMotion();
   const large = fontScale >= 1.5;
+  const stackedNutrients = large || width < 370;
   const { emojiFor } = useFoodIcons();
   const [expandedId, setExpandedId] = useState(null);
   const [iconFoodId, setIconFoodId] = useState(null);
@@ -119,8 +120,8 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
           <Image source={{ uri: photo.dataURL }} style={styles.thumbnail} accessibilityLabel="Meal photo to review" />
           <GlassButton title="Change photo" onPress={onChangeInput} disabled={locked} style={styles.changeInput} />
         </View> : <View style={[styles.textSource, large && styles.stacked]}>
-          <Text style={[styles.caption, { flex: 1 }]} numberOfLines={2}>{text}</Text>
-          <GlassButton title="Edit text" onPress={onChangeInput} disabled={locked} style={{ minWidth: Math.max(96, 96 * fontScale) }} />
+          <Text style={[styles.caption, !large && { flex: 1 }]} numberOfLines={2}>{text}</Text>
+          <GlassButton title="Edit text" onPress={onChangeInput} disabled={locked} style={{ minWidth: large ? 96 : Math.max(96, 96 * fontScale) }} />
         </View>}
         <FormCard>
           <View style={styles.totalHeading}>
@@ -138,7 +139,7 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
             return <View key={entry.id} style={index > 0 && styles.divider}>
               <View style={styles.foodHeading}>
                 <Pressable accessibilityRole="button" accessibilityLabel={`Change emoji for ${entry.foodName || "new food"}`}
-                  disabled={locked} onPress={() => setIconFoodId(entry.id)} style={styles.iconButton}>
+                  disabled={locked} onPress={() => { Keyboard.dismiss(); setIconFoodId(entry.id); }} style={styles.iconButton}>
                   <Text style={styles.emoji} allowFontScaling={false}>{emojiFor(entry)}</Text>
                 </Pressable>
                 {expanded ? <View style={styles.foodCopy}>
@@ -160,7 +161,7 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
                 </Pressable>
               </View>
               {expanded && <View style={styles.details}>
-                <View style={styles.nutrients}>{nutrients.map(([label, key, unit]) => <View key={key} style={[styles.nutrient, large && styles.largeNutrient, fontScale >= 2.3 && { flexBasis: "100%" }]}>
+                <View style={styles.nutrients}>{nutrients.map(([label, key, unit]) => <View key={key} style={[styles.nutrient, stackedNutrients && styles.largeNutrient, fontScale >= 2.3 && { flexBasis: "100%" }]}>
                   <Text style={styles.caption}>{label}</Text>
                   <View style={styles.nutrientValue}>
                     <TextInput accessibilityLabel={label} value={String(entry[key])} onChangeText={field(entry.id, key)}
@@ -182,8 +183,8 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
             </View>;
           })}
         </FormCard>}
-        {removed && <View style={styles.undoRow}><Text style={[styles.caption, { flex: 1 }]}>{removed.entry.foodName || "Food"} removed</Text>
-          <GlassButton title="Undo" onPress={undoRemoval} disabled={locked || review.entries.length >= MAX_MEAL_FOODS} style={{ minWidth: Math.max(96, 96 * fontScale) }} /></View>}
+        {removed && <View style={[styles.undoRow, large && styles.stacked]}><Text style={[styles.caption, !large && { flex: 1 }]}>{removed.entry.foodName || "Food"} removed</Text>
+          <GlassButton title="Undo" onPress={undoRemoval} disabled={locked || review.entries.length >= MAX_MEAL_FOODS} style={{ minWidth: large ? 96 : Math.max(96, 96 * fontScale) }} /></View>}
         <GlassButton title="Add food" symbol="plus" onPress={addFood}
           disabled={locked || hasIncompleteFood(review) || review.entries.length >= MAX_MEAL_FOODS} />
         {uncertain && <FormCard><Text style={styles.heading}>Check History before trying again</Text><Text style={styles.caption}>Some foods may already have been saved. Check History before logging this meal again.</Text>
