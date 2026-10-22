@@ -60,7 +60,7 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
   };
   const inputProps = (id, name) => ({
     ref: node => { inputs.current[`${id}:${name}`] = node; },
-    inputAccessoryViewID: Platform.OS === "ios" ? accessoryId : undefined,
+    inputAccessoryViewID: Platform.OS === "ios" ? `${accessoryId}-${id}-${name}` : undefined,
     onFocus: () => setFocusedField({ id, name }),
     onBlur: () => setFocusedField(current => current?.id === id && current?.name === name ? null : current),
     returnKeyType: name === "fat" ? "done" : "next",
@@ -262,7 +262,10 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
           </ScrollView>
         </View>
       </Modal>
-      {Platform.OS === "ios" && <InputAccessoryView nativeID={accessoryId} backgroundColor={COLORS.card}>
+      {/* Fabric attaches an accessory when it mounts. Mount one per field after
+          the expanded row's inputs exist, rather than before any row is open. */}
+      {Platform.OS === "ios" && expandedId && fields.map(name => <InputAccessoryView key={`${expandedId}-${name}`}
+        nativeID={`${accessoryId}-${expandedId}-${name}`} backgroundColor={COLORS.card}>
         <View style={styles.keyboardBar}>
           <Pressable accessibilityRole="button" accessibilityLabel="Previous field" onPress={() => focusAdjacent(-1)}
             disabled={locked || activeIndex <= 0} style={[styles.keyboardAction, (locked || activeIndex <= 0) && styles.toolDisabled]}>
@@ -278,7 +281,7 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
             <Text style={styles.keyboardDoneText}>Done</Text>
           </Pressable>
         </View>
-      </InputAccessoryView>}
+      </InputAccessoryView>)}
     </FormScreen>
   </Animated.View>;
 }
