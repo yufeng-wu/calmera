@@ -1,6 +1,6 @@
 import { TYPOGRAPHY } from "@/constants/typography";
-import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Image, Linking, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { useCallback, useId, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Image, InputAccessoryView, Keyboard, Linking, Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useFocusEffect, useNavigation, usePreventRemove } from "@react-navigation/native";
@@ -31,6 +31,7 @@ export default function MealLogScreen(props) {
 
 function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPreviewState = "empty" } = {}) {
   const textMode = inputMode === "text";
+  const textAccessoryId = useId();
   const { rememberIcons } = useFoodIcons();
   const router = useRouter();
   const navigation = useNavigation();
@@ -200,6 +201,7 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
     if (!canAnalyzeMeal({ inputMode, photo, text, connection, busy, selecting, uncertain, mealSaved }) || confirmedSave.current.hasConfirmed(userId)) return;
     const ticket = beginOperation("estimate");
     if (!ticket) return;
+    Keyboard.dismiss();
     setProgress("sending");
     const selectedPhoto = photo;
     const selectedText = text.trim();
@@ -325,7 +327,7 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
 
   const connectionCopy = connectionPresentation(connection);
   return (
-    <FormScreen style={styles.container}>
+    <FormScreen compactControls style={styles.container}>
       <FormHeader title={textMode ? "Text Log" : "Photo Log"} onBack={leaveLog} backDisabled={busy || selecting} />
       <FormScrollView keyboardAware key={`meal-text-${fontScale}`} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" extraScrollHeight={20} enableResetScrollToCoords={false}>
@@ -336,8 +338,8 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
         )}
         {textMode ? <FormCard>
           <Text style={styles.placeholderTitle}>What did you eat?</Text>
-          <TextInput accessibilityLabel="Meal description" multiline value={text} onChangeText={setText} maxLength={3000}
-            editable={!busy && !mealSaved && !uncertain} placeholder={"Apple\n\nOr: Had an apple and scrambled eggs for breakfast"}
+          <TextInput inputAccessoryViewID={Platform.OS === "ios" ? textAccessoryId : undefined} accessibilityLabel="Meal description" multiline value={text} onChangeText={setText} maxLength={3000}
+            editable={!busy && !mealSaved && !uncertain} placeholder="e.g. 1 apple, or 2 eggs on toast for breakfast"
             placeholderTextColor={COLORS.textLight} style={styles.mealText} textAlignVertical="top" />
         </FormCard> : <FormCard style={styles.previewCard}>
           <View style={[styles.preview, photo && styles.previewWithPhoto]}>
@@ -419,11 +421,21 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
           </View>
         </View>
       </FormScrollView>
+      {textMode && Platform.OS === "ios" && <InputAccessoryView nativeID={textAccessoryId} backgroundColor={COLORS.card}>
+        <View style={styles.keyboardBar}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Done" onPress={() => Keyboard.dismiss()} style={styles.keyboardDone}>
+            <Text style={styles.keyboardDoneText}>Done</Text>
+          </Pressable>
+        </View>
+      </InputAccessoryView>}
     </FormScreen>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardBar: { paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#EAE2DB", alignItems: "flex-end" },
+  keyboardDone: { minHeight: 44, justifyContent: "center", paddingHorizontal: 12 },
+  keyboardDoneText: { ...TYPOGRAPHY.button, color: COLORS.primary },
   mealText: { ...TYPOGRAPHY.input, minHeight: 120, color: COLORS.text, padding: 0 },
   privacy: { flexDirection: "row", alignItems: "flex-start", gap: 7, paddingHorizontal: 8 },
   container: { flex: 1, backgroundColor: COLORS.background },

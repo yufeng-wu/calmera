@@ -148,8 +148,12 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
   const iconEntry = review.entries.find(entry => entry.id === iconFoodId);
   const selectedIcon = iconEntry?.iconId || getFoodIcon(iconEntry?.foodName).id;
 
+  const saveControl = <GlassButton title={mealSaved ? "Go back" : busy ? estimating ? "Updating nutrition…" : "Saving meal…" : "Save meal"}
+          symbol={mealSaved ? "chevron.left" : "checkmark"} role="accent" onPress={mealSaved ? onBack : chooseCategory}
+          loading={busy && !mealSaved} disabled={busy || selecting || uncertain || Boolean(categoryDraft) || (!mealSaved && !review.entries.length)} />;
+
   return <Animated.View style={{ flex: 1, transform: [{ translateY: entrance }] }}>
-    <FormScreen onHeaderHeightChange={value => { headerHeight.current = value; }}>
+    <FormScreen compactControls onHeaderHeightChange={value => { headerHeight.current = value; }}>
       <FormHeader title="Review" onBack={onBack} backDisabled={busy || selecting || Boolean(categoryDraft)} />
       <FormScrollView ref={scroll} keyboardAware enableOnAndroid extraScrollHeight={20} enableResetScrollToCoords={false}
         onContentSizeChange={revealNewFood} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
@@ -232,12 +236,9 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
         {uncertain && <FormCard><Text style={styles.heading}>Check History before trying again</Text><Text style={styles.caption}>Some foods may already have been saved. Check History before logging this meal again.</Text>
           <GlassButton title="View History" symbol="clock" onPress={onViewHistory} /></FormCard>}
         {mealSaved && <FormCard><Text style={styles.heading}>Meal saved</Text><GlassButton title="Go back" onPress={onBack} /></FormCard>}
+        {fontScale >= 2.3 && <View style={[styles.inFlowSave, { paddingBottom: bottom }]}>{saveControl}</View>}
       </FormScrollView>
-      <View style={[styles.saveBar, { paddingBottom: Math.max(bottom, 16) }]}>
-        <GlassButton title={mealSaved ? "Go back" : busy ? estimating ? "Updating nutrition…" : "Saving meal…" : "Save meal"}
-          symbol={mealSaved ? "chevron.left" : "checkmark"} role="accent" onPress={mealSaved ? onBack : chooseCategory}
-          loading={busy && !mealSaved} disabled={busy || selecting || uncertain || Boolean(categoryDraft) || (!mealSaved && !review.entries.length)} />
-      </View>
+      {fontScale < 2.3 && <View style={[styles.saveBar, { paddingBottom: Math.max(bottom, 16) }]}>{saveControl}</View>}
       <Modal visible={Boolean(categoryDraft)} transparent animationType={reducedMotion ? "none" : "slide"} onRequestClose={() => setCategoryDraft(null)}>
         <View style={styles.modalBackdrop}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setCategoryDraft(null)} accessibilityLabel="Cancel meal category selection" accessibilityRole="button" />
@@ -328,6 +329,7 @@ const styles = StyleSheet.create({
   remove: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
   error: { ...TYPOGRAPHY.caption, color: COLORS.expense },
   undoRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  inFlowSave: { marginTop: 8 },
   saveBar: { paddingTop: 12, paddingHorizontal: 20, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#EAE2DB", backgroundColor: COLORS.background },
   modalBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.32)" },
   sheet: { flexGrow: 0, flexShrink: 1, maxHeight: "85%", borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: "hidden", backgroundColor: COLORS.card },

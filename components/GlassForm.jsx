@@ -16,18 +16,19 @@ const HeaderScrollContext = createContext(null);
 
 // Preserve the resting layout while letting the native scroll edge soften
 // content moving underneath the actual header controls on iOS 26.
-export function FormScreen({ children, style, onHeaderHeightChange, onEdgeStatus, ...props }) {
+export function FormScreen({ children, style, onHeaderHeightChange, onEdgeStatus, compactControls = false, ...props }) {
   const { fontScale } = useWindowDimensions();
   const safeTopInset = useContext(SafeScreenTopContext);
   const [measuredHeight, setMeasuredHeight] = useState(null);
   const [scrollTag, setScrollTag] = useState(0);
-  const headerHeight = measuredHeight ?? Math.max(64, 40 * fontScale + 20);
+  const compactTitle = compactControls && fontScale > 1.4 ? TYPOGRAPHY.sectionTitle : TYPOGRAPHY.pageTitle;
+  const headerHeight = measuredHeight ?? (compactControls ? Math.max(64, compactTitle.lineHeight * fontScale + 16) : Math.max(64, 40 * fontScale + 20));
   const reportHeaderHeight = useCallback(height => {
     setMeasuredHeight(previous => previous === height ? previous : height);
     onHeaderHeightChange?.(height + safeTopInset);
   }, [onHeaderHeightChange, safeTopInset]);
-  const context = useMemo(() => ({ headerHeight, topInset: safeTopInset, scrollTag, setScrollTag, reportHeaderHeight, onEdgeStatus }),
-    [headerHeight, safeTopInset, scrollTag, reportHeaderHeight, onEdgeStatus]);
+  const context = useMemo(() => ({ headerHeight, topInset: safeTopInset, scrollTag, setScrollTag, reportHeaderHeight, onEdgeStatus, compactControls }),
+    [headerHeight, safeTopInset, scrollTag, reportHeaderHeight, onEdgeStatus, compactControls]);
   return <HeaderScrollContext.Provider value={context}>
     <View {...props} style={[formStyles.screen, style, safeTopInset ? { paddingTop: safeTopInset } : null]}>{children}</View>
   </HeaderScrollContext.Provider>;
@@ -74,9 +75,10 @@ const fallbackSymbols = {
 export function GlassButton({ title = "", symbol = "", onPress, disabled = false, loading = false,
   style, accessibilityLabel, role = "default", onMetrics }) {
   const { fontScale } = useWindowDimensions();
+  const compactControls = useContext(HeaderScrollContext)?.compactControls;
   const requested = StyleSheet.flatten(style) || {};
   const minimumHeight = typeof requested.height === "number" ? requested.height
-    : Math.max(requested.minHeight || 48, fontScale > 1.4 ? 40 * fontScale + 16 : 48);
+    : Math.max(requested.minHeight || 48, compactControls ? TYPOGRAPHY.button.lineHeight * fontScale + 20 : fontScale > 1.4 ? 40 * fontScale + 16 : 48);
   const buttonStyle = [styles.button, style, { minHeight: minimumHeight }];
   const navigation = role === "navigation" || role === "navigation-action";
   const neutral = role === "navigation";
@@ -104,8 +106,10 @@ export function FormHeader({ title, titleContent, onBack, onSave, saving = false
   const { fontScale } = useWindowDimensions();
   const large = fontScale > 1.4;
   const edge = useContext(HeaderScrollContext);
+  const compactTitle = edge?.compactControls && large ? TYPOGRAPHY.sectionTitle : TYPOGRAPHY.pageTitle;
+  const minimumHeight = edge?.compactControls ? Math.max(64, compactTitle.lineHeight * fontScale + 16) : Math.max(64, 40 * fontScale + 20);
   return <View collapsable={false} onLayout={event => edge?.reportHeaderHeight(event.nativeEvent.layout.height)}
-    style={[styles.header, edge && { zIndex: 10 }, { minHeight: Math.max(64, 40 * fontScale + 20) }]}>
+    style={[styles.header, edge && { zIndex: 10 }, { minHeight: minimumHeight }]}>
     {NativeHeaderEdge && edge && <NativeHeaderEdge pointerEvents="none" style={StyleSheet.absoluteFill}
       scrollViewTag={edge.scrollTag} topExtension={edge.topInset} reportStatus={Boolean(edge.onEdgeStatus)} onStatus={edge.onEdgeStatus} />}
     <View style={[styles.headerSide, large && styles.headerSideLarge]}>
@@ -113,7 +117,7 @@ export function FormHeader({ title, titleContent, onBack, onSave, saving = false
         accessibilityLabel="Back" style={styles.headerBack} />}
     </View>
     {titleContent ? <View style={{ flex: 1, alignItems: "center" }}>{titleContent}</View>
-      : <Text accessibilityRole="header" style={styles.title}>{title}</Text>}
+      : <Text accessibilityRole="header" style={[styles.title, compactTitle]}>{title}</Text>}
     <View style={[styles.headerSide, styles.headerTrailing, large && styles.headerSideLarge]}>
       {rightAction || (onSave && <GlassButton title={large ? "" : "Save"} symbol={large ? "checkmark" : ""}
         onPress={onSave} role="navigation-action" loading={saving} disabled={saveDisabled} accessibilityLabel="Save" onMetrics={onSaveMetrics}

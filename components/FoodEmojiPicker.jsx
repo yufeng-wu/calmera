@@ -16,8 +16,11 @@ export default function FoodEmojiPicker({ selectedIconId, disabled = false, onSe
   const [query, setQuery] = useState("");
   const [categoryId, setCategoryId] = useState("all");
   const [gridWidth, setGridWidth] = useState(null);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const largeText = fontScale >= 1.5;
   const search = useRef(null);
   const scroll = useRef(null);
+  const categories = useRef(null);
   const sections = getFoodEmojiSections(query, categoryId);
   const resultCount = sections.reduce((total, section) => total + section.icons.length, 0);
   const searching = Boolean(query.trim());
@@ -25,7 +28,12 @@ export default function FoodEmojiPicker({ selectedIconId, disabled = false, onSe
   const columns = Math.max(1, Math.min(5, Math.floor((availableWidth + 8) / (72 * Math.max(1, fontScale) + 8))));
   const tileWidth = Math.max(52, Math.floor((availableWidth - (columns - 1) * 8) / columns));
   const dismiss = () => { Keyboard.dismiss(); onClose(); };
-  const changeQuery = value => { setQuery(value); setCategoryId("all"); };
+  const resetResults = () => scroll.current?.scrollTo({ y: 0, animated: false });
+  const changeQuery = value => {
+    setQuery(value); setCategoryId("all"); resetResults();
+    categories.current?.scrollTo({ x: 0, animated: false });
+  };
+  const showSearch = () => { resetResults(); search.current?.focus(); };
   const clearSearch = () => {
     changeQuery("");
     scroll.current?.scrollTo({ y: 0, animated: false });
@@ -38,6 +46,26 @@ export default function FoodEmojiPicker({ selectedIconId, disabled = false, onSe
     onClose();
   };
 
+  const searchControl = <View style={styles.search}>
+            <Ionicons name="search-outline" size={20} color={COLORS.textLight} accessible={false} />
+            <TextInput ref={search} accessibilityLabel="Search food emojis" placeholder={fontScale >= 1.5 ? "Search" : "Search food or emoji"}
+              placeholderTextColor={COLORS.textLight} value={query} onChangeText={changeQuery} autoCapitalize="none"
+              autoCorrect={false} returnKeyType="done" onSubmitEditing={() => Keyboard.dismiss()} maxLength={100}
+              onFocus={() => { setSearchFocused(true); resetResults(); }} onBlur={() => setSearchFocused(false)} style={styles.searchInput} />
+            {!!query && <Pressable accessibilityRole="button" accessibilityLabel="Clear emoji search" onPress={clearSearch} style={styles.clear}>
+              <Ionicons name="close-circle" size={20} color={COLORS.textLight} />
+            </Pressable>}
+          </View>;
+  const categoryControl = <>{!searching && !searchFocused && <ScrollView ref={categories} horizontal style={styles.categoryScroll} showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.categories} accessibilityLabel="Food categories">
+            {[{ id: "all", label: "All" }, ...FOOD_EMOJI_CATEGORIES].map(category => <Pressable key={category.id}
+              accessibilityRole="button" accessibilityLabel={`${category.label} food emojis`} accessibilityState={{ selected: categoryId === category.id }}
+              onPress={() => { Keyboard.dismiss(); setCategoryId(category.id); resetResults(); }}
+              style={({ pressed }) => [styles.category, categoryId === category.id && styles.activeCategory, pressed && categoryId !== category.id && styles.pressed]}>
+              <Text style={[styles.categoryLabel, categoryId === category.id && styles.activeCategoryLabel]}>{category.label}</Text>
+            </Pressable>)}
+          </ScrollView>}</>;
+
   return <Modal visible transparent animationType={reducedMotion ? "none" : "slide"} onRequestClose={dismiss}>
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={[styles.backdrop, { paddingTop: Math.max(top, 12), paddingLeft: left, paddingRight: right }]}>
@@ -45,34 +73,20 @@ export default function FoodEmojiPicker({ selectedIconId, disabled = false, onSe
       <View style={[styles.sheet, fontScale >= 1.5 && styles.tallSheet]} accessibilityViewIsModal onAccessibilityEscape={dismiss}>
         <View style={styles.header}>
           <Text style={styles.title} accessibilityRole="header" accessibilityLabel="Choose a food emoji">{fontScale >= 1.5 ? "Emoji" : "Food emoji"}</Text>
+          {largeText && <Pressable accessibilityRole="button" accessibilityLabel="Show emoji search" onPress={showSearch} style={styles.headerSearch}>
+            <Ionicons name="search-outline" size={22} color={COLORS.primary} />
+          </Pressable>}
           <GlassButton symbol="xmark" accessibilityLabel="Close emoji picker" onPress={dismiss} style={styles.close} />
         </View>
+        {!largeText && <View style={styles.pinnedControls}>{searchControl}{categoryControl}</View>}
         <ScrollView ref={scroll} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: Math.max(bottom, 20) }]}
           keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
           contentInsetAdjustmentBehavior="never">
-          <View style={styles.search}>
-            <Ionicons name="search-outline" size={20} color={COLORS.textLight} accessible={false} />
-            <TextInput ref={search} accessibilityLabel="Search food emojis" placeholder={fontScale >= 1.5 ? "Search" : "Search food or emoji"}
-              placeholderTextColor={COLORS.textLight} value={query} onChangeText={changeQuery} autoCapitalize="none"
-              autoCorrect={false} returnKeyType="done" onSubmitEditing={() => Keyboard.dismiss()} maxLength={100}
-              style={styles.searchInput} />
-            {!!query && <Pressable accessibilityRole="button" accessibilityLabel="Clear emoji search" onPress={clearSearch} style={styles.clear}>
-              <Ionicons name="close-circle" size={20} color={COLORS.textLight} />
-            </Pressable>}
-          </View>
-          {!searching && <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.categories} accessibilityLabel="Food categories">
-            {[{ id: "all", label: "All" }, ...FOOD_EMOJI_CATEGORIES].map(category => <Pressable key={category.id}
-              accessibilityRole="button" accessibilityLabel={`${category.label} food emojis`} accessibilityState={{ selected: categoryId === category.id }}
-              onPress={() => { Keyboard.dismiss(); setCategoryId(category.id); }}
-              style={({ pressed }) => [styles.category, categoryId === category.id && styles.activeCategory, pressed && categoryId !== category.id && styles.pressed]}>
-              <Text style={[styles.categoryLabel, categoryId === category.id && styles.activeCategoryLabel]}>{category.label}</Text>
-            </Pressable>)}
-          </ScrollView>}
-          {searching && <Text style={styles.caption} accessibilityLiveRegion="polite">{resultCount} {resultCount === 1 ? "emoji found" : "emojis found"}</Text>}
+          {largeText && <View style={styles.scrollingControls}>{searchControl}{categoryControl}</View>}
+          {searching && !(largeText && searchFocused) && <Text style={styles.caption} accessibilityLiveRegion="polite">{resultCount} {resultCount === 1 ? "emoji found" : "emojis found"}</Text>}
           <View onLayout={event => setGridWidth(event.nativeEvent.layout.width)} style={styles.sections}>
             {sections.map(section => <View key={section.id} style={styles.section}>
-              <Text style={styles.sectionTitle} accessibilityRole="header">{section.label}</Text>
+              {!(largeText && searchFocused) && <Text style={styles.sectionTitle} accessibilityRole="header">{section.label}</Text>}
               <View style={styles.grid}>{section.icons.map(icon => {
                 const selected = icon.id === selectedIconId;
                 return <Pressable key={icon.id} disabled={disabled} onPress={() => choose(icon.id)}
@@ -104,6 +118,10 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, paddingVertical: 12, flexDirection: "row", alignItems: "center", gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#EAE2DB" },
   title: { ...TYPOGRAPHY.pageTitle, flex: 1, color: COLORS.text },
   close: { width: 48, height: 48 },
+  headerSearch: { width: 44, minHeight: 44, justifyContent: "center", alignItems: "center" },
+  pinnedControls: { paddingHorizontal: 20, paddingVertical: 12, gap: 12 },
+  scrollingControls: { gap: 12 },
+  categoryScroll: { flexGrow: 0, flexShrink: 0 },
   scroll: { flex: 1 },
   content: { padding: 20, gap: 20 },
   search: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 52, paddingLeft: 14, paddingRight: 4, borderRadius: 16, backgroundColor: "#F6F1EC" },

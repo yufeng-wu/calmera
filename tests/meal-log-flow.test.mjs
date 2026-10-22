@@ -247,8 +247,8 @@ function logFixture(inputMode = "text") {
   const navigation = { setOptions() {}, dispatch() {} };
   const Log = load(compiledLog, {
     react: runtime.react,
-    "react-native": { ...Object.fromEntries(["ActivityIndicator", "Image", "Text", "TextInput", "View"].map(key => [key, key])),
-      Alert: { alert: (...args) => alerts.push(args) }, Linking: {}, StyleSheet: { create: value => value },
+    "react-native": { ...Object.fromEntries(["ActivityIndicator", "Image", "InputAccessoryView", "Pressable", "Text", "TextInput", "View"].map(key => [key, key])),
+      Alert: { alert: (...args) => alerts.push(args) }, Linking: {}, Platform: { OS: "ios" }, Keyboard: { dismiss() {} }, StyleSheet: { create: value => value },
       useWindowDimensions: () => ({ fontScale: 1, width: 402, height: 874 }) },
     "@clerk/clerk-expo": { useAuth: () => ({ userId: owner, getToken: async () => "synthetic-token" }) },
     "expo-router": { useLocalSearchParams: () => ({}), useRouter: () => ({}) },
