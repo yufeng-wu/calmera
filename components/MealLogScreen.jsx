@@ -424,7 +424,7 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
 }
 
 const styles = StyleSheet.create({
-  mealText: { ...TYPOGRAPHY.input, minHeight: 170, color: COLORS.text, padding: 0 },
+  mealText: { ...TYPOGRAPHY.input, minHeight: 120, color: COLORS.text, padding: 0 },
   privacy: { flexDirection: "row", alignItems: "flex-start", gap: 7, paddingHorizontal: 8 },
   container: { flex: 1, backgroundColor: COLORS.background },
   content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 36, gap: 16 },

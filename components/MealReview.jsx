@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Alert, Animated, Image, InputAccessoryView, Keyboard, LayoutAnimation, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { Alert, Animated, Image, InputAccessoryView, Keyboard, LayoutAnimation, Modal, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { useReducedMotion } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -268,20 +268,31 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
       </Modal>
       <Modal visible={photoPreview} animationType={reducedMotion ? "none" : "slide"} onRequestClose={() => setPhotoPreview(false)}>
         <View style={[styles.photoPreview, { paddingTop: top, paddingBottom: bottom }]}>
+          <StatusBar barStyle="light-content" />
           <View style={styles.photoPreviewHeader}><Text style={[styles.heading, { color: "white", flex: 1 }]}>Meal photo</Text>
             <GlassButton title="Close" symbol="xmark" onPress={() => setPhotoPreview(false)} style={{ minWidth: 96 }} />
           </View>
           <ScrollView maximumZoomScale={4} minimumZoomScale={1} centerContent style={{ flex: 1 }}>
-            {photo && <Image source={{ uri: photo.dataURL }} accessibilityLabel="Full meal photo" resizeMode="contain"
+            {photo && <Image source={{ uri: photo.dataURL }} accessible accessibilityRole="image" accessibilityLabel="Full meal photo" resizeMode="contain"
               style={{ width, height: Math.max(200, height - top - bottom - 80) }} />}
           </ScrollView>
         </View>
       </Modal>
       {Platform.OS === "ios" && <InputAccessoryView nativeID={accessoryId} backgroundColor={COLORS.card}>
         <View style={styles.keyboardBar}>
-          <GlassButton title="Previous" onPress={() => focusAdjacent(-1)} disabled={locked || activeIndex <= 0} style={{ flex: 1 }} />
-          <GlassButton title="Next" onPress={() => focusAdjacent(1)} disabled={locked || activeIndex < 0 || activeIndex >= fields.length - 1} style={{ flex: 1 }} />
-          <GlassButton title="Done" onPress={() => Keyboard.dismiss()} style={{ flex: 1 }} />
+          <Pressable accessibilityRole="button" accessibilityLabel="Previous field" onPress={() => focusAdjacent(-1)}
+            disabled={locked || activeIndex <= 0} style={[styles.keyboardAction, (locked || activeIndex <= 0) && styles.toolDisabled]}>
+            <Ionicons name="chevron-up" size={22} color={COLORS.primary} />
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Next field" onPress={() => focusAdjacent(1)}
+            disabled={locked || activeIndex < 0 || activeIndex >= fields.length - 1}
+            style={[styles.keyboardAction, (locked || activeIndex < 0 || activeIndex >= fields.length - 1) && styles.toolDisabled]}>
+            <Ionicons name="chevron-down" size={22} color={COLORS.primary} />
+          </Pressable>
+          <View style={{ flex: 1 }} />
+          <Pressable accessibilityRole="button" accessibilityLabel="Done" onPress={() => Keyboard.dismiss()} style={styles.keyboardDone}>
+            <Text style={styles.keyboardDoneText}>Done</Text>
+          </Pressable>
         </View>
       </InputAccessoryView>}
     </FormScreen>
@@ -290,7 +301,11 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
 
 const styles = StyleSheet.create({
   content: { padding: 20, paddingTop: 12, paddingBottom: 20, gap: 16 },
-  keyboardBar: { flexDirection: "row", gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#EAE2DB" },
+  keyboardAction: { width: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
+  keyboardDone: { minHeight: 44, justifyContent: "center", paddingHorizontal: 12 },
+  keyboardDoneText: { ...TYPOGRAPHY.button, color: COLORS.primary },
+  toolDisabled: { opacity: 0.35 },
+  keyboardBar: { alignItems: "center", flexDirection: "row", gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#EAE2DB" },
   sheetHeader: { paddingHorizontal: 20, paddingVertical: 12, flexDirection: "row", alignItems: "center", gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#EAE2DB" },
   zoomBadge: { position: "absolute", right: 2, bottom: 2, padding: 3, borderRadius: 8, backgroundColor: "#FFFFFFE6" },
   photoPreview: { flex: 1, backgroundColor: "#171311" },

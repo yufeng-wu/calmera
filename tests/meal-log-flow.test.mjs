@@ -48,7 +48,7 @@ function reviewFixture() {
   };
   const Review = load(compiledReview, {
     react: runtime.react,
-    "react-native": { ...Object.fromEntries(["Image", "InputAccessoryView", "Modal", "Pressable", "ScrollView", "Text", "TextInput", "View"].map(key => [key, key])),
+    "react-native": { ...Object.fromEntries(["Image", "InputAccessoryView", "Modal", "Pressable", "ScrollView", "StatusBar", "Text", "TextInput", "View"].map(key => [key, key])),
       Platform: { OS: "ios" }, Animated: { Value: class {}, View: "AnimatedView" }, LayoutAnimation: { configureNext() {} },
       Alert: { alert: (...args) => alerts.push(args) }, Keyboard: { dismiss() {} },
       StyleSheet: { create: value => value, hairlineWidth: 1, absoluteFill: {} }, useWindowDimensions: () => ({ fontScale: 1, width: 402, height: 874 }) },
