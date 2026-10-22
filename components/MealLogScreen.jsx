@@ -1,6 +1,7 @@
 import { TYPOGRAPHY } from "@/constants/typography";
 import { useCallback, useId, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Image, InputAccessoryView, Keyboard, Linking, Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import Animated, { FadeIn, useReducedMotion } from "react-native-reanimated";
 import { useAuth } from "@clerk/clerk-expo";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useFocusEffect, useNavigation, usePreventRemove } from "@react-navigation/native";
@@ -36,6 +37,8 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
   const router = useRouter();
   const navigation = useNavigation();
   const { fontScale } = useWindowDimensions();
+  const reducedMotion = useReducedMotion();
+  const leftReview = useRef(false);
   const { calmeraFixture } = useLocalSearchParams();
   const testBuild = Constants.expoConfig?.extra?.calmeraFullAppTest === true;
   const photoTestFixture = testBuild && calmeraFixture === "label-phone";
@@ -318,6 +321,7 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
 
   const canChangeDraft = () => focused.current && !operation.current && !uncertain
     && !confirmedSave.current.hasConfirmed(userId) && ownerRef.current === userId;
+  if (review) leftReview.current = true;
   if (review) return <MealReview photo={textMode ? null : photo} text={text} review={review}
     setReview={value => { if (canChangeDraft()) setReview(value); }}
     estimating={operation.current?.kind === "estimate-item" ? operation.current.foodId : null}
@@ -331,6 +335,8 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
       <FormHeader title={textMode ? "Text Log" : "Photo Log"} onBack={leaveLog} backDisabled={busy || selecting} />
       <FormScrollView keyboardAware key={`meal-text-${fontScale}`} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" extraScrollHeight={20} enableResetScrollToCoords={false}>
+        {/* Returning from Review to edit the input eases in rather than snapping. */}
+        <Animated.View entering={leftReview.current && !reducedMotion ? FadeIn.duration(280) : undefined} style={styles.sections}>
         {uiFixture && (
           <Text style={styles.fixtureNote}>
             {savedNavigationFixture ? "Synthetic navigation check · nothing is sent or saved." : "UI preview · Photo access and saving are disabled."}
@@ -420,6 +426,7 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
               : "Only your selected photo is analyzed by ChatGPT. Nutrition estimates are approximate."}</Text>
           </View>
         </View>
+        </Animated.View>
       </FormScrollView>
       {textMode && Platform.OS === "ios" && <InputAccessoryView nativeID={textAccessoryId} backgroundColor={COLORS.card}>
         <View style={styles.keyboardBar}>
@@ -439,7 +446,8 @@ const styles = StyleSheet.create({
   mealText: { ...TYPOGRAPHY.input, minHeight: 120, color: COLORS.text, padding: 0 },
   privacy: { flexDirection: "row", alignItems: "flex-start", gap: 7, paddingHorizontal: 8 },
   container: { flex: 1, backgroundColor: COLORS.background },
-  content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 36, gap: 16 },
+  content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 36 },
+  sections: { gap: 16 },
   previewCard: { padding: 12, gap: 14 },
   preview: { borderRadius: 22, overflow: "hidden", backgroundColor: "#F6F1EC" },
   previewWithPhoto: { aspectRatio: 1.15 },

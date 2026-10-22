@@ -4,6 +4,7 @@ import { TYPOGRAPHY } from "@/constants/typography";
 import { createContext, forwardRef, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import Animated from "react-native-reanimated";
 import { requireNativeViewManager } from "expo-modules-core";
 import { Ionicons } from "@expo/vector-icons";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
@@ -68,7 +69,7 @@ const fallbackSymbols = {
   "chevron.right": "chevron-forward", "arrow.clockwise": "refresh-outline",
   "arrow.counterclockwise": "refresh-outline", xmark: "close", clock: "time-outline",
   "rectangle.portrait.and.arrow.right": "log-out-outline", "gearshape": "settings-outline",
-  "checkmark.circle": "checkmark-circle-outline", "book": "book-outline", "lock": "lock-closed-outline",
+  "checkmark.circle": "checkmark-circle-outline", trash: "trash-outline", "book": "book-outline", "lock": "lock-closed-outline",
 };
 
 // UIKit owns the glass material and press response. Never fade an effect ancestor.
@@ -126,8 +127,11 @@ export function FormHeader({ title, titleContent, onBack, onSave, saving = false
   </View>;
 }
 
-export function FormCard({ children, style, variant = "content" }) {
-  return <View style={[styles.card, variant === "grouped" && styles.groupedCard, style]}>{children}</View>;
+// Optional Reanimated entering/exiting animations for cards that appear in place.
+export function FormCard({ children, style, variant = "content", entering, exiting }) {
+  const Card = entering || exiting ? Animated.View : View;
+  return <Card entering={entering} exiting={exiting}
+    style={[styles.card, variant === "grouped" && styles.groupedCard, style]}>{children}</Card>;
 }
 
 export const formStyles = StyleSheet.create({

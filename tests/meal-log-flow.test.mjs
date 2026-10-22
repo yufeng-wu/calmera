@@ -39,6 +39,12 @@ const all = node => !node || typeof node !== "object" ? [] : Array.isArray(node)
 const find = (tree, predicate) => all(tree).find(predicate);
 const button = (tree, title) => find(tree, node => node.type === "GlassButton" && node.props.title === title);
 const input = (tree, label) => find(tree, node => node.type === "TextInput" && node.props.accessibilityLabel === label);
+const saveButton = tree => find(tree, node => node.type === "GlassButton" && /^Save meal as /.test(node.props.accessibilityLabel || ""));
+const mealPicker = tree => find(tree, node => node.props?.testID === "meal-type-picker");
+// Chainable stand-in for Reanimated layout-animation builders.
+const motionBuilder = new Proxy(function builder() {}, { get: (_, key) => key === "then" ? undefined : motionBuilder, apply: () => motionBuilder });
+const reanimatedStub = { View: "AnimatedView", Easing: { bezier: () => () => 0 }, FadeIn: motionBuilder, FadeInDown: motionBuilder, FadeOutDown: motionBuilder,
+  useAnimatedStyle: () => ({}), useSharedValue: value => ({ value }), withTiming: value => value, withSpring: value => value, useReducedMotion: () => false };
 const compiledReview = compile("../components/MealReview.jsx");
 function reviewFixture() {
   const runtime = hooks(); const saves = [], alerts = [];
@@ -49,10 +55,11 @@ function reviewFixture() {
   const Review = load(compiledReview, {
     react: runtime.react,
     "react-native": { ...Object.fromEntries(["Image", "InputAccessoryView", "Modal", "Pressable", "ScrollView", "StatusBar", "Text", "TextInput", "View"].map(key => [key, key])),
-      Platform: { OS: "ios" }, Animated: { Value: class {}, View: "AnimatedView" }, LayoutAnimation: { configureNext() {} },
-      Alert: { alert: (...args) => alerts.push(args) }, Keyboard: { dismiss() {} },
+      Platform: { OS: "ios" },
+      Alert: { alert: (...args) => alerts.push(args) }, Keyboard: { dismiss() {} }, AccessibilityInfo: { announceForAccessibility() {} },
       StyleSheet: { create: value => value, hairlineWidth: 1, absoluteFill: {} }, useWindowDimensions: () => ({ fontScale: 1, width: 402, height: 874 }) },
-    "react-native-reanimated": { useReducedMotion: () => false },
+    "react-native-reanimated": reanimatedStub, "expo-haptics": { selectionAsync: async () => {}, impactAsync: async () => {}, notificationAsync: async () => {},
+      ImpactFeedbackStyle: {}, NotificationFeedbackType: {} },
     "react-native-safe-area-context": { useSafeAreaInsets: () => ({ bottom: 0, top: 0 }) },
     "@expo/vector-icons": { Ionicons: "Ionicons" },
     "@/components/GlassForm": Object.fromEntries(["FormScreen", "FormScrollView", "FormHeader", "FormCard", "GlassButton"].map(key => [key, key])),
@@ -108,19 +115,18 @@ test("simplified photo messages retain distinct sign-in, permission, usage and r
   assert.notEqual(permission.title, expired.title);
 });
 
-test("Save opens four categories; Cancel leaves the review unsaved", () => {
+test("the meal type starts from the estimate and is chosen inline without saving", () => {
   const fixture = reviewFixture(); let tree = fixture.render();
-  button(tree, "Save meal").props.onPress(); tree = fixture.render();
-  const modal = find(tree, node => node.type === "Modal");
-  assert.equal(modal.props.visible, true);
-  assert.deepEqual(all(modal).filter(node => node.type === "GlassButton").map(node => node.props.title), [...reviewModel.MEAL_TYPES, "Cancel"]);
-  assert.equal(fixture.saves.length, 0);
-  button(modal, "Cancel").props.onPress();
-  assert.equal(find(fixture.render(), node => node.type === "Modal").props.visible, false);
+  assert.equal(find(tree, node => node.type === "Modal" && node.props.visible), undefined);
+  assert.equal(mealPicker(tree).props.value, "Lunch");
+  assert.equal(saveButton(tree).props.title, "Save lunch");
+  mealPicker(tree).props.onChange("Breakfast"); tree = fixture.render();
+  assert.equal(fixture.props.review.mealType, "Breakfast");
+  assert.equal(saveButton(tree).props.title, "Save breakfast");
   assert.equal(fixture.saves.length, 0);
 });
 
-test("Save includes pending inline edits and submits the selected category exactly once", () => {
+test("Save includes pending inline edits and submits the chosen meal type exactly once", () => {
   const fixture = reviewFixture(); let tree = fixture.render();
   find(tree, node => node.props?.accessibilityLabel === "Edit Rice").props.onPress();
   tree = fixture.render();
@@ -128,10 +134,10 @@ test("Save includes pending inline edits and submits the selected category exact
   input(tree, "Food name").props.onChangeText("Brown rice");
   input(tree, "Amount").props.onChangeText("150 g");
   input(tree, "Calories").props.onChangeText("180");
+  mealPicker(fixture.render()).props.onChange("Dinner");
   tree = fixture.render();
-  button(tree, "Save meal").props.onPress(); tree = fixture.render();
-  const chooseDinner = button(find(tree, node => node.type === "Modal"), "Dinner").props.onPress;
-  chooseDinner(); chooseDinner();
+  const save = saveButton(tree).props.onPress;
+  save(); save();
   assert.equal(fixture.saves.length, 1);
   assert.equal(fixture.saves[0][0], "Dinner");
   assert.equal(fixture.saves[0][1].entries[0].foodName, "Brown rice");
@@ -139,13 +145,12 @@ test("Save includes pending inline edits and submits the selected category exact
   assert.equal(fixture.saves[0][1].entries[0].calories, 180);
 });
 
-test("invalid inline edits keep the editor open and never open category selection", () => {
+test("invalid inline edits keep the editor open and never save", () => {
   const fixture = reviewFixture(); let tree = fixture.render();
   find(tree, node => node.props?.accessibilityLabel === "Edit Rice").props.onPress();
   tree = fixture.render(); input(tree, "Calories").props.onChangeText("-1");
-  tree = fixture.render(); button(tree, "Save meal").props.onPress(); tree = fixture.render();
+  tree = fixture.render(); saveButton(tree).props.onPress(); tree = fixture.render();
   assert.equal(input(tree, "Calories").props.value, "-1");
-  assert.equal(find(tree, node => node.type === "Modal").props.visible, false);
   assert.equal(fixture.saves.length, 0); assert.equal(fixture.alerts.length, 1);
 });
 
@@ -225,7 +230,7 @@ test("emoji choice is retained in the draft; compact removal and Undo preserve i
   find(fixture.render(), node => node.props?.accessibilityLabel === "Edit Rice").props.onPress();
   find(fixture.render(), node => node.props?.accessibilityLabel === "Remove Rice").props.onPress();
   assert.equal(fixture.props.review.entries.length, 0);
-  button(fixture.render(), "Undo").props.onPress();
+  find(fixture.render(), node => node.type === "Pressable" && node.props.accessibilityLabel === "Undo").props.onPress();
   assert.equal(fixture.props.review.entries[0].iconId, "sushi");
   assert.equal(fixture.props.review.entries.length, 1);
 });
@@ -250,6 +255,7 @@ function logFixture(inputMode = "text") {
     "react-native": { ...Object.fromEntries(["ActivityIndicator", "Image", "InputAccessoryView", "Pressable", "Text", "TextInput", "View"].map(key => [key, key])),
       Alert: { alert: (...args) => alerts.push(args) }, Linking: {}, Platform: { OS: "ios" }, Keyboard: { dismiss() {} }, StyleSheet: { create: value => value },
       useWindowDimensions: () => ({ fontScale: 1, width: 402, height: 874 }) },
+    "react-native-reanimated": reanimatedStub,
     "@clerk/clerk-expo": { useAuth: () => ({ userId: owner, getToken: async () => "synthetic-token" }) },
     "expo-router": { useLocalSearchParams: () => ({}), useRouter: () => ({}) },
     "@react-navigation/native": { useNavigation: () => navigation, useFocusEffect: callback => { focus = callback; }, usePreventRemove() {} },
