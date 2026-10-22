@@ -1,18 +1,85 @@
+import { TYPOGRAPHY } from "@/constants/typography";
 import React from "react";
 import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   Keyboard,
+  StyleSheet,
+  useWindowDimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { styles } from "@/assets/styles/create.styles";
-import { COLORS } from "@/constants/colors";
+import { FORM_COLORS as COLORS } from "@/constants/formTheme";
+import { FormCard, GlassButton } from "@/components/GlassForm";
+import useInputFontGeometry from "@/hooks/useInputFontGeometry";
 
-// Reusable form card for creating/editing a food entry.
-// The parent screen owns the state and simply passes the value + setter pairs.
+const MEAL_TYPES = ["Breakfast", "Lunch", "Dinner", "Snack"];
+
+const FormField = React.forwardRef(function FormField({ label, symbol, suffix, style, inputStyle, ...inputProps }, ref) {
+  const inputGeometry = useInputFontGeometry([form.input, inputStyle], inputProps);
+  return (
+    <View style={[form.field, style]}>
+      <Text style={form.fieldLabel}>{label}</Text>
+      <View style={form.fieldBody}>
+        {symbol && (
+          <Ionicons
+            name={symbol}
+            size={20}
+            color={COLORS.primary}
+            style={form.fieldIcon}
+            accessible={false}
+          />
+        )}
+        <TextInput
+          ref={ref}
+          {...inputProps}
+          accessibilityLabel={inputProps.accessibilityLabel || label}
+          placeholderTextColor={COLORS.textLight}
+          style={inputGeometry.style}
+          allowFontScaling={inputGeometry.allowFontScaling}
+        />
+        {suffix && <Text style={form.suffix}>{suffix}</Text>}
+      </View>
+    </View>
+  );
+});
+
+export function MealTypeOptions({ mealType, setMealType, disabled = false }) {
+  const { fontScale } = useWindowDimensions();
+  const formBusy = disabled;
+  return (
+          <View style={form.mealOptions} accessibilityRole="radiogroup">
+            {MEAL_TYPES.map((type) => (
+              <Pressable
+                key={type}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: mealType === type, disabled: formBusy }}
+                disabled={formBusy}
+                accessibilityLabel={type}
+                onPress={() => setMealType?.(type)}
+                style={({ pressed }) => [
+                  form.mealOption,
+                  fontScale >= 1.5 && form.mealOptionStacked,
+                  mealType === type && form.mealOptionSelected,
+                  pressed && form.mealOptionPressed,
+                ]}
+              >
+                <Text style={[
+                  form.mealOptionText,
+                  mealType === type && form.mealOptionTextSelected,
+                ]}>
+                  {type}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+  );
+}
+
+// State remains in each create/edit screen. Optional props preserve those callers.
 export const FoodEntryFormCard = ({
+  style,
   foodName,
   setFoodName,
   quantity,
@@ -32,216 +99,152 @@ export const FoodEntryFormCard = ({
   showEstimateButton = true,
   onEstimateMacros,
   isEstimating = false,
+  busy = false,
   estimateDisabled = false,
   showMacros = true,
+  onEnterMacros,
 }) => {
+  const { fontScale } = useWindowDimensions();
+  const stackedMacros = fontScale >= 1.3;
+  const amountInput = React.useRef(null);
+  const formBusy = busy || isEstimating;
+
   return (
-    <View style={styles.formContainer}>
+    <View style={[form.container, style]}>
       {showMealType && (
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Meal Type</Text>
-          <View style={styles.typeSelector}>
-            {["Breakfast", "Lunch", "Dinner", "Snack"].map((type) => (
-              <TouchableOpacity
-                key={type}
-                style={[
-                  styles.typeButton,
-                  mealType === type && styles.typeButtonActive,
-                ]}
-                onPress={() => (setMealType ? setMealType(type) : null)}
-              >
-                <Text
-                  style={[
-                    styles.typeButtonText,
-                    mealType === type && styles.typeButtonTextActive,
-                  ]}
-                >
-                  {type}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+        <FormCard style={form.card}>
+          <Text style={form.sectionTitle}>Meal</Text>
+          <MealTypeOptions mealType={mealType} setMealType={setMealType} disabled={formBusy} />
+        </FormCard>
       )}
 
-      {/* Food & Quantity + AI button */}
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Food Name</Text>
-        <View style={styles.inputContainer}>
-          <Ionicons
-            name="restaurant"
-            size={20}
-            color={COLORS.textLight}
-            style={styles.inputIcon}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Food name"
-            placeholderTextColor={COLORS.textLight}
-            value={foodName}
-            onChangeText={setFoodName}
-          />
-        </View>
+      <FormCard style={form.card}>
+        <FormField
+          label="Food"
+          autoCorrect={false}
+          spellCheck={false}
+          symbol="restaurant-outline"
+          placeholder="What did you eat?"
+          value={foodName}
+          onChangeText={setFoodName}
+          editable={!formBusy}
+          returnKeyType="next"
+          submitBehavior="submit"
+          onSubmitEditing={() => amountInput.current?.focus()}
+        />
+        <View style={form.separator} />
+        <FormField
+          ref={amountInput}
+          label="Amount"
+          autoCorrect={false}
+          spellCheck={false}
+          symbol="cube-outline"
+          placeholder={gramsOnly ? "Weight in grams" : "e.g. 150 g or 2 slices"}
+          keyboardType={gramsOnly ? "numeric" : "default"}
+          value={gramsOnly && quantity ? String(quantity) : quantity}
+          suffix={gramsOnly ? "g" : undefined}
+          editable={!formBusy}
+          returnKeyType="done"
+          onSubmitEditing={Keyboard.dismiss}
+          onChangeText={(text) => {
+            setQuantity(gramsOnly ? text.replace(/[^0-9]/g, "") : text);
+          }}
+        />
+      </FormCard>
 
-        <Text style={styles.sectionTitle}>Quantity</Text>
-        <View style={styles.inputContainer}>
-          <Ionicons
-            name="cube-outline"
-            size={20}
-            color={COLORS.textLight}
-            style={styles.inputIcon}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder={
-              gramsOnly ? "grams" : "Examples: 1, 12 oz, 150g, 2 slices"
-            }
-            placeholderTextColor={COLORS.textLight}
-            keyboardType={gramsOnly ? "numeric" : "default"}
-            value={gramsOnly && quantity ? String(quantity) : quantity}
-            onChangeText={(text) => {
-              if (gramsOnly) {
-                const digits = text.replace(/[^0-9]/g, "");
-                setQuantity(digits);
-              } else {
-                setQuantity(text);
-              }
-            }}
-          />
-          {gramsOnly && (
-            <Text style={{ marginRight: 6, color: COLORS.text }}>&nbsp;g</Text>
-          )}
-        </View>
-
-        {/* Estimate Button */}
-        {showEstimateButton && onEstimateMacros && (
-          <TouchableOpacity
-            style={[
-              styles.estimateButton,
-              (isEstimating || estimateDisabled) &&
-                styles.estimateButtonDisabled,
-            ]}
+      {showEstimateButton && onEstimateMacros && (
+        <View style={form.estimateSection}>
+          <GlassButton
+            title={isEstimating ? "Estimating…" : "Estimate with ChatGPT"}
+            symbol="sparkles"
+            role="accent"
+            style={form.estimateButton}
+            loading={isEstimating}
+            disabled={formBusy || estimateDisabled}
             onPress={() => {
               Keyboard.dismiss();
               onEstimateMacros();
             }}
-            disabled={isEstimating || estimateDisabled}
-          >
-            <Text style={styles.estimateButtonText}>
-              {isEstimating ? "Estimating..." : "Estimate Macros with AI"}
-            </Text>
-            {isEstimating ? (
-              <Ionicons
-                name="hourglass-outline"
-                size={18}
-                color={COLORS.primary}
-              />
-            ) : (
-              <Ionicons
-                name="sparkles-outline"
-                size={18}
-                color={COLORS.white}
-              />
-            )}
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Macros Card */}
-      {showMacros && (
-        <View style={styles.card}>
-          <Text style={styles.helperText}>
-            You may manually edit these values.
-          </Text>
-          <View style={styles.macrosGridRow}>
-            {/* Calories */}
-            <View style={styles.macroCell}>
-              <Text style={styles.sectionTitle}>Calories (kcal)</Text>
-              <View style={styles.inputContainer}>
-                <Ionicons
-                  name="flame"
-                  size={20}
-                  color={COLORS.textLight}
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Calories"
-                  placeholderTextColor={COLORS.textLight}
-                  keyboardType="numeric"
-                  value={calories}
-                  onChangeText={setCalories}
-                />
-              </View>
-            </View>
-
-            {/* Protein */}
-            <View style={styles.macroCell}>
-              <Text style={styles.sectionTitle}>Protein (g)</Text>
-              <View style={styles.inputContainer}>
-                <Ionicons
-                  name="barbell"
-                  size={20}
-                  color={COLORS.textLight}
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Protein"
-                  placeholderTextColor={COLORS.textLight}
-                  keyboardType="numeric"
-                  value={protein}
-                  onChangeText={setProtein}
-                />
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.macrosGridRow}>
-            {/* Carbs */}
-            <View style={styles.macroCell}>
-              <Text style={styles.sectionTitle}>Carbs (g)</Text>
-              <View style={styles.inputContainer}>
-                <Ionicons
-                  name="nutrition"
-                  size={20}
-                  color={COLORS.textLight}
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Carbs"
-                  placeholderTextColor={COLORS.textLight}
-                  keyboardType="numeric"
-                  value={carbs}
-                  onChangeText={setCarbs}
-                />
-              </View>
-            </View>
-
-            {/* Fat */}
-            <View style={styles.macroCell}>
-              <Text style={styles.sectionTitle}>Fat (g)</Text>
-              <View style={styles.inputContainer}>
-                <Ionicons
-                  name="egg"
-                  size={20}
-                  color={COLORS.textLight}
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Fat"
-                  placeholderTextColor={COLORS.textLight}
-                  keyboardType="numeric"
-                  value={fat}
-                  onChangeText={setFat}
-                />
-              </View>
-            </View>
-          </View>
+          />
+          {!showMacros && onEnterMacros && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Enter nutrition macros manually"
+              style={form.manualButton}
+              onPress={onEnterMacros}
+              disabled={formBusy}
+            >
+              <Text style={form.manualButtonText}>Enter macros manually</Text>
+            </Pressable>
+          )}
         </View>
+      )}
+
+      {showMacros && (
+        <FormCard style={form.card}>
+          <View style={form.sectionHeading}>
+            <Text style={form.sectionTitle}>Nutrition</Text>
+            <Text style={form.helperText}>Review or enter your estimates.</Text>
+          </View>
+          <View style={[form.macroGrid, stackedMacros && form.macroGridStacked]}>
+            {[
+              { label: "Calories", suffix: "kcal", value: calories, setter: setCalories },
+              { label: "Protein", suffix: "g", value: protein, setter: setProtein },
+              { label: "Carbs", suffix: "g", value: carbs, setter: setCarbs },
+              { label: "Fat", suffix: "g", value: fat, setter: setFat },
+            ].map(({ label, suffix, value, setter }) => (
+              <FormField
+                key={label}
+                label={label}
+                suffix={suffix}
+                value={value}
+                onChangeText={setter}
+                editable={!formBusy}
+                placeholder="0"
+                keyboardType="decimal-pad"
+                accessibilityLabel={`${label}, ${suffix}`}
+                style={[form.macroField, stackedMacros && form.macroFieldStacked]}
+                inputStyle={form.macroInput}
+              />
+            ))}
+          </View>
+        </FormCard>
       )}
     </View>
   );
 };
+
+const form = StyleSheet.create({
+  container: { paddingHorizontal: 20, paddingTop: 12, gap: 16 },
+  card: { padding: 18, borderRadius: 24, gap: 12 },
+  sectionHeading: { gap: 4 },
+  sectionTitle: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text},
+  mealOptions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  mealOption: {
+    flexBasis: "47%", flexGrow: 1, minHeight: 46, borderRadius: 16,
+    paddingHorizontal: 10, paddingVertical: 12, justifyContent: "center", alignItems: "center",
+    backgroundColor: "#F8F3EF",
+  },
+  mealOptionStacked: { flexBasis: "100%", width: "100%" },
+  mealOptionSelected: { backgroundColor: "#EFE1D6" },
+  mealOptionPressed: { backgroundColor: "#E5D3C5" },
+  mealOptionText: { ...TYPOGRAPHY.bodyMedium, color: COLORS.text},
+  mealOptionTextSelected: { color: COLORS.primary, fontWeight: "600" },
+  field: { minWidth: 0 },
+  fieldLabel: { ...TYPOGRAPHY.bodyMedium, color: COLORS.textLight, marginBottom: 4},
+  fieldBody: { flexDirection: "row", alignItems: "center", minHeight: 44 },
+  fieldIcon: { marginRight: 12 },
+  input: { ...TYPOGRAPHY.input, flex: 1, minWidth: 0, paddingVertical: 9, paddingHorizontal: 0, color: COLORS.text},
+  suffix: { ...TYPOGRAPHY.caption, color: COLORS.textLight, marginLeft: 6},
+  separator: { height: StyleSheet.hairlineWidth, backgroundColor: "#EAE2DB" },
+  estimateSection: { gap: 4 },
+  estimateButton: { minHeight: 50 },
+  manualButton: { minHeight: 44, paddingHorizontal: 12, paddingVertical: 11, alignItems: "center", justifyContent: "center" },
+  manualButtonText: { ...TYPOGRAPHY.button, color: COLORS.primary, textAlign: "center"},
+  helperText: { ...TYPOGRAPHY.caption, color: COLORS.textLight},
+  macroGrid: { flexDirection: "row", flexWrap: "wrap", columnGap: 12, rowGap: 12 },
+  macroGridStacked: { flexDirection: "column" },
+  macroField: { flexBasis: "45%", flexGrow: 1, backgroundColor: "#F8F3EF", borderRadius: 16, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 3 },
+  macroFieldStacked: { flexBasis: "auto", width: "100%" },
+  macroInput: { ...TYPOGRAPHY.value, fontVariant: ["tabular-nums"]},
+});

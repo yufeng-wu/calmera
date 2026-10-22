@@ -1,237 +1,73 @@
-import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Image,
-  Alert,
-  ScrollView,
-} from "react-native";
-import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { COLORS } from "@/constants/colors";
-import { styles as createStyles } from "@/assets/styles/create.styles";
-import { USERS_API_URL } from "@/constants/api";
+import { TYPOGRAPHY } from "@/constants/typography";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Alert, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
-import PageLoader from "@/components/PageLoader";
+import { FormScreen, FormScrollView, FormCard, FormHeader, GlassButton, formStyles } from "@/components/GlassForm";
+import ScaleOptions from "@/components/ScaleOptions";
+import { USERS_API_URL } from "@/constants/api";
+import { FORM_COLORS as COLORS } from "@/constants/formTheme";
+import usePageExit from "@/hooks/usePageExit";
 
-const SCALE_OPTIONS = [
-  {
-    key: "integer",
-    title: "Integer Only",
-    description: "No decimal places (e.g., 256g)",
-    img: require("../../assets/images/0-decimal.png"),
-  },
-  {
-    key: "1-decimal",
-    title: "1 Decimal Place",
-    description: "Shows one digit after the decimal (e.g., 256.1g)",
-    img: require("../../assets/images/1-decimal.png"),
-  },
-  {
-    key: "2-decimal",
-    title: "2 Decimal Places",
-    description: "Shows two digits after the decimal (e.g., 256.13g)",
-    img: require("../../assets/images/2-decimal.png"),
-  },
-];
-
-const ScaleOption = ({ option, isSelected, onPress }) => (
-  <TouchableOpacity
-    activeOpacity={0.7}
-    onPress={onPress}
-    style={[styles.optionCard, isSelected && styles.optionSelectedCard]}
-  >
-    <Image source={option.img} style={styles.optionImage} />
-    <View style={styles.optionTextContainer}>
-      <Text style={styles.optionTitle}>{option.title}</Text>
-      <Text style={styles.optionDescription}>{option.description}</Text>
-    </View>
-    {isSelected && (
-      <Ionicons
-        name="checkmark-circle"
-        size={24}
-        color={COLORS.primary}
-        style={styles.checkIcon}
-      />
-    )}
-  </TouchableOpacity>
-);
-
-export default function UpdateScaleType() {
-  const router = useRouter();
+export default function UpdateScaleType({ calmeraPreview = false }) {
+  const leave = usePageExit(calmeraPreview ? "/ui-gallery" : "/dashboard");
+  const { fontScale } = useWindowDimensions();
   const { getToken } = useAuth();
+  const tokenRef = useRef(getToken); tokenRef.current = getToken;
+  const savingRef = useRef(false);
   const [selected, setSelected] = useState("integer");
   const [loading, setLoading] = useState(false);
-  const [isFetching, setIsFetching] = useState(true);
-
+  const [isFetching, setIsFetching] = useState(!calmeraPreview);
+  const [loadError, setLoadError] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const [previewMessage, setPreviewMessage] = useState("");
   useEffect(() => {
-    const fetchScaleType = async () => {
-      setIsFetching(true);
-      try {
-        const token = await getToken();
-        const res = await fetch(`${USERS_API_URL}/get-user`, {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (!res.ok) throw new Error("Failed to fetch user");
-        const data = await res.json();
-        setSelected(data.scaleType || "integer");
-      } catch (e) {
-        console.error(e);
-        Alert.alert("Error", "Unable to load current scale type");
-      } finally {
-        setIsFetching(false);
-      }
-    };
-    fetchScaleType();
-  }, []);
-
+    if (calmeraPreview) return;
+    let active = true;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    setIsFetching(true); setLoadError(false);
+    (async () => {
+      const token = await tokenRef.current();
+      const res = await fetch(`${USERS_API_URL}/get-user`, { signal: controller.signal,
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error("Failed to fetch user");
+      const data = await res.json();
+      if (active) setSelected(data.scaleType || "integer");
+    })().catch(() => { if (active) setLoadError(true); })
+      .finally(() => { clearTimeout(timer); if (active) setIsFetching(false); });
+    return () => { active = false; clearTimeout(timer); controller.abort(); };
+  }, [calmeraPreview, retry]);
   const handleSave = async () => {
-    setLoading(true);
+    if (savingRef.current || isFetching || loadError) return;
+    if (calmeraPreview) { setPreviewMessage("Scale type saved in preview only."); return; }
+    savingRef.current = true; setLoading(true);
     try {
-      const token = await getToken();
+      const token = await tokenRef.current();
       const res = await fetch(`${USERS_API_URL}/update-scale-type`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ scaleType: selected }),
       });
       if (!res.ok) throw new Error("Failed to update scale type");
-      Alert.alert("Success", "Scale type updated", [
-        { text: "OK", onPress: () => router.back() },
-      ]);
-    } catch (e) {
-      console.error(e);
-      Alert.alert("Error", "Unable to update scale type");
-    } finally {
-      setLoading(false);
-    }
+      Alert.alert("Success", "Scale type updated", [{ text: "OK", onPress: leave }]);
+    } catch { Alert.alert("Error", "Unable to update scale type"); }
+    finally { savingRef.current = false; setLoading(false); }
   };
-
-  if (isFetching) return <PageLoader />;
-
-  return (
-    <View style={createStyles.container}>
-      <View style={createStyles.header}>
-        <TouchableOpacity
-          style={createStyles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-        </TouchableOpacity>
-        <Text style={createStyles.headerTitle}>Live AI Calibration</Text>
-        <TouchableOpacity
-          style={createStyles.saveButtonContainer}
-          onPress={handleSave}
-          disabled={loading}
-        >
-          <Text
-            style={[
-              createStyles.saveButton,
-              loading && createStyles.saveButtonDisabled,
-            ]}
-          >
-            {loading ? "Saving..." : "Save"}
-          </Text>
-          {!loading && (
-            <Ionicons name="checkmark" size={18} color={COLORS.primary} />
-          )}
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <Text style={styles.questionText}>
-          What type of kitchen scale are you using?
-        </Text>
-        <Text style={styles.noteText}>
-          This will make sure Calmera reads your scale correctly.
-        </Text>
-
-        <View style={styles.optionsList}>
-          {SCALE_OPTIONS.map((opt) => (
-            <ScaleOption
-              key={opt.key}
-              option={opt}
-              isSelected={selected === opt.key}
-              onPress={() => setSelected(opt.key)}
-            />
-          ))}
-        </View>
-      </ScrollView>
-    </View>
-  );
+  return <FormScreen style={formStyles.screen}>
+    <FormHeader title="Scale display" onBack={leave} onSave={handleSave} saving={loading} saveDisabled={isFetching || loadError} />
+    <FormScrollView key={`text-size-${fontScale}`} contentContainerStyle={formStyles.content} showsVerticalScrollIndicator={false}>
+      <View style={styles.intro}><Text accessibilityRole="header" style={styles.title}>Your kitchen scale</Text>
+        <Text style={styles.caption}>Choose the display that matches your scale so calmera can read it correctly.</Text></View>
+      {isFetching ? <FormCard style={styles.feedback}><ActivityIndicator color={COLORS.primary} /><Text style={styles.caption}>Loading your scale type…</Text></FormCard>
+        : loadError ? <FormCard><Text style={styles.title}>Couldn’t load your scale type</Text><Text style={styles.caption}>Your saved setting has not changed. Please try again.</Text>
+          <GlassButton title="Try again" onPress={() => setRetry(value => value + 1)} /></FormCard>
+          : <ScaleOptions selected={selected} onSelect={setSelected} disabled={loading} />}
+      {!!previewMessage && <Text accessibilityLiveRegion="polite" style={styles.caption}>{previewMessage}</Text>}
+    </FormScrollView>
+  </FormScreen>;
 }
-
 const styles = StyleSheet.create({
-  scrollContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 32,
-  },
-  questionText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.text,
-    marginTop: 24,
-    marginBottom: 16,
-  },
-  optionsList: {
-    gap: 12,
-  },
-  optionCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 2,
-    borderColor: "transparent",
-    elevation: 2,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 2,
-  },
-  optionSelectedCard: {
-    borderColor: COLORS.primary,
-  },
-  optionImage: {
-    width: 116,
-    height: 116,
-    borderRadius: 8,
-    marginRight: 12,
-    backgroundColor: "#fff", // To show image border
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  optionTextContainer: {
-    flex: 1,
-  },
-  optionTitle: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: COLORS.text,
-  },
-  optionDescription: {
-    fontSize: 14,
-    color: COLORS.textLight,
-    marginTop: 4,
-  },
-  checkIcon: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-  },
-  noteText: {
-    fontSize: 14,
-    marginBottom: 20,
-    color: COLORS.textLight,
-    lineHeight: 20,
-    textAlign: "left",
-  },
+  intro: { gap: 8, paddingHorizontal: 4 },
+  title: { ...TYPOGRAPHY.pageTitle, color: COLORS.text,},
+  caption: { ...TYPOGRAPHY.body, color: COLORS.textLight,},
+  feedback: { minHeight: 150, alignItems: "center", justifyContent: "center" },
 });

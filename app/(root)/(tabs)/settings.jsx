@@ -1,101 +1,79 @@
-import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { useTheme } from "@/context/ThemeContext";
+import { TYPOGRAPHY } from "@/constants/typography";
+import { useState } from "react";
+import { Alert, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useRouter } from "expo-router";
-import { useClerk } from "@clerk/clerk-expo";
-import { Ionicons } from "@expo/vector-icons";
-import { styles as createStyles } from "@/assets/styles/create.styles";
-import { COLORS } from "@/constants/colors";
+import { useClerk, useUser } from "@clerk/clerk-expo";
+import { FormCard, formStyles } from "@/components/GlassForm";
+import SettingsRow from "@/components/SettingsRow";
+import useWarmSettingsRoutes from "@/hooks/useWarmSettingsRoutes";
+import OpenAILogo from "@/components/OpenAILogo";
+import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 
-export default function SettingsScreen() {
+export default function SettingsScreen({ calmeraPreview = false }) {
   const router = useRouter();
+  useWarmSettingsRoutes();
+  const { theme } = useTheme();
+  const { fontScale } = useWindowDimensions();
   const { signOut } = useClerk();
-
-  const handleLogout = async () => {
+  const { user, isLoaded, isSignedIn } = useUser();
+  const accountEmail = calmeraPreview ? "you@example.com"
+    : isLoaded && isSignedIn ? user?.primaryEmailAddress?.emailAddress : null;
+  const [previewMessage, setPreviewMessage] = useState("");
+  const openPage = (path, label) => {
+    if (calmeraPreview) {
+      if (["/voice-language", "/meal-times", "/theme"].includes(path)) router.push({ pathname: "/ui-gallery", params: { page: path.slice(1) } });
+      else setPreviewMessage(`${label} selected. Preview only.`);
+      return;
+    }
+    router.push(path);
+  };
+  const handleLogout = () => {
     Alert.alert("Sign out", "Are you sure you want to sign out?", [
       { text: "Cancel", style: "cancel" },
-      {
-        text: "Sign out",
-        style: "destructive",
-        onPress: async () => await signOut(),
-      },
+      { text: "Sign out", style: "destructive", onPress: async () => {
+        if (calmeraPreview) { setPreviewMessage("Sign out confirmed. Preview only."); return; }
+        await signOut();
+      } },
     ]);
   };
-
-  const handleUpdateGoals = () => {
-    router.push("/update-goals");
-  };
-
-  return (
-    <View style={createStyles.container}>
-      <View style={styles.profileHeader}>
-        <Text style={styles.profileTitle}>Settings</Text>
+  return <View style={formStyles.screen}>
+    <View key={`settings-header-${fontScale}`} style={[styles.header, { minHeight: Math.max(64, 40 * fontScale + 20) }]}><Text accessibilityRole="header" style={styles.title}>Settings</Text></View>
+    <ScrollView key={`text-size-${fontScale}`} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <Text style={styles.section}>CALMERA.</Text>
+      <FormCard variant="grouped" style={styles.group}>
+        <SettingsRow title="ChatGPT connection" subtitle="Your account and model"
+          iconElement={<OpenAILogo />} onPress={() => openPage("/chatgpt", "ChatGPT connection")} />
+        <SettingsRow title="Voice language" subtitle="Choose the language for voice logs" icon="mic-outline" divider
+          onPress={() => openPage("/voice-language", "Voice language")} />
+        <SettingsRow title="Meal times" subtitle="Default meals for voice logs" icon="time-outline" divider
+          onPress={() => openPage("/meal-times", "Meal times")} />
+        <SettingsRow title="Theme" subtitle={theme.name} accessibilityValue={{ text: theme.name }} icon="color-palette-outline" divider
+          onPress={() => openPage("/theme", "Theme")} />
+        <SettingsRow title="Nutrition goals" subtitle="Adjust your daily targets" icon="options-outline" divider
+          onPress={() => openPage("/update-goals", "Nutrition goals")} />
+      </FormCard>
+      <View style={styles.accountHeading}>
+        <Text style={styles.section}>ACCOUNT</Text>
+        {!!accountEmail && <View accessible accessibilityRole="text" accessibilityLabel={`Signed in as ${accountEmail}`} style={styles.accountIdentity}>
+          <Text style={styles.accountCaption}>Signed in as <Text style={styles.accountEmail}>{accountEmail}</Text></Text>
+        </View>}
       </View>
-
-      <View style={styles.contentWrapper}>
-        <TouchableOpacity
-          style={styles.optionButton}
-          onPress={handleUpdateGoals}
-        >
-          <Ionicons name="create-outline" size={20} color={COLORS.text} />
-          <Text style={styles.optionText}>Edit Nutrition Goals</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.optionButton}
-          onPress={() => router.push("/update-scale-type")}
-        >
-          <Ionicons name="sparkles-outline" size={20} color={COLORS.text} />
-          <Text style={styles.optionText}>Live AI Settings</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.optionButton} onPress={handleLogout}>
-          <Ionicons
-            name="log-out-outline"
-            size={20}
-            color={COLORS.destructive}
-          />
-          <Text style={[styles.optionText, { color: COLORS.destructive }]}>
-            Log Out
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+      <FormCard variant="grouped" style={styles.group}>
+        <SettingsRow title="Sign out" icon="log-out-outline" showAccessory={false} destructive onPress={handleLogout} />
+      </FormCard>
+      {!!previewMessage && <Text accessibilityLiveRegion="polite" style={formStyles.caption}>{previewMessage}</Text>}
+    </ScrollView>
+  </View>;
 }
-
 const styles = StyleSheet.create({
-  profileHeader: {
-    alignItems: "center",
-    marginTop: 16,
-  },
-  profileTitle: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: "600",
-    color: COLORS.text,
-  },
-  contentWrapper: {
-    marginTop: 24,
-    paddingHorizontal: 16,
-    gap: 16,
-  },
-  optionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.card,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  optionText: {
-    marginLeft: 12,
-    fontSize: 14,
-    fontWeight: "500",
-    color: COLORS.text,
-  },
+  header: { minHeight: 64, paddingHorizontal: 20, justifyContent: "center", alignItems: "center" },
+  title: { ...TYPOGRAPHY.pageTitle, color: COLORS.text},
+  content: { padding: 20, paddingTop: 14, paddingBottom: 150, gap: 12 },
+  section: { ...TYPOGRAPHY.eyebrow, color: COLORS.textLight, marginTop: 6, marginLeft: 4},
+  group: { padding: 0, gap: 0, overflow: "hidden" },
+  accountHeading: { gap: 4 },
+  accountIdentity: { marginHorizontal: 4 },
+  accountCaption: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
+  accountEmail: { ...TYPOGRAPHY.captionMedium, color: COLORS.text },
 });

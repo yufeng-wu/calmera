@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "calmera.",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -11,12 +11,12 @@
       "buildNumber": "8",
       "supportsTablet": true,
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to use the microphone for voice logging.",
+        "NSMicrophoneUsageDescription": "Allow calmera to use the microphone for voice logging.",
         "NSSpeechRecognitionUsageDescription": "This app uses speech recognition to process your voice logs, but your audio data is not stored on our servers.",
         "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "Allow $(PRODUCT_NAME) to use the camera to capture meal photos and read scale displays.",
-        "NSPhotoLibraryUsageDescription": "Allow $(PRODUCT_NAME) to access your photo library to load/import meal photos.",
-        "NSPhotoLibraryAddUsageDescription": "Allow $(PRODUCT_NAME) to save captured photos to your photo library."
+        "NSCameraUsageDescription": "Allow calmera to use the camera to capture meal photos and read scale displays.",
+        "NSPhotoLibraryUsageDescription": "Allow calmera to access your photo library to load/import meal photos.",
+        "NSPhotoLibraryAddUsageDescription": "Allow calmera to save captured photos to your photo library."
       },
       "bundleIdentifier": "com.yfwu02.mobile"
     },
@@ -26,7 +26,9 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "permissions": ["android.permission.RECORD_AUDIO"]
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -41,7 +43,7 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#FFFBF9"
         }
       ],
       [
@@ -50,7 +52,8 @@
           "merchantIdentifier": "merchant.com.yfwu02.mobile",
           "publishableKey": "pk_test_51SCMuS36oMPBfRNmbj1vsVV1Daq6qey8UwWWczBBAdl0d0L2jmpererin1jFQ9BkF8g4GbLh9jHaClUqBcrDfrdN003ntlrp91"
         }
-      ]
+      ],
+      "expo-speech-recognition"
     ],
     "experiments": {
       "typedRoutes": true

@@ -1,7 +1,9 @@
 // constants/colors.js
 const coffeeTheme = {
-  primary: "#8B593E",
-  background: "#FFF8F3",
+  primary: "#BC5A19",
+  // Page canvases reveal the shared ThemeCanvas; cards remain opaque white.
+  background: "transparent",
+  canvas: "#FFFBF9",
   text: "#4A3428",
   border: "#E5D3B7",
   white: "#FFFFFF",
@@ -60,6 +62,9 @@ export const THEMES = {
 
 // 👇 change this to switch theme
 export const COLORS = THEMES.coffee;
+
+// Keep Tangerine as the brand accent; use soft leaf green for calorie progress.
+export const CALORIE_PROGRESS_COLOR = "#6F9D78";
 
 // Rainbow colors for the live AI indicator animation
 export const RAINBOW_COLORS = [

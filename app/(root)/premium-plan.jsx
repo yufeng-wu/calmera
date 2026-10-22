@@ -1,3 +1,4 @@
+import { Redirect } from "expo-router";
 import { View, Text, ScrollView, TouchableOpacity } from "react-native";
 import { usePremium } from "@/context/PremiumContext";
 import SubscriptionComparison from "@/components/SubscriptionComparison";
@@ -6,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { COLORS } from "@/constants/colors";
 
-export default function PremiumPlan() {
+export function LegacyPremiumPlan() {
   const { plan, premiumExpiresAt } = usePremium();
   const planLabel = plan === "yearly" ? "Year Pass" : "Month Pass";
   const router = useRouter();
@@ -71,4 +72,8 @@ export default function PremiumPlan() {
       <SubscriptionComparison />
     </ScrollView>
   );
+}
+
+export default function PremiumPlan() {
+  return <Redirect href="/chatgpt" />;
 }

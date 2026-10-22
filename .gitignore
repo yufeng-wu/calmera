@@ -1,0 +1,39 @@
+# Dependencies and generated Expo output
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+coverage/
+*.tsbuildinfo
+
+# Local environment, credentials and signing material
+.env
+.env.*
+!.env.chatgpt.example
+credentials.json
+*.jks
+*.p8
+*.p12
+*.key
+*.pem
+*.mobileprovision
+
+# Build products; native project and modules/ source remain tracked
+.kotlin/
+*.orig.*
+*.ipa
+*.xcarchive/
+DerivedData/
+ios/Pods/
+ios/build/
+ios/.xcode.env.local
+**/xcuserdata/
+
+# Machine/editor state and debug logs
+.vscode/
+.DS_Store
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*

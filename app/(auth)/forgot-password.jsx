@@ -1,207 +1,175 @@
 import { useSignIn } from "@clerk/clerk-expo";
-import { Link, useRouter } from "expo-router";
-import { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Platform,
-  Keyboard,
-} from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import { styles } from "@/assets/styles/auth.styles.js";
-import { Ionicons } from "@expo/vector-icons";
-import { COLORS } from "../../constants/colors.js";
+import { useRouter } from "expo-router";
+import { useCallback, useRef, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { Keyboard, Text, View } from "react-native";
+import { styles } from "@/assets/styles/auth.styles";
+import { createPasswordResetOutcome } from "@/lib/passwordResetOutcome.mjs";
+import { FormCard, GlassButton } from "@/components/GlassForm";
+import { AuthField, AuthLink, AuthNotice, AuthScreen, isAuthEmail } from "@/components/AuthForm";
 
-export default function ForgotPassword() {
+export default function ForgotPassword({ calmeraPreview = false, calmeraPreviewStage = "" } = {}) {
   const { signIn, setActive, isLoaded } = useSignIn();
   const router = useRouter();
-
+  const busyRef = useRef(null);
+  const focus = useRef({ active: false, generation: 0 });
+  const resetOutcome = useRef(null);
+  if (!resetOutcome.current) resetOutcome.current = createPasswordResetOutcome();
+  const activationFailurePreview = calmeraPreview && calmeraPreviewStage === "activation-failure";
+  const [passwordUpdated, setPasswordUpdated] = useState(false);
   const [emailAddress, setEmailAddress] = useState("");
   const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [stage, setStage] = useState("REQUEST"); // REQUEST -> VERIFY -> RESET
+  const [stage, setStage] = useState(calmeraPreview && ["reset", "activation-failure"].includes(calmeraPreviewStage) ? "RESET"
+    : calmeraPreview && calmeraPreviewStage === "verification" ? "VERIFY" : "REQUEST");
   const [error, setError] = useState("");
+  const [fieldError, setFieldError] = useState("");
   const [info, setInfo] = useState("");
-
-  const handleSendCode = async () => {
-    if (!isLoaded) return;
-    setError("");
-    try {
-      await signIn.create({
-        identifier: emailAddress,
-        strategy: "reset_password_email_code",
-      });
-      Keyboard.dismiss();
-      setStage("VERIFY");
-      setInfo("We've sent a verification code to your email. Enter it below.");
-    } catch (err) {
-      console.error(err);
-      setError(
-        "Unable to send reset code. Please check the email address and try again."
-      );
+  const [busy, setBusy] = useState(false);
+  const syncResetPresentation = useCallback(() => {
+    if (!resetOutcome.current.hasCompletedReset()) return;
+    setNewPassword("");
+    setPasswordUpdated(true);
+    setInfo("");
+    if (resetOutcome.current.getOutcome()?.kind === "activation-failed") {
+      setError("Your password was updated, but we couldn’t sign you in. Sign in with your new password.");
     }
+  }, []);
+  useFocusEffect(useCallback(() => {
+    focus.current.active = true;
+    focus.current.generation += 1;
+    // SDK work cannot be cancelled by hiding the screen. Keep its mutex until
+    // actual settlement, and restore only current presentation on refocus.
+    setBusy(Boolean(busyRef.current));
+    syncResetPresentation();
+    return () => { focus.current.active = false; focus.current.generation += 1; };
+  }, [syncResetPresentation]));
+  const isCurrent = ticket => focus.current.active && ticket.generation === focus.current.generation;
+
+  const clearFieldError = (field) => {
+    if (fieldError !== field) return;
+    setError("");
+    setFieldError("");
   };
 
-  const handleVerifyCode = async () => {
-    if (!isLoaded) return;
+  const backToSignIn = () => {
+    if (!focus.current.active || busyRef.current) return;
+    if (calmeraPreview) {
+      router.replace({ pathname: "/ui-gallery", params: { page: "sign-in" } });
+      return;
+    }
+    router.replace("/sign-in");
+  };
+  const submit = async () => {
+    if (!focus.current.active || busyRef.current || resetOutcome.current.hasCompletedReset() || (!calmeraPreview && !isLoaded)) return;
     setError("");
-    try {
-      const attempt = await signIn.attemptFirstFactor({
-        strategy: "reset_password_email_code",
-        code,
-      });
-      if (attempt.status === "needs_new_password") {
-        Keyboard.dismiss();
+    setFieldError("");
+    setInfo("");
+    if (stage === "REQUEST" && !isAuthEmail(emailAddress)) { setFieldError("email"); return setError("Enter a valid email address."); }
+    if (stage === "VERIFY" && !code.trim()) { setFieldError("code"); return setError("Enter the code from your email."); }
+    if (stage === "RESET" && !activationFailurePreview && newPassword.length < 8) { setFieldError("password"); return setError("Choose a password with at least 8 characters."); }
+    Keyboard.dismiss();
+    if (calmeraPreview && !activationFailurePreview) {
+      if (stage === "REQUEST") {
+        setStage("VERIFY");
+        setInfo("Preview code entry. No reset email was sent.");
+      } else if (stage === "VERIFY") {
         setStage("RESET");
-        setInfo("Code verified! Please enter your new password.");
-      } else {
-        setError("Unexpected verification status. Please try again.");
-      }
-    } catch (err) {
-      console.error(err);
-      setError("Invalid code. Please try again.");
+        setInfo("Preview new password entry. No code was verified.");
+      } else setInfo("Preview reset complete. No password or session was changed.");
+      return;
     }
-  };
-
-  const handleResetPassword = async () => {
-    if (!isLoaded) return;
-    setError("");
+    const ticket = { generation: focus.current.generation };
+    busyRef.current = ticket;
+    setBusy(true);
     try {
-      const result = await signIn.resetPassword({ password: newPassword });
-      if (result.status === "complete") {
-        // Automatically activate the new session and navigate to the app
-        await setActive({ session: result.createdSessionId });
-        router.replace("/");
+      if (stage === "REQUEST" && !activationFailurePreview) {
+        await signIn.create({ identifier: emailAddress.trim(), strategy: "reset_password_email_code" });
+        if (!isCurrent(ticket)) return;
+        setStage("VERIFY");
+        setInfo("We've sent a verification code to your email.");
+      } else if (stage === "VERIFY" && !activationFailurePreview) {
+        const attempt = await signIn.attemptFirstFactor({ strategy: "reset_password_email_code", code: code.trim() });
+        if (!isCurrent(ticket)) return;
+        if (attempt.status === "needs_new_password") {
+          setStage("RESET");
+          setInfo("Code verified. Choose your new password.");
+        } else setError("Verification is not complete. Please check the code and try again.");
       } else {
-        setError(
-          "Unexpected status while setting new password. Please try again."
-        );
+        const outcome = await resetOutcome.current.run({
+          isActive: () => isCurrent(ticket),
+          resetPassword: activationFailurePreview
+            ? async () => ({ status: "complete", createdSessionId: "synthetic-reset-session" })
+            : () => signIn.resetPassword({ password: newPassword }),
+          activateSession: activationFailurePreview
+            ? async () => { throw new Error("synthetic_activation_failure"); }
+            : session => setActive({ session }),
+          onResetComplete: () => {
+            // Erase the secret even from an offscreen mounted form; stale work
+            // must not revive success/error presentation or navigation.
+            setNewPassword("");
+            if (isCurrent(ticket)) syncResetPresentation();
+          },
+        });
+        if (!isCurrent(ticket)) return;
+        if (outcome.kind === "complete") router.replace("/");
+        else if (outcome.kind === "activation-failed") {
+          setError("Your password was updated, but we couldn’t sign you in. Sign in with your new password.");
+        } else setError(outcome.kind === "reset-incomplete"
+          ? "Unable to complete your password reset. Please try again."
+          : "Unable to reset your password. Please try again.");
       }
-    } catch (err) {
-      console.error(err);
-      setError(
-        "Failed to reset password. Please ensure the password meets requirements."
-      );
+    } catch {
+      if (!isCurrent(ticket)) return;
+      if (resetOutcome.current.hasCompletedReset()) {
+        setError("Your password was updated. Continue when you’re ready.");
+        return;
+      }
+      setError(stage === "REQUEST" ? "Unable to send a reset code. Check the email address and try again."
+        : stage === "VERIFY" ? "Couldn’t verify the code. Please try again."
+          : "Unable to reset your password. Please try again.");
+    } finally {
+      if (busyRef.current === ticket) {
+        busyRef.current = null;
+        if (focus.current.active) { setBusy(false); syncResetPresentation(); }
+      }
     }
   };
 
-  const renderContent = () => {
-    switch (stage) {
-      case "REQUEST":
-        return (
-          <>
-            <TextInput
-              style={styles.input}
-              autoCapitalize="none"
-              value={emailAddress}
-              placeholder="Enter email"
-              placeholderTextColor={COLORS.textLight}
-              onChangeText={setEmailAddress}
-            />
-            <TouchableOpacity onPress={handleSendCode} style={styles.button}>
-              <Text style={styles.buttonText}>Send Reset Code</Text>
-            </TouchableOpacity>
-          </>
-        );
-      case "VERIFY":
-        return (
-          <>
-            <TextInput
-              style={styles.verificationInput}
-              value={code}
-              placeholder="6-digit code"
-              placeholderTextColor={COLORS.textLight}
-              onChangeText={setCode}
-              keyboardType="number-pad"
-            />
-            <TouchableOpacity onPress={handleVerifyCode} style={styles.button}>
-              <Text style={styles.buttonText}>Verify Code</Text>
-            </TouchableOpacity>
-          </>
-        );
-      case "RESET":
-        return (
-          <>
-            <TextInput
-              style={styles.input}
-              value={newPassword}
-              placeholder="New password"
-              secureTextEntry
-              keyboardType="default"
-              placeholderTextColor={COLORS.textLight}
-              onChangeText={setNewPassword}
-            />
-            <Text
-              style={{
-                fontSize: 12,
-                color: COLORS.textLight,
-                marginTop: 4,
-                marginBottom: 8,
-                alignSelf: "flex-start",
-              }}
-            >
-              Password must be at least 8 characters long.
-            </Text>
-            <TouchableOpacity
-              onPress={handleResetPassword}
-              style={styles.button}
-            >
-              <Text style={styles.buttonText}>Reset Password</Text>
-            </TouchableOpacity>
-          </>
-        );
-      default:
-        return null;
-    }
+  const title = stage === "REQUEST" ? "Reset your password" : stage === "VERIFY" ? "Check your email" : "Choose a new password";
+  const subtitle = stage === "REQUEST" ? "We'll email you a code to get back into your account."
+    : stage === "VERIFY" ? "Enter the verification code from your reset email."
+      : "Use a strong password you haven't used before.";
+
+  const completedSuccessfully = passwordUpdated && resetOutcome.current.getOutcome()?.kind === "complete";
+  const continueAfterReset = () => {
+    if (!focus.current.active || busyRef.current) return;
+    if (completedSuccessfully && !calmeraPreview) router.replace("/");
+    else backToSignIn();
   };
 
-  return (
-    <KeyboardAwareScrollView
-      style={{ flex: 1 }}
-      contentContainerStyle={{ flexGrow: 1 }}
-      enableOnAndroid={true}
-      enableAutomaticScroll={true}
-      extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
-      keyboardShouldPersistTaps="handled"
-    >
-      <View style={styles.container}>
-        <Text style={styles.title}>Reset Password</Text>
-
-        {error ? (
-          <View style={styles.errorBox}>
-            <Ionicons name="alert-circle" size={20} color={COLORS.expense} />
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity onPress={() => setError("")}>
-              <Ionicons name="close" size={20} color={COLORS.textLight} />
-            </TouchableOpacity>
-          </View>
-        ) : null}
-
-        {info ? (
-          <Text
-            style={{
-              color: COLORS.text,
-              marginBottom: 12,
-              textAlign: "center",
-            }}
-          >
-            {info}
-          </Text>
-        ) : null}
-
-        {renderContent()}
-
-        {
-          <View style={styles.footerContainer}>
-            <Text style={styles.footerText}>Remembered your password?</Text>
-            <Link href="/sign-in" replace>
-              <Text style={styles.linkText}>Sign in</Text>
-            </Link>
-          </View>
-        }
-      </View>
-    </KeyboardAwareScrollView>
-  );
+  return <AuthScreen title={passwordUpdated ? "Password updated" : title}
+    subtitle={passwordUpdated ? (busy ? "Finishing sign-in…" : completedSuccessfully ? "Continue to calmera." : "Continue to sign in.") : subtitle} onBack={backToSignIn} backDisabled={busy}
+    footer={passwordUpdated ? null : <View style={styles.footer}>
+      <Text style={styles.footerText}>Remember your password?</Text>
+      <AuthLink onPress={backToSignIn} disabled={busy}>Sign in</AuthLink>
+    </View>}>
+    <FormCard style={styles.form}>
+      <AuthNotice error>{error}</AuthNotice>
+      <AuthNotice>{info}</AuthNotice>
+      {passwordUpdated ? null : stage === "REQUEST" ? <AuthField key={stage} calmeraPreview={calmeraPreview} label="Email" value={emailAddress} onChangeText={(value) => { setEmailAddress(value); clearFieldError("email"); }}
+        autoCapitalize="none" keyboardType="email-address" textContentType="emailAddress"
+        autoComplete="email" placeholder="you@example.com" editable={!busy} error={fieldError === "email"}
+        returnKeyType="go" onSubmitEditing={submit} />
+        : stage === "VERIFY" ? <AuthField key={stage} calmeraPreview={calmeraPreview} label="Verification code" code value={code} onChangeText={(value) => { setCode(value); clearFieldError("code"); }}
+          keyboardType="number-pad" textContentType="oneTimeCode" autoComplete="one-time-code"
+          placeholder="Email code" editable={!busy} error={fieldError === "code"} returnKeyType="done" onSubmitEditing={submit} />
+          : <AuthField key={stage} calmeraPreview={calmeraPreview} label="New password" value={newPassword} onChangeText={(value) => { setNewPassword(value); clearFieldError("password"); }}
+            secureTextEntry autoCapitalize="none" textContentType="newPassword" autoComplete="new-password"
+            placeholder="New password" hint="At least 8 characters." editable={!busy} error={fieldError === "password"}
+            returnKeyType="go" onSubmitEditing={submit} />}
+      <GlassButton title={passwordUpdated ? (completedSuccessfully ? "Continue" : "Sign in") : stage === "REQUEST" ? "Send reset code" : stage === "VERIFY" ? "Verify code" : "Reset password"}
+        role="accent" onPress={passwordUpdated ? continueAfterReset : submit} loading={busy} disabled={!calmeraPreview && !isLoaded} style={styles.action} />
+    </FormCard>
+  </AuthScreen>;
 }

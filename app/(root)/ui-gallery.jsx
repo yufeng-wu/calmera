@@ -1,0 +1,155 @@
+import { useContext } from "react";
+import { useIsFocused } from "@react-navigation/native";
+import { Platform, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { SafeScreenTopContext } from "@/components/SafeScreen";
+import { formOwnsTopInset } from "@/lib/headerLayout.mjs";
+import Constants from "expo-constants";
+import { FormHeader, GlassButton } from "@/components/GlassForm";
+import { FORM_COLORS as COLORS } from "@/constants/formTheme";
+import SignIn from "@/app/(auth)/sign-in";
+import SignUp from "@/app/(auth)/sign-up";
+import ForgotPassword from "@/app/(auth)/forgot-password";
+import Settings from "@/app/(root)/(tabs)/settings";
+import History from "@/app/(root)/(tabs)/history";
+import ChatGPT from "@/app/(root)/chatgpt";
+import VoiceLanguage from "@/app/(root)/voice-language";
+import MealTimes from "@/app/(root)/meal-times";
+import ThemeSettings from "@/app/(root)/theme";
+import Survey from "@/app/(root)/goals-survey";
+import EditMeal from "@/app/(root)/edit/[id]";
+import EditSession from "@/app/(root)/session-log-edit/[id]";
+import Guide from "@/app/(root)/calmera-guide";
+import Welcome from "@/app/(root)/calmera-welcome";
+import Scale from "@/app/(root)/update-scale-type";
+import Manual from "@/app/(root)/create";
+import Photo from "@/app/(root)/photo-log";
+import LiveFallback from "@/components/LiveComingSoon";
+import FoodwrapWordmark from "@/components/FoodwrapWordmark";
+import AccountProfileGate, { AccountLoadingScreen } from "@/components/AccountProfileGate";
+import FoodwrapRefreshScrollView from "@/components/FoodwrapRefreshScrollView";
+import FoodwrapLoading from "@/components/FoodwrapLoading";
+
+function TodayRefreshPreview() {
+  const focused = useIsFocused();
+  const refresh = () => new Promise(resolve => setTimeout(resolve, 1400));
+  return <FoodwrapRefreshScrollView active={focused} onRefresh={refresh}
+    contentContainerStyle={{ flexGrow: 1, paddingTop: 12, paddingHorizontal: 20 }}>
+    <FoodwrapWordmark style={{ marginBottom: 16 }} />
+    <Text style={[styles.note, { textAlign: "center" }]}>Pull down, then release to refresh</Text>
+    <View style={{ marginTop: 24, padding: 24, borderRadius: 24, backgroundColor: "#FFFFFF80" }}>
+      <Text style={{ color: COLORS.text, fontSize: 22, marginBottom: 12 }}>Today</Text>
+      <Text style={styles.note}>Your meals stay visible while the native control refreshes them.</Text>
+    </View>
+  </FoodwrapRefreshScrollView>;
+}
+
+function TodayLoadingPreview({ calmeraPreviewState }) {
+  const focused = useIsFocused();
+  return <View style={{ flex: 1, paddingTop: 12 }}>
+    <FoodwrapWordmark style={{ marginBottom: 16 }} />
+    <Text style={[styles.note, { textAlign: "center", paddingHorizontal: 20 }]}>
+      {calmeraPreviewState === "reduced" ? "Reduced Motion preview" : "Today loading preview"}
+    </Text>
+    <View style={{ flex: 1, justifyContent: "center" }}>
+      <FoodwrapLoading active={focused} staticOnly={calmeraPreviewState === "reduced"} />
+    </View>
+  </View>;
+}
+
+const screens = [
+  { id: "account-loading", title: "App loading", Component: AccountLoadingScreen },
+  { id: "account-profile-missing", title: "Missing account recovery", Component: AccountProfileGate },
+  { id: "account-profile-error", title: "Account check retry", Component: AccountProfileGate, state: "error" },
+  { id: "today-refresh", title: "Today pull to refresh", Component: TodayRefreshPreview },
+  { id: "today-loading", title: "Today logo loading", Component: TodayLoadingPreview },
+  { id: "today-loading-reduced", title: "Today loading reduced motion", Component: TodayLoadingPreview, state: "reduced" },
+
+  { id: "sign-in", title: "Sign In", Component: SignIn },
+  { id: "sign-up", title: "Create account", Component: SignUp },
+  { id: "verification", title: "Email verification", Component: SignUp, stage: "verification" },
+  { id: "signup-setup", title: "Verified account setup", Component: SignUp, stage: "setup" },
+  { id: "forgot-password", title: "Reset password", Component: ForgotPassword },
+  { id: "reset-code", title: "Reset verification", Component: ForgotPassword, stage: "verification" },
+  { id: "reset", title: "New password", Component: ForgotPassword, stage: "reset" },
+  { id: "reset-activation", title: "Reset sign-in recovery", Component: ForgotPassword, stage: "activation-failure" },
+  { id: "settings", title: "Settings", Component: Settings },
+  { id: "chatgpt", title: "ChatGPT connected", Component: ChatGPT },
+  { id: "chatgpt-disconnected", title: "Connect ChatGPT", Component: ChatGPT, state: "disconnected" },
+  { id: "chatgpt-catalog-error", title: "ChatGPT model recovery", Component: ChatGPT, state: "catalog-error" },
+  { id: "voice-language", title: "Voice language", Component: VoiceLanguage },
+  { id: "voice-language-load-error", title: "Voice language load recovery", Component: VoiceLanguage, state: "load-error" },
+  { id: "voice-language-save-error", title: "Voice language save recovery", Component: VoiceLanguage, state: "save-error" },
+  { id: "meal-times", title: "Meal times", Component: MealTimes },
+  { id: "meal-times-load-error", title: "Meal times load recovery", Component: MealTimes, state: "load-error" },
+  { id: "meal-times-save-error", title: "Meal times save recovery", Component: MealTimes, state: "save-error" },
+  { id: "theme", title: "Theme", Component: ThemeSettings },
+  { id: "survey", title: "Goals survey", Component: Survey },
+  { id: "recommendation", title: "Survey recommendation", Component: Survey, stage: "recommendation" },
+  { id: "recommendation-unspecified", title: "Survey unspecified sex", Component: Survey, stage: "recommendation-unspecified" },
+  { id: "recommendation-body-fat", title: "Survey body-fat equation", Component: Survey, stage: "recommendation-body-fat" },
+  { id: "recommendation-save-token", title: "Survey save token timeout", Component: Survey, stage: "save-token-timeout" },
+  { id: "recommendation-save-response", title: "Survey save response timeout", Component: Survey, stage: "save-response-timeout" },
+  { id: "recommendation-save-error", title: "Survey save rejection", Component: Survey, stage: "save-error" },
+  { id: "edit-meal", title: "Edit meal", Component: EditMeal },
+  { id: "edit-save-navigation-error", title: "Meal saved navigation recovery", Component: EditMeal, state: "saved-navigation-error" },
+  { id: "edit-meal-load-token", title: "Meal load token timeout", Component: EditMeal, state: "load-token-timeout" },
+  { id: "edit-meal-load-json", title: "Meal load response timeout", Component: EditMeal, state: "load-json-timeout" },
+  { id: "edit-session", title: "Edit scale item", Component: EditSession },
+  { id: "history", title: "History", Component: History },
+  { id: "history-loading", title: "History loading and retry", Component: History, state: "cold-loading" },
+  { id: "history-profile-error", title: "History goals retry", Component: History, state: "profile-error" },
+  { id: "history-error", title: "History cached meals retry", Component: History, state: "history-error" },
+  { id: "guide", title: "Tutorial", Component: Guide },
+  { id: "welcome", title: "Welcome and scale setup", Component: Welcome },
+  { id: "scale", title: "Scale display", Component: Scale },
+  { id: "live", title: "Legacy Live fallback", Component: LiveFallback },
+  { id: "manual", title: "Manual", Component: Manual },
+  { id: "manual-save-navigation-error", title: "Manual saved navigation recovery", Component: Manual, state: "saved-navigation-error" },
+  { id: "photo", title: "Photo empty", Component: Photo },
+  { id: "photo-selected", title: "Photo selected", Component: Photo, state: "selected" },
+  { id: "photo-save-navigation-error", title: "Photo saved navigation recovery", Component: Photo, state: "saved-navigation-error" },
+];
+
+// Actual production components with local-only behavior. No account switching,
+// profile/history reads, credentials, camera, microphone, or database writes.
+export default function UIGallery() {
+  const router = useRouter();
+  const { fontScale } = useWindowDimensions();
+  const { page } = useLocalSearchParams();
+  const safeTop = useContext(SafeScreenTopContext);
+  const localInset = formOwnsTopInset("/ui-gallery", page, Platform.OS, Platform.Version) ? 0 : safeTop;
+  if (Constants.expoConfig?.extra?.calmeraFullAppTest !== true) return <Redirect href="/dashboard" />;
+  const id = Array.isArray(page) ? page[0] : page;
+  const index = screens.findIndex(item => item.id === id);
+  const entry = screens[index];
+  const select = target => router.replace({ pathname: "/ui-gallery", params: target ? { page: target } : {} });
+  if (!entry) return <View style={[styles.screen, { paddingTop: localInset }]}>
+    <FormHeader title="UI review" />
+    <ScrollView contentContainerStyle={styles.list}>
+      <Text style={styles.note}>Actual calmera pages with synthetic data and local-only actions. Your account stays signed in; these examples cannot submit authentication, inference, or record changes.</Text>
+      {screens.map(item => <GlassButton key={item.id} title={item.title} onPress={() => select(item.id)} />)}
+    </ScrollView>
+  </View>;
+  const Component = entry.Component;
+  return <View style={[styles.screen, { paddingTop: localInset }]}>
+    <View style={styles.page}><Component key={id} calmeraPreview
+      calmeraPreviewStage={entry.stage} calmeraPreviewState={entry.state} /></View>
+    <View style={styles.reviewBar}>
+      <GlassButton title={fontScale > 1.3 ? "" : "Pages"} accessibilityLabel="All review pages" symbol="chevron.left" onPress={() => select(null)} style={[styles.reviewButton, fontScale > 1.3 && { width: 44, height: 44 }]} />
+      <Text maxFontSizeMultiplier={1.2} style={styles.counter}>{index + 1} / {screens.length}{"\n"}Synthetic review</Text>
+      <GlassButton title={fontScale > 1.3 ? "" : "Next"} symbol="chevron.right" accessibilityLabel="Review next page"
+        onPress={() => select(screens[(index + 1) % screens.length].id)} style={[styles.reviewButton, fontScale > 1.3 && { width: 44, height: 44 }]} />
+    </View>
+  </View>;
+}
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: COLORS.background },
+  page: { flex: 1 },
+  list: { padding: 20, paddingBottom: 40, gap: 12 },
+  note: { color: COLORS.textLight, fontSize: 14, lineHeight: 21, marginBottom: 6 },
+  reviewBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10,
+    paddingHorizontal: 16, paddingTop: 10, paddingBottom: 24, borderTopWidth: StyleSheet.hairlineWidth, borderColor: "#E9DFD6" },
+  reviewButton: { width: 105, minHeight: 44 },
+  counter: { flex: 1, textAlign: "center", color: COLORS.textLight, fontSize: 11, lineHeight: 16 },
+});

@@ -1,308 +1,316 @@
+import { TYPOGRAPHY } from "@/constants/typography";
 import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
   Alert,
-  ScrollView,
   LayoutAnimation,
   UIManager,
   Platform,
+  ActivityIndicator,
+  useWindowDimensions,
 } from "react-native";
+import Constants from "expo-constants";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { USERS_API_URL } from "@/constants/api";
-import { COLORS } from "@/constants/colors";
+import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { Ionicons } from "@expo/vector-icons";
-import { styles as createStyles } from "@/assets/styles/create.styles";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { useAuth } from "@clerk/clerk-expo";
-import PageLoader from "@/components/PageLoader";
+import { FormScreen, FormScrollView, FormHeader, FormCard, GlassButton } from "@/components/GlassForm";
+import GoalSliderRow from "@/components/GoalSliderRow";
+import { goalInputValue, goalSaveValue } from "@/lib/goalSlider.mjs";
+import { fetchGoalProfile, saveGoalProfile, goalSaveErrorMessage } from "@/lib/goalProfile.mjs";
+import useFormTaskScope from "@/hooks/useFormTaskScope";
+import usePageExit from "@/hooks/usePageExit";
+
+const EMPTY_GOALS = { calorieGoal: "", proteinGoal: "", carbsGoal: "", fatGoal: "" };
+const FIXTURE_GOALS = { calorieGoal: "2000", proteinGoal: "150", carbsGoal: "200", fatGoal: "50" };
+const FRACTIONAL_FIXTURE_GOALS = { calorieGoal: 2425.6, proteinGoal: 50.25, carbsGoal: 290.75, fatGoal: 88.1 };
+const GOAL_FIELDS = [
+  { key: "calorieGoal", label: "Calories", unit: "kcal", maximum: 5000, rangeIncrement: 500, step: 25 },
+  { key: "proteinGoal", label: "Protein", unit: "g", maximum: 300, rangeIncrement: 50, step: 1 },
+  { key: "carbsGoal", label: "Carbs", unit: "g", maximum: 600, rangeIncrement: 100, step: 1 },
+  { key: "fatGoal", label: "Fat", unit: "g", maximum: 200, rangeIncrement: 25, step: 1 },
+];
 
 export default function UpdateGoals() {
   const router = useRouter();
+  const { fontScale } = useWindowDimensions();
   const params = useLocalSearchParams();
+  const isFixture = Constants.expoConfig?.extra?.calmeraFullAppTest === true
+    && ["ui-goals", "ui-goals-load", "ui-goals-error", "ui-goals-rounded", "ui-goals-unset", "ui-goals-save", "ui-goals-save-error", "ui-goals-slow"].includes(params.calmeraFixture);
+  const fixtureMode = isFixture ? params.calmeraFixture : null;
+  const { store, setShouldRefresh, setShouldRefreshGoals } = useRefreshSignal();
+  const { getToken, userId, isLoaded } = useAuth();
+  // Clerk Expo 2.12 returns a new getToken wrapper every render. It is a
+  // credential accessor, not a trigger to reload and overwrite the draft.
+  const tokenRef = useRef(getToken);
+  tokenRef.current = getToken;
+  const ownerRef = useRef(userId);
+  ownerRef.current = userId;
+  const [goals, setGoals] = useState(isFixture ? FIXTURE_GOALS : EMPTY_GOALS);
+  const [loading, setLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(!isFixture);
+  const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const loadCount = useRef(0);
+  const saveCount = useRef(0);
+  const savePending = useRef(null);
+  const scope = useFormTaskScope(isFixture ? `calmera-goals-fixture:${fixtureMode}` : userId, () => {
+    savePending.current = null;
+    setLoading(false);
+  });
+  const leaveEditor = usePageExit(isFixture ? "/form-style-check" : "/dashboard");
+  const [fixtureSaved, setFixtureSaved] = useState(false);
+  const hasAnimated = useRef(false);
 
-  // Enable LayoutAnimation for Android
   useEffect(() => {
-    if (
-      Platform.OS === "android" &&
-      UIManager.setLayoutAnimationEnabledExperimental
-    ) {
+    if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
       UIManager.setLayoutAnimationEnabledExperimental(true);
     }
   }, []);
 
-  // Animate goal fields when we return from the survey with recommended params
-  const hasAnimated = useRef(false);
-
+  // Survey recommendations still return to these same editable values.
   useEffect(() => {
     if (!isFetching && params?.recCal && !hasAnimated.current) {
       hasAnimated.current = true;
-
-      const newGoals = {
-        calorieGoal: String(params.recCal),
-        proteinGoal: String(params.recProt),
-        carbsGoal: String(params.recCarbs),
-        fatGoal: String(params.recFat),
-      };
-
-      // Simple flip/scroll effect using LayoutAnimation
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      setGoals((prev) => ({ ...prev, ...newGoals }));
+      setGoals((prev) => ({
+        ...prev,
+        calorieGoal: goalInputValue(params.recCal),
+        proteinGoal: goalInputValue(params.recProt),
+        carbsGoal: goalInputValue(params.recCarbs),
+        fatGoal: goalInputValue(params.recFat),
+      }));
     }
   }, [isFetching, params]);
 
-  const { setShouldRefresh, setShouldRefreshGoals } = useRefreshSignal();
-  const { getToken } = useAuth();
-  const [goals, setGoals] = useState({
-    calorieGoal: "",
-    proteinGoal: "",
-    carbsGoal: "",
-    fatGoal: "",
-  });
-  const [loading, setLoading] = useState(false);
-  const [isFetching, setIsFetching] = useState(true);
-
   useEffect(() => {
-    const fetchGoals = async () => {
-      setIsFetching(true);
+    if (fixtureMode === "ui-goals") {
+      setGoals({ ...FIXTURE_GOALS });
+      setIsFetching(false);
+      setLoadError(false);
+      setFixtureSaved(false);
+      return;
+    }
+    if (!isLoaded || !userId) return;
+    let active = true;
+    const controller = new AbortController();
+    let fixtureTimer;
+    loadCount.current += 1;
+    setIsFetching(true);
+    setLoadError(false);
+    const load = async () => {
       try {
-        const token = await getToken();
-        const res = await fetch(`${USERS_API_URL}/get-user`, {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+        let data;
+        if (fixtureMode) {
+          // Exercise the real loading lifecycle without token/network access.
+          data = await new Promise((resolve, reject) => {
+            fixtureTimer = setTimeout(() => {
+              if (fixtureMode === "ui-goals-error" && loadAttempt === 0) reject(new Error("synthetic_load_failure"));
+              else resolve(fixtureMode === "ui-goals-rounded" ? { ...FRACTIONAL_FIXTURE_GOALS }
+                : fixtureMode === "ui-goals-unset" ? { calorieGoal: null, proteinGoal: null, carbsGoal: null, fatGoal: null } : { ...FIXTURE_GOALS });
+            }, fixtureMode === "ui-goals-slow" ? 10000 : 200);
+          });
+        } else {
+          data = await fetchGoalProfile({ getToken: () => tokenRef.current(),
+            url: `${USERS_API_URL}/get-user`, signal: controller.signal,
+            isActive: () => active && ownerRef.current === userId });
+        }
+        if (active && (fixtureMode || ownerRef.current === userId)) setGoals({
+          calorieGoal: goalInputValue(data.calorieGoal),
+          proteinGoal: goalInputValue(data.proteinGoal),
+          carbsGoal: goalInputValue(data.carbsGoal),
+          fatGoal: goalInputValue(data.fatGoal),
         });
-        if (!res.ok) throw new Error("Failed to fetch user goals");
-        const data = await res.json();
-        setGoals({
-          calorieGoal: String(data.calorieGoal ?? ""),
-          proteinGoal: String(data.proteinGoal ?? ""),
-          carbsGoal: String(data.carbsGoal ?? ""),
-          fatGoal: String(data.fatGoal ?? ""),
-        });
-      } catch (e) {
-        console.error(e);
-        Alert.alert("Error", "Unable to load goals");
+      } catch (error) {
+        if (active && (fixtureMode || ownerRef.current === userId)) setLoadError(error.message === "goals_request_timeout" ? "timeout" : "failed");
       } finally {
-        setIsFetching(false);
+        if (active && (fixtureMode || ownerRef.current === userId)) setIsFetching(false);
       }
     };
-    fetchGoals();
-  }, []);
+    load();
+    return () => { active = false; controller.abort(); clearTimeout(fixtureTimer); };
+  }, [fixtureMode, userId, isLoaded, loadAttempt]);
 
   const handleChange = (field, value) => {
-    // Only allow numeric values and optional decimal point
-    const sanitized = value.replace(/[^0-9.]/g, "");
+    const sanitized = goalInputValue(value);
+    setFixtureSaved(false);
     setGoals((prev) => ({ ...prev, [field]: sanitized }));
   };
 
   const handleSave = async () => {
+    const currentOwner = () => ownerRef.current === userId && store.belongsTo(userId);
+    if (!scope.isActive() || (!isFixture && !currentOwner())
+      || savePending.current || loading || isFetching || loadError) return;
+    if (Object.values(goals).some((value) => value !== "" && (!Number.isFinite(Number(value)) || Number(value) < 0))) {
+      Alert.alert("Check your goals", "Please enter a valid amount of zero or more for each goal.");
+      return;
+    }
+    // QA uses the real editor, but cannot read or update the user's profile.
+    const exerciseSave = isFixture && ["ui-goals-save", "ui-goals-save-error"].includes(fixtureMode);
+    if (isFixture && !exerciseSave) {
+      setFixtureSaved(true);
+      return;
+    }
+    const task = scope.start();
+    if (!task) return;
+    savePending.current = task;
     setLoading(true);
+    const refreshSavedGoals = () => {
+      // Cache bookkeeping is safe after a blur for the same active owner; stale
+      // UI/navigation still requires the original focused task below.
+      if (!isFixture && currentOwner()) {
+        setShouldRefresh(true);
+        setShouldRefreshGoals(true);
+      }
+    };
     try {
-      const token = await getToken();
       const body = {
-        calorieGoal: goals.calorieGoal ? Number(goals.calorieGoal) : undefined,
-        proteinGoal: goals.proteinGoal ? Number(goals.proteinGoal) : undefined,
-        carbsGoal: goals.carbsGoal ? Number(goals.carbsGoal) : undefined,
-        fatGoal: goals.fatGoal ? Number(goals.fatGoal) : undefined,
+        calorieGoal: goalSaveValue(goals.calorieGoal),
+        proteinGoal: goalSaveValue(goals.proteinGoal),
+        carbsGoal: goalSaveValue(goals.carbsGoal),
+        fatGoal: goalSaveValue(goals.fatGoal),
         localDate: new Date().toLocaleDateString("en-CA"),
       };
-      const res = await fetch(`${USERS_API_URL}/update-user`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const options = { getToken: () => tokenRef.current(), url: `${USERS_API_URL}/update-user`,
+        body, signal: task.signal, isActive: () => task.isCurrent() && (isFixture || currentOwner()) };
+      if (exerciseSave) {
+        options.url = "https://calmera.invalid/users/update-user";
+        options.getToken = async () => "synthetic-token";
+        options.fetchImpl = async () => {
+          const attempt = ++saveCount.current;
+          await new Promise(resolve => setTimeout(resolve, 300));
+          const rejected = fixtureMode === "ui-goals-save-error" && attempt === 1;
+          return { ok: !rejected, status: rejected ? 400 : 200 };
+        };
+      }
+      await saveGoalProfile(options);
+      refreshSavedGoals();
+      if (!task.isCurrent() || (!isFixture && !currentOwner())) return;
+      Alert.alert("Success", "Goals updated successfully", [{
+        text: "OK",
+        onPress: () => {
+          if (task.isCurrent() && (isFixture || currentOwner())) leaveEditor();
         },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error("Failed to update goals");
-      Alert.alert("Success", "Goals updated successfully", [
-        {
-          text: "OK",
-          onPress: () => {
-            setShouldRefresh(true);
-            setShouldRefreshGoals(true);
-            router.back();
-          },
-        },
-      ]);
-    } catch (e) {
-      console.error(e);
-      Alert.alert("Error", "Unable to update goals");
+      }]);
+    } catch (error) {
+      if (error.mayHaveSaved) refreshSavedGoals();
+      if (task.isCurrent() && (isFixture || currentOwner())) {
+        Alert.alert(error.mayHaveSaved ? "Save not confirmed" : "Couldn’t save goals", goalSaveErrorMessage(error));
+      }
     } finally {
-      setLoading(false);
+      task.finish();
+      if (savePending.current === task) {
+        savePending.current = null;
+        if (task.isCurrent() && (isFixture || currentOwner())) setLoading(false);
+      }
     }
   };
 
-  // Show global loader while fetching goals
-  if (isFetching) {
-    return <PageLoader />;
-  }
-
   return (
-    <View style={createStyles.container}>
-      <View style={createStyles.header}>
-        <TouchableOpacity
-          style={createStyles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-        </TouchableOpacity>
-        <Text style={createStyles.headerTitle}>Update Macro Goals</Text>
-        <TouchableOpacity
-          style={createStyles.saveButtonContainer}
-          onPress={handleSave}
-          disabled={loading}
-        >
-          <Text
-            style={[
-              createStyles.saveButton,
-              loading && createStyles.saveButtonDisabled,
-            ]}
-          >
-            {loading ? "Saving..." : "Save"}
-          </Text>
-          {!loading && (
-            <Ionicons name="checkmark" size={18} color={COLORS.primary} />
-          )}
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Calories (kcal)</Text>
-          <TextInput
-            style={styles.input}
-            keyboardType="numeric"
-            value={goals.calorieGoal}
-            onChangeText={(v) => handleChange("calorieGoal", v)}
-            placeholder="e.g. 2000"
-          />
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Protein (g)</Text>
-          <TextInput
-            style={styles.input}
-            keyboardType="numeric"
-            value={goals.proteinGoal}
-            onChangeText={(v) => handleChange("proteinGoal", v)}
-            placeholder="e.g. 150"
-          />
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Carbs (g)</Text>
-          <TextInput
-            style={styles.input}
-            keyboardType="numeric"
-            value={goals.carbsGoal}
-            onChangeText={(v) => handleChange("carbsGoal", v)}
-            placeholder="e.g. 250"
-          />
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Fat (g)</Text>
-          <TextInput
-            style={styles.input}
-            keyboardType="numeric"
-            value={goals.fatGoal}
-            onChangeText={(v) => handleChange("fatGoal", v)}
-            placeholder="e.g. 70"
-          />
-        </View>
-
-        {/* AI Recommendation CTA */}
-        <View style={[createStyles.card, styles.ctaCard]}>
-          <View style={styles.ctaHeader}>
-            <Ionicons
-              name="sparkles"
-              size={18}
-              color={COLORS.primary}
-              style={{ marginRight: 8 }}
-            />
-            <Text style={styles.ctaTitle}>Need some help?</Text>
+    <FormScreen style={styles.screen}>
+      <FormHeader
+        title="Edit Goals"
+        onBack={leaveEditor}
+        onSave={handleSave}
+        saving={loading}
+        saveDisabled={isFetching || Boolean(loadError)}
+        backDisabled={loading}
+      />
+      <FormScrollView
+        // Re-measure RN text after a live Dynamic Type change; keep draft state
+        // in this screen so remounting the scroll content never reloads goals.
+        key={`goals-text-${fontScale}`}
+        contentContainerStyle={styles.content}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={styles.eyebrow}>DAILY TARGETS</Text>
+        <Text style={styles.description}>Adjust your daily goals with the sliders.</Text>
+        <FormCard style={styles.goalCard}>
+          {isFetching ? (
+            <View style={styles.loading} accessibilityLiveRegion="polite">
+              <ActivityIndicator color={COLORS.primary} />
+              <Text style={styles.description}>Loading your goals…</Text>
+            </View>
+          ) : loadError ? (
+            <View style={styles.errorFeedback} accessibilityLiveRegion="polite">
+              <Text style={[styles.helpTitle, styles.centeredText]}>Couldn’t load your goals</Text>
+              <Text style={[styles.description, styles.centeredText]}>{loadError === "timeout"
+                ? "The request took too long. Please try again."
+                : "Check your connection and try again."}</Text>
+              <GlassButton title="Try again" symbol="arrow.clockwise"
+                onPress={() => setLoadAttempt(value => value + 1)} style={{ alignSelf: "stretch" }} />
+            </View>
+          ) : GOAL_FIELDS.map(({ key, ...field }, index) => (
+            <View key={key}>
+              {index > 0 && <View style={styles.divider} />}
+              <GoalSliderRow
+                {...field}
+                value={goals[key]}
+                onChange={(value) => handleChange(key, value)}
+                disabled={loading || Boolean(loadError)}
+              />
+            </View>
+          ))}
+        </FormCard>
+        {isFixture && fixtureMode !== "ui-goals" && (
+          <View style={{ gap: 4 }}>
+            <Text style={styles.fixtureStatus}>Synthetic profile loads: {loadCount.current}</Text>
+            {["ui-goals-save", "ui-goals-save-error"].includes(fixtureMode) &&
+              <Text style={styles.fixtureStatus}>Synthetic save attempts: {saveCount.current}</Text>}
           </View>
-          <Text style={styles.ctaText}>
-            Take a 1-minute survey and we will recommend the right calories and
-            macros for you.
+        )}
+        {fixtureSaved && (
+          <Text style={styles.fixtureStatus} accessibilityLiveRegion="polite">
+            Test goals updated locally. Your account was not changed.
           </Text>
-          <TouchableOpacity
-            style={[createStyles.estimateButton, { marginTop: 12 }]}
-            onPress={() => router.push("/goals-survey")}
-            activeOpacity={0.8}
-          >
-            <Text style={createStyles.estimateButtonText}>Take the survey</Text>
-            <Ionicons name="arrow-forward" size={18} color={COLORS.white} />
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </View>
+        )}
+        <FormCard style={styles.helpCard}>
+          <View style={styles.helpHeading}>
+            <Ionicons name="sparkles" size={19} color={COLORS.primary} />
+            <Text style={styles.helpTitle}>Need some help?</Text>
+          </View>
+          <Text style={styles.helpDescription}>
+            Take a 1-minute survey for suggested calories and macros.
+          </Text>
+          <GlassButton
+            title="Take the survey"
+            symbol="arrow.right"
+            onPress={() => {
+              if (isFixture) {
+                Alert.alert("Isolated UI test", "The survey is available in the normal app. This test stays local and does not open your profile or change your goals.");
+                return;
+              }
+              router.push("/goals-survey");
+            }}
+            disabled={loading || isFetching}
+            style={styles.surveyButton}
+            accessibilityLabel="Take the goals survey"
+          />
+        </FormCard>
+      </FormScrollView>
+    </FormScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 24,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: COLORS.text,
-    marginBottom: 24,
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 12,
-    color: COLORS.textLight,
-    marginBottom: 4,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 15,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: COLORS.text,
-  },
-  surveyLinkContainer: {
-    marginTop: 20,
-    alignItems: "center",
-  },
-  surveyLinkText: {
-    fontSize: 14,
-    color: COLORS.primary,
-    textAlign: "center",
-    lineHeight: 20,
-    textDecorationLine: "underline",
-  },
-  ctaCard: {
-    marginTop: 8,
-  },
-  ctaHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-    marginTop: 4,
-  },
-  ctaTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.text,
-  },
-  ctaText: {
-    fontSize: 12,
-    color: COLORS.textLight,
-    lineHeight: 18,
-    marginBottom: 6,
-    marginTop: 8,
-  },
+  screen: { flex: 1, backgroundColor: COLORS.background },
+  content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 40, gap: 12 },
+  eyebrow: { ...TYPOGRAPHY.eyebrow, color: COLORS.textLight,},
+  description: { ...TYPOGRAPHY.body, color: COLORS.textLight,},
+  goalCard: { paddingHorizontal: 18, paddingVertical: 6, gap: 0 },
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: "#EDE6DF" },
+  loading: { minHeight: 280, alignItems: "center", justifyContent: "center", gap: 14 },
+  errorFeedback: { alignItems: "center", paddingVertical: 20, gap: 12 },
+  centeredText: { textAlign: "center" },
+  helpCard: { padding: 18, gap: 12 },
+  helpHeading: { flexDirection: "row", alignItems: "center", gap: 8 },
+  helpTitle: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text,},
+  helpDescription: { ...TYPOGRAPHY.body, color: COLORS.textLight,},
+  surveyButton: { minHeight: 46, alignSelf: "stretch" },
+  fixtureStatus: { ...TYPOGRAPHY.caption, color: COLORS.primary,},
 });

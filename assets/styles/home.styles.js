@@ -1,3 +1,4 @@
+import { SURFACES } from "../../constants/surfaces";
 // styles/home.styles.js
 import { StyleSheet } from "react-native";
 import { COLORS } from "../../constants/colors";
@@ -105,14 +106,8 @@ export const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     marginBottom: 15,
-    shadowColor: COLORS.shadow,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    ...SURFACES.edge,
+    ...SURFACES.elevated,
   },
   balanceCardEditBtn: {
     position: "absolute",
@@ -165,14 +160,8 @@ export const styles = StyleSheet.create({
     backgroundColor: COLORS.card,
     borderRadius: 28,
     marginBottom: 10,
-    shadowColor: COLORS.shadow,
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    ...SURFACES.edge,
+    ...SURFACES.elevated,
   },
   transactionContent: {
     flexDirection: "row",
@@ -320,6 +309,14 @@ export const styles = StyleSheet.create({
     fontWeight: "600",
     color: COLORS.text,
     marginBottom: 12,
+  },
+  todayWordmark: {
+    fontSize: 22,
+    fontWeight: "600",
+    letterSpacing: -0.4,
+    color: COLORS.primary,
+    textAlign: "center",
+    marginBottom: 16,
   },
   dateText: {
     fontSize: 18,

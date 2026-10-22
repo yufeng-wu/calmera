@@ -1,21 +1,26 @@
+import { createContext } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { COLORS } from "@/constants/colors.js";
+import { BASE_CANVAS_COLOR } from "@/constants/appearance.mjs";
 
-const SafeScreen = ({ children }) => {
+export const SafeScreenTopContext = createContext(0);
+
+const SafeScreen = ({ children, transparent = false, formOwnsTopInset = false }) => {
   const insets = useSafeAreaInsets();
 
   return (
+    <SafeScreenTopContext.Provider value={formOwnsTopInset ? insets.top : 0}>
     <View
       style={{
-        paddingTop: insets.top,
+        paddingTop: formOwnsTopInset ? 0 : insets.top,
         paddingHorizontal: 0,
         flex: 1,
-        backgroundColor: COLORS.background,
+        backgroundColor: transparent ? "transparent" : BASE_CANVAS_COLOR,
       }}
     >
       {children}
     </View>
+    </SafeScreenTopContext.Provider>
   );
 };
 

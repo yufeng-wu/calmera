@@ -1,3 +1,4 @@
+import LiveComingSoon from "@/components/LiveComingSoon";
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import {
   View,
@@ -154,7 +155,7 @@ const MacrosCard = React.memo(function MacrosCard({ sessionTotals }) {
   );
 });
 
-export default function CameraScreen() {
+export function LegacyCameraScreen() {
   const navigation = useNavigation();
   const router = useRouter();
   const cameraRef = useRef(null);
@@ -853,4 +854,8 @@ export default function CameraScreen() {
       </View>
     </View>
   );
+}
+
+export default function CameraScreen() {
+  return <LiveComingSoon />;
 }

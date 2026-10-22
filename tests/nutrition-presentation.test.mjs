@@ -1,0 +1,109 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createNutritionStore, EMPTY_DAY, normalizeDay } from "../lib/nutritionStore.mjs";
+import { calendarDayStatus, nutritionViewState, retryNutritionError } from "../lib/nutritionPresentation.mjs";
+
+const date = "2026-10-19";
+const meal = { id: 1, food_name: "Synthetic banana", calories: 105 };
+const day = normalizeDay({ foodEntries: [meal], dailyTotals: { calories: 105 } });
+const snapshot = overrides => ({ days: {}, errors: {}, historyLoaded: false, ...overrides });
+
+test("a cold history loads without claiming an empty day", () => {
+  const view = nutritionViewState(snapshot(), date, true);
+  assert.equal(view.day, undefined);
+  assert.equal(view.historyLoading, true);
+  assert.equal(view.loading, true);
+  assert.equal(view.profileError, null);
+  assert.deepEqual(calendarDayStatus(undefined, 2000, { historyAvailable: false }), {
+    text: "Meal status unavailable", goalStatus: null,
+  });
+});
+
+test("profile failure preserves loaded meals and does not block history", () => {
+  const view = nutritionViewState(snapshot({ days: { [date]: day }, historyLoaded: true,
+    errors: { profile: "Synthetic profile failure" } }), date, true);
+  assert.equal(view.day, day);
+  assert.equal(view.profileError, "Synthetic profile failure");
+  assert.equal(Boolean(view.error), false);
+  assert.equal(view.loading, false);
+  assert.equal(view.historyLoading, false);
+});
+
+test("a known empty history remains empty rather than loading after profile failure", () => {
+  const view = nutritionViewState(snapshot({ historyLoaded: true,
+    errors: { profile: "Synthetic profile failure" } }), date, true);
+  assert.equal(view.day, EMPTY_DAY);
+  assert.equal(view.historyLoading, false);
+  assert.equal(view.loading, false);
+  assert.equal(view.profileError, "Synthetic profile failure");
+  assert.equal(calendarDayStatus(view.day, null).text, "No food entries recorded");
+});
+
+test("meal and profile errors remain independently available with stale meals", () => {
+  const view = nutritionViewState(snapshot({ days: { [date]: day }, historyLoaded: true,
+    errors: { profile: "Synthetic profile failure", history: "Synthetic meal failure" } }), date, true);
+  assert.equal(view.day, day);
+  assert.equal(view.error, "Synthetic meal failure");
+  assert.equal(view.profileError, "Synthetic profile failure");
+  assert.equal(view.historyLoading, false);
+});
+
+test("explicit profile retry clears its error without discarding meals or fetching history again", async () => {
+  const store = createNutritionStore({ ownerKey: "synthetic-review" });
+  await store.loadHistory(async () => ({ [date]: { foodEntries: [meal], dailyTotals: { calories: 105 } } }));
+  await assert.rejects(store.loadProfile(async () => { throw Error("synthetic_profile_failure"); }));
+  assert.ok(nutritionViewState(store.getSnapshot(), date, true).profileError);
+  let resolve;
+  const retry = retryNutritionError(nutritionViewState(store.getSnapshot(), date, true), {
+    refresh: () => assert.fail("a profile-only retry must not reload meals"),
+    refreshProfile: () => store.loadProfile(() => new Promise(done => { resolve = done; }), { force: true }),
+  });
+  await Promise.resolve();
+  const during = nutritionViewState(store.getSnapshot(), date, true);
+  assert.equal(during.day.entries[0].foodName, "Synthetic banana");
+  assert.equal(during.historyLoading, false);
+  resolve({ calorieGoal: 2000 });
+  await retry;
+  const after = nutritionViewState(store.getSnapshot(), date, true);
+  assert.equal(after.profileError, null);
+  assert.equal(after.day.entries[0].id, 1);
+  assert.equal(store.getDiagnostics().historyRequests, 1);
+  assert.equal(store.getDiagnostics().profileRequests, 2);
+  store.dispose();
+});
+
+test("calendar describes a historical goal instead of the current goal", () => {
+  const historical = normalizeDay({ foodEntries: [meal], dailyTotals: { calories: 105 }, goals: { calorieGoal: 100 } });
+  assert.deepEqual(calendarDayStatus(historical, 2000), {
+    text: "1 food entry recorded; above calorie goal", goalStatus: "above",
+  });
+  assert.deepEqual(calendarDayStatus(day, 105), {
+    text: "1 food entry recorded; within calorie goal", goalStatus: "within",
+  });
+});
+
+test("calendar describes entry counts independently of unavailable goals", () => {
+  const two = normalizeDay({ foodEntries: [meal, { ...meal, id: 2 }] });
+  assert.deepEqual(calendarDayStatus(two, null), { text: "2 food entries recorded", goalStatus: null });
+  assert.deepEqual(calendarDayStatus(day, "unavailable"), { text: "1 food entry recorded", goalStatus: null });
+});
+
+test("cached dates keep their status even if a later history refresh is unavailable", () => {
+  assert.deepEqual(calendarDayStatus(day, 2000, { historyAvailable: false }), {
+    text: "1 food entry recorded; within calorie goal", goalStatus: "within",
+  });
+});
+
+test("retry prioritizes the existing combined refresh when meals also failed", async () => {
+  const calls = [];
+  await retryNutritionError({ error: "Synthetic meal failure", profileError: "Synthetic profile failure" }, {
+    refresh: async () => calls.push("combined"), refreshProfile: () => assert.fail("combined retry already refreshes profile"),
+  });
+  assert.deepEqual(calls, ["combined"]);
+});
+
+test("retry without an error performs no request", async () => {
+  await retryNutritionError({}, {
+    refresh: () => assert.fail("no meal failure"), refreshProfile: () => assert.fail("no profile failure"),
+  });
+});
