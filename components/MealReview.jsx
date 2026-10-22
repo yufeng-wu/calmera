@@ -6,7 +6,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { FormScreen, FormScrollView, FormHeader, FormCard, GlassButton } from "@/components/GlassForm";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
-import { FOOD_ICON_CATALOG, getFoodIcon } from "@/lib/foodIcons.mjs";
+import { getFoodIcon } from "@/lib/foodIcons.mjs";
+import FoodEmojiPicker from "@/components/FoodEmojiPicker";
 import { useFoodIcons } from "@/context/FoodIconsContext";
 import { MEAL_TYPES, MAX_MEAL_FOODS, addReviewFood, hasIncompleteFood, reviewTotals, setReviewField, validateMealReview } from "@/lib/mealReview.mjs";
 
@@ -247,25 +248,8 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
           </ScrollView>
         </View>
       </Modal>
-      <Modal visible={Boolean(iconFoodId)} transparent animationType={reducedMotion ? "none" : "slide"} onRequestClose={closeIcons}>
-        <View style={styles.modalBackdrop}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={closeIcons} accessibilityLabel="Close emoji picker" accessibilityRole="button" />
-          <View style={styles.sheet} accessibilityViewIsModal>
-            <View style={styles.sheetHeader}>
-              <Text style={[styles.heading, { flex: 1 }]} accessibilityRole="header">Choose a food emoji</Text>
-              <GlassButton symbol="xmark" accessibilityLabel="Close emoji picker" onPress={closeIcons} style={{ width: 44 }} />
-            </View>
-            <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={[styles.sheetContent, { paddingBottom: Math.max(bottom, 20) }]}>
-              <View style={styles.iconGrid}>{FOOD_ICON_CATALOG.map(icon => <Pressable key={icon.id} disabled={locked}
-                onPress={() => { field(iconFoodId, "iconId")(icon.id); closeIcons(); }}
-                accessibilityRole="button" accessibilityLabel={icon.label} accessibilityState={{ selected: icon.id === selectedIcon, disabled: locked }}
-                style={[styles.iconChoice, icon.id === selectedIcon && styles.selectedIcon]}>
-                <Text allowFontScaling={false} style={styles.emoji}>{icon.emoji}</Text>
-              </Pressable>)}</View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      {iconFoodId && <FoodEmojiPicker selectedIconId={selectedIcon} disabled={locked}
+        onSelect={iconId => field(iconFoodId, "iconId")(iconId)} onClose={closeIcons} />}
       <Modal visible={photoPreview} animationType={reducedMotion ? "none" : "slide"} onRequestClose={() => setPhotoPreview(false)}>
         <View style={[styles.photoPreview, { paddingTop: top, paddingBottom: bottom }]}>
           <StatusBar barStyle="light-content" />
@@ -306,7 +290,6 @@ const styles = StyleSheet.create({
   keyboardDoneText: { ...TYPOGRAPHY.button, color: COLORS.primary },
   toolDisabled: { opacity: 0.35 },
   keyboardBar: { alignItems: "center", flexDirection: "row", gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#EAE2DB" },
-  sheetHeader: { paddingHorizontal: 20, paddingVertical: 12, flexDirection: "row", alignItems: "center", gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#EAE2DB" },
   zoomBadge: { position: "absolute", right: 2, bottom: 2, padding: 3, borderRadius: 8, backgroundColor: "#FFFFFFE6" },
   photoPreview: { flex: 1, backgroundColor: "#171311" },
   photoPreviewHeader: { flexDirection: "row", alignItems: "center", gap: 12, padding: 16 },
@@ -346,7 +329,4 @@ const styles = StyleSheet.create({
   modalBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.32)" },
   sheet: { flexGrow: 0, flexShrink: 1, maxHeight: "85%", borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: "hidden", backgroundColor: COLORS.card },
   sheetContent: { padding: 20, gap: 12 },
-  iconGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  selectedIcon: { borderWidth: 2, borderColor: COLORS.primary },
-  iconChoice: { minWidth: 52, minHeight: 52, flexGrow: 1, flexBasis: "15%", justifyContent: "center", alignItems: "center", borderRadius: 16, backgroundColor: "#F6F1EC" },
 });

@@ -57,6 +57,7 @@ function reviewFixture() {
     "@expo/vector-icons": { Ionicons: "Ionicons" },
     "@/components/GlassForm": Object.fromEntries(["FormScreen", "FormScrollView", "FormHeader", "FormCard", "GlassButton"].map(key => [key, key])),
     "@/constants/formTheme": { FORM_COLORS: {} }, "@/constants/typography": { TYPOGRAPHY: {} },
+    "@/components/FoodEmojiPicker": "FoodEmojiPicker",
     "@/lib/foodIcons.mjs": foodIcons,
     "@/context/FoodIconsContext": { useFoodIcons: () => ({ emojiFor: entry => foodIcons.getFoodEmoji(entry.foodName) }) }, "@/lib/mealReview.mjs": reviewModel,
   });
@@ -217,7 +218,9 @@ test("emoji choice is retained in the draft; compact removal and Undo preserve i
   const fixture = reviewFixture(); let tree = fixture.render();
   find(tree, node => node.props?.accessibilityLabel === "Change emoji for Rice").props.onPress();
   tree = fixture.render();
-  find(tree, node => node.props?.accessibilityLabel === "Sushi").props.onPress();
+  const picker = find(tree, node => node.type === "FoodEmojiPicker");
+  assert.equal(picker.props.selectedIconId, "rice");
+  picker.props.onSelect("sushi"); picker.props.onClose();
   assert.equal(fixture.props.review.entries[0].iconId, "sushi");
   find(fixture.render(), node => node.props?.accessibilityLabel === "Edit Rice").props.onPress();
   find(fixture.render(), node => node.props?.accessibilityLabel === "Remove Rice").props.onPress();
