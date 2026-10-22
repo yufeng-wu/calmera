@@ -39,8 +39,7 @@ const all = node => !node || typeof node !== "object" ? [] : Array.isArray(node)
 const find = (tree, predicate) => all(tree).find(predicate);
 const button = (tree, title) => find(tree, node => node.type === "GlassButton" && node.props.title === title);
 const input = (tree, label) => find(tree, node => node.type === "TextInput" && node.props.accessibilityLabel === label);
-const saveButton = tree => find(tree, node => node.type === "GlassButton" && /^Save meal as /.test(node.props.accessibilityLabel || ""));
-const mealPicker = tree => find(tree, node => node.props?.testID === "meal-type-picker");
+const saveMenu = tree => find(tree, node => node.props?.testID === "save-meal");
 // Chainable stand-in for Reanimated layout-animation builders.
 const motionBuilder = new Proxy(function builder() {}, { get: (_, key) => key === "then" ? undefined : motionBuilder, apply: () => motionBuilder });
 const reanimatedStub = { View: "AnimatedView", Easing: { bezier: () => () => 0 }, FadeIn: motionBuilder, FadeInDown: motionBuilder, FadeOutDown: motionBuilder,
@@ -62,7 +61,7 @@ function reviewFixture() {
       ImpactFeedbackStyle: {}, NotificationFeedbackType: {} },
     "react-native-safe-area-context": { useSafeAreaInsets: () => ({ bottom: 0, top: 0 }) },
     "@expo/vector-icons": { Ionicons: "Ionicons" },
-    "@/components/GlassForm": Object.fromEntries(["FormScreen", "FormScrollView", "FormHeader", "FormCard", "GlassButton"].map(key => [key, key])),
+    "@/components/GlassForm": Object.fromEntries(["FormScreen", "FormScrollView", "FormHeader", "FormCard", "GlassButton", "MenuButton"].map(key => [key, key])),
     "@/constants/formTheme": { FORM_COLORS: {} }, "@/constants/typography": { TYPOGRAPHY: {} },
     "@/components/FoodEmojiPicker": "FoodEmojiPicker",
     "@/lib/foodIcons.mjs": foodIcons,
@@ -115,18 +114,18 @@ test("simplified photo messages retain distinct sign-in, permission, usage and r
   assert.notEqual(permission.title, expired.title);
 });
 
-test("the meal type starts from the estimate and is chosen inline without saving", () => {
-  const fixture = reviewFixture(); let tree = fixture.render();
+test("Save opens a meal menu with nothing pre-checked; opening it saves nothing", () => {
+  const fixture = reviewFixture(); const tree = fixture.render();
+  const save = saveMenu(tree);
+  assert.equal(save.type, "MenuButton");
+  assert.equal(save.props.buttonTitle, "Save");
+  assert.equal(save.props.value, "");
+  assert.deepEqual(save.props.options, reviewModel.MEAL_TYPES);
   assert.equal(find(tree, node => node.type === "Modal" && node.props.visible), undefined);
-  assert.equal(mealPicker(tree).props.value, "Lunch");
-  assert.equal(saveButton(tree).props.title, "Save lunch");
-  mealPicker(tree).props.onChange("Breakfast"); tree = fixture.render();
-  assert.equal(fixture.props.review.mealType, "Breakfast");
-  assert.equal(saveButton(tree).props.title, "Save breakfast");
   assert.equal(fixture.saves.length, 0);
 });
 
-test("Save includes pending inline edits and submits the chosen meal type exactly once", () => {
+test("Save includes pending inline edits and submits the picked meal type exactly once", () => {
   const fixture = reviewFixture(); let tree = fixture.render();
   find(tree, node => node.props?.accessibilityLabel === "Edit Rice").props.onPress();
   tree = fixture.render();
@@ -134,12 +133,12 @@ test("Save includes pending inline edits and submits the chosen meal type exactl
   input(tree, "Food name").props.onChangeText("Brown rice");
   input(tree, "Amount").props.onChangeText("150 g");
   input(tree, "Calories").props.onChangeText("180");
-  mealPicker(fixture.render()).props.onChange("Dinner");
   tree = fixture.render();
-  const save = saveButton(tree).props.onPress;
-  save(); save();
+  const pick = saveMenu(tree).props.onChange;
+  pick("Dinner"); pick("Dinner");
   assert.equal(fixture.saves.length, 1);
   assert.equal(fixture.saves[0][0], "Dinner");
+  assert.equal(fixture.saves[0][1].mealType, "Dinner");
   assert.equal(fixture.saves[0][1].entries[0].foodName, "Brown rice");
   assert.equal(fixture.saves[0][1].entries[0].quantity, "150 g");
   assert.equal(fixture.saves[0][1].entries[0].calories, 180);
@@ -149,7 +148,10 @@ test("invalid inline edits keep the editor open and never save", () => {
   const fixture = reviewFixture(); let tree = fixture.render();
   find(tree, node => node.props?.accessibilityLabel === "Edit Rice").props.onPress();
   tree = fixture.render(); input(tree, "Calories").props.onChangeText("-1");
-  tree = fixture.render(); saveButton(tree).props.onPress(); tree = fixture.render();
+  tree = fixture.render();
+  // With an invalid food, Save reports it directly instead of opening the meal menu.
+  assert.equal(saveMenu(tree).type, "GlassButton");
+  saveMenu(tree).props.onPress(); tree = fixture.render();
   assert.equal(input(tree, "Calories").props.value, "-1");
   assert.equal(fixture.saves.length, 0); assert.equal(fixture.alerts.length, 1);
 });
@@ -206,16 +208,16 @@ test("food rows start compact; expanding exposes one set of directly editable fi
 });
 
 test("new food appears before Add, blocks another unfinished entry, and saves direct edits", () => {
-  const fixture = reviewFixture(); button(fixture.render(), "Add food").props.onPress();
+  const fixture = reviewFixture(); button(fixture.render(), "Add another item").props.onPress();
   let tree = fixture.render();
   assert.equal(fixture.props.review.entries.length, 2);
-  assert.equal(button(tree, "Add food").props.disabled, true);
+  assert.equal(button(tree, "Add another item").props.disabled, true);
   const nodes = all(tree);
-  assert.ok(nodes.indexOf(input(tree, "Food name")) < nodes.indexOf(button(tree, "Add food")));
+  assert.ok(nodes.indexOf(input(tree, "Food name")) < nodes.indexOf(button(tree, "Add another item")));
   input(tree, "Food name").props.onChangeText("Egg"); input(tree, "Amount").props.onChangeText("1 egg");
   input(tree, "Calories").props.onChangeText("70");
   tree = fixture.render();
-  assert.equal(button(tree, "Add food").props.disabled, false);
+  assert.equal(button(tree, "Add another item").props.disabled, false);
   assert.equal(fixture.saves.length, 0);
 });
 

@@ -3,7 +3,7 @@ import { SURFACES } from "@/constants/surfaces";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { createContext, forwardRef, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { ActionSheetIOS, ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Animated from "react-native-reanimated";
 import { requireNativeViewManager } from "expo-modules-core";
 import { Ionicons } from "@expo/vector-icons";
@@ -12,6 +12,11 @@ import OpenAILogo, { OPENAI_BLOSSOM_SYMBOL } from "./OpenAILogo";
 
 const NativeButton = Platform.OS === "ios" ? requireNativeViewManager("CalmeraChatGPT", "FormButton") : null;
 const nativeEdgeSupported = Platform.OS === "ios" && Number.parseInt(String(Platform.Version), 10) >= 26;
+// An app binary built before MenuButton existed falls back to the JS menu.
+const NativeMenuButton = (() => {
+  if (Platform.OS !== "ios") return null;
+  try { return requireNativeViewManager("CalmeraChatGPT", "MenuButton"); } catch { return null; }
+})();
 const NativeHeaderEdge = nativeEdgeSupported ? requireNativeViewManager("CalmeraChatGPT", "HeaderScrollEdge") : null;
 const HeaderScrollContext = createContext(null);
 
@@ -99,6 +104,36 @@ export function GlassButton({ title = "", symbol = "", onPress, disabled = false
         color={foreground} />)}
       {!!title && <Text style={[styles.buttonText, role === "accent" && styles.accentText, role === "destructive" && styles.destructiveText, neutral && styles.navigationText]}>{title}</Text>}
     </>}
+  </Pressable>;
+}
+
+// Glass button that opens a native menu of options with the current one checked.
+// With a buttonTitle it is a fixed action (e.g. Save) and reports every pick;
+// otherwise it shows the current value and reports only changes.
+export function MenuButton({ value, options, onChange, disabled = false, title = "", accessibilityLabel, accessibilityHint = "", style,
+  buttonTitle = "", symbol = "", role = "default", testID }) {
+  const fixed = Boolean(buttonTitle);
+  const pick = option => { if (fixed || option !== value) onChange(option); };
+  const { fontScale } = useWindowDimensions();
+  const minimumHeight = Math.max(48, TYPOGRAPHY.button.lineHeight * fontScale + 20);
+  if (NativeMenuButton) return <View testID={testID} style={[styles.button, style, { minHeight: minimumHeight }]}>
+    <NativeMenuButton style={StyleSheet.absoluteFill} options={options} selected={value} menuTitle={title}
+      title={buttonTitle} symbol={symbol} prominent={role === "accent"}
+      buttonLabel={accessibilityLabel || buttonTitle || title || value} buttonHint={accessibilityHint} buttonDisabled={Boolean(disabled)}
+      onSelect={({ nativeEvent }) => pick(nativeEvent.value)} />
+  </View>;
+  const choose = () => Platform.OS === "ios"
+    ? ActionSheetIOS.showActionSheetWithOptions({ title, options: [...options, "Cancel"], cancelButtonIndex: options.length },
+      index => { if (index < options.length) pick(options[index]); })
+    : Alert.alert(title, undefined, [...options.map(option => ({ text: option, onPress: () => pick(option) })), { text: "Cancel", style: "cancel" }]);
+  const accent = role === "accent";
+  return <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={accessibilityLabel || buttonTitle || title || value} accessibilityValue={{ text: value }}
+    accessibilityHint={accessibilityHint || undefined}
+    accessibilityState={{ disabled }} disabled={disabled} onPress={choose}
+    style={({ pressed }) => [styles.button, styles.fallback, accent && styles.accent, style, { minHeight: minimumHeight }, pressed && styles.pressed, disabled && styles.disabled]}>
+    {fixed && !!symbol && <Ionicons name={fallbackSymbols[symbol] || "ellipse-outline"} size={20} color={accent ? COLORS.white : COLORS.primary} />}
+    <Text style={[styles.buttonText, accent && styles.accentText]}>{fixed ? buttonTitle : value}</Text>
+    {!fixed && <Ionicons name="chevron-expand" size={14} color={COLORS.primary} />}
   </Pressable>;
 }
 

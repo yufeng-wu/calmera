@@ -1,10 +1,10 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { AccessibilityInfo, Alert, Image, InputAccessoryView, Keyboard, Modal, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
-import Animated, { Easing, FadeInDown, FadeOutDown, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
+import Animated, { Easing, FadeInDown, FadeOutDown, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
-import { FormScreen, FormScrollView, FormHeader, FormCard, GlassButton } from "@/components/GlassForm";
+import { FormScreen, FormScrollView, FormHeader, FormCard, GlassButton, MenuButton } from "@/components/GlassForm";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { getFoodIcon } from "@/lib/foodIcons.mjs";
@@ -49,6 +49,8 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
   const [validation, setValidation] = useState(null);
   const [saveBarHeight, setSaveBarHeight] = useState(96);
   const saving = useRef(false);
+  // The meal picked from Save's menu, shown while that save runs.
+  const [savingAs, setSavingAs] = useState(null);
   const initialIds = useRef(new Set(review.entries.map(entry => entry.id)));
   const estimateIds = useRef(new Set(initialIds.current)).current;
   const scroll = useRef(null);
@@ -108,11 +110,6 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
     if (locked) return;
     Keyboard.dismiss(); setExpandedId(current => current === id ? null : id);
   };
-  const chooseMealType = mealType => {
-    if (locked || draft.current.mealType === mealType) return;
-    haptic(Haptics.selectionAsync);
-    update(current => ({ ...current, mealType, entries: current.entries.map(entry => ({ ...entry, mealType })) }));
-  };
   const addFood = () => {
     if (locked || hasIncompleteFood(draft.current) || draft.current.entries.length >= MAX_MEAL_FOODS) return;
     const next = update(addReviewFood);
@@ -147,10 +144,10 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
     });
     setExpandedId(null); setRemoved(null);
   };
-  const save = () => {
-    if (locked || saving.current) return;
+  const save = mealType => {
+    if (locked || saving.current || !MEAL_TYPES.includes(mealType)) return;
     let snapshot;
-    try { snapshot = validateMealReview(draft.current); }
+    try { snapshot = { ...validateMealReview(draft.current), mealType }; }
     catch (error) {
       setExpandedId(error.foodId || null);
       setValidation({ id: error.foodId, message: error.message });
@@ -158,7 +155,7 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
       Alert.alert("Check this food", error.message);
       return;
     }
-    Keyboard.dismiss(); setRemoved(null);
+    Keyboard.dismiss(); setRemoved(null); setSavingAs(mealType);
     saving.current = true;
     Promise.resolve(onSave(snapshot.mealType, snapshot)).finally(() => { saving.current = false; });
   };
@@ -191,10 +188,19 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
   const iconEntry = review.entries.find(entry => entry.id === iconFoodId);
   const selectedIcon = iconEntry?.iconId || getFoodIcon(iconEntry?.foodName).id;
 
-  const saveControl = <GlassButton title={mealSaved ? "Go back" : busy ? estimating ? "Updating nutrition…" : "Saving meal…" : `Save ${review.mealType.toLowerCase()}`}
-          symbol={mealSaved ? "chevron.left" : "checkmark"} role="accent" onPress={mealSaved ? onBack : save}
-          loading={busy && !mealSaved} disabled={busy || selecting || uncertain || (!mealSaved && !review.entries.length)}
-          accessibilityLabel={mealSaved ? "Go back" : busy ? undefined : `Save meal as ${review.mealType}`} style={styles.saveButton} />;
+  // Save opens a glass menu to file the meal; the estimate's meal is pre-checked.
+  // If a food still needs fixing, Save reports it directly instead of asking for a meal first.
+  const saveDisabled = busy || selecting || uncertain || !review.entries.length;
+  const saveControl = mealSaved || busy
+    ? <GlassButton title={mealSaved ? "Go back" : estimating ? "Updating nutrition…" : savingAs ? `Saving as ${savingAs}…` : "Saving…"}
+      symbol={mealSaved ? "chevron.left" : "checkmark"} role="accent" onPress={mealSaved ? onBack : undefined}
+      loading={busy && !mealSaved} disabled={!mealSaved && saveDisabled} style={styles.saveButton} />
+    : hasIncompleteFood(review)
+      ? <GlassButton testID="save-meal" title="Save" symbol="checkmark" role="accent" onPress={() => save(review.mealType)}
+        disabled={saveDisabled} accessibilityLabel="Save meal" style={styles.saveButton} />
+      : <MenuButton testID="save-meal" buttonTitle="Save" symbol="checkmark" role="accent" title="Save as"
+        value="" options={MEAL_TYPES} onChange={save} disabled={saveDisabled}
+        accessibilityLabel="Save meal as" accessibilityHint="Opens a menu to choose the meal" style={styles.saveButton} />;
 
   return <FormScreen compactControls onHeaderHeightChange={value => { headerHeight.current = value; }}>
       <FormHeader title="Review" onBack={onBack} backDisabled={busy || selecting} />
@@ -233,10 +239,6 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
             </View>)}</View>
         </FormCard>
 
-        <Animated.View entering={motion.enter?.(80)}>
-          <MealTypePicker testID="meal-type-picker" value={review.mealType} onChange={chooseMealType} disabled={locked}
-            wrap={fontScale >= 1.3} reducedMotion={reducedMotion} />
-        </Animated.View>
 
         <Animated.View entering={motion.enter?.(120)} style={styles.section}
           onLayout={event => { breakdownY.current = event.nativeEvent.layout.y; revealNewFood(); }}>
@@ -285,14 +287,13 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
                 <View style={styles.nutrients}>{nutrients.map(([label, key, unit]) => {
                   const focused = focusedField?.id === entry.id && focusedField?.name === key;
                   return <Pressable key={key} accessible={false} onPress={() => inputs.current[`${entry.id}:${key}`]?.focus()}
-                    style={[styles.nutrient, focused && styles.focusedNutrient, stackedNutrients && styles.largeNutrient, fontScale >= 2.3 && { flexBasis: "100%" }]}>
-                    <Text style={styles.caption} numberOfLines={1}>{label}</Text>
-                    <View style={styles.nutrientValue}>
-                      <TextInput {...inputProps(entry.id, key)} accessibilityLabel={label} accessibilityHint={unit === "g" ? "Grams" : "Kilocalories"} value={String(entry[key])} onChangeText={field(entry.id, key)}
-                        editable={!locked} keyboardType="decimal-pad" placeholder="0" placeholderTextColor={COLORS.textLight}
-                        selectTextOnFocus style={styles.nutrientInput} maxLength={12} />
-                      <Text style={styles.unit}>{unit}</Text>
-                    </View>
+                    style={[styles.nutrient, key === "calories" && styles.caloriesNutrient, focused && styles.focusedNutrient, stackedNutrients && styles.largeNutrient, fontScale >= 2.3 && { flexBasis: "100%" }]}>
+                    {/* Unit beside the label (as in Health) so the number has the tile's full width. */}
+                    <Text style={styles.caption} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{label} <Text style={styles.unit}>{unit}</Text></Text>
+                    <TextInput {...inputProps(entry.id, key)} accessibilityLabel={label} accessibilityHint={unit === "g" ? "Grams" : "Kilocalories"}
+                      value={String(entry[key])} onChangeText={field(entry.id, key)} editable={!locked} keyboardType="decimal-pad" placeholder="0"
+                      placeholderTextColor={COLORS.textLight} selectTextOnFocus maxLength={12}
+                      style={[styles.nutrientInput, String(entry[key]).length >= 5 && styles.nutrientLong]} />
                   </Pressable>;
                 })}</View>
                 {validation?.id === entry.id && <Text accessibilityRole="alert" style={styles.error}>{validation.message}</Text>}
@@ -311,7 +312,7 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
           {!rows.length && <Text style={[styles.caption, styles.empty]}>No foods in this meal. Add one to save it.</Text>}
         </Animated.View>
         <Animated.View entering={motion.enter?.(160)}>
-          <GlassButton title="Add food" symbol="plus" onPress={addFood}
+          <GlassButton title={review.entries.length ? "Add another item" : "Add item"} symbol="plus" onPress={addFood}
             disabled={locked || hasIncompleteFood(review) || review.entries.length >= MAX_MEAL_FOODS} />
         </Animated.View>
         {uncertain && <FormCard entering={motion.enter?.(0)}><Text style={styles.heading}>Check History before trying again</Text><Text style={styles.caption}>Some foods may already have been saved. Check History before logging this meal again.</Text>
@@ -445,35 +446,6 @@ function Chevron({ expanded, reducedMotion }) {
   return <Animated.View style={[styles.chevron, style]}><Ionicons name="chevron-down" size={18} color={COLORS.textLight} /></Animated.View>;
 }
 
-// A segmented control with a sliding selection, or a 2×2 grid at large text sizes.
-function MealTypePicker({ value, onChange, disabled, wrap, reducedMotion, testID }) {
-  const [trackWidth, setTrackWidth] = useState(0);
-  const index = Math.max(0, MEAL_TYPES.indexOf(value));
-  const segment = trackWidth / MEAL_TYPES.length;
-  const offset = useSharedValue(index * segment);
-  const placed = useRef(0);
-  useEffect(() => {
-    const next = index * segment;
-    // The first measurement (or a size change) places the thumb; only a new choice slides it.
-    offset.value = reducedMotion || placed.current !== segment ? next : withSpring(next, { damping: 26, stiffness: 320, mass: 0.9 });
-    placed.current = segment;
-  }, [index, segment, reducedMotion, offset]);
-  const thumb = useAnimatedStyle(() => ({ transform: [{ translateX: offset.value }] }));
-  return <View testID={testID} accessibilityRole="radiogroup" accessibilityLabel="Meal"
-    onLayout={event => setTrackWidth(event.nativeEvent.layout.width - 8)}
-    style={[styles.segments, wrap && styles.segmentsWrapped, disabled && styles.toolDisabled]}>
-    {!wrap && segment > 0 && <Animated.View pointerEvents="none" style={[styles.thumb, { width: segment }, thumb]} />}
-    {MEAL_TYPES.map(mealType => {
-      const selected = mealType === value;
-      return <Pressable key={mealType} onPress={() => onChange(mealType)} disabled={disabled}
-        accessibilityRole="radio" accessibilityLabel={mealType} accessibilityState={{ checked: selected, disabled }}
-        style={[styles.segment, wrap && styles.segmentWrapped, wrap && selected && styles.segmentSelected]}>
-        <Text style={[styles.segmentLabel, selected && styles.segmentLabelSelected]} numberOfLines={1} adjustsFontSizeToFit={!wrap} minimumFontScale={0.85}>{mealType}</Text>
-      </Pressable>;
-    })}
-  </View>;
-}
-
 const styles = StyleSheet.create({
   content: { padding: 20, paddingTop: 12, paddingBottom: 28, gap: 20 },
   section: { gap: 10 },
@@ -497,24 +469,16 @@ const styles = StyleSheet.create({
   heading: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text },
   eyebrow: { ...TYPOGRAPHY.captionMedium, color: COLORS.textLight },
   caption: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
-  unit: { ...TYPOGRAPHY.caption, color: COLORS.textLight, opacity: 0.8 },
+  // Bottom margin puts the caption's baseline on the value's baseline.
+  unit: { ...TYPOGRAPHY.caption, color: COLORS.textLight, opacity: 0.7 },
   totalHeading: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", alignItems: "baseline", gap: 8 },
   detectedCount: { ...TYPOGRAPHY.captionMedium, color: COLORS.textLight, marginLeft: "auto", textAlign: "right" },
-  calorieLine: { flexDirection: "row", alignItems: "baseline", gap: 6, marginTop: -6 },
+  calorieLine: { flexDirection: "row", alignItems: "baseline", gap: 6 },
   calories: { fontSize: 34, lineHeight: 40, fontWeight: "700", letterSpacing: -0.6, color: COLORS.text, fontVariant: ["tabular-nums"] },
   calorieUnit: { ...TYPOGRAPHY.bodyMedium, color: COLORS.textLight },
-  macros: { flexDirection: "row", flexWrap: "wrap", gap: 16, paddingTop: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#EAE2DB" },
+  macros: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
   macro: { flexGrow: 1, flexBasis: 0, gap: 2 },
   value: { ...TYPOGRAPHY.bodyMedium, fontSize: 16, color: COLORS.text, fontVariant: ["tabular-nums"] },
-  segments: { flexDirection: "row", padding: 4, borderRadius: 16, backgroundColor: "#F1E9E2" },
-  segmentsWrapped: { flexWrap: "wrap", gap: 6 },
-  thumb: { position: "absolute", top: 4, bottom: 4, left: 4, borderRadius: 12, backgroundColor: COLORS.white,
-    shadowColor: "#4A3428", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.12, shadowRadius: 4, elevation: 2 },
-  segment: { flex: 1, minHeight: 40, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
-  segmentWrapped: { flexBasis: "45%", flexGrow: 1, minHeight: 44, borderRadius: 12 },
-  segmentSelected: { backgroundColor: COLORS.white },
-  segmentLabel: { ...TYPOGRAPHY.captionMedium, fontSize: 13, color: COLORS.textLight },
-  segmentLabelSelected: { color: COLORS.text, fontWeight: "600" },
   foodList: { padding: 0, gap: 0, overflow: "hidden" },
   foodHeading: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingLeft: 12, paddingRight: 8 },
   emojiTile: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "#F6F1EC" },
@@ -536,12 +500,14 @@ const styles = StyleSheet.create({
   input: { ...TYPOGRAPHY.input, flex: 1, color: COLORS.text, minHeight: 44, paddingVertical: 11, paddingHorizontal: 0 },
   nameInput: { fontWeight: "500" },
   nutrients: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  nutrient: { flex: 1, minWidth: 0, paddingHorizontal: 9, paddingTop: 8, paddingBottom: 2, borderRadius: 14, borderWidth: 1, borderColor: "transparent", backgroundColor: "#F6F1EC" },
+  nutrient: { flex: 1, minWidth: 0, paddingHorizontal: 11, paddingTop: 10, paddingBottom: 6, gap: 0, borderRadius: 14, borderWidth: 1, borderColor: "transparent", backgroundColor: "#F6F1EC" },
   focusedNutrient: { borderColor: COLORS.primary, backgroundColor: COLORS.white },
+  // Calories holds the largest numbers, so it gets a little more width.
+  caloriesNutrient: { flexGrow: 1.45 },
   largeNutrient: { flexBasis: "45%", flexGrow: 1 },
-  nutrientValue: { flexDirection: "row", alignItems: "center", gap: 3 },
   // Right-aligned so each number sits against its unit, as in iOS value fields.
-  nutrientInput: { ...TYPOGRAPHY.value, flex: 1, minWidth: 0, textAlign: "right", color: COLORS.text, minHeight: 40, paddingVertical: 8, paddingHorizontal: 0 },
+  nutrientInput: { ...TYPOGRAPHY.value, color: COLORS.text, height: 34, paddingVertical: 4, paddingHorizontal: 0 },
+  nutrientLong: { fontSize: 16, lineHeight: 24 },
   error: { ...TYPOGRAPHY.caption, color: COLORS.expense },
   itemActions: { flexDirection: "row", alignItems: "center", gap: 10 },
   reestimate: { flex: 1, height: 44, minHeight: 44 },
