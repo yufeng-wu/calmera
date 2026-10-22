@@ -31,7 +31,7 @@ function hooks() {
     useRef(initial) { const at = index++; return slots[at] ??= { current: initial }; },
     useState(initial) { const at = index++; if (!(at in slots)) slots[at] = typeof initial === "function" ? initial() : initial;
       return [slots[at], value => { slots[at] = typeof value === "function" ? value(slots[at]) : value; }]; },
-    useCallback: callback => callback, useEffect() {},
+    useCallback: callback => callback, useEffect() {}, useId: () => "test-keyboard",
   } };
 }
 const all = node => !node || typeof node !== "object" ? [] : Array.isArray(node)
@@ -48,12 +48,12 @@ function reviewFixture() {
   };
   const Review = load(compiledReview, {
     react: runtime.react,
-    "react-native": { ...Object.fromEntries(["Image", "Modal", "Pressable", "ScrollView", "Text", "TextInput", "View"].map(key => [key, key])),
-      Animated: { Value: class {}, View: "AnimatedView" }, LayoutAnimation: { configureNext() {} },
+    "react-native": { ...Object.fromEntries(["Image", "InputAccessoryView", "Modal", "Pressable", "ScrollView", "Text", "TextInput", "View"].map(key => [key, key])),
+      Platform: { OS: "ios" }, Animated: { Value: class {}, View: "AnimatedView" }, LayoutAnimation: { configureNext() {} },
       Alert: { alert: (...args) => alerts.push(args) }, Keyboard: { dismiss() {} },
-      StyleSheet: { create: value => value, hairlineWidth: 1, absoluteFill: {} }, useWindowDimensions: () => ({ fontScale: 1 }) },
+      StyleSheet: { create: value => value, hairlineWidth: 1, absoluteFill: {} }, useWindowDimensions: () => ({ fontScale: 1, width: 402, height: 874 }) },
     "react-native-reanimated": { useReducedMotion: () => false },
-    "react-native-safe-area-context": { useSafeAreaInsets: () => ({ bottom: 0 }) },
+    "react-native-safe-area-context": { useSafeAreaInsets: () => ({ bottom: 0, top: 0 }) },
     "@expo/vector-icons": { Ionicons: "Ionicons" },
     "@/components/GlassForm": Object.fromEntries(["FormScreen", "FormScrollView", "FormHeader", "FormCard", "GlassButton"].map(key => [key, key])),
     "@/constants/formTheme": { FORM_COLORS: {} }, "@/constants/typography": { TYPOGRAPHY: {} },
@@ -246,7 +246,7 @@ function logFixture(inputMode = "text") {
     react: runtime.react,
     "react-native": { ...Object.fromEntries(["ActivityIndicator", "Image", "Text", "TextInput", "View"].map(key => [key, key])),
       Alert: { alert: (...args) => alerts.push(args) }, Linking: {}, StyleSheet: { create: value => value },
-      useWindowDimensions: () => ({ fontScale: 1 }) },
+      useWindowDimensions: () => ({ fontScale: 1, width: 402, height: 874 }) },
     "@clerk/clerk-expo": { useAuth: () => ({ userId: owner, getToken: async () => "synthetic-token" }) },
     "expo-router": { useLocalSearchParams: () => ({}), useRouter: () => ({}) },
     "@react-navigation/native": { useNavigation: () => navigation, useFocusEffect: callback => { focus = callback; }, usePreventRemove() {} },
