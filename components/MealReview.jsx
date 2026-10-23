@@ -13,7 +13,9 @@ import FoodEmojiPicker from "@/components/FoodEmojiPicker";
 import { useFoodIcons } from "@/context/FoodIconsContext";
 import { MEAL_TYPES, MAX_MEAL_FOODS, addReviewFood, hasIncompleteFood, reviewTotals, setReviewField, validateMealReview } from "@/lib/mealReview.mjs";
 
-const number = value => Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 });
+// One formatter for the screen: toLocaleString builds a native formatter per call.
+const numberFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
+const number = value => numberFormat.format(Number(value) || 0);
 const nutrients = [["Calories", "calories", "kcal"], ["Protein", "protein", "g"], ["Carbs", "carbs", "g"], ["Fat", "fat", "g"]];
 const amount = value => value.replace(/\s*\(([^)]+)\)/g, " · $1");
 const MACROS = [["Protein", "protein"], ["Carbs", "carbs"], ["Fat", "fat"]];
@@ -22,7 +24,8 @@ const UNDO_SECONDS = 5;
 // Room kept below the content while the Undo toast floats over it.
 const TOAST_SPACE = 64;
 const haptic = run => { run().catch(() => {}); };
-const REVEAL = { duration: 300, easing: Easing.bezier(0.33, 0, 0.15, 1) };
+// Starts fast and settles: the panel visibly moves on the first frame after a tap.
+const REVEAL = { duration: 260, easing: Easing.bezier(0.2, 0.9, 0.2, 1) };
 
 export default function MealReview({ photo, text, review, setReview, busy, estimating, selecting,
   mealSaved, uncertain, onBack, onSave, onChangeInput, onReestimate, onViewHistory }) {
@@ -35,6 +38,8 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
   const inFlowSave = fontScale >= 2.3;
   const { iconFor } = useFoodIcons();
   const [expandedId, setExpandedId] = useState(null);
+  // The whole row header tints while touched, as a table cell does.
+  const [pressedId, setPressedId] = useState(null);
   // Once the entrance has settled, build every row's edit panel so taps open instantly.
   const [warm, setWarm] = useState(false);
   const openedIds = useRef(new Set());
@@ -61,6 +66,9 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
   // The meal picked from Save's menu, shown while that save runs.
   const [savingAs, setSavingAs] = useState(null);
   const initialIds = useRef(new Set(review.entries.map(entry => entry.id)));
+  // "Detected" only while the list is still exactly what the estimate found.
+  const estimateIds = useRef(new Set(initialIds.current)).current;
+  const detected = review.entries.length === estimateIds.size && review.entries.every(entry => estimateIds.has(entry.id));
   const scroll = useRef(null);
   const scrollMetrics = useRef({ y: 0, height: 0, content: 0, under: 0 });
   const revealId = useRef(null);
@@ -234,7 +242,10 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
 
         {/* Calories lead; the three macros in grams sit quietly beneath. */}
         <FormCard entering={motion.enter?.(40)} style={styles.totalCard}>
-          <Text style={styles.eyebrow}>Estimated total</Text>
+          <View style={styles.totalHeading}>
+            <Text style={styles.eyebrow}>Estimated total</Text>
+            <Text style={styles.detectedCount}>{review.entries.length} {review.entries.length === 1 ? "food" : "foods"}{detected ? " detected" : ""}</Text>
+          </View>
           <View style={styles.calorieLine} accessible
             accessibilityLabel={`${number(totals.calories)} calories. ${MACROS.map(([label, key]) => `${label} ${number(totals[key])} grams`).join(", ")}.`}>
             <CountingNumber value={totals.calories} style={styles.calories} reducedMotion={reducedMotion} />
@@ -265,13 +276,14 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
               <View style={styles.foodCard}>
               <Reveal open={!gone} appear={!initialIds.current.has(entry.id)} reducedMotion={reducedMotion} inert={gone}
                 onClosed={() => setLeaving(current => current.filter(row => row.entry.id !== entry.id))}>
-              <View style={styles.foodHeading}>
+              <View style={[styles.foodHeading, pressedId === entry.id && styles.foodHeadingPressed]}>
                 <Pressable accessibilityRole="button" accessibilityLabel={`Change icon for ${name}`} accessibilityValue={{ text: iconFor(entry).label }}
                   disabled={locked} onPress={() => { Keyboard.dismiss(); setIconFoodId(entry.id); }}
                   style={({ pressed }) => [styles.emojiTile, pressed && styles.emojiPressed]}>
                   <Text style={styles.emoji} allowFontScaling={false}>{iconFor(entry).emoji}</Text>
                 </Pressable>
                 <Pressable onPress={() => toggle(entry.id)} disabled={locked} style={styles.foodSummary}
+                  onPressIn={() => setPressedId(entry.id)} onPressOut={() => setPressedId(null)}
                   accessibilityRole="button" accessibilityLabel={`${expanded ? "Collapse" : "Edit"} ${name}`} accessibilityState={{ expanded, disabled: locked }}>
                   <View style={styles.foodCopy}>
                     <Text style={[styles.foodName, !entry.foodName && styles.placeholder]} numberOfLines={2}>{entry.foodName || "New food"}</Text>
@@ -367,10 +379,10 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
           </ScrollView>
         </View>
       </Modal>
-      {/* Fabric attaches an accessory when it mounts. Mount one per field after
-          the expanded row's inputs exist, rather than before any row is open. */}
-      {Platform.OS === "ios" && expandedId && fields.map(name => <InputAccessoryView key={`${expandedId}-${name}`}
-        nativeID={`${accessoryId}-${expandedId}-${name}`} backgroundColor={COLORS.card}>
+      {/* Fabric attaches an accessory when it mounts, so each exists before its
+          field is opened: for every warm row (or the open one until warm). */}
+      {Platform.OS === "ios" && (warm ? review.entries.map(entry => entry.id) : expandedId ? [expandedId] : []).flatMap(id => fields.map(name => <InputAccessoryView key={`${id}-${name}`}
+        nativeID={`${accessoryId}-${id}-${name}`} backgroundColor={COLORS.card}>
         <View style={styles.keyboardBar}>
           <Pressable accessibilityRole="button" accessibilityLabel="Previous field" onPress={() => focusAdjacent(-1)}
             disabled={locked || activeIndex <= 0} style={[styles.keyboardAction, (locked || activeIndex <= 0) && styles.toolDisabled]}>
@@ -386,7 +398,7 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
             <Text style={styles.keyboardDoneText}>Done</Text>
           </Pressable>
         </View>
-      </InputAccessoryView>)}
+      </InputAccessoryView>))}
     </FormScreen>;
 }
 
@@ -459,7 +471,7 @@ function Reveal({ open, appear = false, keepMounted = false, onClosed, reducedMo
 function Chevron({ expanded, reducedMotion }) {
   const turn = useSharedValue(expanded ? 1 : 0);
   useEffect(() => {
-    turn.value = reducedMotion ? Number(expanded) : withTiming(Number(expanded), { duration: 280, easing: EASE_OUT });
+    turn.value = reducedMotion ? Number(expanded) : withTiming(Number(expanded), REVEAL);
   }, [expanded, reducedMotion, turn]);
   const style = useAnimatedStyle(() => ({ transform: [{ rotate: `${turn.value * 180}deg` }] }));
   return <Animated.View style={[styles.chevron, style]}><Ionicons name="chevron-down" size={18} color={COLORS.textLight} /></Animated.View>;
@@ -491,6 +503,8 @@ const styles = StyleSheet.create({
   // Bottom margin puts the caption's baseline on the value's baseline.
   unit: { ...TYPOGRAPHY.caption, color: COLORS.textLight, opacity: 0.7 },
   totalCard: { gap: 0 },
+  totalHeading: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", alignItems: "baseline", gap: 8 },
+  detectedCount: { fontSize: 13, lineHeight: 18, fontWeight: "500", color: COLORS.text, marginLeft: "auto", textAlign: "right" },
   calorieLine: { flexDirection: "row", flexWrap: "wrap", alignItems: "baseline", gap: 4, marginTop: 2 },
   calories: { fontSize: 40, lineHeight: 46, fontWeight: "700", letterSpacing: -0.8, color: COLORS.text, fontVariant: ["tabular-nums"] },
   calorieUnit: { fontSize: 15, lineHeight: 20, fontWeight: "500", color: COLORS.textLight },
@@ -505,6 +519,7 @@ const styles = StyleSheet.create({
   cardGap: { height: 10 },
   foodCard: { borderRadius: 24, overflow: "hidden", backgroundColor: SURFACES.content, ...SURFACES.edge },
   foodHeading: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingLeft: 12, paddingRight: 8 },
+  foodHeadingPressed: { backgroundColor: "#F3EBE4" },
   emojiTile: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "#F6F1EC" },
   emojiPressed: { backgroundColor: "#EDE3DA" },
   emoji: { fontSize: 24, textAlign: "center" },
