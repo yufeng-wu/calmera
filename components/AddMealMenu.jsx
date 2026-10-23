@@ -61,7 +61,7 @@ function FallbackAddMealMenu({ expanded, onToggle, onClose, onText, onPhoto,
             style={({ pressed }) => [styles.option, pressed && styles.pressed, recording && styles.disabled]}>
             <GlassSurface />
             <Ionicons name="pencil-outline" size={20} color={COLORS.primary} />
-            <Text style={styles.label}>Manual</Text>
+            <Text style={styles.label}>Text</Text>
           </Pressable>
         </>}
         <Animated.View style={{ width: recording || analyzing ? voiceWidth : ADD_MENU_OPTION_WIDTH, minWidth: ADD_MENU_OPTION_WIDTH }}>

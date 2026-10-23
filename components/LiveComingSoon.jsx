@@ -14,7 +14,7 @@ export default function LiveComingSoon({ calmeraPreview = false } = {}) {
     <FormScrollView key={`fallback-text-${fontScale}`} contentContainerStyle={styles.content}><FormCard style={styles.card}>
       <View style={styles.icon}><Ionicons name="videocam-outline" size={32} color={COLORS.primary} /></View>
       <Text style={styles.title}>Coming soon</Text>
-      <Text style={styles.note}>Use Photo, Manual, or Voice to record your meals.</Text>
+      <Text style={styles.note}>Use Photo, Text, or Voice to record your meals.</Text>
     </FormCard></FormScrollView>
   </FormScreen>;
 }

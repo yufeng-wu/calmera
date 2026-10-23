@@ -9,6 +9,7 @@ import { Stack } from "expo-router/stack";
 import AccountProfileGate, { AccountLoadingScreen } from "@/components/AccountProfileGate";
 import FoodwrapStartupGate from "@/components/FoodwrapStartupGate";
 import { COLORS } from "@/constants/colors";
+import { FoodIconsProvider } from "@/context/FoodIconsContext";
 import { EntriesRefreshProvider } from "@/context/EntriesRefreshContext";
 import { renderNavigationScene } from "@/components/NavigationScene";
 
@@ -26,6 +27,7 @@ export default function Layout() {
 
   return (
     <AccountProfileGate key={user.id} topInset={topInset} disabled={review}>
+    <FoodIconsProvider key={user.id} owner={user.id}>
     <EntriesRefreshProvider>
     <FoodwrapStartupGate topInset={topInset} disabled={review}>
       <Stack screenLayout={renderNavigationScene} screenOptions={{ headerShown: false, animation: "simple_push", contentStyle: { backgroundColor: COLORS.background, paddingTop: topInset } }}>
@@ -43,6 +45,7 @@ export default function Layout() {
       </Stack>
     </FoodwrapStartupGate>
     </EntriesRefreshProvider>
+    </FoodIconsProvider>
     </AccountProfileGate>
   );
 }

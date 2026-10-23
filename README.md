@@ -22,6 +22,14 @@ Use `.env.chatgpt.example` as the public configuration template; supply your own
 
 Validation: run `node --test tests/*.test.mjs`. The current UI was reviewed on the dedicated iOS 26 simulator with local-only synthetic states; earlier text/photo subscription inference was also exercised on an iPhone 14 Pro. This baseline is an implementation checkpoint, not a claim of App Store approval or general distribution eligibility for the subscription integration.
 
+## Photo and text logging
+
+Photo Log and Text Log share the same editable meal review. Text Log accepts a natural-language description (a food or a whole meal); estimated portions appear in the review and can be corrected without a separate amount field at input.
+
+Food rows start collapsed. Expanding a row edits its name, amount and four nutrients directly in the local draft; re-estimation is an explicit action. The selected photo opens a larger, zoomable preview. Numeric editing has Previous/Next/Done keyboard controls on iOS. The nutrient editor uses one compact row on standard phone widths, with additional rows for narrow screens or large text. Add food reveals a new row above its button and allows one unfinished entry at a time.
+
+Save meal validates every food, then asks for one category for the reviewed meal. Cancel leaves the draft unsaved. Confirmed or uncertain saves cannot be repeated automatically. The emoji picker groups icons by food category and searches English names, Chinese aliases and emoji. Emoji choices are nonsecret, per-account, per-record display preferences stored on this device; the food-record API is unchanged.
+
 Setup and verification:
 - [MVP architecture](docs/CHATGPT_MVP.md)
 - [Setup checklist](docs/SETUP_CHECKLIST.md)

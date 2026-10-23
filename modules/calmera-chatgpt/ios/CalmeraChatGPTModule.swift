@@ -477,7 +477,7 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
     container.clipsToBounds = false
     container.contentView.clipsToBounds = false
     addSubview(container)
-    let titles = ["Photo", "Manual", "Voice", "Add"]
+    let titles = ["Photo", "Text", "Voice", "Add"]
     let symbols = ["camera", "pencil", "mic", "plus"]
     for index in 0..<4 {
       let glass = UIVisualEffectView()
@@ -693,7 +693,7 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
     if first {
       for glass in glasses { glass.frame = trigger }
     }
-    let longestTitle = ["Photo", "Manual", "Voice"].map {
+    let longestTitle = ["Photo", "Text", "Voice"].map {
       ($0 as NSString).size(withAttributes: [.font: labels[0].font!]).width
     }.max() ?? 0
     let width = min(max(optionWidth, ceil(longestTitle) + 62), bounds.width - 40)
