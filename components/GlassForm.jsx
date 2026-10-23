@@ -3,7 +3,8 @@ import { SURFACES } from "@/constants/surfaces";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { createContext, forwardRef, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { ActionSheetIOS, ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import Animated from "react-native-reanimated";
 import { requireNativeViewManager } from "expo-modules-core";
 import { Ionicons } from "@expo/vector-icons";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
@@ -11,6 +12,11 @@ import OpenAILogo, { OPENAI_BLOSSOM_SYMBOL } from "./OpenAILogo";
 
 const NativeButton = Platform.OS === "ios" ? requireNativeViewManager("CalmeraChatGPT", "FormButton") : null;
 const nativeEdgeSupported = Platform.OS === "ios" && Number.parseInt(String(Platform.Version), 10) >= 26;
+// An app binary built before MenuButton existed falls back to the JS menu.
+const NativeMenuButton = (() => {
+  if (Platform.OS !== "ios") return null;
+  try { return requireNativeViewManager("CalmeraChatGPT", "MenuButton"); } catch { return null; }
+})();
 const NativeHeaderEdge = nativeEdgeSupported ? requireNativeViewManager("CalmeraChatGPT", "HeaderScrollEdge") : null;
 const HeaderScrollContext = createContext(null);
 
@@ -68,7 +74,7 @@ const fallbackSymbols = {
   "chevron.right": "chevron-forward", "arrow.clockwise": "refresh-outline",
   "arrow.counterclockwise": "refresh-outline", xmark: "close", clock: "time-outline",
   "rectangle.portrait.and.arrow.right": "log-out-outline", "gearshape": "settings-outline",
-  "checkmark.circle": "checkmark-circle-outline", "book": "book-outline", "lock": "lock-closed-outline",
+  "checkmark.circle": "checkmark-circle-outline", trash: "trash-outline", "book": "book-outline", "lock": "lock-closed-outline",
 };
 
 // UIKit owns the glass material and press response. Never fade an effect ancestor.
@@ -101,6 +107,36 @@ export function GlassButton({ title = "", symbol = "", onPress, disabled = false
   </Pressable>;
 }
 
+// Glass button that opens a native menu of options with the current one checked.
+// With a buttonTitle it is a fixed action (e.g. Save) and reports every pick;
+// otherwise it shows the current value and reports only changes.
+export function MenuButton({ value, options, onChange, disabled = false, title = "", accessibilityLabel, accessibilityHint = "", style,
+  buttonTitle = "", symbol = "", role = "default", testID }) {
+  const fixed = Boolean(buttonTitle);
+  const pick = option => { if (fixed || option !== value) onChange(option); };
+  const { fontScale } = useWindowDimensions();
+  const minimumHeight = Math.max(48, TYPOGRAPHY.button.lineHeight * fontScale + 20);
+  if (NativeMenuButton) return <View testID={testID} style={[styles.button, style, { minHeight: minimumHeight }]}>
+    <NativeMenuButton style={StyleSheet.absoluteFill} options={options} selected={value} menuTitle={title}
+      title={buttonTitle} symbol={symbol} prominent={role === "accent"}
+      buttonLabel={accessibilityLabel || buttonTitle || title || value} buttonHint={accessibilityHint} buttonDisabled={Boolean(disabled)}
+      onSelect={({ nativeEvent }) => pick(nativeEvent.value)} />
+  </View>;
+  const choose = () => Platform.OS === "ios"
+    ? ActionSheetIOS.showActionSheetWithOptions({ title, options: [...options, "Cancel"], cancelButtonIndex: options.length },
+      index => { if (index < options.length) pick(options[index]); })
+    : Alert.alert(title, undefined, [...options.map(option => ({ text: option, onPress: () => pick(option) })), { text: "Cancel", style: "cancel" }]);
+  const accent = role === "accent";
+  return <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={accessibilityLabel || buttonTitle || title || value} accessibilityValue={{ text: value }}
+    accessibilityHint={accessibilityHint || undefined}
+    accessibilityState={{ disabled }} disabled={disabled} onPress={choose}
+    style={({ pressed }) => [styles.button, styles.fallback, accent && styles.accent, style, { minHeight: minimumHeight }, pressed && styles.pressed, disabled && styles.disabled]}>
+    {fixed && !!symbol && <Ionicons name={fallbackSymbols[symbol] || "ellipse-outline"} size={20} color={accent ? COLORS.white : COLORS.primary} />}
+    <Text style={[styles.buttonText, accent && styles.accentText]}>{fixed ? buttonTitle : value}</Text>
+    {!fixed && <Ionicons name="chevron-expand" size={14} color={COLORS.primary} />}
+  </Pressable>;
+}
+
 // The app's SafeScreen already supplies the top inset. Keep navigation symmetric.
 export function FormHeader({ title, titleContent, onBack, onSave, saving = false, saveDisabled = false, backDisabled = false, rightAction, onSaveMetrics }) {
   const { fontScale } = useWindowDimensions();
@@ -126,8 +162,11 @@ export function FormHeader({ title, titleContent, onBack, onSave, saving = false
   </View>;
 }
 
-export function FormCard({ children, style, variant = "content" }) {
-  return <View style={[styles.card, variant === "grouped" && styles.groupedCard, style]}>{children}</View>;
+// Optional Reanimated entering/exiting animations for cards that appear in place.
+export function FormCard({ children, style, variant = "content", entering, exiting }) {
+  const Card = entering || exiting ? Animated.View : View;
+  return <Card entering={entering} exiting={exiting}
+    style={[styles.card, variant === "grouped" && styles.groupedCard, style]}>{children}</Card>;
 }
 
 export const formStyles = StyleSheet.create({

@@ -1,9 +1,9 @@
 import { useRef, useState } from "react";
-import { Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
-import { useReducedMotion } from "react-native-reanimated";
+import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { GlassButton } from "@/components/GlassForm";
+import SheetModal from "@/components/SheetModal";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { FOOD_EMOJI_CATEGORIES, getFoodEmojiSections } from "@/lib/foodEmojiPicker.mjs";
@@ -12,7 +12,6 @@ import { FOOD_EMOJI_CATEGORIES, getFoodEmojiSections } from "@/lib/foodEmojiPick
 export default function FoodEmojiPicker({ selectedIconId, disabled = false, onSelect, onClose }) {
   const { bottom, top, left, right } = useSafeAreaInsets();
   const { width, fontScale } = useWindowDimensions();
-  const reducedMotion = useReducedMotion();
   const [query, setQuery] = useState("");
   const [categoryId, setCategoryId] = useState("all");
   const [gridWidth, setGridWidth] = useState(null);
@@ -21,13 +20,16 @@ export default function FoodEmojiPicker({ selectedIconId, disabled = false, onSe
   const search = useRef(null);
   const scroll = useRef(null);
   const categories = useRef(null);
+  const sheet = useRef(null);
   const sections = getFoodEmojiSections(query, categoryId);
   const resultCount = sections.reduce((total, section) => total + section.icons.length, 0);
   const searching = Boolean(query.trim());
   const availableWidth = gridWidth ?? Math.max(0, width - left - right - 40);
   const columns = Math.max(1, Math.min(5, Math.floor((availableWidth + 8) / (72 * Math.max(1, fontScale) + 8))));
   const tileWidth = Math.max(52, Math.floor((availableWidth - (columns - 1) * 8) / columns));
-  const dismiss = () => { Keyboard.dismiss(); onClose(); };
+  // Let the sheet finish leaving before the parent unmounts it.
+  const closeSheet = () => sheet.current ? sheet.current.close(onClose) : onClose();
+  const dismiss = () => { Keyboard.dismiss(); closeSheet(); };
   const resetResults = () => scroll.current?.scrollTo({ y: 0, animated: false });
   const changeQuery = value => {
     setQuery(value); setCategoryId("all"); resetResults();
@@ -43,7 +45,7 @@ export default function FoodEmojiPicker({ selectedIconId, disabled = false, onSe
     if (disabled) return;
     Keyboard.dismiss();
     onSelect(iconId);
-    onClose();
+    closeSheet();
   };
 
   const searchControl = <View style={styles.search}>
@@ -66,18 +68,16 @@ export default function FoodEmojiPicker({ selectedIconId, disabled = false, onSe
             </Pressable>)}
           </ScrollView>}</>;
 
-  return <Modal visible transparent animationType={reducedMotion ? "none" : "slide"} onRequestClose={dismiss}>
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={[styles.backdrop, { paddingTop: Math.max(top, 12), paddingLeft: left, paddingRight: right }]}>
-      <Pressable style={StyleSheet.absoluteFill} onPress={dismiss} accessibilityLabel="Dismiss emoji picker" accessibilityRole="button" />
-      <View style={[styles.sheet, fontScale >= 1.5 && styles.tallSheet]} accessibilityViewIsModal onAccessibilityEscape={dismiss}>
-        <View style={styles.header}>
+  return <SheetModal ref={sheet} onClose={onClose} dismissLabel="Dismiss emoji picker"
+    containerStyle={{ paddingTop: Math.max(top, 12), paddingLeft: left, paddingRight: right }}
+    style={[styles.sheet, fontScale >= 1.5 && styles.tallSheet]}
+    header={<View style={styles.header}>
           <Text style={styles.title} accessibilityRole="header" accessibilityLabel="Choose a food emoji">{fontScale >= 1.5 ? "Emoji" : "Food emoji"}</Text>
           {largeText && <Pressable accessibilityRole="button" accessibilityLabel="Show emoji search" onPress={showSearch} style={styles.headerSearch}>
             <Ionicons name="search-outline" size={22} color={COLORS.primary} />
           </Pressable>}
           <GlassButton symbol="xmark" accessibilityLabel="Close emoji picker" onPress={dismiss} style={styles.close} />
-        </View>
+        </View>}>
         {!largeText && <View style={styles.pinnedControls}>{searchControl}{categoryControl}</View>}
         <ScrollView ref={scroll} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: Math.max(bottom, 20) }]}
           keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
@@ -106,16 +106,13 @@ export default function FoodEmojiPicker({ selectedIconId, disabled = false, onSe
             <GlassButton title="Clear search" onPress={clearSearch} style={styles.emptyAction} />
           </View>}
         </ScrollView>
-      </View>
-    </KeyboardAvoidingView>
-  </Modal>;
+  </SheetModal>;
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.32)" },
-  sheet: { height: "88%", maxHeight: "100%", flexShrink: 1, borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: "hidden", backgroundColor: COLORS.card },
+  sheet: { height: "88%", maxHeight: "100%", flexShrink: 1, backgroundColor: COLORS.card },
   tallSheet: { height: "100%" },
-  header: { paddingHorizontal: 20, paddingVertical: 12, flexDirection: "row", alignItems: "center", gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#EAE2DB" },
+  header: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12, flexDirection: "row", alignItems: "center", gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#EAE2DB" },
   title: { ...TYPOGRAPHY.pageTitle, flex: 1, color: COLORS.text },
   close: { width: 48, height: 48 },
   headerSearch: { width: 44, minHeight: 44, justifyContent: "center", alignItems: "center" },

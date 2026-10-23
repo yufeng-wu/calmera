@@ -26,9 +26,9 @@ Validation: run `node --test tests/*.test.mjs`. The current UI was reviewed on t
 
 Photo Log and Text Log share the same editable meal review. Text Log accepts a natural-language description (a food or a whole meal); estimated portions appear in the review and can be corrected without a separate amount field at input.
 
-Food rows start collapsed. Expanding a row edits its name, amount and four nutrients directly in the local draft; re-estimation is an explicit action. The selected photo opens a larger, zoomable preview. Numeric editing has Previous/Next/Done keyboard controls on iOS. The nutrient editor uses one compact row on standard phone widths, with additional rows for narrow screens or large text. Add food reveals a new row above its button and allows one unfinished entry at a time.
+Food rows start collapsed and show each food's calories. Expanding a row edits its name, amount and four nutrients directly in the local draft; re-estimation is an explicit action. Rows fold open and closed in place, totals ease to edited values, and removing a food shows a short Undo toast. The selected photo opens a larger, zoomable preview. Numeric editing has Previous/Next/Done keyboard controls on iOS. The nutrient editor uses one compact row on standard phone widths, with additional rows for narrow screens or large text. "Add another item" reveals a new row above its button and allows one unfinished entry at a time.
 
-Save meal validates every food, then asks for one category for the reviewed meal. Cancel leaves the draft unsaved. Confirmed or uncertain saves cannot be repeated automatically. The emoji picker groups icons by food category and searches English names, Chinese aliases and emoji. Emoji choices are nonsecret, per-account, per-record display preferences stored on this device; the food-record API is unchanged.
+Save opens a menu of meal types (Breakfast, Lunch, Dinner, Snack); choosing one validates every food and saves the reviewed meal under that type. Confirmed or uncertain saves cannot be repeated automatically. The emoji picker groups icons by food category and searches English names, Chinese aliases and emoji. Emoji choices are nonsecret, per-account, per-record display preferences stored on this device; the food-record API is unchanged.
 
 Setup and verification:
 - [MVP architecture](docs/CHATGPT_MVP.md)

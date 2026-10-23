@@ -49,7 +49,7 @@ const all = node => !node || typeof node !== "object" ? [] : Array.isArray(node)
   ? node.flatMap(all) : [node, ...all(node.props?.children)];
 const find = (tree, predicate) => all(tree).find(predicate);
 const labelled = (tree, label) => find(tree, node => node.props?.accessibilityLabel === label);
-function fixture({ disabled = false, fontScale = 1, reducedMotion = false } = {}) {
+function fixture({ disabled = false, fontScale = 1 } = {}) {
   const slots = []; let index = 0, closes = 0, dismissals = 0;
   const selections = [];
   const react = { ...React,
@@ -59,10 +59,10 @@ function fixture({ disabled = false, fontScale = 1, reducedMotion = false } = {}
   };
   const imports = {
     react,
-    "react-native": { ...Object.fromEntries(["KeyboardAvoidingView", "Modal", "Pressable", "ScrollView", "Text", "TextInput", "View"].map(key => [key, key])),
+    "react-native": { ...Object.fromEntries(["Pressable", "ScrollView", "Text", "TextInput", "View"].map(key => [key, key])),
       Keyboard: { dismiss: () => { dismissals++; } }, Platform: { OS: "ios" },
       StyleSheet: { create: value => value, hairlineWidth: 1, absoluteFill: {} }, useWindowDimensions: () => ({ width: 402, fontScale }) },
-    "react-native-reanimated": { useReducedMotion: () => reducedMotion },
+    "@/components/SheetModal": "SheetModal",
     "react-native-safe-area-context": { useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }) },
     "@expo/vector-icons": { Ionicons: "Ionicons" }, "@/components/GlassForm": { GlassButton: "GlassButton" },
     "@/constants/formTheme": { FORM_COLORS: {} }, "@/constants/typography": { TYPOGRAPHY: {} },
@@ -104,16 +104,16 @@ test("selection emits the stable ID and dismisses the keyboard; disabled choices
   assert.deepEqual(locked.selections, []); assert.equal(locked.closes, 0);
 });
 
-test("Close stays outside scrolling content, remains available at large text sizes and honors reduced motion", () => {
-  const picker = fixture({ fontScale: 3, reducedMotion: true }); const tree = picker.render();
-  assert.equal(tree.props.animationType, "none");
+test("Close stays in the sheet header outside scrolling content and remains available at large text sizes", () => {
+  const picker = fixture({ fontScale: 3 }); const tree = picker.render();
+  assert.equal(tree.type, "SheetModal");
+  assert.equal(tree.props.dismissLabel, "Dismiss emoji picker");
   const scroll = find(tree, node => node.type === "ScrollView");
   assert.equal(labelled(scroll, "Close emoji picker"), undefined);
   assert.equal(scroll.props.keyboardShouldPersistTaps, "handled");
-  assert.equal(find(tree, node => node.type === "KeyboardAvoidingView").props.behavior, "padding");
   const sushi = labelled(tree, "Sushi");
   assert.ok(sushi.props.style({ pressed: false }).some(style => style.width >= 300));
-  labelled(tree, "Close emoji picker").props.onPress();
+  // Without a mounted sheet to animate, closing falls through to onClose directly.
+  labelled(tree.props.header, "Close emoji picker").props.onPress();
   assert.equal(picker.closes, 1); assert.equal(picker.dismissals, 1);
-  assert.ok(labelled(tree, "Dismiss emoji picker"));
 });
