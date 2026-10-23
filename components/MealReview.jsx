@@ -9,6 +9,7 @@ import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { getFoodIcon } from "@/lib/foodIcons.mjs";
 import FoodEmojiPicker from "@/components/FoodEmojiPicker";
+import FoodIcon from "@/components/FoodIcon";
 import { useFoodIcons } from "@/context/FoodIconsContext";
 import { MEAL_TYPES, MAX_MEAL_FOODS, addReviewFood, hasIncompleteFood, reviewTotals, setReviewField, validateMealReview } from "@/lib/mealReview.mjs";
 
@@ -31,7 +32,7 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
   // Match four columns to available width and the current system text scale.
   const stackedNutrients = large || (width - 2 * (20 + 12) - 3 * 6) / 4 < 72 * fontScale;
   const inFlowSave = fontScale >= 2.3;
-  const { emojiFor } = useFoodIcons();
+  const { iconFor } = useFoodIcons();
   const [expandedId, setExpandedId] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
@@ -253,10 +254,10 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
               <Reveal open={!gone} appear={!initialIds.current.has(entry.id)} reducedMotion={reducedMotion} inert={gone}
                 onClosed={() => setLeaving(current => current.filter(row => row.entry.id !== entry.id))}>
               <View style={styles.foodHeading}>
-                <Pressable accessibilityRole="button" accessibilityLabel={`Change emoji for ${name}`}
+                <Pressable accessibilityRole="button" accessibilityLabel={`Change icon for ${name}`} accessibilityValue={{ text: iconFor(entry).label }}
                   disabled={locked} onPress={() => { Keyboard.dismiss(); setIconFoodId(entry.id); }}
                   style={({ pressed }) => [styles.emojiTile, pressed && styles.emojiPressed]}>
-                  <Text style={styles.emoji} allowFontScaling={false}>{emojiFor(entry)}</Text>
+                  <FoodIcon icon={iconFor(entry)} size={24} />
                 </Pressable>
                 <Pressable onPress={() => toggle(entry.id)} disabled={locked} style={styles.foodSummary}
                   accessibilityRole="button" accessibilityLabel={`${expanded ? "Collapse" : "Edit"} ${name}`} accessibilityState={{ expanded, disabled: locked }}>
@@ -483,7 +484,6 @@ const styles = StyleSheet.create({
   foodHeading: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingLeft: 12, paddingRight: 8 },
   emojiTile: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "#F6F1EC" },
   emojiPressed: { backgroundColor: "#EDE3DA" },
-  emoji: { fontSize: 24, textAlign: "center" },
   foodSummary: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, minHeight: 48 },
   foodCopy: { flex: 1, gap: 2, justifyContent: "center" },
   foodName: { ...TYPOGRAPHY.bodyMedium, fontSize: 15, color: COLORS.text },

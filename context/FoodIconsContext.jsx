@@ -1,10 +1,10 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getFoodEmoji } from "@/lib/foodIcons.mjs";
+import { getFoodIcon } from "@/lib/foodIcons.mjs";
 import { createFoodIconPreferences, foodIconById } from "@/lib/foodIconPreferences.mjs";
 
 const preferences = createFoodIconPreferences(AsyncStorage);
-const FoodIconsContext = createContext({ emojiFor: entry => getFoodEmoji(entry.foodName ?? entry.food_name), rememberIcons: async () => {} });
+const FoodIconsContext = createContext({ iconFor: entry => getFoodIcon(entry.foodName ?? entry.food_name), rememberIcons: async () => {} });
 
 export function FoodIconsProvider({ owner, children }) {
   const [state, setState] = useState({ owner, choices: {} });
@@ -24,9 +24,10 @@ export function FoodIconsProvider({ owner, children }) {
     const value = await preferences.save(owner, patch);
     if (active.current && currentOwner.current === owner) setState({ owner, choices: value });
   };
-  const emojiFor = entry => foodIconById(entry.iconId || choices[String(entry.id)])?.emoji
-    || getFoodEmoji(entry.foodName ?? entry.food_name);
-  return <FoodIconsContext.Provider value={{ emojiFor, rememberIcons }}>{children}</FoodIconsContext.Provider>;
+  // A chosen icon (in the draft or saved for this record) wins over name matching.
+  const iconFor = entry => foodIconById(entry.iconId || choices[String(entry.id)])
+    || getFoodIcon(entry.foodName ?? entry.food_name);
+  return <FoodIconsContext.Provider value={{ iconFor, rememberIcons }}>{children}</FoodIconsContext.Provider>;
 }
 
 export const useFoodIcons = () => useContext(FoodIconsContext);
