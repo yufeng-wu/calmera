@@ -1,11 +1,12 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { AccessibilityInfo, Alert, Image, InputAccessoryView, Keyboard, Modal, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { AccessibilityInfo, Alert, Image, InputAccessoryView, InteractionManager, Keyboard, Modal, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import Animated, { Easing, FadeInDown, FadeOutDown, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { FormScreen, FormScrollView, FormHeader, FormCard, GlassButton, MenuButton } from "@/components/GlassForm";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
+import { SURFACES } from "@/constants/surfaces";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { getFoodIcon } from "@/lib/foodIcons.mjs";
 import FoodEmojiPicker from "@/components/FoodEmojiPicker";
@@ -15,6 +16,7 @@ import { MEAL_TYPES, MAX_MEAL_FOODS, addReviewFood, hasIncompleteFood, reviewTot
 const number = value => Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 });
 const nutrients = [["Calories", "calories", "kcal"], ["Protein", "protein", "g"], ["Carbs", "carbs", "g"], ["Fat", "fat", "g"]];
 const amount = value => value.replace(/\s*\(([^)]+)\)/g, " · $1");
+const MACROS = [["Protein", "protein"], ["Carbs", "carbs"], ["Fat", "fat"]];
 const EASE_OUT = Easing.bezier(0.2, 0.8, 0.2, 1);
 const UNDO_SECONDS = 5;
 // Room kept below the content while the Undo toast floats over it.
@@ -33,6 +35,13 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
   const inFlowSave = fontScale >= 2.3;
   const { iconFor } = useFoodIcons();
   const [expandedId, setExpandedId] = useState(null);
+  // Once the entrance has settled, build every row's edit panel so taps open instantly.
+  const [warm, setWarm] = useState(false);
+  const openedIds = useRef(new Set());
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => setWarm(true));
+    return () => task.cancel();
+  }, []);
   const [photoPreview, setPhotoPreview] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
   const accessoryId = useId();
@@ -52,7 +61,6 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
   // The meal picked from Save's menu, shown while that save runs.
   const [savingAs, setSavingAs] = useState(null);
   const initialIds = useRef(new Set(review.entries.map(entry => entry.id)));
-  const estimateIds = useRef(new Set(initialIds.current)).current;
   const scroll = useRef(null);
   const scrollMetrics = useRef({ y: 0, height: 0, content: 0, under: 0 });
   const revealId = useRef(null);
@@ -62,8 +70,6 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
   const barEdgeStyle = useAnimatedStyle(() => ({ opacity: barEdge.value }));
   const locked = busy || selecting || mealSaved || uncertain;
   const totals = reviewTotals(review);
-  // "Detected" only while the list is still exactly what the estimate found.
-  const detected = review.entries.length === estimateIds.size && review.entries.every(entry => estimateIds.has(entry.id));
   const fields = ["foodName", "quantity", "calories", "protein", "carbs", "fat"];
   const activeIndex = focusedField ? fields.indexOf(focusedField.name) : -1;
 
@@ -110,6 +116,7 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
   const field = (id, name) => value => update(current => setReviewField(current, id, name, value));
   const toggle = id => {
     if (locked) return;
+    haptic(Haptics.selectionAsync);
     Keyboard.dismiss(); setExpandedId(current => current === id ? null : id);
   };
   const addFood = () => {
@@ -225,33 +232,37 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
             style={[styles.compactButton, { minWidth: Math.round(88 * Math.max(fontScale, 1)) }]} />
         </View>}
 
-        <FormCard entering={motion.enter?.(40)}>
-          <View style={styles.totalHeading}>
-            <Text style={styles.eyebrow}>Estimated total</Text>
-            <Text style={styles.detectedCount}>{review.entries.length} {review.entries.length === 1 ? "food" : "foods"}{detected ? " detected" : ""}</Text>
-          </View>
-          <View style={styles.calorieLine} accessible accessibilityLabel={`${number(totals.calories)} calories`}>
+        {/* Calories lead; the three macros in grams sit quietly beneath. */}
+        <FormCard entering={motion.enter?.(40)} style={styles.totalCard}>
+          <Text style={styles.eyebrow}>Estimated total</Text>
+          <View style={styles.calorieLine} accessible
+            accessibilityLabel={`${number(totals.calories)} calories. ${MACROS.map(([label, key]) => `${label} ${number(totals[key])} grams`).join(", ")}.`}>
             <CountingNumber value={totals.calories} style={styles.calories} reducedMotion={reducedMotion} />
             <Text style={styles.calorieUnit}>kcal</Text>
           </View>
-          <View style={styles.macros}>{nutrients.slice(1).map(([label, key, unit]) =>
-            <View key={key} style={[styles.macro, large && { flexBasis: "100%" }]} accessible accessibilityLabel={`${label} ${number(totals[key])} grams`}>
-              <Text style={styles.caption}>{label}</Text>
-              <Text style={styles.value}><CountingNumber value={totals[key]} reducedMotion={reducedMotion} /> {unit}</Text>
-            </View>)}</View>
+          <View style={[styles.macros, large && styles.macrosStacked]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            {MACROS.map(([label, key]) => <View key={key} style={[styles.macro, large && styles.macroStacked]}>
+              <Text style={styles.macroName}>{label}</Text>
+              <Text style={styles.macroValue}><CountingNumber value={totals[key]} reducedMotion={reducedMotion} /><Text style={styles.macroUnit}> g</Text></Text>
+            </View>)}
+          </View>
         </FormCard>
 
 
         <View style={styles.section}
           onLayout={event => { breakdownY.current = event.nativeEvent.layout.y; revealNewFood(); }}>
           <Text style={styles.heading} accessibilityRole="header">Breakdown</Text>
-          {!!rows.length && <View onLayout={event => { listOffset.current = event.nativeEvent.layout.y; revealNewFood(); }}>
-          <FormCard style={styles.foodList}>
+          {!!rows.length && <View style={styles.foodList} onLayout={event => { listOffset.current = event.nativeEvent.layout.y; revealNewFood(); }}>
           {rows.map(({ entry, gone }, index) => {
             const expanded = !gone && expandedId === entry.id;
+            if (expanded) openedIds.current.add(entry.id);
             const name = entry.foodName || "new food";
-            return <View key={entry.id} style={index > 0 && styles.divider}
-              onLayout={event => { foodRowsY.current[entry.id] = event.nativeEvent.layout.y; revealNewFood(); }}>
+            // Each food is its own card. Header and panel are sibling reveals
+            // (never nested), so each animates its own height without lag.
+            // The gap above a card folds with it, so nothing below jumps when one leaves.
+            return <View key={entry.id} onLayout={event => { foodRowsY.current[entry.id] = event.nativeEvent.layout.y; revealNewFood(); }}>
+              <Reveal open={!gone && index > 0} appear={!initialIds.current.has(entry.id)} reducedMotion={reducedMotion}><View style={styles.cardGap} /></Reveal>
+              <View style={styles.foodCard}>
               <Reveal open={!gone} appear={!initialIds.current.has(entry.id)} reducedMotion={reducedMotion} inert={gone}
                 onClosed={() => setLeaving(current => current.filter(row => row.entry.id !== entry.id))}>
               <View style={styles.foodHeading}>
@@ -271,47 +282,51 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
                   <Chevron expanded={expanded} reducedMotion={reducedMotion} />
                 </Pressable>
               </View></Reveal>
-              <Reveal open={expanded} appear reducedMotion={reducedMotion}>{expanded && <View style={styles.details}>
+              {/* The panel is built ahead of time (hidden) so opening only runs the animation. */}
+              <Reveal open={expanded} appear keepMounted={warm} inert={!expanded} reducedMotion={reducedMotion}>{(expanded || warm) && <View style={styles.details}>
                 <View style={styles.fieldGroup}>
                   <View style={[styles.fieldRow, large && styles.fieldRowStacked]}>
                     <Text style={[styles.fieldLabel, !large && { width: 64 * Math.min(fontScale, 1.3) }]}>Name</Text>
                     <TextInput {...inputProps(entry.id, "foodName")} testID={`review-food-name-${entry.id}`} accessibilityLabel="Food name" placeholder="What did you eat?" placeholderTextColor={COLORS.textLight}
-                      value={entry.foodName} onChangeText={field(entry.id, "foodName")} editable={!locked} maxLength={255}
+                      value={entry.foodName} onChangeText={field(entry.id, "foodName")} editable={!locked && expanded} maxLength={255}
                       multiline scrollEnabled={false} style={[styles.input, styles.nameInput]} />
                   </View>
                   <View style={styles.fieldDivider} />
                   <View style={[styles.fieldRow, large && styles.fieldRowStacked]}>
                     <Text style={[styles.fieldLabel, !large && { width: 64 * Math.min(fontScale, 1.3) }]}>Amount</Text>
                     <TextInput {...inputProps(entry.id, "quantity")} testID={`review-amount-${entry.id}`} accessibilityLabel="Amount" placeholder="e.g. 1 bowl" placeholderTextColor={COLORS.textLight}
-                      value={String(entry.quantity)} onChangeText={field(entry.id, "quantity")} editable={!locked} maxLength={255}
+                      value={String(entry.quantity)} onChangeText={field(entry.id, "quantity")} editable={!locked && expanded} maxLength={255}
                       multiline scrollEnabled={false} style={styles.input} />
                   </View>
                 </View>
                 <View style={styles.nutrients}>{nutrients.map(([label, key, unit]) => {
                   const focused = focusedField?.id === entry.id && focusedField?.name === key;
                   return <Pressable key={key} accessible={false} onPress={() => inputs.current[`${entry.id}:${key}`]?.focus()}
-                    style={[styles.nutrient, key === "calories" && styles.caloriesNutrient, focused && styles.focusedNutrient, stackedNutrients && styles.largeNutrient, fontScale >= 2.3 && { flexBasis: "100%" }]}>
+                    style={[styles.nutrient, focused && styles.focusedNutrient, stackedNutrients && styles.largeNutrient, fontScale >= 2.3 && { flexBasis: "100%" }]}>
                     {/* Unit beside the label (as in Health) so the number has the tile's full width. */}
-                    <Text style={styles.caption} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{label} <Text style={styles.unit}>{unit}</Text></Text>
+                    <Text style={styles.caption} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{label}{unit === "g" && <Text style={styles.unit}> g</Text>}</Text>
                     <TextInput {...inputProps(entry.id, key)} accessibilityLabel={label} accessibilityHint={unit === "g" ? "Grams" : "Kilocalories"}
-                      value={String(entry[key])} onChangeText={field(entry.id, key)} editable={!locked} keyboardType="decimal-pad" placeholder="0"
+                      value={String(entry[key])} onChangeText={field(entry.id, key)} editable={!locked && expanded} keyboardType="decimal-pad" placeholder="0"
                       placeholderTextColor={COLORS.textLight} selectTextOnFocus maxLength={12}
                       style={[styles.nutrientInput, String(entry[key]).length >= 5 && styles.nutrientLong]} />
                   </Pressable>;
                 })}</View>
                 {validation?.id === entry.id && <Text accessibilityRole="alert" style={styles.error}>{validation.message}</Text>}
-                <View style={styles.itemActions}>
+                {/* Glass buttons are built only once a row has been opened; until then a
+                    same-size placeholder keeps the measured height exact. */}
+                {!expanded && !openedIds.current.has(entry.id) ? <View style={[styles.itemActions, styles.actionsPlaceholder]} /> : <View style={styles.itemActions}>
                   <GlassButton title="Re-estimate" symbol="sparkles" onPress={() => { Keyboard.dismiss(); onReestimate(entry.id); }}
                     disabled={locked || !entry.foodName.trim() || !entry.quantity.trim()} loading={estimating === entry.id} style={styles.reestimate} />
                   <Pressable onPress={() => removeFood(entry.id)} disabled={locked} accessibilityRole="button" accessibilityLabel={`Remove ${name}`}
                     style={({ pressed }) => [styles.remove, pressed && styles.removePressed, locked && styles.toolDisabled]}>
                     <Ionicons name="trash-outline" size={20} color={COLORS.expense} />
                   </Pressable>
-                </View>
+                </View>}
               </View>}</Reveal>
+              </View>
             </View>;
           })}
-          </FormCard></View>}
+          </View>}
           {!rows.length && <Text style={[styles.caption, styles.empty]}>No foods in this meal. Add one to save it.</Text>}
         </View>
         <View>
@@ -400,7 +415,7 @@ function CountingNumber({ value, style, reducedMotion }) {
 // Animates its measured height, so content below moves with it. Children
 // stay rendered while closing and unmount once folded away. Do not nest:
 // an outer reveal only learns an inner one's height after a layout pass.
-function Reveal({ open, appear = false, onClosed, reducedMotion, inert = false, children, style, ...props }) {
+function Reveal({ open, appear = false, keepMounted = false, onClosed, reducedMotion, inert = false, children, style, ...props }) {
   const height = useSharedValue(0);
   const progress = useSharedValue(open && !appear ? 1 : 0);
   const [present, setPresent] = useState(open);
@@ -437,7 +452,7 @@ function Reveal({ open, appear = false, onClosed, reducedMotion, inert = false, 
       style={styles.revealContent} onLayout={event => {
         height.value = event.nativeEvent.layout.height;
         if (pendingOpen.current && event.nativeEvent.layout.height > 0) { pendingOpen.current = false; unfold(); }
-      }}>{present || open ? children || kept.current : null}</View>
+      }}>{present || open || keepMounted ? children || kept.current : null}</View>
   </Animated.View>;
 }
 
@@ -471,19 +486,24 @@ const styles = StyleSheet.create({
   compactButton: { height: 40, minHeight: 40 },
   stacked: { flexDirection: "column", alignItems: "stretch" },
   heading: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text },
-  eyebrow: { ...TYPOGRAPHY.captionMedium, color: COLORS.textLight },
+  eyebrow: { fontSize: 13, lineHeight: 18, fontWeight: "500", color: COLORS.textLight },
   caption: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
   // Bottom margin puts the caption's baseline on the value's baseline.
   unit: { ...TYPOGRAPHY.caption, color: COLORS.textLight, opacity: 0.7 },
-  totalHeading: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", alignItems: "baseline", gap: 8 },
-  detectedCount: { ...TYPOGRAPHY.captionMedium, color: COLORS.textLight, marginLeft: "auto", textAlign: "right" },
-  calorieLine: { flexDirection: "row", alignItems: "baseline", gap: 6 },
-  calories: { fontSize: 34, lineHeight: 40, fontWeight: "700", letterSpacing: -0.6, color: COLORS.text, fontVariant: ["tabular-nums"] },
-  calorieUnit: { ...TYPOGRAPHY.bodyMedium, color: COLORS.textLight },
-  macros: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
-  macro: { flexGrow: 1, flexBasis: 0, gap: 2 },
-  value: { ...TYPOGRAPHY.bodyMedium, fontSize: 16, color: COLORS.text, fontVariant: ["tabular-nums"] },
-  foodList: { padding: 0, gap: 0, overflow: "hidden" },
+  totalCard: { gap: 0 },
+  calorieLine: { flexDirection: "row", flexWrap: "wrap", alignItems: "baseline", gap: 4, marginTop: 2 },
+  calories: { fontSize: 40, lineHeight: 46, fontWeight: "700", letterSpacing: -0.8, color: COLORS.text, fontVariant: ["tabular-nums"] },
+  calorieUnit: { fontSize: 15, lineHeight: 20, fontWeight: "500", color: COLORS.textLight },
+  macros: { flexDirection: "row", gap: 16, marginTop: 14 },
+  macrosStacked: { flexDirection: "column", gap: 8 },
+  macro: { flex: 1 },
+  macroStacked: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  macroName: { fontSize: 12, lineHeight: 16, fontWeight: "500", color: COLORS.textLight },
+  macroValue: { fontSize: 17, lineHeight: 22, fontWeight: "600", color: COLORS.text, fontVariant: ["tabular-nums"], marginTop: 2 },
+  macroUnit: { fontSize: 13, fontWeight: "500", color: COLORS.textLight },
+  foodList: {},
+  cardGap: { height: 10 },
+  foodCard: { borderRadius: 24, overflow: "hidden", backgroundColor: SURFACES.content, ...SURFACES.edge },
   foodHeading: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingLeft: 12, paddingRight: 8 },
   emojiTile: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "#F6F1EC" },
   emojiPressed: { backgroundColor: "#EDE3DA" },
@@ -492,9 +512,8 @@ const styles = StyleSheet.create({
   foodCopy: { flex: 1, gap: 2, justifyContent: "center" },
   foodName: { ...TYPOGRAPHY.bodyMedium, fontSize: 15, color: COLORS.text },
   placeholder: { color: COLORS.textLight },
-  rowCalories: { ...TYPOGRAPHY.captionMedium, color: COLORS.text, fontVariant: ["tabular-nums"] },
+  rowCalories: { ...TYPOGRAPHY.caption, fontWeight: "600", color: COLORS.text, fontVariant: ["tabular-nums"] },
   chevron: { width: 28, alignItems: "center" },
-  divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#EAE2DB" },
   details: { paddingHorizontal: 12, paddingBottom: 14, gap: 12 },
   fieldGroup: { borderRadius: 14, backgroundColor: "#F6F1EC", paddingHorizontal: 12 },
   fieldRow: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 46 },
@@ -506,8 +525,6 @@ const styles = StyleSheet.create({
   nutrients: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   nutrient: { flex: 1, minWidth: 0, paddingHorizontal: 11, paddingTop: 10, paddingBottom: 6, gap: 0, borderRadius: 14, borderWidth: 1, borderColor: "transparent", backgroundColor: "#F6F1EC" },
   focusedNutrient: { borderColor: COLORS.primary, backgroundColor: COLORS.white },
-  // Calories holds the largest numbers, so it gets a little more width.
-  caloriesNutrient: { flexGrow: 1.45 },
   largeNutrient: { flexBasis: "45%", flexGrow: 1 },
   // Right-aligned so each number sits against its unit, as in iOS value fields.
   nutrientInput: { ...TYPOGRAPHY.value, color: COLORS.text, height: 34, paddingVertical: 4, paddingHorizontal: 0 },
@@ -515,6 +532,7 @@ const styles = StyleSheet.create({
   error: { ...TYPOGRAPHY.caption, color: COLORS.expense },
   itemActions: { flexDirection: "row", alignItems: "center", gap: 10 },
   reestimate: { flex: 1, height: 44, minHeight: 44 },
+  actionsPlaceholder: { height: 44 },
   remove: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "#FBEDEB" },
   removePressed: { backgroundColor: "#F5D9D5" },
   empty: { paddingVertical: 8 },
