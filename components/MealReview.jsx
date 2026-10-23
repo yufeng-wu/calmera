@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
   emoji: { fontSize: 24, textAlign: "center" },
   foodSummary: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, minHeight: 48 },
   foodCopy: { flex: 1, gap: 2, justifyContent: "center" },
-  foodName: { fontSize: 16, lineHeight: 21, fontWeight: "500", color: COLORS.text },
+  foodName: { fontSize: 16, lineHeight: 21, fontWeight: "400", color: COLORS.text },
   placeholder: { color: COLORS.textLight },
   rowCalories: { fontSize: 13, lineHeight: 18, fontWeight: "600", color: COLORS.text, fontVariant: ["tabular-nums"] },
   chevron: { width: 28, alignItems: "center" },
