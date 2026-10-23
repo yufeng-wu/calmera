@@ -163,6 +163,8 @@ export function FormHeader({ title, titleContent, onBack, onSave, saving = false
 }
 
 // Optional Reanimated entering/exiting animations for cards that appear in place.
+// Never pass an opacity animation to a card that contains a GlassButton: on
+// device, Liquid Glass under an animated-opacity ancestor renders as plain text.
 export function FormCard({ children, style, variant = "content", entering, exiting }) {
   const Card = entering || exiting ? Animated.View : View;
   return <Card entering={entering} exiting={exiting}

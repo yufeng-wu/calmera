@@ -67,7 +67,9 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
   const fields = ["foodName", "quantity", "calories", "protein", "carbs", "fat"];
   const activeIndex = focusedField ? fields.indexOf(focusedField.name) : -1;
 
-  // Sections rise in once when the estimate arrives; later changes reflow.
+  // Sections without glass controls rise in once when the estimate arrives.
+  // Never fade a view that contains a GlassButton: on device, Liquid Glass
+  // under an animated-opacity ancestor renders as plain text.
   const motion = reducedMotion ? {} : {
     enter: delay => FadeInDown.duration(300).delay(delay).easing(EASE_OUT).withInitialValues({ opacity: 0, transform: [{ translateY: 8 }] }),
     toastIn: FadeInDown.duration(320).easing(EASE_OUT).withInitialValues({ opacity: 0, transform: [{ translateY: 16 }] }),
@@ -210,18 +212,18 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
         onScroll={event => updateBarEdge({ y: event.nativeEvent.contentOffset.y })} scrollEventThrottle={32}
         contentContainerStyle={[styles.content, removed && { paddingBottom: styles.content.paddingBottom + TOAST_SPACE }]}
         keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-        {photo ? <Animated.View entering={motion.enter?.(0)} style={styles.hero}>
+        {photo ? <View style={styles.hero}>
           <Pressable accessibilityRole="button" accessibilityLabel="View meal photo" onPress={() => { Keyboard.dismiss(); setPhotoPreview(true); }}
             style={({ pressed }) => [StyleSheet.absoluteFill, pressed && styles.heroPressed]}>
             <Image source={{ uri: photo.dataURL }} style={styles.heroImage} resizeMode="cover" accessibilityIgnoresInvertColors />
           </Pressable>
           <GlassButton title="Change" symbol="camera" onPress={onChangeInput} disabled={locked} accessibilityLabel="Change photo"
             style={[styles.heroAction, { width: Math.round(112 * Math.min(Math.max(fontScale, 1), 1.35)) }]} />
-        </Animated.View> : <Animated.View entering={motion.enter?.(0)} style={[styles.textSource, large && styles.stacked]}>
+        </View> : <View style={[styles.textSource, large && styles.stacked]}>
           <Text style={[styles.sourceText, !large && { flex: 1 }]} numberOfLines={3}>{text}</Text>
           <GlassButton title="Edit" symbol="pencil" onPress={onChangeInput} disabled={locked} accessibilityLabel="Edit text"
             style={[styles.compactButton, { minWidth: Math.round(88 * Math.max(fontScale, 1)) }]} />
-        </Animated.View>}
+        </View>}
 
         <FormCard entering={motion.enter?.(40)}>
           <View style={styles.totalHeading}>
@@ -240,7 +242,7 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
         </FormCard>
 
 
-        <Animated.View entering={motion.enter?.(120)} style={styles.section}
+        <View style={styles.section}
           onLayout={event => { breakdownY.current = event.nativeEvent.layout.y; revealNewFood(); }}>
           <Text style={styles.heading} accessibilityRole="header">Breakdown</Text>
           {!!rows.length && <View onLayout={event => { listOffset.current = event.nativeEvent.layout.y; revealNewFood(); }}>
@@ -261,8 +263,9 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
                 <Pressable onPress={() => toggle(entry.id)} disabled={locked} style={styles.foodSummary}
                   accessibilityRole="button" accessibilityLabel={`${expanded ? "Collapse" : "Edit"} ${name}`} accessibilityState={{ expanded, disabled: locked }}>
                   <View style={styles.foodCopy}>
-                    <Text style={[styles.foodName, !entry.foodName && styles.placeholder]} numberOfLines={expanded ? undefined : 2}>{entry.foodName || "New food"}</Text>
-                    {!expanded && <Text style={styles.caption} numberOfLines={1}>{amount(entry.quantity) || "Add an amount"}</Text>}
+                    <Text style={[styles.foodName, !entry.foodName && styles.placeholder]} numberOfLines={2}>{entry.foodName || "New food"}</Text>
+                    {/* The header keeps one layout whether open or closed, so only the panel below moves. */}
+                    <Text style={styles.caption} numberOfLines={1}>{amount(entry.quantity) || "Add an amount"}</Text>
                   </View>
                   <Text style={styles.rowCalories}>{entry.calories === "" ? "—" : `${number(entry.calories)} kcal`}</Text>
                   <Chevron expanded={expanded} reducedMotion={reducedMotion} />
@@ -310,21 +313,21 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
           })}
           </FormCard></View>}
           {!rows.length && <Text style={[styles.caption, styles.empty]}>No foods in this meal. Add one to save it.</Text>}
-        </Animated.View>
-        <Animated.View entering={motion.enter?.(160)}>
+        </View>
+        <View>
           <GlassButton title={review.entries.length ? "Add another item" : "Add item"} symbol="plus" onPress={addFood}
             disabled={locked || hasIncompleteFood(review) || review.entries.length >= MAX_MEAL_FOODS} />
-        </Animated.View>
-        {uncertain && <FormCard entering={motion.enter?.(0)}><Text style={styles.heading}>Check History before trying again</Text><Text style={styles.caption}>Some foods may already have been saved. Check History before logging this meal again.</Text>
+        </View>
+        {uncertain && <FormCard><Text style={styles.heading}>Check History before trying again</Text><Text style={styles.caption}>Some foods may already have been saved. Check History before logging this meal again.</Text>
           <GlassButton title="View History" symbol="clock" onPress={onViewHistory} /></FormCard>}
-        {mealSaved && <FormCard entering={motion.enter?.(0)}><Text style={styles.heading}>Meal saved</Text><GlassButton title="Go back" onPress={onBack} /></FormCard>}
+        {mealSaved && <FormCard><Text style={styles.heading}>Meal saved</Text><GlassButton title="Go back" onPress={onBack} /></FormCard>}
         {inFlowSave && <View style={[styles.inFlowSave, { paddingBottom: bottom }]}>{saveControl}</View>}
       </FormScrollView>
-      {!inFlowSave && <Animated.View entering={motion.enter?.(0)} onLayout={event => setSaveBarHeight(event.nativeEvent.layout.height)}
+      {!inFlowSave && <View onLayout={event => setSaveBarHeight(event.nativeEvent.layout.height)}
         style={[styles.saveBar, { paddingBottom: Math.max(bottom, 16) }]}>
         <Animated.View pointerEvents="none" style={[styles.saveBarEdge, barEdgeStyle]} />
         {saveControl}
-      </Animated.View>}
+      </View>}
       {removed && <Animated.View key={removed.entry.id} entering={motion.toastIn} exiting={motion.toastOut} accessibilityLiveRegion="polite"
         style={[styles.toast, { bottom: inFlowSave ? Math.max(bottom, 16) : saveBarHeight + 10 }]}>
         <Text style={styles.toastText} numberOfLines={2}>{removed.entry.foodName || "Food"} removed</Text>
@@ -336,7 +339,8 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
       </Animated.View>}
       {iconFoodId && <FoodEmojiPicker selectedIconId={selectedIcon} disabled={locked}
         onSelect={iconId => field(iconFoodId, "iconId")(iconId)} onClose={closeIcons} />}
-      <Modal visible={photoPreview} animationType={reducedMotion ? "none" : "fade"} onRequestClose={() => setPhotoPreview(false)}>
+      {/* Slide, not fade: a fading modal would break its glass Close button on device. */}
+      <Modal visible={photoPreview} animationType={reducedMotion ? "none" : "slide"} onRequestClose={() => setPhotoPreview(false)}>
         <View style={[styles.photoPreview, { paddingTop: top, paddingBottom: bottom }]}>
           <StatusBar barStyle="light-content" />
           <View style={styles.photoPreviewHeader}><Text style={[styles.heading, { color: "white", flex: 1 }]}>Meal photo</Text>
@@ -424,7 +428,7 @@ function Reveal({ open, appear = false, onClosed, reducedMotion, inert = false, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, reducedMotion, progress]);
   const motion = useAnimatedStyle(() => ({
-    height: height.value * progress.value, opacity: Math.min(1, progress.value * 1.6),
+    height: height.value * progress.value,
   }));
   // Fabric reports no layout for content inside a zero-height parent, so the
   // content is measured in its own absolutely positioned layer.
