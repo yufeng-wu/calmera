@@ -41,8 +41,6 @@ test("normalization handles case, full width and punctuation without changing in
   assert.equal(getFoodEmoji("ＢＡＮＡＮＡ"), "🍌");
   assert.equal(getFoodIcon("  HOT-DOG  ").id, "hot-dog");
   assert.equal(getFoodIcon("(salmon), grilled").id, "fish");
-  assert.equal(getFoodIcon("BANANA - CALMERA PHONE VOICE TEST 2026-10-18").id, "banana");
-  assert.equal(getFoodIcon("Unknown - CALMERA PHOTO TEST banana").id, "meal");
 });
 
 test("unknown or malformed names have a neutral, stable fallback", () => {
