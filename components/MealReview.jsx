@@ -39,7 +39,6 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
   const { iconFor } = useFoodIcons();
   const [expandedId, setExpandedId] = useState(null);
   // The whole row header tints while touched, as a table cell does.
-  const [pressedId, setPressedId] = useState(null);
   // Once the entrance has settled, build every row's edit panel so taps open instantly.
   const [warm, setWarm] = useState(false);
   const openedIds = useRef(new Set());
@@ -276,19 +275,18 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
               <View style={styles.foodCard}>
               <Reveal open={!gone} appear={!initialIds.current.has(entry.id)} reducedMotion={reducedMotion} inert={gone}
                 onClosed={() => setLeaving(current => current.filter(row => row.entry.id !== entry.id))}>
-              <View style={[styles.foodHeading, pressedId === entry.id && styles.foodHeadingPressed]}>
+              <View style={styles.foodHeading}>
                 <Pressable accessibilityRole="button" accessibilityLabel={`Change icon for ${name}`} accessibilityValue={{ text: iconFor(entry).label }}
                   disabled={locked} onPress={() => { Keyboard.dismiss(); setIconFoodId(entry.id); }}
                   style={({ pressed }) => [styles.emojiTile, pressed && styles.emojiPressed]}>
                   <Text style={styles.emoji} allowFontScaling={false}>{iconFor(entry).emoji}</Text>
                 </Pressable>
                 <Pressable onPress={() => toggle(entry.id)} disabled={locked} style={styles.foodSummary}
-                  onPressIn={() => setPressedId(entry.id)} onPressOut={() => setPressedId(null)}
                   accessibilityRole="button" accessibilityLabel={`${expanded ? "Collapse" : "Edit"} ${name}`} accessibilityState={{ expanded, disabled: locked }}>
                   <View style={styles.foodCopy}>
                     <Text style={[styles.foodName, !entry.foodName && styles.placeholder]} numberOfLines={2}>{entry.foodName || "New food"}</Text>
                     {/* The header keeps one layout whether open or closed, so only the panel below moves. */}
-                    <Text style={styles.caption} numberOfLines={1}>{amount(entry.quantity) || "Add an amount"}</Text>
+                    <Text style={styles.foodDetail} numberOfLines={1}>{amount(entry.quantity) || "Add an amount"}</Text>
                   </View>
                   <Text style={styles.rowCalories}>{entry.calories === "" ? "—" : `${number(entry.calories)} kcal`}</Text>
                   <Chevron expanded={expanded} reducedMotion={reducedMotion} />
@@ -497,13 +495,13 @@ const styles = StyleSheet.create({
   sourceText: { ...TYPOGRAPHY.body, color: COLORS.text },
   compactButton: { height: 40, minHeight: 40 },
   stacked: { flexDirection: "column", alignItems: "stretch" },
-  heading: { fontSize: 17, lineHeight: 22, fontWeight: "600", color: COLORS.text },
-  eyebrow: { fontSize: 13, lineHeight: 18, color: COLORS.textLight },
-  caption: { fontSize: 13, lineHeight: 18, color: COLORS.textLight },
+  heading: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text },
+  eyebrow: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
+  caption: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
   unit: { color: COLORS.textLight },
   totalCard: { gap: 0 },
   totalHeading: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", alignItems: "baseline", gap: 8 },
-  detectedCount: { fontSize: 13, lineHeight: 18, fontWeight: "500", color: COLORS.text, marginLeft: "auto", textAlign: "right" },
+  detectedCount: { ...TYPOGRAPHY.captionMedium, color: COLORS.text, marginLeft: "auto", textAlign: "right" },
   calorieLine: { flexDirection: "row", flexWrap: "wrap", alignItems: "baseline", gap: 4, marginTop: 4 },
   calories: { fontSize: 32, lineHeight: 38, fontWeight: "700", letterSpacing: -0.5, color: COLORS.text, fontVariant: ["tabular-nums"] },
   calorieUnit: { fontSize: 15, lineHeight: 20, color: COLORS.textLight },
@@ -511,44 +509,44 @@ const styles = StyleSheet.create({
   macrosStacked: { flexDirection: "column", gap: 8 },
   macro: { flex: 1 },
   macroStacked: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  macroName: { fontSize: 13, lineHeight: 18, color: COLORS.textLight },
+  macroName: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
   macroValue: { fontSize: 17, lineHeight: 22, fontWeight: "600", color: COLORS.text, fontVariant: ["tabular-nums"], marginTop: 2 },
   macroUnit: { fontSize: 15, fontWeight: "400", color: COLORS.textLight },
   foodList: {},
   cardGap: { height: 10 },
   foodCard: { borderRadius: 24, overflow: "hidden", backgroundColor: SURFACES.content, ...SURFACES.edge },
   foodHeading: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingLeft: 12, paddingRight: 8 },
-  foodHeadingPressed: { backgroundColor: "rgba(0,0,0,0.04)" },
-  emojiTile: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "#F6F1EC" },
+  emojiTile: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "#F6F1EC" },
   emojiPressed: { backgroundColor: "#EDE3DA" },
   emoji: { fontSize: 24, textAlign: "center" },
   foodSummary: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, minHeight: 48 },
   foodCopy: { flex: 1, gap: 2, justifyContent: "center" },
-  foodName: { fontSize: 16, lineHeight: 21, fontWeight: "400", color: COLORS.text },
+  // Same treatment as food rows on Today (home.styles transactionTitle / macrosText).
+  foodName: { ...TYPOGRAPHY.bodyMedium, color: COLORS.text },
+  foodDetail: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
   placeholder: { color: COLORS.textLight },
-  rowCalories: { fontSize: 13, lineHeight: 18, fontWeight: "600", color: COLORS.text, fontVariant: ["tabular-nums"] },
+  rowCalories: { fontSize: 14, lineHeight: 20, fontWeight: "600", color: COLORS.text, fontVariant: ["tabular-nums"] },
   chevron: { width: 28, alignItems: "center" },
   details: { paddingHorizontal: 12, paddingTop: 2, paddingBottom: 12, gap: 12 },
   fieldGroup: { borderRadius: 14, backgroundColor: "#F6F1EC", paddingHorizontal: 12 },
   // Labels sit on the first line of a value that wraps, not its middle.
-  fieldRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, minHeight: 46 },
+  fieldRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, minHeight: 44 },
   fieldRowStacked: { flexDirection: "column", alignItems: "stretch", gap: 0, paddingTop: 0 },
-  // iOS places a multiline TextInput's first baseline ~29 pt down; 15 matches it.
-  fieldLabel: { fontSize: 13, lineHeight: 18, color: COLORS.textLight, paddingTop: 15 },
+  // Puts the label's baseline on the value's first baseline (~28 pt down with 12 pt padding).
+  fieldLabel: { ...TYPOGRAPHY.caption, color: COLORS.textLight, paddingTop: 14 },
   fieldLabelStacked: { paddingTop: 10 },
   inputStacked: { paddingTop: 2 },
   fieldDivider: { height: StyleSheet.hairlineWidth, backgroundColor: "#E2D7CD" },
-  input: { ...TYPOGRAPHY.input, flex: 1, color: COLORS.text, minHeight: 44, paddingVertical: 11, paddingHorizontal: 0 },
+  input: { ...TYPOGRAPHY.bodyMedium, flex: 1, color: COLORS.text, minHeight: 44, paddingVertical: 12, paddingHorizontal: 0 },
   nutrients: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  // 12 pt, a step below other secondary text, so four labels fit in one row.
   tileLabel: { fontSize: 12, lineHeight: 16, color: COLORS.textLight },
   nutrient: { flex: 1, minWidth: 0, paddingHorizontal: 10, paddingTop: 10, paddingBottom: 6, gap: 0, borderRadius: 14, borderWidth: 1, borderColor: "transparent", backgroundColor: "#F6F1EC" },
   focusedNutrient: { borderColor: COLORS.primary, backgroundColor: COLORS.white },
   largeNutrient: { flexBasis: "45%", flexGrow: 1 },
   // A little wider so "Calories kcal" fits beside three gram tiles.
   caloriesNutrient: { flexGrow: 1.4 },
-  nutrientInput: { fontSize: 17, lineHeight: 22, fontWeight: "600", fontVariant: ["tabular-nums"], color: COLORS.text, height: 34, paddingVertical: 4, paddingHorizontal: 0 },
-  nutrientLong: { fontSize: 16, lineHeight: 22 },
+  nutrientInput: { fontSize: 16, lineHeight: 22, fontWeight: "600", fontVariant: ["tabular-nums"], color: COLORS.text, height: 34, paddingVertical: 4, paddingHorizontal: 0 },
+  nutrientLong: { fontSize: 15, lineHeight: 22 },
   error: { fontSize: 13, lineHeight: 18, color: COLORS.expense },
   itemActions: { flexDirection: "row", alignItems: "center", gap: 10 },
   reestimate: { flex: 1, height: 44, minHeight: 44 },
