@@ -43,7 +43,7 @@ test("normalization handles case, full width and punctuation without changing in
 
 test("unknown or malformed names have a neutral, stable fallback", () => {
   for (const name of ["", "  ", null, undefined, 123, {}, "家常餐", "A new dish"]) {
-    assert.deepEqual(getFoodIcon(name), { id: "meal", emoji: "🍽️", label: "Meal" });
+    assert.deepEqual(getFoodIcon(name), { id: "meal", emoji: "🥡", label: "Meal" });
   }
 });
 
