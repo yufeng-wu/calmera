@@ -23,19 +23,21 @@ test("search finds partial labels, English aliases, Chinese aliases and emoji va
     ["noo", ["noodles"]], ["toast", ["bread"]], ["  ＨＯＴ—ＤＯＧ  ", ["hot-dog"]],
     ["protein shake", ["smoothie"]], ["三文魚", ["fish"]], ["鸡胸", ["chicken"]],
     ["炒飯", ["fried-rice"]], ["☕️", ["coffee"]], ["🧃", ["juice"]],
-    ["🥤", ["smoothie", "soda"]],
+    ["🥤", ["smoothie", "soda"]], ["kimchi", ["kimchi", "pancakes"]], ["깍두기", ["kimchi"]],
+    ["sprouts", ["bean-sprouts"]], ["boba", ["bubble-tea"]], ["tea", ["egg", "bubble-tea", "tea"]], ["sub", ["sandwich"]],
+    ["🥬", ["kimchi", "greens"]],
   ]) assert.deepEqual(ids(getFoodEmojiSections(query)), expected, query);
 });
 
 test("category browsing and global search stay predictable and leave the catalog immutable", () => {
   assert.deepEqual(getFoodEmojiSections("", "fruit").map(section => section.id), ["fruit"]);
-  assert.deepEqual(ids(getFoodEmojiSections("chicken", "fruit")), ["chicken"]);
+  assert.deepEqual(ids(getFoodEmojiSections("turkey", "fruit")), ["chicken"]);
   assert.deepEqual(getFoodEmojiSections(" ", "fruit").map(section => section.id), ["fruit"]);
   assert.equal(ids(getFoodEmojiSections("", "unknown")).length, FOOD_ICON_CATALOG.length);
   assert.deepEqual(getFoodEmojiSections("nothing matching this query"), []);
   const result = getFoodEmojiSections("", "fruit");
   result[0].icons.pop();
-  assert.equal(getFoodEmojiSections("", "fruit")[0].icons.length, 14);
+  assert.equal(getFoodEmojiSections("", "fruit")[0].icons.length, 18);
 });
 
 const require = createRequire(import.meta.url);
@@ -82,14 +84,14 @@ function fixture({ disabled = false, fontScale = 1 } = {}) {
 
 test("category and search interactions expose matching choices and clear back to all foods", () => {
   const picker = fixture(); let tree = picker.render();
-  labelled(tree, "Fruit food emojis").props.onPress(); tree = picker.render();
+  labelled(tree, "Fruit food icons").props.onPress(); tree = picker.render();
   assert.ok(labelled(tree, "Apple")); assert.equal(labelled(tree, "Sushi"), undefined);
-  labelled(tree, "Search food emojis").props.onChangeText("sashimi"); tree = picker.render();
+  labelled(tree, "Search food icons").props.onChangeText("sashimi"); tree = picker.render();
   assert.ok(labelled(tree, "Sushi")); assert.equal(labelled(tree, "Apple"), undefined);
-  labelled(tree, "Search food emojis").props.onChangeText("nothing matching this query"); tree = picker.render();
-  assert.ok(find(tree, node => node.type === "Text" && node.props.children === "No food emojis found"));
-  labelled(tree, "Clear emoji search").props.onPress(); tree = picker.render();
-  assert.equal(labelled(tree, "Search food emojis").props.value, "");
+  labelled(tree, "Search food icons").props.onChangeText("nothing matching this query"); tree = picker.render();
+  assert.ok(find(tree, node => node.type === "Text" && node.props.children === "No matching foods"));
+  labelled(tree, "Clear icon search").props.onPress(); tree = picker.render();
+  assert.equal(labelled(tree, "Search food icons").props.value, "");
   assert.ok(labelled(tree, "Sushi")); assert.ok(labelled(tree, "Apple"));
 });
 
@@ -107,13 +109,13 @@ test("selection emits the stable ID and dismisses the keyboard; disabled choices
 test("Close stays in the sheet header outside scrolling content and remains available at large text sizes", () => {
   const picker = fixture({ fontScale: 3 }); const tree = picker.render();
   assert.equal(tree.type, "SheetModal");
-  assert.equal(tree.props.dismissLabel, "Dismiss emoji picker");
+  assert.equal(tree.props.dismissLabel, "Dismiss icon picker");
   const scroll = find(tree, node => node.type === "ScrollView");
-  assert.equal(labelled(scroll, "Close emoji picker"), undefined);
+  assert.equal(labelled(scroll, "Close icon picker"), undefined);
   assert.equal(scroll.props.keyboardShouldPersistTaps, "handled");
   const sushi = labelled(tree, "Sushi");
   assert.ok(sushi.props.style({ pressed: false }).some(style => style.width >= 300));
   // Without a mounted sheet to animate, closing falls through to onClose directly.
-  labelled(tree.props.header, "Close emoji picker").props.onPress();
+  labelled(tree.props.header, "Close icon picker").props.onPress();
   assert.equal(picker.closes, 1); assert.equal(picker.dismissals, 1);
 });

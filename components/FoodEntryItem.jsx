@@ -22,7 +22,7 @@ export function closeOpenMealActions() {
 }
 
 export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdit, onSwipeStateChange, onActionMetrics, onDetailsMetrics, palette }) {
-  const { emojiFor } = useFoodIcons();
+  const { iconFor } = useFoodIcons();
   const [isExpanded, setIsExpanded] = useState(false);
   const [actionsVisible, setActionsVisible] = useState(false);
   const initialReducedMotion = useReducedMotion();
@@ -184,7 +184,7 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
         onAccessibilityAction={accessibilityAction}>
         <View style={[styles.transactionContent, veryLargeText && swipeStyles.largeTextContent]}>
           <View style={[styles.categoryIconContainer, palette && { backgroundColor: palette.badge }]}>
-            <Text style={{ fontSize: 25 }} allowFontScaling={false} accessible={false}>{emojiFor(item)}</Text>
+            <Text style={{ fontSize: 25 }} allowFontScaling={false} accessible={false}>{iconFor(item).emoji}</Text>
           </View>
           <View style={[styles.transactionLeft, veryLargeText && swipeStyles.largeTextTitle]}><Text style={[styles.transactionTitle, palette && { color: palette.text }]}>{foodName}</Text></View>
           <View style={[styles.transactionRight, veryLargeText && swipeStyles.largeTextMetadata]}>

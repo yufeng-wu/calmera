@@ -31,7 +31,7 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
   // Match four columns to available width and the current system text scale.
   const stackedNutrients = large || (width - 2 * (20 + 12) - 3 * 6) / 4 < 72 * fontScale;
   const inFlowSave = fontScale >= 2.3;
-  const { emojiFor } = useFoodIcons();
+  const { iconFor } = useFoodIcons();
   const [expandedId, setExpandedId] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
@@ -253,10 +253,10 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
               <Reveal open={!gone} appear={!initialIds.current.has(entry.id)} reducedMotion={reducedMotion} inert={gone}
                 onClosed={() => setLeaving(current => current.filter(row => row.entry.id !== entry.id))}>
               <View style={styles.foodHeading}>
-                <Pressable accessibilityRole="button" accessibilityLabel={`Change emoji for ${name}`}
+                <Pressable accessibilityRole="button" accessibilityLabel={`Change icon for ${name}`} accessibilityValue={{ text: iconFor(entry).label }}
                   disabled={locked} onPress={() => { Keyboard.dismiss(); setIconFoodId(entry.id); }}
                   style={({ pressed }) => [styles.emojiTile, pressed && styles.emojiPressed]}>
-                  <Text style={styles.emoji} allowFontScaling={false}>{emojiFor(entry)}</Text>
+                  <Text style={styles.emoji} allowFontScaling={false}>{iconFor(entry).emoji}</Text>
                 </Pressable>
                 <Pressable onPress={() => toggle(entry.id)} disabled={locked} style={styles.foodSummary}
                   accessibilityRole="button" accessibilityLabel={`${expanded ? "Collapse" : "Edit"} ${name}`} accessibilityState={{ expanded, disabled: locked }}>

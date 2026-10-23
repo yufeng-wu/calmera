@@ -50,40 +50,40 @@ export default function FoodEmojiPicker({ selectedIconId, disabled = false, onSe
 
   const searchControl = <View style={styles.search}>
             <Ionicons name="search-outline" size={20} color={COLORS.textLight} accessible={false} />
-            <TextInput ref={search} accessibilityLabel="Search food emojis" placeholder={fontScale >= 1.5 ? "Search" : "Search food or emoji"}
+            <TextInput ref={search} accessibilityLabel="Search food icons" placeholder={fontScale >= 1.5 ? "Search" : "Search foods"}
               placeholderTextColor={COLORS.textLight} value={query} onChangeText={changeQuery} autoCapitalize="none"
               autoCorrect={false} returnKeyType="done" onSubmitEditing={() => Keyboard.dismiss()} maxLength={100}
               onFocus={() => { setSearchFocused(true); resetResults(); }} onBlur={() => setSearchFocused(false)} style={styles.searchInput} />
-            {!!query && <Pressable accessibilityRole="button" accessibilityLabel="Clear emoji search" onPress={clearSearch} style={styles.clear}>
+            {!!query && <Pressable accessibilityRole="button" accessibilityLabel="Clear icon search" onPress={clearSearch} style={styles.clear}>
               <Ionicons name="close-circle" size={20} color={COLORS.textLight} />
             </Pressable>}
           </View>;
   const categoryControl = <>{!searching && !searchFocused && <ScrollView ref={categories} horizontal style={styles.categoryScroll} showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.categories} accessibilityLabel="Food categories">
             {[{ id: "all", label: "All" }, ...FOOD_EMOJI_CATEGORIES].map(category => <Pressable key={category.id}
-              accessibilityRole="button" accessibilityLabel={`${category.label} food emojis`} accessibilityState={{ selected: categoryId === category.id }}
+              accessibilityRole="button" accessibilityLabel={`${category.label} food icons`} accessibilityState={{ selected: categoryId === category.id }}
               onPress={() => { Keyboard.dismiss(); setCategoryId(category.id); resetResults(); }}
               style={({ pressed }) => [styles.category, categoryId === category.id && styles.activeCategory, pressed && categoryId !== category.id && styles.pressed]}>
               <Text style={[styles.categoryLabel, categoryId === category.id && styles.activeCategoryLabel]}>{category.label}</Text>
             </Pressable>)}
           </ScrollView>}</>;
 
-  return <SheetModal ref={sheet} onClose={onClose} dismissLabel="Dismiss emoji picker"
+  return <SheetModal ref={sheet} onClose={onClose} dismissLabel="Dismiss icon picker"
     containerStyle={{ paddingTop: Math.max(top, 12), paddingLeft: left, paddingRight: right }}
     style={[styles.sheet, fontScale >= 1.5 && styles.tallSheet]}
     header={<View style={styles.header}>
-          <Text style={styles.title} accessibilityRole="header" accessibilityLabel="Choose a food emoji">{fontScale >= 1.5 ? "Emoji" : "Food emoji"}</Text>
-          {largeText && <Pressable accessibilityRole="button" accessibilityLabel="Show emoji search" onPress={showSearch} style={styles.headerSearch}>
+          <Text style={styles.title} accessibilityRole="header" accessibilityLabel="Choose a food icon">{fontScale >= 1.5 ? "Icon" : "Food icon"}</Text>
+          {largeText && <Pressable accessibilityRole="button" accessibilityLabel="Show icon search" onPress={showSearch} style={styles.headerSearch}>
             <Ionicons name="search-outline" size={22} color={COLORS.primary} />
           </Pressable>}
-          <GlassButton symbol="xmark" accessibilityLabel="Close emoji picker" onPress={dismiss} style={styles.close} />
+          <GlassButton symbol="xmark" accessibilityLabel="Close icon picker" onPress={dismiss} style={styles.close} />
         </View>}>
         {!largeText && <View style={styles.pinnedControls}>{searchControl}{categoryControl}</View>}
         <ScrollView ref={scroll} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: Math.max(bottom, 20) }]}
           keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
           contentInsetAdjustmentBehavior="never">
           {largeText && <View style={styles.scrollingControls}>{searchControl}{categoryControl}</View>}
-          {searching && !(largeText && searchFocused) && <Text style={styles.caption} accessibilityLiveRegion="polite">{resultCount} {resultCount === 1 ? "emoji found" : "emojis found"}</Text>}
+          {searching && !(largeText && searchFocused) && <Text style={styles.caption} accessibilityLiveRegion="polite">{resultCount} {resultCount === 1 ? "food found" : "foods found"}</Text>}
           <View onLayout={event => setGridWidth(event.nativeEvent.layout.width)} style={styles.sections}>
             {sections.map(section => <View key={section.id} style={styles.section}>
               {!(largeText && searchFocused) && <Text style={styles.sectionTitle} accessibilityRole="header">{section.label}</Text>}
@@ -101,8 +101,8 @@ export default function FoodEmojiPicker({ selectedIconId, disabled = false, onSe
           </View>
           {!resultCount && <View style={styles.empty}>
             <Ionicons name="search-outline" size={30} color={COLORS.textLight} accessible={false} />
-            <Text style={styles.sectionTitle}>No food emojis found</Text>
-            <Text style={[styles.caption, styles.emptyCopy]}>Try another food name or emoji.</Text>
+            <Text style={styles.sectionTitle}>No matching foods</Text>
+            <Text style={[styles.caption, styles.emptyCopy]}>Try another food name.</Text>
             <GlassButton title="Clear search" onPress={clearSearch} style={styles.emptyAction} />
           </View>}
         </ScrollView>
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   sectionTitle: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text },
   caption: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  tile: { minWidth: 52, minHeight: 84, paddingHorizontal: 4, paddingVertical: 12, justifyContent: "center", alignItems: "center", gap: 7, borderRadius: 16, borderWidth: 2, borderColor: "transparent", backgroundColor: "#F6F1EC" },
+  tile: { minWidth: 52, minHeight: 84, paddingHorizontal: 4, paddingVertical: 12, justifyContent: "flex-start", alignItems: "center", gap: 7, borderRadius: 16, borderWidth: 2, borderColor: "transparent", backgroundColor: "#F6F1EC" },
   selectedTile: { borderColor: COLORS.primary, backgroundColor: "#F0E3D6" },
   emoji: { fontSize: 28, textAlign: "center" },
   label: { ...TYPOGRAPHY.caption, alignSelf: "stretch", color: COLORS.text, textAlign: "center" },

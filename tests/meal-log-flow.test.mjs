@@ -65,7 +65,7 @@ function reviewFixture() {
     "@/constants/formTheme": { FORM_COLORS: {} }, "@/constants/typography": { TYPOGRAPHY: {} },
     "@/components/FoodEmojiPicker": "FoodEmojiPicker",
     "@/lib/foodIcons.mjs": foodIcons,
-    "@/context/FoodIconsContext": { useFoodIcons: () => ({ emojiFor: entry => foodIcons.getFoodEmoji(entry.foodName) }) }, "@/lib/mealReview.mjs": reviewModel,
+    "@/context/FoodIconsContext": { useFoodIcons: () => ({ iconFor: entry => foodIcons.getFoodIcon(entry.foodName) }) }, "@/lib/mealReview.mjs": reviewModel,
   });
   return { props, saves, alerts, render: () => { runtime.reset(); return Review(props); } };
 }
@@ -221,14 +221,17 @@ test("new food appears before Add, blocks another unfinished entry, and saves di
   assert.equal(fixture.saves.length, 0);
 });
 
-test("emoji choice is retained in the draft; compact removal and Undo preserve it", () => {
+test("icon choice is retained in the draft; compact removal and Undo preserve it", () => {
   const fixture = reviewFixture(); let tree = fixture.render();
-  find(tree, node => node.props?.accessibilityLabel === "Change emoji for Rice").props.onPress();
+  const iconButton = find(tree, node => node.props?.accessibilityLabel === "Change icon for Rice");
+  assert.equal(iconButton.props.accessibilityValue.text, "Rice");
+  iconButton.props.onPress();
   tree = fixture.render();
   const picker = find(tree, node => node.type === "FoodEmojiPicker");
   assert.equal(picker.props.selectedIconId, "rice");
   picker.props.onSelect("sushi"); picker.props.onClose();
   assert.equal(fixture.props.review.entries[0].iconId, "sushi");
+  assert.equal(find(fixture.render(), node => node.type === "Text" && node.props.style?.fontSize === 24)?.props.children, "🍚");
   find(fixture.render(), node => node.props?.accessibilityLabel === "Edit Rice").props.onPress();
   find(fixture.render(), node => node.props?.accessibilityLabel === "Remove Rice").props.onPress();
   assert.equal(fixture.props.review.entries.length, 0);
