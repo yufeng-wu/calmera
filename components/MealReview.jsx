@@ -311,14 +311,25 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
                 </View>
                 <View style={styles.nutrients}>{nutrients.map(([label, key, unit]) => {
                   const focused = focusedField?.id === entry.id && focusedField?.name === key;
+                  // Step the number down as it grows so it and its unit stay on one line.
+                  const digits = String(entry[key]).length;
+                  const step = digits >= 6 ? 2 : digits >= 5 ? 1 : 0;
+                  const fit = [null, styles.nutrientLong, styles.nutrientLonger][step];
                   return <Pressable key={key} accessible={false} onPress={() => inputs.current[`${entry.id}:${key}`]?.focus()}
                     style={[styles.nutrient, key === "calories" && !stackedNutrients && styles.caloriesNutrient, focused && styles.focusedNutrient, stackedNutrients && styles.largeNutrient, fontScale >= 2.3 && { flexBasis: "100%" }]}>
-                    {/* Unit beside the label (as in Health) so the number has the tile's full width. */}
-                    <Text style={styles.tileLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{label} <Text style={styles.unit}>{unit}</Text></Text>
-                    <TextInput {...inputProps(entry.id, key)} accessibilityLabel={label} accessibilityHint={unit === "g" ? "Grams" : "Kilocalories"}
-                      value={String(entry[key])} onChangeText={field(entry.id, key)} editable={!locked && expanded} keyboardType="decimal-pad" placeholder="0"
-                      placeholderTextColor={COLORS.textLight} selectTextOnFocus maxLength={12}
-                      style={[styles.nutrientInput, String(entry[key]).length >= 5 && styles.nutrientLong]} />
+                    <Text style={styles.tileLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{label}</Text>
+                    {/* The unit trails the number as fixed text: an invisible copy of the value sizes
+                        the field, so only the number is editable and the unit follows it as you type. */}
+                    <View style={styles.valueRow}>
+                      <View style={styles.valueSlot}>
+                        <Text style={[styles.nutrientText, fit, styles.sizer]} numberOfLines={1} accessible={false} importantForAccessibility="no">{String(entry[key]) || "0"}</Text>
+                        <TextInput {...inputProps(entry.id, key)} accessibilityLabel={`${label}, ${unit === "g" ? "grams" : "kilocalories"}`}
+                          value={String(entry[key])} onChangeText={field(entry.id, key)} editable={!locked && expanded} keyboardType="decimal-pad" placeholder="0"
+                          placeholderTextColor={COLORS.textLight} selectTextOnFocus maxLength={7}
+                          style={[styles.nutrientText, fit, styles.nutrientInput]} />
+                      </View>
+                      <Text style={[styles.nutrientUnit, { fontSize: 14 - step }]} accessible={false} importantForAccessibility="no">{unit}</Text>
+                    </View>
                   </Pressable>;
                 })}</View>
                 {validation?.id === entry.id && <Text accessibilityRole="alert" style={styles.error}>{validation.message}</Text>}
@@ -545,8 +556,18 @@ const styles = StyleSheet.create({
   largeNutrient: { flexBasis: "45%", flexGrow: 1 },
   // A little wider so "Calories kcal" fits beside three gram tiles.
   caloriesNutrient: { flexGrow: 1.4 },
-  nutrientInput: { fontSize: 16, lineHeight: 22, fontWeight: "600", fontVariant: ["tabular-nums"], color: COLORS.text, height: 34, paddingVertical: 4, paddingHorizontal: 0 },
-  nutrientLong: { fontSize: 15, lineHeight: 22 },
+  // The row aligns on the sizer copy's baseline, so the unit sits on the number at every size.
+  valueRow: { flexDirection: "row", alignItems: "baseline", minHeight: 34, paddingTop: 7 },
+  valueSlot: { flexShrink: 1, minWidth: 0 },
+  nutrientText: { fontSize: 16, fontWeight: "600", fontVariant: ["tabular-nums"], color: COLORS.text },
+  nutrientLong: { fontSize: 15 },
+  nutrientLonger: { fontSize: 13 },
+  // Slack for the caret. The input sits exactly over this copy, so both take only
+  // nutrientText and the size steps; never style one of them alone.
+  sizer: { opacity: 0, paddingRight: 3 },
+  nutrientInput: { ...StyleSheet.absoluteFillObject, padding: 0 },
+  // Like the summary card's "25 g": a lighter unit a size or two below its number.
+  nutrientUnit: { color: COLORS.textLight, marginLeft: 1 },
   error: { fontSize: 13, lineHeight: 18, color: COLORS.expense },
   itemActions: { flexDirection: "row", alignItems: "center", gap: 10 },
   reestimate: { flex: 1, height: 44, minHeight: 44 },
