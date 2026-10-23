@@ -9,7 +9,6 @@ import { useRouter } from "expo-router";
 import { styles } from "../assets/styles/home.styles";
 import { COLORS } from "../constants/colors";
 import { useFoodIcons } from "@/context/FoodIconsContext";
-import FoodIcon from "@/components/FoodIcon";
 import { formatTime } from "../lib/utils";
 import MealSwipeActions, { MEAL_EFFECT_OUTSET, MealActionRail } from "./MealSwipeActions";
 
@@ -185,7 +184,7 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
         onAccessibilityAction={accessibilityAction}>
         <View style={[styles.transactionContent, veryLargeText && swipeStyles.largeTextContent]}>
           <View style={[styles.categoryIconContainer, palette && { backgroundColor: palette.badge }]}>
-            <FoodIcon icon={iconFor(item)} size={25} />
+            <Text style={{ fontSize: 25 }} allowFontScaling={false} accessible={false}>{iconFor(item).emoji}</Text>
           </View>
           <View style={[styles.transactionLeft, veryLargeText && swipeStyles.largeTextTitle]}><Text style={[styles.transactionTitle, palette && { color: palette.text }]}>{foodName}</Text></View>
           <View style={[styles.transactionRight, veryLargeText && swipeStyles.largeTextMetadata]}>

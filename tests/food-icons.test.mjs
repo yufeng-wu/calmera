@@ -1,8 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
 import { FOOD_ICON_CATALOG, getFoodIcon, getFoodEmoji } from "../lib/foodIcons.mjs";
-import { FOOD_ICON_ART } from "../lib/foodIconArt.mjs";
 
 test("named dishes win over their ingredients in English and Chinese", () => {
   for (const [name, expected] of [
@@ -74,17 +72,17 @@ test("every previously released icon ID is still in the catalog", () => {
   for (const id of RELEASED_IDS) assert.ok(ids.has(id), id);
 });
 
-test("dishes from many cuisines get a specific icon instead of the plate", () => {
+test("dishes from many cuisines get their nearest emoji instead of the plate", () => {
   for (const [name, expected] of [
-    ["Radish Kimchi", "radish-kimchi"], ["Seasoned Bean Sprouts", "bean-sprouts"], ["Pickled Peppers", "pickles"],
-    ["Bibimbap", "bibimbap"], ["Napa Cabbage Kimchi", "kimchi"], ["Kimchi Fried Rice", "fried-rice"], ["Kimchi Jjigae", "soup"],
-    ["Kimbap", "kimbap"], ["Tteokbokki", "tteokbokki"], ["Mapo Tofu", "mapo-tofu"], ["Silken tofu", "tofu"],
-    ["Spring Rolls", "spring-rolls"], ["Char Siu Bao", "bao"], ["Samosa", "samosa"], ["Salmon Poke Bowl", "poke"],
+    ["Radish Kimchi", "kimchi"], ["Seasoned Bean Sprouts", "bean-sprouts"], ["Pickled Peppers", "chili"],
+    ["Bibimbap", "rice"], ["Napa Cabbage Kimchi", "kimchi"], ["Kimchi Fried Rice", "fried-rice"], ["Kimchi Jjigae", "soup"],
+    ["Kimbap", "sushi"], ["Tteokbokki", "oden"], ["Mapo Tofu", "soup"], ["Silken tofu", "tofu"],
+    ["Spring Rolls", "burrito"], ["Egg rolls", "burrito"], ["Char Siu Bao", "dumplings"], ["Samosa", "dumplings"], ["Salmon Poke Bowl", "sushi"],
     ["Banh Mi", "baguette"], ["Pho", "noodles"], ["Pad Thai", "noodles"], ["Onigiri", "rice-ball"], ["Edamame", "peas"],
     ["Chicken Tikka Masala", "curry"], ["Dal", "curry"], ["Naan", "flatbread"], ["Chicken Shawarma", "stuffed-flatbread"],
     ["Falafel", "falafel"], ["Tamales", "tamale"], ["Shakshuka", "paella"], ["Bubble Tea", "bubble-tea"],
     ["Scrambled Eggs", "fried-egg"], ["Mochi", "dango"], ["Xiaolongbao", "dumplings"], ["Pickled cucumber", "pickles"],
-    ["Dill pickles", "pickles"], ["깍두기", "radish-kimchi"], ["黄豆芽", "bean-sprouts"], ["麻婆豆腐", "mapo-tofu"],
+    ["Dill pickles", "pickles"], ["깍두기", "kimchi"], ["黄豆芽", "bean-sprouts"], ["麻婆豆腐", "soup"],
   ]) assert.equal(getFoodIcon(name).id, expected, name);
 });
 
@@ -94,36 +92,7 @@ test("a longer matching phrase beats a shorter one; risky bare words are not ali
     ["Ice cream sandwich", "ice-cream"], ["Matcha latte", "tea"], ["Ginger ale", "soda"], ["Root beer", "soda"],
     ["Dr Pepper", "soda"], ["Water chestnut", "chestnut"], ["Soda bread", "bread"], ["Tea egg", "egg"],
     ["Tortilla chips", "fries"], ["Rice cakes", "rice-cracker"], ["Red pepper hummus", "sauce"], ["Mapo eggplant", "eggplant"],
-    ["Black pepper beef", "meat"], ["Chicken salad", "salad"], ["Beef bulgogi bibimbap", "bibimbap"],
+    ["Black pepper beef", "meat"], ["Chicken salad", "salad"], ["Beef bulgogi bibimbap", "rice"],
     ["김치찌개", "soup"], ["된장국", "soup"], ["냉면", "noodles"],
   ]) assert.equal(getFoodIcon(name).id, expected, name);
-});
-
-test("drawn icons carry their art key; emoji icons keep the original shape", () => {
-  assert.deepEqual(getFoodIcon("Bibimbap"), { id: "bibimbap", emoji: "🍚", label: "Bibimbap", art: "bibimbap" });
-  assert.deepEqual(getFoodIcon("Banana"), { id: "banana", emoji: "🍌", label: "Banana" });
-  for (const entry of FOOD_ICON_CATALOG.filter(item => item.art)) assert.ok(FOOD_ICON_ART[entry.art], entry.art);
-});
-
-const allowed = new Set(["svg", "g", "defs", "path", "circle", "ellipse", "rect", "linearGradient", "radialGradient", "stop", "clipPath"]);
-const compact = svg => svg.replace(/<!--[\s\S]*?-->/g, "").replace(/>\s+</g, "><").replace(/\s+/g, " ").trim();
-
-test("drawings are generated from the assets and stay small and renderer-safe", () => {
-  const dir = new URL("../assets/food-icons/", import.meta.url);
-  const files = readdirSync(dir).filter(name => name.endsWith(".svg")).sort();
-  assert.deepEqual(Object.keys(FOOD_ICON_ART).sort(), files.map(name => name.slice(0, -4)));
-  const seen = new Map();
-  for (const name of files) {
-    const svg = FOOD_ICON_ART[name.slice(0, -4)];
-    assert.equal(svg, compact(readFileSync(new URL(name, dir), "utf8")), `${name} is stale: run scripts/generate-food-icon-art.mjs`);
-    assert.match(svg, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="0 0 64 64">/, name);
-    assert.ok(svg.length < 5000, `${name} is ${svg.length} bytes`);
-    for (const [, tag] of svg.matchAll(/<([A-Za-z]+)/g)) assert.ok(allowed.has(tag), `${name} uses <${tag}>`);
-    assert.doesNotMatch(svg, /\b(?:style|class|href|filter|mask)=/, name);
-    for (const [, id] of svg.matchAll(/\bid="([^"]+)"/g)) {
-      assert.ok(!seen.has(id) || seen.get(id) === name, `${id} repeats in ${name} and ${seen.get(id)}`);
-      seen.set(id, name);
-    }
-    for (const [, ref] of svg.matchAll(/url\(#([^)]+)\)/g)) assert.ok(svg.includes(`id="${ref}"`), `${name} references missing #${ref}`);
-  }
 });

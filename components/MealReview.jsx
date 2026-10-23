@@ -9,7 +9,6 @@ import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { getFoodIcon } from "@/lib/foodIcons.mjs";
 import FoodEmojiPicker from "@/components/FoodEmojiPicker";
-import FoodIcon from "@/components/FoodIcon";
 import { useFoodIcons } from "@/context/FoodIconsContext";
 import { MEAL_TYPES, MAX_MEAL_FOODS, addReviewFood, hasIncompleteFood, reviewTotals, setReviewField, validateMealReview } from "@/lib/mealReview.mjs";
 
@@ -257,7 +256,7 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
                 <Pressable accessibilityRole="button" accessibilityLabel={`Change icon for ${name}`} accessibilityValue={{ text: iconFor(entry).label }}
                   disabled={locked} onPress={() => { Keyboard.dismiss(); setIconFoodId(entry.id); }}
                   style={({ pressed }) => [styles.emojiTile, pressed && styles.emojiPressed]}>
-                  <FoodIcon icon={iconFor(entry)} size={24} />
+                  <Text style={styles.emoji} allowFontScaling={false}>{iconFor(entry).emoji}</Text>
                 </Pressable>
                 <Pressable onPress={() => toggle(entry.id)} disabled={locked} style={styles.foodSummary}
                   accessibilityRole="button" accessibilityLabel={`${expanded ? "Collapse" : "Edit"} ${name}`} accessibilityState={{ expanded, disabled: locked }}>
@@ -484,6 +483,7 @@ const styles = StyleSheet.create({
   foodHeading: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingLeft: 12, paddingRight: 8 },
   emojiTile: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "#F6F1EC" },
   emojiPressed: { backgroundColor: "#EDE3DA" },
+  emoji: { fontSize: 24, textAlign: "center" },
   foodSummary: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, minHeight: 48 },
   foodCopy: { flex: 1, gap: 2, justifyContent: "center" },
   foodName: { ...TYPOGRAPHY.bodyMedium, fontSize: 15, color: COLORS.text },

@@ -23,9 +23,9 @@ test("search finds partial labels, English aliases, Chinese aliases and emoji va
     ["noo", ["noodles"]], ["toast", ["bread"]], ["  ＨＯＴ—ＤＯＧ  ", ["hot-dog"]],
     ["protein shake", ["smoothie"]], ["三文魚", ["fish"]], ["鸡胸", ["chicken"]],
     ["炒飯", ["fried-rice"]], ["☕️", ["coffee"]], ["🧃", ["juice"]],
-    ["🥤", ["smoothie", "soda"]], ["kimchi", ["kimchi", "radish-kimchi", "pancakes"]], ["깍두기", ["radish-kimchi"]],
+    ["🥤", ["smoothie", "soda"]], ["kimchi", ["kimchi", "pancakes"]], ["깍두기", ["kimchi"]],
     ["sprouts", ["bean-sprouts"]], ["boba", ["bubble-tea"]], ["tea", ["egg", "bubble-tea", "tea"]], ["sub", ["sandwich"]],
-    ["🥬", ["greens"]],
+    ["🥬", ["kimchi", "greens"]],
   ]) assert.deepEqual(ids(getFoodEmojiSections(query)), expected, query);
 });
 
@@ -68,7 +68,7 @@ function fixture({ disabled = false, fontScale = 1 } = {}) {
     "react-native-safe-area-context": { useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }) },
     "@expo/vector-icons": { Ionicons: "Ionicons" }, "@/components/GlassForm": { GlassButton: "GlassButton" },
     "@/constants/formTheme": { FORM_COLORS: {} }, "@/constants/typography": { TYPOGRAPHY: {} },
-    "@/lib/foodEmojiPicker.mjs": pickerModel, "@/components/FoodIcon": "FoodIcon",
+    "@/lib/foodEmojiPicker.mjs": pickerModel,
   };
   const module = { exports: {} };
   vm.runInNewContext(compiled, { module, exports: module.exports, require: name => {

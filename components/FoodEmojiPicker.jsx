@@ -6,7 +6,6 @@ import { GlassButton } from "@/components/GlassForm";
 import SheetModal from "@/components/SheetModal";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
-import FoodIcon from "@/components/FoodIcon";
 import { FOOD_EMOJI_CATEGORIES, getFoodEmojiSections } from "@/lib/foodEmojiPicker.mjs";
 
 // Mount for each selection so another food always starts with all categories.
@@ -93,7 +92,7 @@ export default function FoodEmojiPicker({ selectedIconId, disabled = false, onSe
                 return <Pressable key={icon.id} disabled={disabled} onPress={() => choose(icon.id)}
                   accessibilityRole="button" accessibilityLabel={icon.label} accessibilityState={{ selected, disabled }}
                   style={({ pressed }) => [styles.tile, { width: tileWidth }, selected && styles.selectedTile, pressed && styles.pressed, disabled && styles.disabled]}>
-                  <View style={styles.art}><FoodIcon icon={icon} size={28} /></View>
+                  <Text allowFontScaling={false} style={styles.emoji}>{icon.emoji}</Text>
                   <Text style={[styles.label, selected && styles.selectedLabel]}>{icon.label}</Text>
                   {selected && <View style={styles.check} accessible={false}><Ionicons name="checkmark" size={10} color={COLORS.white} /></View>}
                 </Pressable>;
@@ -137,7 +136,7 @@ const styles = StyleSheet.create({
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   tile: { minWidth: 52, minHeight: 84, paddingHorizontal: 4, paddingVertical: 12, justifyContent: "flex-start", alignItems: "center", gap: 7, borderRadius: 16, borderWidth: 2, borderColor: "transparent", backgroundColor: "#F6F1EC" },
   selectedTile: { borderColor: COLORS.primary, backgroundColor: "#F0E3D6" },
-  art: { height: 34, alignItems: "center", justifyContent: "center" },
+  emoji: { fontSize: 28, textAlign: "center" },
   label: { ...TYPOGRAPHY.caption, alignSelf: "stretch", color: COLORS.text, textAlign: "center" },
   selectedLabel: { fontWeight: "600" },
   check: { position: "absolute", top: 3, right: 3, width: 15, height: 15, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: COLORS.primary },

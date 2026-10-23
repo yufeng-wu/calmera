@@ -63,7 +63,7 @@ function reviewFixture() {
     "@expo/vector-icons": { Ionicons: "Ionicons" },
     "@/components/GlassForm": Object.fromEntries(["FormScreen", "FormScrollView", "FormHeader", "FormCard", "GlassButton", "MenuButton"].map(key => [key, key])),
     "@/constants/formTheme": { FORM_COLORS: {} }, "@/constants/typography": { TYPOGRAPHY: {} },
-    "@/components/FoodEmojiPicker": "FoodEmojiPicker", "@/components/FoodIcon": "FoodIcon",
+    "@/components/FoodEmojiPicker": "FoodEmojiPicker",
     "@/lib/foodIcons.mjs": foodIcons,
     "@/context/FoodIconsContext": { useFoodIcons: () => ({ iconFor: entry => foodIcons.getFoodIcon(entry.foodName) }) }, "@/lib/mealReview.mjs": reviewModel,
   });
@@ -231,8 +231,7 @@ test("icon choice is retained in the draft; compact removal and Undo preserve it
   assert.equal(picker.props.selectedIconId, "rice");
   picker.props.onSelect("sushi"); picker.props.onClose();
   assert.equal(fixture.props.review.entries[0].iconId, "sushi");
-  // The row shows the chosen icon; a drawn icon arrives with its art key.
-  assert.deepEqual(find(fixture.render(), node => node.type === "FoodIcon").props.icon, foodIcons.getFoodIcon("Rice"));
+  assert.equal(find(fixture.render(), node => node.type === "Text" && node.props.style?.fontSize === 24)?.props.children, "🍚");
   find(fixture.render(), node => node.props?.accessibilityLabel === "Edit Rice").props.onPress();
   find(fixture.render(), node => node.props?.accessibilityLabel === "Remove Rice").props.onPress();
   assert.equal(fixture.props.review.entries.length, 0);
