@@ -55,7 +55,7 @@ function reviewFixture() {
     react: runtime.react,
     "react-native": { ...Object.fromEntries(["Image", "InputAccessoryView", "Modal", "Pressable", "ScrollView", "StatusBar", "Text", "TextInput", "View"].map(key => [key, key])),
       Platform: { OS: "ios" },
-      Alert: { alert: (...args) => alerts.push(args) }, Keyboard: { dismiss() {} }, AccessibilityInfo: { announceForAccessibility() {} },
+      Alert: { alert: (...args) => alerts.push(args) }, Keyboard: { dismiss() {} }, AccessibilityInfo: { announceForAccessibility() {} }, InteractionManager: { runAfterInteractions: () => ({ cancel() {} }) },
       StyleSheet: { create: value => value, hairlineWidth: 1, absoluteFill: {} }, useWindowDimensions: () => ({ fontScale: 1, width: 402, height: 874 }) },
     "react-native-reanimated": reanimatedStub, "expo-haptics": { selectionAsync: async () => {}, impactAsync: async () => {}, notificationAsync: async () => {},
       ImpactFeedbackStyle: {}, NotificationFeedbackType: {} },
@@ -63,6 +63,7 @@ function reviewFixture() {
     "@expo/vector-icons": { Ionicons: "Ionicons" },
     "@/components/GlassForm": Object.fromEntries(["FormScreen", "FormScrollView", "FormHeader", "FormCard", "GlassButton", "MenuButton"].map(key => [key, key])),
     "@/constants/formTheme": { FORM_COLORS: {} }, "@/constants/typography": { TYPOGRAPHY: {} },
+    "@/constants/surfaces": { SURFACES: { edge: {} } },
     "@/components/FoodEmojiPicker": "FoodEmojiPicker",
     "@/lib/foodIcons.mjs": foodIcons,
     "@/context/FoodIconsContext": { useFoodIcons: () => ({ iconFor: entry => foodIcons.getFoodIcon(entry.foodName) }) }, "@/lib/mealReview.mjs": reviewModel,
@@ -132,7 +133,7 @@ test("Save includes pending inline edits and submits the picked meal type exactl
   assert.equal(find(tree, node => node.type === "FormHeader").props.title, "Review");
   input(tree, "Food name").props.onChangeText("Brown rice");
   input(tree, "Amount").props.onChangeText("150 g");
-  input(tree, "Calories").props.onChangeText("180");
+  input(tree, "Calories, kilocalories").props.onChangeText("180");
   tree = fixture.render();
   const pick = saveMenu(tree).props.onChange;
   pick("Dinner"); pick("Dinner");
@@ -147,12 +148,12 @@ test("Save includes pending inline edits and submits the picked meal type exactl
 test("invalid inline edits keep the editor open and never save", () => {
   const fixture = reviewFixture(); let tree = fixture.render();
   find(tree, node => node.props?.accessibilityLabel === "Edit Rice").props.onPress();
-  tree = fixture.render(); input(tree, "Calories").props.onChangeText("-1");
+  tree = fixture.render(); input(tree, "Calories, kilocalories").props.onChangeText("-1");
   tree = fixture.render();
   // With an invalid food, Save reports it directly instead of opening the meal menu.
   assert.equal(saveMenu(tree).type, "GlassButton");
   saveMenu(tree).props.onPress(); tree = fixture.render();
-  assert.equal(input(tree, "Calories").props.value, "-1");
+  assert.equal(input(tree, "Calories, kilocalories").props.value, "-1");
   assert.equal(fixture.saves.length, 0); assert.equal(fixture.alerts.length, 1);
 });
 
@@ -192,18 +193,18 @@ test("an obsolete connection check cannot override a newer result or a later scr
 
 test("food rows start compact; expanding exposes one set of directly editable fields", () => {
   const fixture = reviewFixture(); let tree = fixture.render();
-  assert.equal(input(tree, "Calories"), undefined);
+  assert.equal(input(tree, "Calories, kilocalories"), undefined);
   find(tree, node => node.props?.accessibilityLabel === "Edit Rice").props.onPress();
   tree = fixture.render();
   assert.equal(all(tree).filter(node => node.type === "TextInput").length, 6);
   assert.equal(button(tree, "Apply changes"), undefined);
   assert.equal(button(tree, "Cancel edits"), undefined);
-  input(tree, "Calories").props.onChangeText("250");
+  input(tree, "Calories, kilocalories").props.onChangeText("250");
   assert.equal(fixture.props.review.entries[0].calories, "250");
   assert.equal(reviewModel.reviewTotals(fixture.props.review).calories, 250);
   assert.equal(fixture.saves.length, 0);
   find(fixture.render(), node => node.props?.accessibilityLabel === "Collapse Rice").props.onPress();
-  assert.equal(input(fixture.render(), "Calories"), undefined);
+  assert.equal(input(fixture.render(), "Calories, kilocalories"), undefined);
   assert.equal(fixture.props.review.entries[0].calories, "250");
 });
 
@@ -215,7 +216,7 @@ test("new food appears before Add, blocks another unfinished entry, and saves di
   const nodes = all(tree);
   assert.ok(nodes.indexOf(input(tree, "Food name")) < nodes.indexOf(button(tree, "Add another item")));
   input(tree, "Food name").props.onChangeText("Egg"); input(tree, "Amount").props.onChangeText("1 egg");
-  input(tree, "Calories").props.onChangeText("70");
+  input(tree, "Calories, kilocalories").props.onChangeText("70");
   tree = fixture.render();
   assert.equal(button(tree, "Add another item").props.disabled, false);
   assert.equal(fixture.saves.length, 0);
