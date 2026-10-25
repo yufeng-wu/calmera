@@ -26,7 +26,7 @@ export default function InsightsHarness() {
     <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="interactive">
       <Text style={styles.section}>WHAT YOU CARE ABOUT</Text>
       <FormCard variant="grouped" style={styles.group}>
-        {Object.entries(FOCUS).map(([id, focus], index) => <SettingsRow key={id} title={`${focus.emoji}  ${focus.label}`}
+        {Object.entries(FOCUS).map(([id, focus], index) => <SettingsRow key={id} title={focus.label}
           accessibilityRole="radio" selected={prefs.focus === id} divider={index > 0} onPress={() => save({ focus: id })} />)}
       </FormCard>
 

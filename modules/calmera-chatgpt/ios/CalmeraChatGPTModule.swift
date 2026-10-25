@@ -4,6 +4,7 @@ import AVFoundation
 public final class CalmeraChatGPTModule: Module {
   private let callback = PlanLoopback()
   private let picker = PlanPhotoPicker()
+  private let health = PlanHealth()
 
   public func definition() -> ModuleDefinition {
     Name("CalmeraChatGPT")
@@ -138,6 +139,10 @@ public final class CalmeraChatGPTModule: Module {
       }
     }
     Function("cancelCallback") { self.callback.stop() }
+    Function("healthAvailable") { self.health.isAvailable }
+    AsyncFunction("requestHealthAccess") { () async throws -> Bool in try await self.health.requestAccess() }
+    AsyncFunction("healthSummary") { (days: Int) async throws -> [String: Any] in try await self.health.summary(days: days) }
+    AsyncFunction("seedSampleHealth") { () async throws -> Int in try await self.health.seedSample() }
     AsyncFunction("voiceClipMetadata") { (uri: String) async throws -> [String: Double] in
       // Only the just-recorded app-owned cache clip; never enumerate files.
       let cache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
