@@ -43,8 +43,8 @@ export default function ChatSettingsSheet({ visible, onClose, prefs, savePrefs, 
   const [catalog, setCatalog] = useState({ models: [], current: null });
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  // Header, slider and footnote take ~330pt; the model list scrolls within what's left.
-  const listHeight = Math.max(120, Math.min(236, height * 0.82 - 330 - insets.top - insets.bottom));
+  // Header and slider take ~290pt; the model list scrolls within what's left.
+  const listHeight = Math.max(120, Math.min(236, height * 0.82 - 290 - insets.top - insets.bottom));
   useEffect(() => { if (visible) loadModels?.().then(setCatalog).catch(() => {}); }, [visible, loadModels, prefs.chatModel]);
   return <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
     {visible && <View style={styles.root}>
@@ -67,7 +67,6 @@ export default function ChatSettingsSheet({ visible, onClose, prefs, savePrefs, 
             </PressScale>;
           }) : <Text style={styles.empty}>Connect ChatGPT in Settings to choose a model.</Text>}
         </ScrollView>
-        <Text style={styles.footnote}>Uses your own ChatGPT subscription. Deeper thinking is slower and uses more of your plan.</Text>
       </Animated.View>
     </View>}
   </Modal>;
@@ -99,5 +98,4 @@ const styles = StyleSheet.create({
   modelName: { ...TYPOGRAPHY.bodyMedium, color: COLORS.text },
   modelNameSelected: { fontWeight: "600" },
   empty: { ...TYPOGRAPHY.body, color: COLORS.textLight },
-  footnote: { ...TYPOGRAPHY.caption, color: COLORS.textLight, marginTop: 14, textAlign: "center" },
 });
