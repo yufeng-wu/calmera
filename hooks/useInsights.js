@@ -67,10 +67,10 @@ export function useInsights({ report = true } = {}) {
     const linked = await connection();
     if (!linked) { setAI({ key, report: null, status: "offline" }); return; }
     try {
-      const text = await linked.client.respond({ model: linked.model, signal: controller.signal,
-        instructions: instructions(prefs, reportContext, { report: true }),
+      const reply = await linked.client.respond({ model: linked.model, signal: controller.signal,
+        instructions: instructions(prefs, reportContext, { report: true }), effort: "medium",
         messages: [{ role: "user", text: "Write my weekly report." }] });
-      const saved = { week: weekKey, signature, createdAt: Date.now(), insight: parseInsight(text) };
+      const saved = { week: weekKey, signature, createdAt: Date.now(), insight: parseInsight(reply.text) };
       await saveReport(userId, saved);
       setAI({ key, report: saved, status: "done" });
     } catch {
@@ -92,18 +92,32 @@ export function useInsights({ report = true } = {}) {
   }, [report, week.digest.daysLogged, key, userId, weekKey, signature, generate]);
   useEffect(() => () => abortRef.current?.abort(), []);
 
+  // Chat uses the model, thinking level and web search chosen in the chat bar.
   const ask = useCallback(async (messages, { signal } = {}) => {
     const linked = await connection();
     const question = messages[messages.length - 1]?.text || "";
     if (!linked) return { text: previewReply(question, week.digest, prefs), preview: true };
-    const text = await linked.client.respond({ model: linked.model, signal, messages, instructions: instructions(prefs, context) });
-    return { text: text.trim(), preview: false };
+    const models = await linked.client.models({ useCache: true }).catch(() => []);
+    const model = models.some((item) => item.slug === prefs.chatModel) ? prefs.chatModel : linked.model;
+    const reply = await linked.client.respond({ model, signal, messages, effort: prefs.effort, webSearch: prefs.webSearch,
+      instructions: instructions(prefs, context, { webSearch: prefs.webSearch }) });
+    const dropped = reply.fallback && [prefs.webSearch && !reply.webSearch && "web search", prefs.effort && !reply.effort && "thinking"]
+      .filter(Boolean).join(" and ");
+    return { text: reply.text.trim(), preview: false, note: dropped ? `This model doesn't support ${dropped}, so it answered without it.` : null };
   }, [connection, week.digest, prefs, context]);
+
+  // Models from the user's own ChatGPT plan, and the one chat will use.
+  const loadModels = useCallback(async () => {
+    const linked = await connection();
+    if (!linked) return { models: [], current: null };
+    const models = await linked.client.models({ useCache: true }).catch(() => []);
+    return { models, current: models.some((item) => item.slug === prefs.chatModel) ? prefs.chatModel : linked.model };
+  }, [connection, prefs.chatModel]);
 
   const personal = ai.key === key && ai.report ? ai.report : null;
   return {
     sample, goals: usedGoals, week, month, health, prefs, savePrefs: save, context,
     insight: personal?.insight || fallback, report: { personal: Boolean(personal), createdAt: personal?.createdAt, week: weekKey },
-    reportStatus: ai.key === key ? ai.status : "idle", refreshReport: () => generate(key), ask,
+    reportStatus: ai.key === key ? ai.status : "idle", refreshReport: () => generate(key), ask, loadModels,
   };
 }

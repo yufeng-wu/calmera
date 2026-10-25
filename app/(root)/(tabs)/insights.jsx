@@ -58,7 +58,7 @@ export default function InsightsScreen() {
 
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={0}
       style={[styles.chat, segment !== "chat" && styles.hidden]}>
-      <ChatPanel ask={data.ask} bottomInset={tabBarHeight + 8}
+      <ChatPanel ask={data.ask} bottomInset={tabBarHeight + 8} prefs={data.prefs} savePrefs={data.savePrefs} loadModels={data.loadModels}
         contextLabel={data.sample ? "Using sample data" : "Using your last 30 days"} />
     </KeyboardAvoidingView>
   </View>;

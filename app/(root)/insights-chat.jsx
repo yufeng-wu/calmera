@@ -10,10 +10,11 @@ export default function InsightsChat() {
   const router = useRouter();
   const { q } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
-  const { ask, sample } = useInsights({ report: false });
+  const { ask, sample, prefs, savePrefs, loadModels } = useInsights({ report: false });
   return <KeyboardAvoidingView style={formStyles.screen} behavior={Platform.OS === "ios" ? "padding" : undefined}>
     <FormHeader title="Ask" onBack={() => router.back()} />
     <ChatPanel ask={ask} initialQuestion={typeof q === "string" ? q : null} bottomInset={Math.max(insets.bottom, 12)}
+      prefs={prefs} savePrefs={savePrefs} loadModels={loadModels}
       contextLabel={sample ? "Using sample data" : "Using your last 30 days"} />
   </KeyboardAvoidingView>;
 }
