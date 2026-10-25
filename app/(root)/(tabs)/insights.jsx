@@ -5,6 +5,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { FormCard, formStyles } from "@/components/GlassForm";
 import SettingsRow from "@/components/SettingsRow";
+import GlassSurface from "@/components/GlassSurface";
 import MetricRow from "@/components/insights/MetricRow";
 import ChatPanel from "@/components/insights/ChatPanel";
 import { SURFACES } from "@/constants/surfaces";
@@ -33,6 +34,7 @@ export default function InsightsScreen() {
       <Text accessibilityRole="header" style={styles.title}>Insights</Text>
     </View>
     <View style={styles.segments} accessibilityRole="tablist">
+      <GlassSurface />
       {SEGMENTS.map(([id, label]) => <Pressable key={id} accessibilityRole="tab" accessibilityState={{ selected: segment === id }}
         onPress={() => setSegment(id)} style={[styles.segment, segment === id && styles.segmentSelected]}>
         <Text style={[styles.segmentText, segment === id && styles.segmentTextSelected]}>{label}</Text>
@@ -222,9 +224,10 @@ function SectionCard({ title, badge, children }) {
 const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, justifyContent: "center", alignItems: "center" },
   title: { ...TYPOGRAPHY.pageTitle, color: COLORS.text },
-  segments: { flexDirection: "row", gap: 4, marginHorizontal: 20, marginBottom: 6 },
-  segment: { paddingHorizontal: 16, paddingVertical: 9, borderRadius: 20 },
-  segmentSelected: { backgroundColor: "#EFE7E0" },
+  // Liquid Glass track with a brighter capsule for the selected segment, like iOS 26.
+  segments: { flexDirection: "row", alignSelf: "center", padding: 4, borderRadius: 24, marginBottom: 8 },
+  segment: { minWidth: 96, alignItems: "center", paddingHorizontal: 16, paddingVertical: 9, borderRadius: 20 },
+  segmentSelected: { backgroundColor: "rgba(255,255,255,0.92)", shadowColor: "#4A3428", shadowOpacity: 0.12, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
   segmentText: { ...TYPOGRAPHY.bodyMedium, color: COLORS.textLight },
   segmentTextSelected: { color: COLORS.text, fontWeight: "600" },
   content: { padding: 20, paddingTop: 8, gap: 14 },
