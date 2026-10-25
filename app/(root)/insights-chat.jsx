@@ -15,6 +15,6 @@ export default function InsightsChat() {
     <FormHeader title="Ask" onBack={() => router.back()} />
     <ChatPanel ask={ask} initialQuestion={typeof q === "string" ? q : null} bottomInset={Math.max(insets.bottom, 12)}
       prefs={prefs} savePrefs={savePrefs} loadModels={loadModels}
-      contextLabel={sample ? "Using sample data" : "Using your last 30 days"} />
+      contextLabel={sample ? "sample data" : "last 30 days"} />
   </KeyboardAvoidingView>;
 }

@@ -38,6 +38,19 @@ public final class CalmeraChatGPTModule: Module {
       Prop("loading") { (view: CalmeraFormButtonView, value: Bool) in view.loading = value }
       OnViewDidUpdateProps { (view: CalmeraFormButtonView) in view.updateControl() }
     }
+    View(CalmeraSegmentedView.self) {
+      ViewName("Segmented")
+      Events("onChange")
+      Prop("items") { (view: CalmeraSegmentedView, value: [String]) in view.setItems(value) }
+      Prop("selectedIndex") { (view: CalmeraSegmentedView, value: Int) in view.select(value) }
+    }
+    View(CalmeraGlassMenuView.self) {
+      ViewName("GlassMenu")
+      Events("onSelect")
+      Prop("symbol") { (view: CalmeraGlassMenuView, value: String) in view.symbol = value }
+      Prop("label") { (view: CalmeraGlassMenuView, value: String) in view.label = value }
+      Prop("items") { (view: CalmeraGlassMenuView, value: [[String: String]]) in view.items = value }
+    }
     View(CalmeraMenuButtonView.self) {
       ViewName("MenuButton")
       Events("onSelect")

@@ -5,7 +5,7 @@ import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import Sparkline from "./Sparkline";
 
 // One dashboard line: what it is, the number, how it compares, and its shape.
-export default function MetricRow({ title, value, unit, detail, values, type, goal, divider, onPress }) {
+export default function MetricRow({ title, value, unit, detail, values, type, goal, minRange, divider, onPress }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={`${title}, ${value} ${unit || ""}. ${detail || ""}`}
     onPress={onPress} style={({ pressed }) => [styles.row, divider && styles.divider, pressed && styles.pressed]}>
     <View style={styles.copy}>
@@ -15,7 +15,7 @@ export default function MetricRow({ title, value, unit, detail, values, type, go
       </Text>
       {!!detail && <Text style={styles.detail}>{detail}</Text>}
     </View>
-    <Sparkline values={values} type={type} goal={goal} />
+    <Sparkline values={values} type={type} goal={goal} minRange={minRange} />
   </Pressable>;
 }
 

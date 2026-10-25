@@ -44,14 +44,15 @@ export function useInsights({ report = true } = {}) {
   const usedGoals = sample ? SAMPLE_GOALS : goals;
   const week = useMemo(() => period(days, usedGoals, health.summary, 7, today), [days, usedGoals, health.summary, today]);
   const month = useMemo(() => period(days, usedGoals, health.summary, 30, today), [days, usedGoals, health.summary, today]);
-  const reportContext = useMemo(() => digestMarkdown(week.digest, prefs, activityContext(week, health.summary)),
-    [week, prefs, health.summary]);
+  const samplePrefix = sample ? "This is SAMPLE data shown before the person has logged enough. Describe it as \"this sample week\", never as their own eating.\n\n" : "";
+  const reportContext = useMemo(() => samplePrefix + digestMarkdown(week.digest, prefs, activityContext(week, health.summary)),
+    [samplePrefix, week, prefs, health.summary]);
   const context = useMemo(() => `${reportContext}\n\n${digestMarkdown(month.digest, prefs, activityContext(month, health.summary))}`,
     [reportContext, month, prefs, health.summary]);
   const fallback = useMemo(() => localInsight(week.digest, prefs), [week.digest, prefs]);
 
   const weekKey = weekStart(today);
-  const signature = `${prefsSignature(prefs)}|${sample ? "sample" : "own"}`;
+  const signature = `v2|${prefsSignature(prefs)}|${sample ? "sample" : "own"}`;
   const [ai, setAI] = useState({ key: null, report: null, status: "idle" });
   const abortRef = useRef(null);
 

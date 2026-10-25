@@ -1,23 +1,20 @@
 import { useEffect, useRef, useState } from "react";
-import { ActionSheetIOS, ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import Animated, { FadeIn, FadeInDown, FadeOut, LinearTransition, ZoomIn, ZoomOut } from "react-native-reanimated";
+import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
-import { TYPOGRAPHY } from "@/constants/typography";
-import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { useAuth } from "@clerk/clerk-expo";
 import GlassSurface from "@/components/GlassSurface";
-import OpenAILogo from "@/components/OpenAILogo";
+import { TYPOGRAPHY } from "@/constants/typography";
+import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { EFFORTS, STARTERS } from "@/lib/insights/harness.mjs";
 import { useDictation } from "@/lib/insights/dictation";
 import { getVoiceLanguage } from "@/lib/chatgpt/nutrition";
+import { pickMealPhoto } from "@/lib/chatgpt/planClient";
+import { GlassMenu, PressScale } from "./NativeControls";
+import ChatSettingsSheet from "./ChatSettingsSheet";
 
-function choose(title, options, onPick) {
-  if (Platform.OS === "ios") {
-    ActionSheetIOS.showActionSheetWithOptions({ title, options: [...options, "Cancel"], cancelButtonIndex: options.length },
-      (index) => { if (index < options.length) onPick(index); });
-  } else {
-    Alert.alert(title, undefined, [...options.map((option, index) => ({ text: option, onPress: () => onPick(index) })), { text: "Cancel", style: "cancel" }]);
-  }
-}
+const layout = LinearTransition.springify().damping(20).stiffness(200);
 
 // Just enough Markdown for answers: **bold**, *italic*, and [source](url) links.
 // Link parentheses around a citation are dropped so it reads as "(source)".
@@ -39,97 +36,93 @@ function Rich({ text, style }) {
   return <Text selectable style={style}>{parts}</Text>;
 }
 
-// Model picker, in the header like ChatGPT. Lists models on the user's own plan.
-function ModelHeader({ prefs, savePrefs, loadModels, contextLabel }) {
-  const [catalog, setCatalog] = useState({ models: [], current: null });
-  useEffect(() => { loadModels?.().then(setCatalog).catch(() => {}); }, [loadModels, prefs?.chatModel]);
-  const current = catalog.models.find((model) => model.slug === catalog.current);
-  const pickModel = () => {
-    if (!catalog.models.length) { Alert.alert("Connect ChatGPT", "Connect ChatGPT in Settings to choose a model."); return; }
-    choose("Model", catalog.models.map((model) => model.display_name || model.slug),
-      (index) => savePrefs({ chatModel: catalog.models[index].slug }));
-  };
-  return <View style={styles.header}>
-    <Pressable accessibilityRole="button" accessibilityLabel="Choose model" onPress={pickModel} style={styles.modelPill}>
-      <GlassSurface />
-      <OpenAILogo />
-      <Text style={styles.modelText} numberOfLines={1}>{current?.display_name || current?.slug || "ChatGPT"}</Text>
-      <Ionicons name="chevron-down" size={13} color={COLORS.textLight} />
-    </Pressable>
-    <Text style={styles.powered}>Powered by your own ChatGPT subscription</Text>
-    {!!contextLabel && <Text style={styles.context}>{contextLabel}</Text>}
-  </View>;
-}
-
 const Bars = ({ level }) => <View style={styles.bars}>
   {[0.5, 0.8, 1, 0.7, 0.45, 0.9, 0.6].map((weight, index) =>
     <View key={index} style={[styles.bar, { height: 4 + Math.round(18 * level * weight) }]} />)}
 </View>;
 
-// ChatGPT-style composer: text on top; + menu, tool chips, dictation and send below.
-function Composer({ draft, setDraft, onSend, busy, prefs, savePrefs, dictation, bottomInset }) {
-  const efforts = Object.keys(EFFORTS);
-  const pickEffort = () => choose("Thinking", efforts.map((id) => `${EFFORTS[id]}${prefs.effort === id ? "  ✓" : ""}`),
-    (index) => savePrefs({ effort: efforts[index] }));
-  const openMenu = () => choose("Tools", [...efforts.map((id) => `${EFFORTS[id]} thinking${prefs.effort === id ? "  ✓" : ""}`),
-    prefs.webSearch ? "Turn off web search" : "Turn on web search"], (index) => {
-    if (index < efforts.length) savePrefs({ effort: efforts[index] });
-    else savePrefs({ webSearch: !prefs.webSearch });
-  });
-  const canSend = Boolean(draft.trim()) && !busy;
+// ChatGPT-style composer: text on top; + menu, dashboard, search, dictation and send below.
+function Composer({ draft, setDraft, image, setImage, onSend, busy, prefs, savePrefs, dictation, onDashboard, bottomInset }) {
+  const attach = async (source) => {
+    try {
+      const picked = await pickMealPhoto(source);
+      if (picked?.dataURL) setImage(picked.dataURL);
+    } catch (error) {
+      if (!/cancel/i.test(error?.message || "")) {
+        Alert.alert(source === "camera" ? "Camera unavailable" : "Photos unavailable",
+          source === "camera" ? "This device can't open the camera." : "Couldn't open your photos.");
+      }
+    }
+  };
+  const menu = [
+    { id: "camera", title: "Camera", symbol: "camera" },
+    { id: "library", title: "Photos", symbol: "photo.on.rectangle" },
+    { id: "search", title: "Web search", symbol: "globe", checked: prefs.webSearch },
+  ];
+  const onMenu = (id) => (id === "search" ? savePrefs({ webSearch: !prefs.webSearch }) : attach(id));
+  const canSend = (Boolean(draft.trim()) || Boolean(image)) && !busy;
   return <View style={[styles.composerWrap, { paddingBottom: bottomInset }]}>
-    <View style={styles.composer}>
+    <Animated.View layout={layout} style={styles.composer}>
       <GlassSurface style={styles.composerGlass} />
-      {dictation.recording ? <View style={styles.listening}>
+      {dictation.recording ? <Animated.View key="listening" entering={FadeIn.duration(160)} style={styles.listening}>
         <Text style={[styles.input, !dictation.transcript && styles.listeningHint]} numberOfLines={4}>
           {dictation.transcript || "Listening…"}
         </Text>
         <View style={styles.composerRow}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Cancel dictation" onPress={dictation.cancel} style={styles.iconButton}>
+          <PressScale accessibilityRole="button" accessibilityLabel="Cancel dictation" onPress={dictation.cancel} style={styles.iconButton}>
             <Ionicons name="close" size={20} color={COLORS.text} />
-          </Pressable>
+          </PressScale>
           <Bars level={dictation.level} />
-          <Pressable accessibilityRole="button" accessibilityLabel="Use dictation" onPress={dictation.finish} style={styles.sendButton}>
+          <PressScale accessibilityRole="button" accessibilityLabel="Use dictation" onPress={dictation.finish} style={styles.sendButton}>
             <Ionicons name="checkmark" size={20} color={COLORS.white} />
-          </Pressable>
+          </PressScale>
         </View>
-      </View> : <>
-        <TextInput value={draft} onChangeText={setDraft} placeholder="Ask anything" placeholderTextColor={COLORS.textLight}
-          style={styles.input} multiline maxLength={1000} />
+      </Animated.View> : <Animated.View key="typing" entering={FadeIn.duration(160)}>
+        {!!image && <Animated.View entering={ZoomIn.springify().damping(16)} exiting={ZoomOut.duration(140)} style={styles.attachment}>
+          <Image source={{ uri: image }} style={styles.attachmentImage} contentFit="cover" />
+          <PressScale accessibilityRole="button" accessibilityLabel="Remove photo" onPress={() => setImage(null)} style={styles.attachmentRemove}>
+            <Ionicons name="close" size={13} color={COLORS.white} />
+          </PressScale>
+        </Animated.View>}
+        <TextInput value={draft} onChangeText={setDraft} placeholder={image ? "Ask about this photo" : "Ask anything"}
+          placeholderTextColor={COLORS.textLight} style={styles.input} multiline maxLength={1000} />
         <View style={styles.composerRow}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Tools" onPress={openMenu} style={styles.iconButton}>
-            <Ionicons name="add" size={22} color={COLORS.text} />
-          </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="Thinking level" onPress={pickEffort} style={styles.chip}>
-            <Ionicons name="bulb-outline" size={14} color={COLORS.text} />
+          <GlassMenu symbol="plus" icon="add" label="Add" items={menu} onSelect={onMenu} size={38} />
+          <PressScale accessibilityRole="button" accessibilityLabel={`Model and thinking: ${EFFORTS[prefs.effort] || EFFORTS.medium}`}
+            onPress={onDashboard} style={styles.chip}>
+            <Ionicons name="speedometer-outline" size={16} color={COLORS.text} />
             <Text style={styles.chipText}>{EFFORTS[prefs.effort] || EFFORTS.medium}</Text>
-          </Pressable>
-          {prefs.webSearch && <Pressable accessibilityRole="button" accessibilityLabel="Turn off web search"
-            onPress={() => savePrefs({ webSearch: false })} style={[styles.chip, styles.chipOn]}>
-            <Ionicons name="globe-outline" size={14} color={COLORS.primary} />
-            <Text style={[styles.chipText, styles.chipTextOn]}>Search</Text>
-            <Ionicons name="close" size={12} color={COLORS.primary} />
-          </Pressable>}
+          </PressScale>
+          {prefs.webSearch && <Animated.View entering={ZoomIn.springify().damping(15)} exiting={ZoomOut.duration(120)}>
+            <PressScale accessibilityRole="button" accessibilityLabel="Turn off web search"
+              onPress={() => savePrefs({ webSearch: false })} style={[styles.chip, styles.chipOn]}>
+              <Ionicons name="globe-outline" size={15} color={COLORS.primary} />
+              <Text style={[styles.chipText, styles.chipTextOn]}>Search</Text>
+            </PressScale>
+          </Animated.View>}
           <View style={styles.spacer} />
-          {dictation.available && <Pressable accessibilityRole="button" accessibilityLabel="Dictate" onPress={dictation.start} style={styles.iconButton}>
+          {dictation.available && <PressScale accessibilityRole="button" accessibilityLabel="Dictate" onPress={dictation.start} style={styles.iconButton}>
             <Ionicons name="mic-outline" size={21} color={COLORS.text} />
-          </Pressable>}
-          <Pressable accessibilityRole="button" accessibilityLabel="Send" disabled={!canSend} onPress={onSend}
+          </PressScale>}
+          <PressScale accessibilityRole="button" accessibilityLabel="Send" disabled={!canSend} onPress={onSend}
             style={[styles.sendButton, !canSend && styles.sendDisabled]}>
             <Ionicons name="arrow-up" size={20} color={COLORS.white} />
-          </Pressable>
+          </PressScale>
         </View>
-      </>}
-    </View>
+      </Animated.View>}
+    </Animated.View>
   </View>;
 }
 
 // Conversation with the analyst. ask(messages) returns { text, preview, note }.
 export default function ChatPanel({ ask, contextLabel, initialQuestion, bottomInset = 12, prefs, savePrefs, loadModels }) {
+  const settings = prefs || { effort: "medium", webSearch: false };
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
+  const [image, setImage] = useState(null);
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState(false);
+  const [dashboard, setDashboard] = useState(false);
   const scrollRef = useRef(null);
   const abortRef = useRef(null);
   const asked = useRef(null);
@@ -138,11 +131,11 @@ export default function ChatPanel({ ask, contextLabel, initialQuestion, bottomIn
   useEffect(() => { if (userId) getVoiceLanguage(userId).then((value) => value && setLanguage(value)).catch(() => {}); }, [userId]);
   const dictation = useDictation({ language, onDone: (text) => setDraft((current) => current ? `${current.trimEnd()} ${text}` : text) });
 
-  const send = async (text) => {
+  const send = async (text, photo = null) => {
     const question = text.trim();
-    if (!question || busy) return;
-    const next = [...messages, { role: "user", text: question }];
-    setMessages(next); setDraft(""); setBusy(true);
+    if ((!question && !photo) || busy) return;
+    const next = [...messages, { role: "user", text: question || "What can you tell me about this?", images: photo ? [photo] : undefined }];
+    setMessages(next); setDraft(""); setImage(null); setBusy(true);
     const controller = new AbortController();
     abortRef.current = controller;
     try {
@@ -164,49 +157,59 @@ export default function ChatPanel({ ask, contextLabel, initialQuestion, bottomIn
   return <View style={styles.panel}>
     <ScrollView ref={scrollRef} contentContainerStyle={styles.thread} keyboardDismissMode="interactive"
       onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
-      {prefs ? <ModelHeader prefs={prefs} savePrefs={savePrefs} loadModels={loadModels} contextLabel={contextLabel} />
-        : <Text style={styles.context}>{contextLabel}</Text>}
-      {!messages.length && <View style={styles.empty}>
+      <View style={styles.header}>
+        <Text style={styles.powered}>Powered by your own ChatGPT subscription{contextLabel ? ` · ${contextLabel}` : ""}</Text>
+      </View>
+      {!messages.length && <Animated.View entering={FadeIn.duration(220)} exiting={FadeOut.duration(150)} style={styles.empty}>
         <Text style={styles.emptyTitle}>Ask about your data</Text>
         <Text style={styles.emptyBody}>Answers use your logged meals and, if connected, Apple Health. Numbers are computed on your phone.</Text>
-        {STARTERS.map((question) => <Pressable key={question} onPress={() => send(question)}
-          style={({ pressed }) => [styles.starter, pressed && styles.pressed]}>
-          <Text style={styles.starterText}>{question}</Text>
-          <Ionicons name="arrow-up-outline" size={14} color={COLORS.textLight} style={styles.starterIcon} />
-        </Pressable>)}
-      </View>}
-      {messages.map((message, index) => <View key={index} style={message.role === "user" ? styles.userRow : styles.aiRow}>
+      </Animated.View>}
+      {messages.map((message, index) => <Animated.View key={index} entering={FadeInDown.springify().damping(18)} layout={layout}
+        style={message.role === "user" ? styles.userRow : styles.aiRow}>
+        {message.images?.map((uri) => <Image key={uri.slice(-24)} source={{ uri }} style={styles.sentImage} contentFit="cover" />)}
         <View style={[styles.bubble, message.role === "user" ? styles.userBubble : styles.aiBubble]}>
           {message.role === "user" ? <Text selectable style={[styles.bubbleText, styles.userText]}>{message.text}</Text>
             : <Rich text={message.text} style={styles.bubbleText} />}
         </View>
         {!!message.note && <Text style={styles.note}>{message.note}</Text>}
-      </View>)}
-      {busy && <View style={[styles.bubble, styles.aiBubble, styles.thinking]}>
+      </Animated.View>)}
+      {busy && <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(120)} style={[styles.bubble, styles.aiBubble, styles.thinking]}>
         <ActivityIndicator size="small" color={COLORS.textLight} />
-        <Text style={styles.thinkingText}>{prefs?.webSearch ? "Thinking and searching…" : "Thinking…"}</Text>
-      </View>}
+        <Text style={styles.thinkingText}>{settings.webSearch ? "Thinking and searching…" : "Thinking…"}</Text>
+      </Animated.View>}
       {preview && !busy && <Text style={styles.previewNote}>Preview reply. Connect ChatGPT in Settings for real answers.</Text>}
     </ScrollView>
-    <Composer draft={draft} setDraft={setDraft} onSend={() => send(draft)} busy={busy} dictation={dictation}
-      prefs={prefs || { effort: "medium", webSearch: false }} savePrefs={savePrefs || (() => {})} bottomInset={bottomInset} />
+    {!messages.length && !busy && <View style={styles.starters}>
+      {STARTERS.map((question, index) => <Animated.View key={question} entering={FadeInDown.delay(70 * index).springify().damping(18)}
+        exiting={FadeOut.duration(120)}>
+        <PressScale onPress={() => send(question)} scaleTo={0.96} style={styles.starter}>
+          <Text style={styles.starterText}>{question}</Text>
+        </PressScale>
+      </Animated.View>)}
+    </View>}
+    <Composer draft={draft} setDraft={setDraft} image={image} setImage={setImage} onSend={() => send(draft, image)} busy={busy}
+      dictation={dictation} prefs={settings} savePrefs={savePrefs || (() => {})} onDashboard={() => setDashboard(true)} bottomInset={bottomInset} />
+    {prefs && <ChatSettingsSheet visible={dashboard} onClose={() => setDashboard(false)} prefs={prefs} savePrefs={savePrefs} loadModels={loadModels} />}
   </View>;
 }
 
 const styles = StyleSheet.create({
   panel: { flex: 1 },
   thread: { padding: 20, paddingTop: 8, gap: 10 },
+  header: { alignItems: "center", gap: 2, marginBottom: 4 },
+  powered: { ...TYPOGRAPHY.caption, color: COLORS.textLight, textAlign: "center" },
   context: { ...TYPOGRAPHY.caption, color: COLORS.textLight, textAlign: "center" },
   empty: { gap: 8, marginTop: 16 },
   emptyTitle: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text },
   emptyBody: { ...TYPOGRAPHY.body, color: COLORS.textLight, marginBottom: 6 },
-  starter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 13,
-    borderRadius: 16, backgroundColor: "#FFFFFF", borderWidth: StyleSheet.hairlineWidth, borderColor: "#E8DFD6" },
-  starterText: { ...TYPOGRAPHY.bodyMedium, color: COLORS.text, flex: 1 },
-  starterIcon: { transform: [{ rotate: "45deg" }] },
-  pressed: { opacity: 0.6 },
-  userRow: { alignItems: "flex-end" },
+  // Suggestions sit right-aligned above the composer, sized to their text like sent bubbles.
+  starters: { alignItems: "flex-end", gap: 8, paddingHorizontal: 16, paddingBottom: 4 },
+  starter: { paddingHorizontal: 15, paddingVertical: 10, borderRadius: 20, borderBottomRightRadius: 6,
+    backgroundColor: "#FFFFFF", borderWidth: StyleSheet.hairlineWidth, borderColor: "#E8DFD6" },
+  starterText: { ...TYPOGRAPHY.bodyMedium, color: COLORS.text },
+  userRow: { alignItems: "flex-end", gap: 6 },
   aiRow: { alignItems: "flex-start", gap: 4 },
+  sentImage: { width: 160, height: 160, borderRadius: 18 },
   bubble: { maxWidth: "88%", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18 },
   userBubble: { backgroundColor: COLORS.text },
   aiBubble: { backgroundColor: "#FFFFFF" },
@@ -214,31 +217,31 @@ const styles = StyleSheet.create({
   italic: { fontStyle: "italic" },
   link: { color: COLORS.primary, textDecorationLine: "underline" },
   note: { ...TYPOGRAPHY.caption, color: COLORS.textLight, marginLeft: 4 },
-  header: { alignItems: "center", gap: 6, marginBottom: 4 },
-  modelPill: { flexDirection: "row", alignItems: "center", gap: 6, maxWidth: 240, minHeight: 36, paddingHorizontal: 14, borderRadius: 18 },
-  modelText: { ...TYPOGRAPHY.bodyMedium, color: COLORS.text, flexShrink: 1 },
-  powered: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
+  bubbleText: { ...TYPOGRAPHY.body, color: COLORS.text },
+  userText: { color: COLORS.white },
+  thinking: { flexDirection: "row", alignItems: "center", gap: 8 },
+  thinkingText: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
+  previewNote: { ...TYPOGRAPHY.caption, color: COLORS.textLight, textAlign: "center", marginTop: 4 },
   composerWrap: { paddingHorizontal: 12, paddingTop: 6 },
-  composer: { borderRadius: 28, paddingHorizontal: 8, paddingTop: 6, paddingBottom: 8, gap: 2 },
+  composer: { borderRadius: 28, paddingHorizontal: 8, paddingTop: 6, paddingBottom: 8 },
   composerGlass: { borderRadius: 28 },
   composerRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   iconButton: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
-  chip: { flexDirection: "row", alignItems: "center", gap: 4, height: 32, paddingHorizontal: 10, borderRadius: 16,
+  chip: { flexDirection: "row", alignItems: "center", gap: 5, height: 34, paddingHorizontal: 11, borderRadius: 17,
     backgroundColor: "rgba(255,255,255,0.7)", borderWidth: StyleSheet.hairlineWidth, borderColor: "#E8DFD6" },
   chipOn: { backgroundColor: "#FBEADF", borderColor: "#F2D3BF" },
   chipText: { ...TYPOGRAPHY.captionMedium, color: COLORS.text },
   chipTextOn: { color: COLORS.primary },
   spacer: { flex: 1 },
   sendButton: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: COLORS.text },
+  sendDisabled: { backgroundColor: "rgba(74,52,40,0.3)" },
+  input: { ...TYPOGRAPHY.input, minHeight: 40, maxHeight: 120, paddingHorizontal: 10, paddingTop: 8, paddingBottom: 6, color: COLORS.text },
   listening: { gap: 2 },
   listeningHint: { color: COLORS.textLight },
   bars: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, height: 38 },
   bar: { width: 4, borderRadius: 2, backgroundColor: COLORS.text },
-  bubbleText: { ...TYPOGRAPHY.body, color: COLORS.text },
-  userText: { color: COLORS.white },
-  thinking: { flexDirection: "row", alignItems: "center", gap: 8 },
-  thinkingText: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
-  previewNote: { ...TYPOGRAPHY.caption, color: COLORS.textLight, textAlign: "center", marginTop: 4 },
-  input: { ...TYPOGRAPHY.input, minHeight: 40, maxHeight: 120, paddingHorizontal: 10, paddingTop: 8, paddingBottom: 6, color: COLORS.text },
-  sendDisabled: { opacity: 0.25 },
+  attachment: { width: 64, height: 64, margin: 6, marginBottom: 0 },
+  attachmentImage: { width: 64, height: 64, borderRadius: 14 },
+  attachmentRemove: { position: "absolute", top: -6, right: -6, width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center",
+    backgroundColor: COLORS.text, borderWidth: 2, borderColor: "#FFFFFF" },
 });

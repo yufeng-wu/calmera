@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, Share, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useRouter } from "expo-router";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { FormCard, formStyles } from "@/components/GlassForm";
 import SettingsRow from "@/components/SettingsRow";
-import GlassSurface from "@/components/GlassSurface";
+import { Segmented } from "@/components/insights/NativeControls";
 import MetricRow from "@/components/insights/MetricRow";
 import ChatPanel from "@/components/insights/ChatPanel";
 import { SURFACES } from "@/constants/surfaces";
@@ -33,17 +34,12 @@ export default function InsightsScreen() {
     <View style={[styles.header, { minHeight: Math.max(64, 40 * fontScale + 20) }]}>
       <Text accessibilityRole="header" style={styles.title}>Insights</Text>
     </View>
-    <View style={styles.segments} accessibilityRole="tablist">
-      <GlassSurface />
-      {SEGMENTS.map(([id, label]) => <Pressable key={id} accessibilityRole="tab" accessibilityState={{ selected: segment === id }}
-        onPress={() => setSegment(id)} style={[styles.segment, segment === id && styles.segmentSelected]}>
-        <Text style={[styles.segmentText, segment === id && styles.segmentTextSelected]}>{label}</Text>
-      </Pressable>)}
-    </View>
+    <Segmented items={SEGMENTS.map(([, label]) => label)} index={SEGMENTS.findIndex(([id]) => id === segment)}
+      onChange={(index) => setSegment(SEGMENTS[index][0])} style={styles.segmented} />
 
-    {segment !== "chat" && <ScrollView key={segment} contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 32 }]}
+    {segment !== "chat" && <Animated.ScrollView key={segment} entering={FadeIn.duration(220)} contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 32 }]}
       showsVerticalScrollIndicator={false}>
-      {data.sample && <Text style={styles.sample}>Showing sample data until you have 3 logged days this week.</Text>}
+      {data.sample && <Text style={styles.sample}>Sample data · log 3 days to see yours</Text>}
       {segment === "week" ? <WeeklyReport data={data} onChangeFocus={() => router.push("/insights-harness")} />
         : <Text style={styles.compareNote}>Last 30 days, compared with the 30 days before.</Text>}
       <NutritionCard period={segment === "week" ? data.week : data.month} goals={data.goals} ask={ask} />
@@ -56,12 +52,12 @@ export default function InsightsScreen() {
           onPress={() => router.push("/insights-harness")} />
       </FormCard>
       <Text style={styles.footnote}>Food values are estimates from your logs. Not medical advice.</Text>
-    </ScrollView>}
+    </Animated.ScrollView>}
 
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={0}
       style={[styles.chat, segment !== "chat" && styles.hidden]}>
       <ChatPanel ask={data.ask} bottomInset={tabBarHeight + 8} prefs={data.prefs} savePrefs={data.savePrefs} loadModels={data.loadModels}
-        contextLabel={data.sample ? "Using sample data" : "Using your last 30 days"} />
+        contextLabel={data.sample ? "sample data" : "last 30 days"} />
     </KeyboardAvoidingView>
   </View>;
 }
@@ -108,15 +104,17 @@ function WeeklyReport({ data, onChangeFocus }) {
 // "+12% vs last week"; a change that rounds to zero reads "same as".
 function deltaText(delta, span) {
   if (delta == null) return null;
-  const label = span === 7 ? "last week" : "previous 30 days";
+  const label = span === 7 ? "last wk" : "prior 30d";
   const percent = Math.round(delta * 100);
   return percent === 0 ? `same as ${label}` : `${percent > 0 ? "+" : "−"}${Math.abs(percent)}% vs ${label}`;
 }
 
 // Shared copy for a row's comparison line.
 function compareText(span, current, previous, goal, unit) {
-  if (span === 7 && goal && current != null) return `Daily average · ${Math.round((current / goal) * 100)}% of ${formatNumber(goal)} ${unit} goal`;
-  return ["Daily average", deltaText(change(current, previous), span)].filter(Boolean).join(" · ");
+  const parts = ["Avg"];
+  if (goal && current != null) parts.push(`${Math.round((current / goal) * 100)}% of goal`);
+  else parts.push(deltaText(change(current, previous), span));
+  return parts.filter(Boolean).join(" · ");
 }
 
 function NutritionCard({ period, goals, ask }) {
@@ -133,7 +131,7 @@ function NutritionCard({ period, goals, ask }) {
       value={formatNumber(average(values))} values={values} goal={goal}
       detail={compareText(span, average(values), average(previous), goal, unit)} onPress={() => ask(question(title))} />)}
     <MetricRow title="Days logged" value={`${count(now.logged)} of ${span}`} unit="" values={now.logged} divider
-      detail={span === 7 ? "Logging most days keeps the averages honest" : `${count(before.logged)} of ${span} the period before`}
+      detail={span === 7 ? "More days, truer averages" : `${count(before.logged)} of ${span} the period before`}
       onPress={() => ask(`How consistent was my logging over the past ${span} days?`)} />
   </SectionCard>;
 }
@@ -145,12 +143,12 @@ function MealTimingCard({ period, ask }) {
   const snackDelta = change(average(now.snackCalories), average(before.snackCalories));
   return <SectionCard title="Meal timing">
     {[["Breakfast", now.breakfast], ["Lunch", now.lunch], ["Dinner", now.dinner]].map(([title, values], index) =>
-      <MetricRow key={title} title={title} value={formatClock(average(values))} unit="" values={values} type="line" divider={index > 0}
-        detail={`Average time · logged on ${count(values)} of ${span} days`}
+      <MetricRow key={title} title={title} value={formatClock(average(values))} unit="" values={values} divider={index > 0}
+        type="dots" minRange={120} detail={`Avg time · ${count(values)} of ${span} days`}
         onPress={() => ask(`Is my ${title.toLowerCase()} timing over the past ${span} days working for my focus?`)} />)}
     <MetricRow title="Snacks" value={formatNumber(average(now.snackCalories))} unit="kcal" values={now.snackCalories} divider
-      detail={[`Per day · ${formatNumber(average(now.snackCount), 1)} snacks`,
-        snackShare != null && `${Math.round(snackShare * 100)}% of calories`,
+      detail={[`${formatNumber(average(now.snackCount), 1)}/day`,
+        snackShare != null && `${Math.round(snackShare * 100)}% of kcal`,
         deltaText(snackDelta, span),
       ].filter(Boolean).join(" · ")}
       onPress={() => ask(`What do my snacks over the past ${span} days say, and what would be a better swap?`)} />
@@ -161,7 +159,7 @@ const total = (values) => values.reduce((sum, value) => sum + (value || 0), 0);
 // Workouts are occasional, so show the period's total and session count, not a daily average.
 function workoutText(span, values, previous) {
   const sessions = count(values);
-  return [`Total · ${sessions} workout${sessions === 1 ? "" : "s"}`, deltaText(change(total(values), total(previous)), span)]
+  return [`${sessions} session${sessions === 1 ? "" : "s"}`, deltaText(change(total(values), total(previous)), span)]
     .filter(Boolean).join(" · ");
 }
 
@@ -184,18 +182,18 @@ function ActivityCard({ period, health, ask }) {
   const rows = [
     ["Active energy", "kcal", now.activeEnergy, before.activeEnergy, "bar", 0],
     ["Steps", "", now.steps, before.steps, "bar", 0],
-    ["Sleep", "h", now.sleepHours, before.sleepHours, "line", 1],
+    ["Sleep", "h", now.sleepHours, before.sleepHours, "line", 1, 2],
   ];
   return <SectionCard title="Activity" badge="Apple Health">
-    {rows.map(([title, unit, values, previous, type, digits], index) => <MetricRow key={title} title={title} unit={unit} type={type}
+    {rows.map(([title, unit, values, previous, type, digits, minRange], index) => <MetricRow key={title} title={title} unit={unit} type={type} minRange={minRange}
       divider={index > 0} value={formatNumber(average(values), digits)} values={values}
       detail={compareText(span, average(values), average(previous), null, unit)}
       onPress={() => ask(`How does my ${title.toLowerCase()} over the past ${span} days relate to what I eat?`)} />)}
     <MetricRow title="Workouts" unit="min" divider value={formatNumber(total(now.exerciseMinutes))} values={now.exerciseMinutes}
       detail={workoutText(span, now.exerciseMinutes, before.exerciseMinutes)}
       onPress={() => ask(`How do my workouts over the past ${span} days fit with what I eat?`)} />
-    {weights.length > 0 && <MetricRow title="Weight" unit="kg" type="line" divider value={formatNumber(latest(now.weight), 1)} values={now.weight}
-      detail={weightChange == null ? "Latest" : `Latest · ${weightChange >= 0 ? "+" : "−"}${Math.abs(weightChange).toFixed(1)} kg over ${span} days`}
+    {weights.length > 0 && <MetricRow title="Weight" unit="kg" type="line" minRange={2} divider value={formatNumber(latest(now.weight), 1)} values={now.weight}
+      detail={weightChange == null ? "Latest" : `${weightChange >= 0 ? "+" : "−"}${Math.abs(weightChange).toFixed(1)} kg in ${span} days`}
       onPress={() => ask(`Is my weight trend over the past ${span} days consistent with my focus?`)} />}
   </SectionCard>;
 }
@@ -224,12 +222,7 @@ function SectionCard({ title, badge, children }) {
 const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, justifyContent: "center", alignItems: "center" },
   title: { ...TYPOGRAPHY.pageTitle, color: COLORS.text },
-  // Liquid Glass track with a brighter capsule for the selected segment, like iOS 26.
-  segments: { flexDirection: "row", alignSelf: "center", padding: 4, borderRadius: 24, marginBottom: 8 },
-  segment: { minWidth: 96, alignItems: "center", paddingHorizontal: 16, paddingVertical: 9, borderRadius: 20 },
-  segmentSelected: { backgroundColor: "rgba(255,255,255,0.92)", shadowColor: "#4A3428", shadowOpacity: 0.12, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
-  segmentText: { ...TYPOGRAPHY.bodyMedium, color: COLORS.textLight },
-  segmentTextSelected: { color: COLORS.text, fontWeight: "600" },
+  segmented: { marginBottom: 10 },
   content: { padding: 20, paddingTop: 8, gap: 14 },
   sample: { ...TYPOGRAPHY.caption, color: COLORS.textLight, textAlign: "center" },
   compareNote: { ...TYPOGRAPHY.caption, color: COLORS.textLight, marginLeft: 4 },
