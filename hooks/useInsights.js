@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@clerk/clerk-expo";
 import { useNutritionData } from "@/hooks/useNutritionData";
 import { nutritionClient } from "@/lib/chatgpt/nutrition";
-import { weeklyDigest, digestMarkdown } from "@/lib/insights/digest.mjs";
+import { weeklyDigest, digestMarkdown, foodLogText } from "@/lib/insights/digest.mjs";
 import { instructions, localInsight, parseInsight, previewReply } from "@/lib/insights/harness.mjs";
 import { sampleDays, SAMPLE_GOALS } from "@/lib/insights/sampleWeek.mjs";
 import { average, dateKeys, healthSeries, latest, nutritionSeries } from "@/lib/insights/series.mjs";
@@ -27,7 +27,7 @@ function activityContext(current, health) {
     activeEnergy: average(current.activity.activeEnergy), steps: average(current.activity.steps),
     exerciseMinutes: average(current.activity.exerciseMinutes), sleepHours: average(current.activity.sleepHours),
     weight: latest(current.activity.weight), weightChange: weights.length > 1 ? weights[weights.length - 1] - weights[0] : null,
-    age: health.profile?.age, sex: health.profile?.sex,
+    age: health.profile?.age, sex: health.profile?.sex, span: current.span,
   };
 }
 
@@ -47,12 +47,14 @@ export function useInsights({ report = true } = {}) {
   const samplePrefix = sample ? "This is SAMPLE data shown before the person has logged enough. Describe it as \"this sample week\", never as their own eating.\n\n" : "";
   const reportContext = useMemo(() => samplePrefix + digestMarkdown(week.digest, prefs, activityContext(week, health.summary)),
     [samplePrefix, week, prefs, health.summary]);
-  const context = useMemo(() => `${reportContext}\n\n${digestMarkdown(month.digest, prefs, activityContext(month, health.summary))}`,
-    [reportContext, month, prefs, health.summary]);
+  // Chat gets both summaries plus the full log, so it can answer anything about past meals.
+  const log = useMemo(() => foodLogText(days), [days]);
+  const context = useMemo(() => [reportContext, digestMarkdown(month.digest, prefs, activityContext(month, health.summary)), log]
+    .filter(Boolean).join("\n\n"), [reportContext, month, prefs, health.summary, log]);
   const fallback = useMemo(() => localInsight(week.digest, prefs), [week.digest, prefs]);
 
   const weekKey = weekStart(today);
-  const signature = `v2|${prefsSignature(prefs)}|${sample ? "sample" : "own"}`;
+  const signature = `v3|${prefsSignature(prefs)}|${sample ? "sample" : "own"}`;
   const [ai, setAI] = useState({ key: null, report: null, status: "idle" });
   const abortRef = useRef(null);
 
