@@ -8,6 +8,7 @@ import { instructions, localInsight, parseInsight, previewReply } from "@/lib/in
 import { sampleDays, SAMPLE_GOALS } from "@/lib/insights/sampleWeek.mjs";
 import { average, dateKeys, healthSeries, latest, nutritionSeries } from "@/lib/insights/series.mjs";
 import { useInsightPrefs } from "@/lib/insights/prefs";
+import { safeDiagnosticCode } from "@/lib/chatgpt/diagnostics.mjs";
 import { useHealth } from "@/lib/insights/health";
 import { prefsSignature, readReport, saveReport, weekStart } from "@/lib/insights/reportCache";
 
@@ -60,8 +61,9 @@ export function useInsights({ report = true } = {}) {
   const abortRef = useRef(null);
 
   const connection = useCallback(async () => {
-    try { return userId ? await nutritionClient(userId) : null; } catch { return null; }
+    try { return userId ? await nutritionClient(userId) : null; } catch (error) { lastError.current = error; return null; }
   }, [userId]);
+  const lastError = useRef(null);
 
   const generate = useCallback(async (key) => {
     abortRef.current?.abort();
@@ -69,7 +71,7 @@ export function useInsights({ report = true } = {}) {
     abortRef.current = controller;
     setAI((current) => ({ key, report: current.key === key ? current.report : null, status: "loading" }));
     const linked = await connection();
-    if (!linked) { setAI({ key, report: null, status: "offline" }); return; }
+    if (!linked) { setAI({ key, report: null, status: "offline", error: lastError.current ? safeDiagnosticCode(lastError.current) : "not_connected" }); return; }
     try {
       const reply = await linked.client.respond({ model: linked.model, signal: controller.signal,
         instructions: instructions(prefs, reportContext, { report: true }), effort: "medium",
@@ -77,8 +79,8 @@ export function useInsights({ report = true } = {}) {
       const saved = { week: weekKey, signature, createdAt: Date.now(), insight: parseInsight(reply.text) };
       await saveReport(userId, saved);
       setAI({ key, report: saved, status: "done" });
-    } catch {
-      if (!controller.signal.aborted) setAI({ key, report: null, status: "offline" });
+    } catch (error) {
+      if (!controller.signal.aborted) setAI({ key, report: null, status: "offline", error: safeDiagnosticCode(error) });
     }
   }, [connection, prefs, reportContext, weekKey, signature, userId]);
 
@@ -127,6 +129,6 @@ export function useInsights({ report = true } = {}) {
   return {
     sample, goals: usedGoals, week, month, health, prefs, savePrefs: save, context,
     insight: personal?.insight || fallback, report: { personal: Boolean(personal), createdAt: personal?.createdAt, week: weekKey },
-    reportStatus: ai.key === key ? ai.status : "idle", refreshReport: () => generate(key), ask, loadModels,
+    reportStatus: ai.key === key ? ai.status : "idle", reportError: ai.key === key ? ai.error : null, refreshReport: () => generate(key), ask, loadModels,
   };
 }

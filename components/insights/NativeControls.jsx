@@ -9,7 +9,7 @@ const nativeView = (name) => {
   if (Platform.OS !== "ios") return null;
   try { return requireNativeViewManager("CalmeraChatGPT", name); } catch { return null; }
 };
-const NativeSegmented = nativeView("Segmented");
+const NativeSegmented = nativeView("InsightsSegmented");
 const NativeGlassMenu = nativeView("GlassMenu");
 const SPRING = { damping: 18, stiffness: 260, mass: 0.6 };
 

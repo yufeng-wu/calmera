@@ -3,7 +3,7 @@ import UIKit
 
 // System segmented control: on iOS 26 it is Liquid Glass and slides its
 // selection with the native spring.
-final class CalmeraSegmentedView: ExpoView {
+final class CalmeraInsightsSegmentedView: ExpoView {
   let onChange = EventDispatcher()
   private let control = UISegmentedControl()
   private var items: [String] = []

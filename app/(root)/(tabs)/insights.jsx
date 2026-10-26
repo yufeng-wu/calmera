@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, Share, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useRouter } from "expo-router";
+import Constants from "expo-constants";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
@@ -63,7 +64,8 @@ export default function InsightsScreen() {
 }
 
 function WeeklyReport({ data, onChangeFocus }) {
-  const { insight, report, reportStatus, refreshReport, prefs } = data;
+  const { insight, report, reportStatus, reportError, refreshReport, prefs } = data;
+  const failed = reportStatus === "offline" && reportError && reportError !== "not_connected";
   const verdict = VERDICTS[insight.verdict];
   const loading = reportStatus === "loading";
   return <FormCard style={styles.report}>
@@ -89,12 +91,13 @@ function WeeklyReport({ data, onChangeFocus }) {
         <Text style={styles.footerText}>Focus: <Text style={styles.footerLink}>{FOCUS[prefs.focus]?.label}</Text></Text>
       </Pressable>
       {loading ? <ActivityIndicator size="small" color={COLORS.textLight} />
-        : report.personal && <Pressable accessibilityLabel="Regenerate report" onPress={refreshReport} hitSlop={8}>
+        : (report.personal || failed) && <Pressable accessibilityLabel="Regenerate report" onPress={refreshReport} hitSlop={8}>
           <Ionicons name="refresh" size={16} color={COLORS.textLight} />
         </Pressable>}
     </View>
     <Text style={styles.source}>
       {loading ? "Writing this week's report…"
+        : failed ? `Couldn't get this week's report from ChatGPT. Tap ↻ to try again.${Constants.expoConfig?.extra?.calmeraFullAppTest ? ` (${reportError})` : ""}`
         : report.personal ? `Written by your ChatGPT on ${new Date(report.createdAt).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}`
           : "Rules-based summary. Connect ChatGPT in Settings for a written report."}
     </Text>
