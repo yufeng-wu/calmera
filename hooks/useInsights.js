@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@clerk/clerk-expo";
+import { useIsFocused } from "@react-navigation/native";
 import { useNutritionData } from "@/hooks/useNutritionData";
 import { nutritionClient } from "@/lib/chatgpt/nutrition";
 import { weeklyDigest, digestMarkdown, foodLogText } from "@/lib/insights/digest.mjs";
@@ -94,6 +95,11 @@ export function useInsights({ report = true } = {}) {
     });
   }, [report, week.digest.daysLogged, key, userId, weekKey, signature, generate]);
   useEffect(() => () => abortRef.current?.abort(), []);
+  // If ChatGPT wasn't connected (or the request failed), try again each time Insights comes back into view.
+  const focused = useIsFocused();
+  useEffect(() => {
+    if (report && focused && ai.key === key && ai.status === "offline") generate(key);
+  }, [report, focused]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Chat uses the model, thinking level and web search chosen in the chat bar.
   const ask = useCallback(async (messages, { signal } = {}) => {
