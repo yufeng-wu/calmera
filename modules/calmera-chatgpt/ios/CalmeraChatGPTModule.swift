@@ -1504,6 +1504,7 @@ final class CalmeraFormButtonView: ExpoView {
   var loading = false
   private let button = UIButton(type: .system)
   private let tint = UIColor(red: 188/255, green: 90/255, blue: 25/255, alpha: 1)
+  private var configurationKey = ""
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -1579,9 +1580,20 @@ final class CalmeraFormButtonView: ExpoView {
       config.imagePadding = 0
       config.contentInsets = .zero
     }
-    button.tintColor = neutral ? .label : tint
-    button.configuration = config
-    button.isEnabled = !buttonDisabled && !loading
+    // React re-sends props on every render, often while UIKit is animating (a
+    // press, or a picker sheet presenting). Rebuild only on a real change, and
+    // never inside someone else's animation: a configuration applied there
+    // animates its fresh title label in from a stale frame for a moment.
+    let key = [buttonTitle, symbol, buttonRole, buttonLabel, "\(buttonDisabled)", "\(loading)", "\(opaque)",
+      "\(UIAccessibility.isDarkerSystemColorsEnabled)", traitCollection.preferredContentSizeCategory.rawValue].joined(separator: "|")
+    guard key != configurationKey else { return }
+    configurationKey = key
+    UIView.performWithoutAnimation {
+      button.tintColor = neutral ? .label : tint
+      button.configuration = config
+      button.isEnabled = !buttonDisabled && !loading
+      button.layoutIfNeeded()
+    }
     button.accessibilityLabel = buttonLabel.isEmpty ? buttonTitle : buttonLabel
     button.accessibilityValue = loading ? "Processing" : nil
     button.titleLabel?.adjustsFontForContentSizeCategory = true

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { editorNumber, mealEditorValues, storedMealDateKey, storedMealForEditor } from "../lib/mealEditorDraft.mjs";
+import { editorNumber, mealEditorChanged, mealEditorValues, storedMealDateKey, storedMealForEditor } from "../lib/mealEditorDraft.mjs";
 import { createNutritionStore } from "../lib/nutritionStore.mjs";
 
 const owner = "meal-editor-test-owner";
@@ -66,4 +66,14 @@ test("fixed-point API decimals show only the digits that carry value", () => {
   assert.equal(editorNumber(""), "");
   assert.deepEqual(mealEditorValues({ food_name: "Stew", calories: "450.00", protein: "42.00", carbs: "18.25", fat: 23 }),
     { foodName: "Stew", quantity: "", calories: "450", protein: "42", carbs: "18.25", fat: "23", mealType: "Breakfast" });
+});
+
+test("the editor counts a draft as changed only when a value really differs", () => {
+  const base = { foodName: "Stew", quantity: "1 bowl", mealType: "Dinner", calories: "450", protein: "42", carbs: "18", fat: "23" };
+  assert.equal(mealEditorChanged(base, { ...base }), false);
+  assert.equal(mealEditorChanged(base, { ...base, foodName: " Stew ", calories: "450.0" }), false);
+  assert.equal(mealEditorChanged(base, { ...base, mealType: "Lunch" }), true);
+  assert.equal(mealEditorChanged(base, { ...base, fat: "24" }), true);
+  assert.equal(mealEditorChanged(base, { ...base, protein: "" }), true);
+  assert.equal(mealEditorChanged(null, base), false);
 });

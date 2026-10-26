@@ -10,6 +10,7 @@ import { SURFACES } from "@/constants/surfaces";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { getFoodIcon } from "@/lib/foodIcons.mjs";
 import FoodEmojiPicker from "@/components/FoodEmojiPicker";
+import NutrientValue from "@/components/NutrientValue";
 import { useFoodIcons } from "@/context/FoodIconsContext";
 import { MEAL_TYPES, MAX_MEAL_FOODS, addReviewFood, hasIncompleteFood, reviewTotals, setReviewField, validateMealReview } from "@/lib/mealReview.mjs";
 
@@ -17,6 +18,7 @@ import { MEAL_TYPES, MAX_MEAL_FOODS, addReviewFood, hasIncompleteFood, reviewTot
 const numberFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
 const number = value => numberFormat.format(Number(value) || 0);
 const nutrients = [["Calories", "calories", "kcal"], ["Protein", "protein", "g"], ["Carbs", "carbs", "g"], ["Fat", "fat", "g"]];
+const pick = entry => Object.fromEntries(nutrients.map(([, key]) => [key, entry[key]]));
 const amount = value => value.replace(/\s*\(([^)]+)\)/g, " · $1");
 const MACROS = [["Protein", "protein"], ["Carbs", "carbs"], ["Fat", "fat"]];
 const EASE_OUT = Easing.bezier(0.2, 0.8, 0.2, 1);
@@ -56,6 +58,21 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
   const headerHeight = useRef(top + 64);
   const revealFrame = useRef(null);
   const [iconFoodId, setIconFoodId] = useState(null);
+  // A food's numbers before Re-estimate; when its estimate lands, the changed tiles count up.
+  const beforeEstimate = useRef({});
+  const [pulse, setPulse] = useState(null);
+  const lastEstimating = useRef(estimating);
+  useEffect(() => {
+    const finished = lastEstimating.current;
+    lastEstimating.current = estimating;
+    if (!finished || finished === estimating) return;
+    const from = beforeEstimate.current[finished];
+    delete beforeEstimate.current[finished];
+    const entry = review.entries.find(item => item.id === finished);
+    if (!from || !entry || nutrients.every(([, key]) => Number(from[key]) === Number(entry[key]))) return;
+    setPulse({ id: Date.now(), entryId: finished, from });
+    haptic(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success));
+  }, [estimating, review.entries]);
   const [removed, setRemoved] = useState(null);
   // Removed rows stay briefly so they can fold away instead of vanishing.
   const [leaving, setLeaving] = useState([]);
@@ -309,7 +326,7 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
                       multiline scrollEnabled={false} style={[styles.input, large && styles.inputStacked]} />
                   </View>
                 </View>
-                <View style={styles.nutrients}>{nutrients.map(([label, key, unit]) => {
+                <View style={styles.nutrients}>{nutrients.map(([label, key, unit], index) => {
                   const focused = focusedField?.id === entry.id && focusedField?.name === key;
                   // Step the number down as it grows so it and its unit stay on one line.
                   const digits = String(entry[key]).length;
@@ -320,28 +337,20 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
                     <Text style={styles.tileLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{label}</Text>
                     {/* The unit trails the number as fixed text: an invisible copy of the value sizes
                         the field, so only the number is editable and the unit follows it as you type. */}
-                    <View style={styles.valueRow}>
-                      <View style={styles.valueSlot}>
-                        <Text style={[styles.nutrientText, fit, styles.sizer]} numberOfLines={1} accessible={false} importantForAccessibility="no">{String(entry[key]) || "0"}</Text>
-                        <TextInput {...inputProps(entry.id, key)} accessibilityLabel={`${label}, ${unit === "g" ? "grams" : "kilocalories"}`}
-                          value={String(entry[key])} onChangeText={field(entry.id, key)} editable={!locked && expanded} keyboardType="decimal-pad" placeholder="0"
-                          placeholderTextColor={COLORS.textLight} selectTextOnFocus maxLength={7}
-                          style={[styles.nutrientText, fit, styles.nutrientInput]} />
-                      </View>
-                      <Text style={[styles.nutrientUnit, { fontSize: 14 - step }]} accessible={false} importantForAccessibility="no">{unit}</Text>
-                    </View>
+                    <NutrientValue {...inputProps(entry.id, key)} accessibilityLabel={`${label}, ${unit === "g" ? "grams" : "kilocalories"}`}
+                      value={entry[key]} unit={unit} onChangeText={field(entry.id, key)} editable={!locked && expanded}
+                      order={index} pulse={pulse?.entryId === entry.id ? { id: pulse.id, from: pulse.from[key] } : undefined}
+                      style={styles.valueRow} valueStyle={[styles.nutrientText, fit]} unitStyle={[styles.nutrientUnit, { fontSize: 14 - step }]} />
                   </Pressable>;
                 })}</View>
                 {validation?.id === entry.id && <Text accessibilityRole="alert" style={styles.error}>{validation.message}</Text>}
                 {/* Glass buttons are built only once a row has been opened; until then a
                     same-size placeholder keeps the measured height exact. */}
                 {!expanded && !openedIds.current.has(entry.id) ? <View style={[styles.itemActions, styles.actionsPlaceholder]} /> : <View style={styles.itemActions}>
-                  <GlassButton title="Re-estimate" symbol="sparkles" onPress={() => { Keyboard.dismiss(); onReestimate(entry.id); }}
+                  <GlassButton title="Re-estimate" symbol="sparkles" onPress={() => { Keyboard.dismiss(); beforeEstimate.current[entry.id] = pick(entry); onReestimate(entry.id); }}
                     disabled={locked || !entry.foodName.trim() || !entry.quantity.trim()} loading={estimating === entry.id} style={styles.reestimate} />
-                  <Pressable onPress={() => removeFood(entry.id)} disabled={locked} accessibilityRole="button" accessibilityLabel={`Remove ${name}`}
-                    style={({ pressed }) => [styles.remove, pressed && styles.removePressed, locked && styles.toolDisabled]}>
-                    <Ionicons name="trash-outline" size={20} color={COLORS.expense} />
-                  </Pressable>
+                  <GlassButton symbol="trash" role="destructive" onPress={() => removeFood(entry.id)} disabled={locked}
+                    accessibilityLabel={`Remove ${name}`} style={styles.remove} />
                 </View>}
               </View>}</Reveal>
               </View>
@@ -557,23 +566,17 @@ const styles = StyleSheet.create({
   // A little wider so "Calories kcal" fits beside three gram tiles.
   caloriesNutrient: { flexGrow: 1.4 },
   // The row aligns on the sizer copy's baseline, so the unit sits on the number at every size.
-  valueRow: { flexDirection: "row", alignItems: "baseline", minHeight: 34, paddingTop: 7 },
-  valueSlot: { flexShrink: 1, minWidth: 0 },
+  valueRow: { minHeight: 34, paddingTop: 7 },
   nutrientText: { fontSize: 16, fontWeight: "600", fontVariant: ["tabular-nums"], color: COLORS.text },
   nutrientLong: { fontSize: 15 },
   nutrientLonger: { fontSize: 13 },
-  // Slack for the caret. The input sits exactly over this copy, so both take only
-  // nutrientText and the size steps; never style one of them alone.
-  sizer: { opacity: 0, paddingRight: 3 },
-  nutrientInput: { ...StyleSheet.absoluteFillObject, padding: 0 },
   // Like the summary card's "25 g": a lighter unit a size or two below its number.
   nutrientUnit: { color: COLORS.textLight, marginLeft: 1 },
   error: { fontSize: 13, lineHeight: 18, color: COLORS.expense },
   itemActions: { flexDirection: "row", alignItems: "center", gap: 10 },
   reestimate: { flex: 1, height: 44, minHeight: 44 },
   actionsPlaceholder: { height: 44 },
-  remove: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "#FBEDEB" },
-  removePressed: { backgroundColor: "#F5D9D5" },
+  remove: { width: 44, height: 44, minHeight: 44, paddingHorizontal: 0 },
   empty: { paddingVertical: 8 },
   inFlowSave: { marginTop: 8 },
   saveBar: { paddingTop: 12, paddingHorizontal: 20, backgroundColor: COLORS.background },

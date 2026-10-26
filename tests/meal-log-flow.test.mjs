@@ -38,7 +38,8 @@ const all = node => !node || typeof node !== "object" ? [] : Array.isArray(node)
   ? node.flatMap(all) : [node, ...all(node.props?.children)];
 const find = (tree, predicate) => all(tree).find(predicate);
 const button = (tree, title) => find(tree, node => node.type === "GlassButton" && node.props.title === title);
-const input = (tree, label) => find(tree, node => node.type === "TextInput" && node.props.accessibilityLabel === label);
+// Nutrient numbers are NutrientValue fields; the rest are plain TextInputs.
+const input = (tree, label) => find(tree, node => (node.type === "TextInput" || node.type === "NutrientValue") && node.props.accessibilityLabel === label);
 const saveMenu = tree => find(tree, node => node.props?.testID === "save-meal");
 // Chainable stand-in for Reanimated layout-animation builders.
 const motionBuilder = new Proxy(function builder() {}, { get: (_, key) => key === "then" ? undefined : motionBuilder, apply: () => motionBuilder });
@@ -64,7 +65,7 @@ function reviewFixture() {
     "@/components/GlassForm": Object.fromEntries(["FormScreen", "FormScrollView", "FormHeader", "FormCard", "GlassButton", "MenuButton"].map(key => [key, key])),
     "@/constants/formTheme": { FORM_COLORS: {} }, "@/constants/typography": { TYPOGRAPHY: {} },
     "@/constants/surfaces": { SURFACES: { edge: {} } },
-    "@/components/FoodEmojiPicker": "FoodEmojiPicker",
+    "@/components/FoodEmojiPicker": "FoodEmojiPicker", "@/components/NutrientValue": "NutrientValue",
     "@/lib/foodIcons.mjs": foodIcons,
     "@/context/FoodIconsContext": { useFoodIcons: () => ({ iconFor: entry => foodIcons.getFoodIcon(entry.foodName) }) }, "@/lib/mealReview.mjs": reviewModel,
   });
@@ -196,7 +197,7 @@ test("food rows start compact; expanding exposes one set of directly editable fi
   assert.equal(input(tree, "Calories, kilocalories"), undefined);
   find(tree, node => node.props?.accessibilityLabel === "Edit Rice").props.onPress();
   tree = fixture.render();
-  assert.equal(all(tree).filter(node => node.type === "TextInput").length, 6);
+  assert.equal(all(tree).filter(node => node.type === "TextInput" || node.type === "NutrientValue").length, 6);
   assert.equal(button(tree, "Apply changes"), undefined);
   assert.equal(button(tree, "Cancel edits"), undefined);
   input(tree, "Calories, kilocalories").props.onChangeText("250");

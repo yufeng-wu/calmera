@@ -239,7 +239,9 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
     if (!ticket) return;
     ticket.foodId = id;
     try {
-      const result = uiFixture ? { calories: 180, protein: 4, carbs: 28, fat: 6 }
+      // The preview waits briefly and alternates its synthetic numbers, so the update is visible.
+      const result = uiFixture ? await new Promise(resolve => setTimeout(() => resolve(Number(values.calories) === 180
+        ? { calories: 150, protein: 3.5, carbs: 24, fat: 5 } : { calories: 180, protein: 4, carbs: 28, fat: 6 }), 700))
         : await estimateMacros(ticket.owner, values.foodName.trim(), values.quantity.trim(), { signal: ticket.controller.signal });
       if (!isCurrent(ticket)) return;
       const updated = { ...values, ...result, quantity: result.normalizedQuantity || values.quantity };
