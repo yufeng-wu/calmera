@@ -59,6 +59,16 @@ public final class CalmeraChatGPTModule: Module {
       Prop("pickerDisabled") { (view: CalmeraMealTimePickerView, value: Bool) in view.pickerDisabled = value }
       OnViewDidUpdateProps { (view: CalmeraMealTimePickerView) in view.updateControl() }
     }
+    View(CalmeraSegmentedView.self) {
+      ViewName("Segmented")
+      Events("onSelect")
+      Prop("options") { (view: CalmeraSegmentedView, value: [String]) in view.options = value }
+      Prop("symbols") { (view: CalmeraSegmentedView, value: [String]) in view.symbols = value }
+      Prop("selected") { (view: CalmeraSegmentedView, value: String) in view.selected = value }
+      Prop("controlLabel") { (view: CalmeraSegmentedView, value: String) in view.controlLabel = value }
+      Prop("controlDisabled") { (view: CalmeraSegmentedView, value: Bool) in view.controlDisabled = value }
+      OnViewDidUpdateProps { (view: CalmeraSegmentedView) in view.updateControl() }
+    }
     View(CalmeraGoalSliderView.self) {
       ViewName("GoalSlider")
       Events("onValueChange", "onSlidingComplete")
@@ -1109,7 +1119,6 @@ final class CalmeraMealActionsView: ExpoView {
   private var lastMetrics: [String: Double] = [:]
   private var lastProgressBucket = -1
   var previewPalette = "tangerine"
-  private var editTint: UIColor { comparisonAccent(previewPalette) }
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -1121,22 +1130,21 @@ final class CalmeraMealActionsView: ExpoView {
     container.clipsToBounds = false
     container.contentView.clipsToBounds = false
     addSubview(container)
-    for index in 0..<2 {
+    // The swipe rail carries only Delete; Edit lives in the expanded card.
+    for _ in 0..<1 {
       let material = UIVisualEffectView(effect: nil)
       material.clipsToBounds = false
       material.layer.cornerRadius = 28
       material.layer.cornerCurve = .continuous
       if #available(iOS 26.0, *) { material.cornerConfiguration = .capsule(maximumRadius: 28) }
       let button = UIButton(type: .system)
-      button.tag = index
       button.configuration = .plain()
-      button.accessibilityLabel = index == 0 ? "Edit meal" : "Delete meal"
-      button.addAction(UIAction(title: index == 0 ? "Edit" : "Delete",
-        attributes: index == 0 ? [] : .destructive) { [weak self] _ in
-          self?.onAction(["action": index == 0 ? "edit" : "delete"])
+      button.accessibilityLabel = "Delete meal"
+      button.addAction(UIAction(title: "Delete", attributes: .destructive) { [weak self] _ in
+          self?.onAction(["action": "delete"])
         }, for: .touchUpInside)
       let label = UILabel()
-      label.text = index == 0 ? "Edit" : "Delete"
+      label.text = "Delete"
       label.adjustsFontForContentSizeCategory = true
       label.numberOfLines = 1
       label.textAlignment = .center
@@ -1184,7 +1192,7 @@ final class CalmeraMealActionsView: ExpoView {
           material.effect = glass
         } else { material.effect = UIBlurEffect(style: .systemMaterial) }
         material.backgroundColor = opaque ? .secondarySystemBackground : .clear
-        let color: UIColor = index == 0 ? editTint : .systemRed
+        let color: UIColor = .systemRed
         buttons[index].tintColor = color
         labels[index].font = font
         labels[index].textColor = color
@@ -1201,10 +1209,10 @@ final class CalmeraMealActionsView: ExpoView {
   }
 
   private func renderProgress() {
-    guard materials.count == 2 else { return }
+    guard materials.count == 1 else { return }
     let p = min(1, max(0, revealProgress))
     let fullHeight = max(0, bounds.height - 2 * effectOutset)
-    let anchor = effectOutset + 2 * buttonWidth + 8
+    let anchor = effectOutset + buttonWidth
     let visibleWidth = buttonWidth * p
     let visibleHeight = fullHeight * p
     let labelPhase = min(1, max(0, (p - 0.45) / 0.45))
@@ -1212,10 +1220,8 @@ final class CalmeraMealActionsView: ExpoView {
     // The original UI-thread progress still drives the same droplet geometry;
     // the actual glass effect and native shadow are never scrubbed or faded.
     for (index, material) in materials.enumerated() {
-      // Both droplets share one right-edge seed. Separation accelerates later
-      // than size, keeping real overlapping glass until near the open state.
-      let spread = (buttonWidth + 8) * p * p
-      let originX = anchor - visibleWidth - CGFloat(1 - index) * spread
+      // The droplet grows from the rail's right-edge seed.
+      let originX = anchor - visibleWidth
       material.isHidden = p == 0
       material.frame = CGRect(x: originX,
         y: effectOutset + (fullHeight - visibleHeight) / 2,
@@ -1553,6 +1559,8 @@ final class CalmeraFormButtonView: ExpoView {
       if !branded { config.image = config.image?.withTintColor(foreground, renderingMode: .alwaysOriginal) }
     } else {
       config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(textStyle: .body, scale: .medium)
+      // Glass renders a bare symbol with its own vibrant label colour; a destructive one must stay red.
+      if buttonRole == "destructive" && !branded { config.image = config.image?.withTintColor(foreground, renderingMode: .alwaysOriginal) }
     }
     config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: buttonTitle.isEmpty ? 0 : 12,
       bottom: 8, trailing: buttonTitle.isEmpty ? 0 : 12)
@@ -1699,6 +1707,96 @@ final class CalmeraMenuButtonView: ExpoView {
 
 // Native compact time picker owns its presentation, dismissal and accessibility.
 // Treat stored minutes as wall-clock values, independent of DST and travel.
+// One row of choices. On iOS 26 UIKit draws this as Liquid Glass with a
+// sliding glass thumb; React only supplies the options and the selection.
+final class CalmeraSegmentedView: ExpoView {
+  let onSelect = EventDispatcher()
+  var options: [String] = []
+  var symbols: [String] = []
+  var selected = ""
+  var controlLabel = ""
+  var controlDisabled = false
+  private let control = UISegmentedControl()
+  private var shownKey = ""
+  private let ink = UIColor(red: 74/255, green: 52/255, blue: 40/255, alpha: 1)
+  private let accent = UIColor(red: 188/255, green: 90/255, blue: 25/255, alpha: 1)
+  required init(appContext: AppContext? = nil) {
+    super.init(appContext: appContext)
+    backgroundColor = .clear
+    overrideUserInterfaceStyle = .light
+    control.selectedSegmentTintColor = .white
+    // Equal-width segments (UIKit's default) keep the row symmetric.
+    control.addTarget(self, action: #selector(changed), for: .valueChanged)
+    addSubview(control)
+    NotificationCenter.default.addObserver(self, selector: #selector(textSizeChanged),
+      name: UIContentSizeCategory.didChangeNotification, object: nil)
+  }
+  func updateControl() {
+    let index = options.firstIndex(of: selected) ?? UISegmentedControl.noSegment
+    let key = options.joined(separator: "|") + "#" + symbols.joined(separator: "|")
+    if key != shownKey {
+      shownKey = key
+      control.removeAllSegments()
+      for (position, option) in options.enumerated() { control.insertSegment(withTitle: option, at: position, animated: false) }
+    }
+    if control.selectedSegmentIndex != index { control.selectedSegmentIndex = index }
+    control.isEnabled = !controlDisabled
+    control.accessibilityLabel = controlLabel
+    applyContent()
+    setNeedsLayout()
+  }
+  private var titleFont: UIFont {
+    UIFontMetrics(forTextStyle: .subheadline).scaledFont(for: .systemFont(ofSize: 13, weight: .semibold), compatibleWith: traitCollection)
+  }
+  // A segment holds either an image or a title, so a symbol sits above its title
+  // in one drawn image, coloured for its own state.
+  private func applyContent() {
+    control.setTitleTextAttributes([.font: titleFont, .foregroundColor: ink], for: .normal)
+    control.setTitleTextAttributes([.font: titleFont, .foregroundColor: accent], for: .selected)
+    guard symbols.count == options.count else { return }
+    for (position, option) in options.enumerated() {
+      let image = segmentImage(symbol: symbols[position], title: option, color: position == control.selectedSegmentIndex ? accent : ink)
+      image.accessibilityLabel = option
+      control.setImage(image, forSegmentAt: position)
+    }
+  }
+  private func segmentImage(symbol: String, title: String, color: UIColor) -> UIImage {
+    let font = titleFont
+    let symbolFont = UIFontMetrics(forTextStyle: .subheadline).scaledFont(for: .systemFont(ofSize: 16, weight: .semibold), compatibleWith: traitCollection)
+    let glyph = UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(font: symbolFont))?
+      .withTintColor(color, renderingMode: .alwaysOriginal)
+    let text = NSAttributedString(string: title, attributes: [.font: font, .foregroundColor: color])
+    let textSize = text.size()
+    // Every symbol is scaled to fit one fixed box, so the four read at the same size
+    // and all titles share one baseline.
+    let box = CGSize(width: ceil(symbolFont.pointSize * 1.35), height: ceil(symbolFont.pointSize * 1.2))
+    let raw = glyph?.size ?? .zero
+    let scale = raw.width > 0 && raw.height > 0 ? min(box.width / raw.width, box.height / raw.height) : 0
+    let glyphSize = CGSize(width: raw.width * scale, height: raw.height * scale)
+    let spacing: CGFloat = 3
+    let size = CGSize(width: ceil(max(textSize.width, box.width)), height: ceil(box.height + spacing + textSize.height))
+    let image = UIGraphicsImageRenderer(size: size).image { _ in
+      glyph?.draw(in: CGRect(x: (size.width - glyphSize.width) / 2, y: (box.height - glyphSize.height) / 2,
+        width: glyphSize.width, height: glyphSize.height))
+      text.draw(at: CGPoint(x: (size.width - textSize.width) / 2, y: box.height + spacing))
+    }
+    return image.withRenderingMode(.alwaysOriginal)
+  }
+  @objc private func textSizeChanged() { applyContent(); setNeedsLayout() }
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    control.frame = bounds
+  }
+  @objc private func changed() {
+    let index = control.selectedSegmentIndex
+    guard index >= 0, index < options.count else { return }
+    selected = options[index]
+    applyContent()
+    onSelect(["value": options[index]])
+  }
+  deinit { NotificationCenter.default.removeObserver(self) }
+}
+
 final class CalmeraMealTimePickerView: ExpoView {
   let onValueChange = EventDispatcher()
   var minutes = 300

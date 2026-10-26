@@ -19,15 +19,16 @@ export function MealActionRail({ translation, reveal, width }) {
   return <View pointerEvents="none" style={{ width }} />;
 }
 
-function MealSwipeActions({ width, progress, visible, onEdit, onDelete, onMetrics, overlay = false, previewPalette }) {
+function MealSwipeActions({ width, progress, visible, onDelete, onMetrics, overlay = false, previewPalette }) {
   const animatedProps = useAnimatedProps(() => ({
     revealProgress: Math.max(0, Math.min(1, progress.value)),
   }));
   const fallbackReveal = useAnimatedStyle(() => ({
-    transform: [{ translateX: (1 - Math.max(0, Math.min(1, progress.value))) * (width * 2 + 20) }],
+    transform: [{ translateX: (1 - Math.max(0, Math.min(1, progress.value))) * (width + 12) }],
   }));
-  const railWidth = width * 2 + 20;
-  const contentWidth = width * 2 + 8;
+  // Only Delete lives on the swipe rail; Edit sits in the expanded card.
+  const railWidth = width + 12;
+  const contentWidth = width;
   // Give UIKit's glass/shadow a real native canvas, rather than relying on
   // overflow outside the Expo view's exact button-sized compositing bounds.
   // The host includes the same bleed inset as Swipeable; buttons sit inside it.
@@ -40,12 +41,11 @@ function MealSwipeActions({ width, progress, visible, onEdit, onDelete, onMetric
   return <View pointerEvents="box-none" style={overlay ? StyleSheet.absoluteFill : { width: railWidth }}>
     {AnimatedNativeActions ? <AnimatedNativeActions style={nativeStyle} animatedProps={animatedProps}
       previewPalette={previewPalette || "tangerine"} buttonWidth={width} effectOutset={MEAL_EFFECT_OUTSET} actionsVisible={visible} reportMetrics={Boolean(onMetrics)}
-      onAction={({ nativeEvent }) => { if (nativeEvent.action === "edit") onEdit(); else if (nativeEvent.action === "delete") onDelete(); }}
+      onAction={({ nativeEvent }) => { if (nativeEvent.action === "delete") onDelete(); }}
       onMetrics={onMetrics ? ({ nativeEvent }) => onMetrics(nativeEvent) : undefined} />
       : <Animated.View style={[styles.rail, fallbackStyle, fallbackReveal]} accessibilityElementsHidden={!visible}
         importantForAccessibility={visible ? "auto" : "no-hide-descendants"}>
-        {[{ label: "Edit", color: COLORS.primary, action: onEdit },
-          { label: "Delete", color: COLORS.expense, action: onDelete }].map(item =>
+        {[{ label: "Delete", color: COLORS.expense, action: onDelete }].map(item =>
           <Pressable key={item.label} accessibilityRole="button" accessibilityLabel={`${item.label} meal`}
             onPress={item.action} style={({ pressed }) => [styles.action, { width, alignSelf: "stretch", borderRadius: 28 }, pressed && styles.pressed]}>
             <Text style={[styles.label, { color: item.color }]}>{item.label}</Text>

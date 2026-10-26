@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mealEditorValues, storedMealForEditor } from "../lib/mealEditorDraft.mjs";
+import { editorNumber, mealEditorValues, storedMealDateKey, storedMealForEditor } from "../lib/mealEditorDraft.mjs";
 import { createNutritionStore } from "../lib/nutritionStore.mjs";
 
 const owner = "meal-editor-test-owner";
@@ -47,4 +47,23 @@ test("the form draft is detached from cached entry values", async () => {
   editing.calories = "250";
   assert.equal(cached.foodName, "Toast");
   assert.equal(cached.calories, 180);
+});
+
+test("the editor finds the day a stored meal is filed under, for this account only", async () => {
+  const store = createNutritionStore({ ownerKey: owner });
+  await store.loadDay(day, async () => ({ foodEntries: [entry] }));
+  assert.equal(storedMealDateKey(store, owner, "42"), day);
+  assert.equal(storedMealDateKey(store, "other-owner", 42), null);
+  assert.equal(storedMealDateKey(store, owner, 43), null);
+});
+
+test("fixed-point API decimals show only the digits that carry value", () => {
+  assert.equal(editorNumber("450.00"), "450");
+  assert.equal(editorNumber("42.50"), "42.5");
+  assert.equal(editorNumber("0.00"), "0");
+  assert.equal(editorNumber(23), "23");
+  assert.equal(editorNumber(null), "");
+  assert.equal(editorNumber(""), "");
+  assert.deepEqual(mealEditorValues({ food_name: "Stew", calories: "450.00", protein: "42.00", carbs: "18.25", fat: 23 }),
+    { foodName: "Stew", quantity: "", calories: "450", protein: "42", carbs: "18.25", fat: "23", mealType: "Breakfast" });
 });

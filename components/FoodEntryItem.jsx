@@ -146,7 +146,7 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
   return <View style={swipeStyles.row}>
     {nativeActions && <View pointerEvents="box-none" style={swipeStyles.actionOverlay}>
       <MealSwipeActions overlay width={actionWidth} progress={nativeReveal} visible={actionsVisible}
-        onEdit={edit} onDelete={remove} onMetrics={onActionMetrics} previewPalette={palette?.id} />
+        onDelete={remove} onMetrics={onActionMetrics} previewPalette={palette?.id} />
     </View>}
     <Swipeable ref={swipeable} pointerEvents="box-none" friction={1} rightThreshold={22}
       dragOffsetFromLeftEdge={12} dragOffsetFromRightEdge={10}
@@ -170,17 +170,17 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
         openEditor?.();
       }}
       renderRightActions={(progress, translation) => nativeActions
-        ? <MealActionRail translation={translation} reveal={nativeReveal} width={actionWidth * 2 + 20} />
+        ? <MealActionRail translation={translation} reveal={nativeReveal} width={actionWidth + 12} />
         : <MealSwipeActions width={actionWidth} progress={progress}
-          visible={actionsVisible} onEdit={edit} onDelete={remove} onMetrics={onActionMetrics} previewPalette={palette?.id} />}>
+          visible={actionsVisible} onDelete={remove} onMetrics={onActionMetrics} previewPalette={palette?.id} />}>
       <Pressable style={({ pressed }) => [styles.foodEntryCard, swipeStyles.card, palette && { backgroundColor: palette.card, borderColor: palette.border }, pressed && swipeStyles.pressedCard]}
         onPress={toggleExpand} onLongPress={revealActions} delayLongPress={450}
         accessibilityRole="button" accessibilityState={{ expanded: isExpanded }}
         accessibilityValue={{ text: isExpanded ? macros : "" }}
         accessibilityLabel={`${foodName}, ${parseFloat(calories).toFixed(0)} calories, ${formatTime(localTime)}`}
-        accessibilityHint="Tap for nutrition details. Swipe left or hold for meal actions."
+        accessibilityHint="Tap for nutrition details and Edit. Swipe left or hold to delete."
         accessibilityActions={[{ name: "activate", label: isExpanded ? "Hide nutrition" : "Show nutrition" },
-          { name: "showActions", label: "Show meal actions" }, { name: "edit", label: "Edit meal" }, { name: "delete", label: "Delete meal" }]}
+          { name: "showActions", label: "Show delete" }, { name: "edit", label: "Edit meal" }, { name: "delete", label: "Delete meal" }]}
         onAccessibilityAction={accessibilityAction}>
         <View style={[styles.transactionContent, veryLargeText && swipeStyles.largeTextContent]}>
           <View style={[styles.categoryIconContainer, palette && { backgroundColor: palette.badge }]}>
@@ -197,13 +197,17 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
             </Animated.View>
           </View>
         </View>
-        <Animated.View style={[swipeStyles.detailsClip, detailsStyle]} pointerEvents="none"
+        <Animated.View style={[swipeStyles.detailsClip, detailsStyle]} pointerEvents={isExpanded ? "box-none" : "none"}
           accessibilityElementsHidden={!isExpanded}
           importantForAccessibility={isExpanded ? "auto" : "no-hide-descendants"}>
           <View style={[styles.expandedContent, swipeStyles.detailsContent]}
             onLayout={({ nativeEvent }) => setDetailsHeight(previous =>
               Math.abs(previous - nativeEvent.layout.height) > 0.5 ? nativeEvent.layout.height : previous)}>
             <Text style={[styles.macrosText, swipeStyles.detailsText, palette && { color: palette.textLight }]}>{macros}</Text>
+            <Pressable onPress={edit} hitSlop={14} accessibilityRole="button" accessibilityLabel="Edit meal"
+              style={({ pressed }) => [swipeStyles.editButton, pressed && swipeStyles.pressedEdit]}>
+              <Ionicons name="create-outline" size={15} color={palette?.textLight || COLORS.textLight} />
+            </Pressable>
           </View>
         </Animated.View>
       </Pressable>
@@ -227,4 +231,8 @@ const swipeStyles = StyleSheet.create({
   detailsClip: { overflow: "hidden" },
   detailsText: { flex: 1 },
   detailsContent: { position: "absolute", top: 0, left: 0, right: 0 },
+  // Same height as the macros line, so the open card is no taller; hitSlop keeps it tappable.
+  // As wide as the chevron's slot, so the pencil centers under it.
+  editButton: { width: 20, marginLeft: 12, alignItems: "center" },
+  pressedEdit: { opacity: 0.6 },
 });
