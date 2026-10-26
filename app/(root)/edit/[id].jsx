@@ -6,7 +6,7 @@ import { useAuth } from "@clerk/clerk-expo";
 import { useNavigation } from "@react-navigation/native";
 import useFormTaskScope from "@/hooks/useFormTaskScope";
 import { mealRequest } from "@/lib/mealRequest.mjs";
-import { editorNumber, mealEditorValues, storedMealDateKey, storedMealForEditor } from "@/lib/mealEditorDraft.mjs";
+import { editorNumber, mealEditorChanged, mealEditorValues, storedMealDateKey, storedMealForEditor } from "@/lib/mealEditorDraft.mjs";
 import { deleteNutritionEntry, removeStoredNutritionEntry } from "@/lib/nutritionDelete.mjs";
 import { validateMealNutrition } from "@/lib/mealNutritionValidation.mjs";
 import { createConfirmedMealSave } from "@/lib/confirmedMealSave.mjs";
@@ -84,6 +84,11 @@ function EditFoodEntryForm({ entryId, getToken, userId, calmeraPreview, calmeraP
   const [pickingIcon, setPickingIcon] = useState(false);
   const { iconFor, rememberIcons } = useFoodIcons();
   const icon = iconFor({ id: entryId, foodName, iconId });
+  // What the page opened with; Update stays off and Back leaves quietly until the draft differs.
+  const [baseline, setBaseline] = useState(() => initialEntry ? initialValues : null);
+  const leaving = useRef(false);
+  const changed = mealEditorChanged(baseline, { foodName, quantity, calories, protein, carbs, fat, mealType })
+    || (baseline != null && icon.id !== iconFor({ id: entryId, foodName: baseline.foodName }).id);
   const entryRef = useRef(entryId);
   entryRef.current = entryId;
   const sameEntry = () => ownerRef.current === userId && entryRef.current === entryId;
@@ -104,6 +109,20 @@ function EditFoodEntryForm({ entryId, getToken, userId, calmeraPreview, calmeraP
     try { goBack(); }
     catch { if (sameEntry() && scope.isActive()) setConfirmedKey(saveKey); }
   };
+
+  // Back, the swipe gesture and any other exit ask first while the draft has unsaved changes.
+  const guard = useRef(null);
+  guard.current = { changed: changed && !hasConfirmed && !isLoading, update: () => handleUpdate() };
+  useEffect(() => navigation.addListener("beforeRemove", event => {
+    if (leaving.current || !guard.current.changed) return;
+    event.preventDefault();
+    Keyboard.dismiss();
+    Alert.alert("Update this meal?", "You’ve made changes that haven’t been saved.", [
+      { text: "Update", onPress: () => guard.current.update() },
+      { text: "Discard Changes", style: "destructive", onPress: () => { leaving.current = true; navigation.dispatch(event.data.action); } },
+      { text: "Keep Editing", style: "cancel" },
+    ]);
+  }), [navigation]);
 
   useEffect(() => {
     let active = true;
@@ -144,6 +163,7 @@ function EditFoodEntryForm({ entryId, getToken, userId, calmeraPreview, calmeraP
         setFat(values.fat);
         setMealType(values.mealType);
         setQuantity(values.quantity);
+        setBaseline(values);
       } catch (error) {
         if (current()) setLoadError(error.message === "nutrition_request_timeout"
           ? "Loading took too long. Please try again."
@@ -191,6 +211,7 @@ function EditFoodEntryForm({ entryId, getToken, userId, calmeraPreview, calmeraP
           if (navigationFixture && !fixtureExitFailed.current) {
             fixtureExitFailed.current = true; throw new Error("synthetic_navigation_unavailable");
           }
+          leaving.current = true;
           goBack();
         },
       });
@@ -262,6 +283,7 @@ function EditFoodEntryForm({ entryId, getToken, userId, calmeraPreview, calmeraP
       if (!removed) { await deleteNutritionEntry(request); refreshWrittenMeal(); }
       if (!taskCurrent(task)) return;
       left = true;
+      leaving.current = true;
       goBack();
     } catch (error) {
       if (error.mayHaveDeleted) refreshWrittenMeal();
@@ -287,8 +309,8 @@ function EditFoodEntryForm({ entryId, getToken, userId, calmeraPreview, calmeraP
   const showLoadingCard = isFetching && !initialEntry;
 
   return <FormScreen style={formStyles.screen}>
-    <FormHeader title="Edit Meal" onBack={back} onSave={handleUpdate} saving={isLoading} backDisabled={isLoading || isDeleting}
-      saveDisabled={isFetching || isEstimating || isDeleting || !!loadError || hasConfirmed} />
+    <FormHeader title="Edit Meal" onBack={back} onSave={handleUpdate} saveTitle="Update" saving={isLoading} backDisabled={isLoading || isDeleting}
+      saveDisabled={!changed || isFetching || isEstimating || isDeleting || !!loadError || hasConfirmed} />
     <FormScrollView keyboardAware key={`editor-text-${fontScale}`} style={formStyles.screen} contentContainerStyle={{ paddingTop: showLoadingCard || loadError ? 12 : 0, paddingBottom: 40, gap: 18 }}
       enableOnAndroid enableAutomaticScroll extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
       keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" enableResetScrollToCoords={false}>

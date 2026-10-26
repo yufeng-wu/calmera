@@ -138,26 +138,29 @@ export function MenuButton({ value, options, onChange, disabled = false, title =
 }
 
 // The app's SafeScreen already supplies the top inset. Keep navigation symmetric.
-export function FormHeader({ title, titleContent, onBack, onSave, saving = false, saveDisabled = false, backDisabled = false, rightAction, onSaveMetrics }) {
+export function FormHeader({ title, titleContent, onBack, onSave, saveTitle = "Save", saving = false, saveDisabled = false, backDisabled = false, rightAction, onSaveMetrics }) {
   const { fontScale } = useWindowDimensions();
   const large = fontScale > 1.4;
   const edge = useContext(HeaderScrollContext);
   const compactTitle = edge?.compactControls && large ? TYPOGRAPHY.sectionTitle : TYPOGRAPHY.pageTitle;
   const minimumHeight = edge?.compactControls ? Math.max(64, compactTitle.lineHeight * fontScale + 16) : Math.max(64, 40 * fontScale + 20);
+  // A longer save title (e.g. "Update") widens its capsule; both sides grow together so the title stays centred.
+  const saveWidth = Math.max(68, Math.ceil(saveTitle.length * 10.5 + 24));
+  const side = !large && saveWidth > 72 ? { width: saveWidth } : null;
   return <View collapsable={false} onLayout={event => edge?.reportHeaderHeight(event.nativeEvent.layout.height)}
     style={[styles.header, edge && { zIndex: 10 }, { minHeight: minimumHeight }]}>
     {NativeHeaderEdge && edge && <NativeHeaderEdge pointerEvents="none" style={StyleSheet.absoluteFill}
       scrollViewTag={edge.scrollTag} topExtension={edge.topInset} reportStatus={Boolean(edge.onEdgeStatus)} onStatus={edge.onEdgeStatus} />}
-    <View style={[styles.headerSide, large && styles.headerSideLarge]}>
+    <View style={[styles.headerSide, side, large && styles.headerSideLarge]}>
       {onBack && <GlassButton symbol="chevron.left" role="navigation" onPress={onBack} disabled={backDisabled}
         accessibilityLabel="Back" style={styles.headerBack} />}
     </View>
     {titleContent ? <View style={{ flex: 1, alignItems: "center" }}>{titleContent}</View>
       : <Text accessibilityRole="header" style={[styles.title, compactTitle]}>{title}</Text>}
-    <View style={[styles.headerSide, styles.headerTrailing, large && styles.headerSideLarge]}>
-      {rightAction || (onSave && <GlassButton title={large ? "" : "Save"} symbol={large ? "checkmark" : ""}
-        onPress={onSave} role="navigation-action" loading={saving} disabled={saveDisabled} accessibilityLabel="Save" onMetrics={onSaveMetrics}
-        style={large ? styles.headerBack : styles.headerSave} />)}
+    <View style={[styles.headerSide, side, styles.headerTrailing, large && styles.headerSideLarge]}>
+      {rightAction || (onSave && <GlassButton title={large ? "" : saveTitle} symbol={large ? "checkmark" : ""}
+        onPress={onSave} role="navigation-action" loading={saving} disabled={saveDisabled} accessibilityLabel={saveTitle} onMetrics={onSaveMetrics}
+        style={large ? styles.headerBack : [styles.headerSave, { width: saveWidth }]} />)}
     </View>
   </View>;
 }
