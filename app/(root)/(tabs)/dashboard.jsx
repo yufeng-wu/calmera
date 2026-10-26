@@ -90,9 +90,10 @@ export default function SummaryScreen() {
   const voicePhase1AnimRef = useRef(null);
   const voiceGrowAnimRef = useRef(null);
   const SCROLL_BOTTOM_PADDING = 116 + floatingBarInset;
+  const firstLoadDone = useRef(false);
 
   // user.id comes from Clerk
-  const { entries, summary, goals, hasData, error: dataError, profileError, retryError, isSessionActive, isLoading, loadData, deleteEntry, addEntries } =
+  const { entries, summary, goals, hasData, error: dataError, profileError, retryError, retrying, isSessionActive, isLoading, loadData, deleteEntry, addEntries } =
     useDailyNutrition();
 
 
@@ -342,7 +343,10 @@ export default function SummaryScreen() {
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   });
 
-  if (isLoading) return <View style={[styles.container, { justifyContent: "center" }]}>
+  // The logo loader is only for the first load; later reloads (a new day
+  // after midnight, an account refresh) keep the scroll view and its pull.
+  if (!isLoading) firstLoadDone.current = true;
+  if (isLoading && !firstLoadDone.current) return <View style={[styles.container, { justifyContent: "center" }]}>
     <FoodwrapLoading active={isFocused} showCaption={false} />
   </View>;
 
@@ -357,13 +361,15 @@ export default function SummaryScreen() {
           <FoodwrapWordmark style={{ marginBottom: 16 }} />
           <Text style={styles.dateText}>{formattedDate}</Text>
           {hasData ? <NutritionSummaryCard summary={summary} goals={goals} /> : <NutritionSummarySkeleton loading={isLoading} />}
-          {(dataError || profileError) && <Pressable onPress={() => retryError().catch(() => {})} accessibilityRole="button" style={{ paddingVertical: 10 }}>
-            <Text style={styles.macrosText}>{dataError ? "Meals couldn’t refresh. Tap to retry." : "Your nutrition goals couldn’t refresh. Tap to retry."}</Text>
+          {(dataError || profileError) && <Pressable onPress={() => retryError().catch(() => {})} disabled={retrying}
+            accessibilityRole="button" accessibilityState={{ disabled: retrying, busy: retrying }} style={{ paddingVertical: 10 }}>
+            <Text style={styles.macrosText} accessibilityLiveRegion="polite">{retrying ? "Retrying…"
+              : dataError ? "Meals couldn’t refresh. Tap to retry." : "Your nutrition goals couldn’t refresh. Tap to retry."}</Text>
           </Pressable>}
         </View>
 
         <View style={styles.transactionsContainer}>
-          {dataError && !hasData ? null : entries.length > 0 ? (
+          {!hasData ? null : entries.length > 0 ? (
             mealOrder.map((meal) => (
               <MealGroup
                 key={meal}
