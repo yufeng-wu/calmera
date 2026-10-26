@@ -199,11 +199,11 @@ test("store invalidation cancels a token wait without fetching, publishing error
   oldToken.resolve("late invalidated synthetic-token"); await nextTurn();
   assert.equal(fetchCalls, 1);
   assert.equal(store.getSnapshot().pending.history, true);
-  assert.equal(store.getSnapshot().errors.history, null);
+  assert.ok(!store.getSnapshot().errors.history);
   assert.equal(store.getSnapshot().historyLoaded, false);
   freshFetch.resolve(response()); await fresh;
   assert.equal(store.getSnapshot().pending.history, false);
-  assert.equal(store.getSnapshot().errors.history, null);
+  assert.ok(!store.getSnapshot().errors.history);
   assert.equal(store.getSnapshot().days["2026-10-20"].entries[0].id, 1);
 });
 

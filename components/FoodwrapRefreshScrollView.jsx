@@ -4,6 +4,7 @@ import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 
 // UIKit owns the pull threshold, feedback and inset animation. The only app
 // state is the actual request lifetime; never extend it to time an animation.
+// No title: UIKit swaps it before the spinner collapses, so text flashes.
 export default function FoodwrapRefreshScrollView({ children, onRefresh, active = true, ...props }) {
   const mounted = useRef(true);
   const busy = useRef(false);
@@ -32,7 +33,6 @@ export default function FoodwrapRefreshScrollView({ children, onRefresh, active 
 
   return <ScrollView {...props} alwaysBounceVertical
     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh}
-      enabled={active} tintColor={COLORS.primary} colors={[COLORS.primary]}
-      title={refreshing ? "Fetching data…" : "Pull to refresh"} titleColor={COLORS.textLight} />}
+      enabled={active} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
   >{children}</ScrollView>;
 }

@@ -19,5 +19,6 @@ export const useDailyNutrition = (date = new Date()) => {
   }, [store, dateKey, isSessionActive]);
   return { entries: data.day?.entries || [], summary: data.day?.summary || EMPTY_DAY.summary,
     hasData: Boolean(data.day), goals: data.goals, error: data.error, profileError: data.profileError,
-    refreshProfile: data.refreshProfile, retryError: data.retryError, isSessionActive, isLoading: data.loading, loadData, deleteEntry, addEntries };
+    refreshProfile: data.refreshProfile, retryError: data.retryError,
+    retrying: Boolean(data.snapshot.pending[`day:${dateKey}`] || data.profilePending), isSessionActive, isLoading: data.loading, loadData, deleteEntry, addEntries };
 };

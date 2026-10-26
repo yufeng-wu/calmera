@@ -61,6 +61,18 @@ test("failed background refresh keeps visible data, and retry clears the error",
   assert.equal(store.getSnapshot().days[date].entries[0].id, 2);
 });
 
+test("a retry keeps the failure visible until it succeeds, so a cold error never shows as loading", async () => {
+  const store = createNutritionStore(); const retry = deferred();
+  await assert.rejects(store.loadDay(date, async () => { throw new Error("synthetic network failure"); }));
+  const request = store.loadDay(date, () => retry.promise, { force: true });
+  await Promise.resolve();
+  assert.ok(store.getSnapshot().errors[`day:${date}`]);
+  assert.equal(store.getSnapshot().pending[`day:${date}`], true);
+  retry.resolve(summary(row(1))); await request;
+  assert.equal(store.getSnapshot().errors[`day:${date}`], null);
+  assert.equal(store.getSnapshot().days[date].entries[0].id, 1);
+});
+
 test("invalidation starts a fresh request and stale completion cannot clear its loading state", async () => {
   const store = createNutritionStore(); const old = deferred(), fresh = deferred();
   const before = store.loadDay(date, () => old.promise); await Promise.resolve();
