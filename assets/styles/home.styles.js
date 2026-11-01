@@ -201,9 +201,9 @@ export const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   transactionAmount: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
-    marginBottom: 2,
+    marginBottom: 4,
   },
   transactionDate: {
     fontSize: 10,
