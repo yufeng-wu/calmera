@@ -360,7 +360,6 @@ final class CalmeraSystemTabsView: ExpoView, UITabBarControllerDelegate {
     controller.tabBar.tintColor = UIColor(red: 188/255, green: 90/255, blue: 25/255, alpha: 1)
     let definitions = [
       ("Today", "fork.knife", "fork.knife"),
-      ("History", "calendar", "calendar"),
       ("Insights", "chart.bar", "chart.bar.fill"),
       ("Settings", "gearshape", "gearshape.fill")
     ]

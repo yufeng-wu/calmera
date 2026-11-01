@@ -6,7 +6,7 @@ import { Platform, StyleSheet, View } from "react-native";
 const SystemTabs = Platform.OS === "ios"
   ? requireNativeViewManager("CalmeraChatGPT", "SystemTabs")
   : null;
-const routes = ["dashboard", "history", "insights", "settings"];
+const routes = ["dashboard", "insights", "settings"];
 
 export default function SystemTabBar(props) {
   const onHeightChange = useContext(BottomTabBarHeightCallbackContext);

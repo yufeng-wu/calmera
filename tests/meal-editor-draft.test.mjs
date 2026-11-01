@@ -10,7 +10,7 @@ const entry = { id: 42, food_name: "Toast", quantity: "2 slices", meal_type: "Lu
 const draft = { foodName: "Toast", quantity: "2 slices", mealType: "Lunch",
   calories: "180", protein: "5", carbs: "33", fat: "0" };
 
-test("Today and History meals open with the same complete draft including zero values", async () => {
+test("Today meals from any day open with the same complete draft including zero values", async () => {
   const todayStore = createNutritionStore({ ownerKey: owner });
   await todayStore.loadDay(day, async () => ({ foodEntries: [{ id: 42, ...draft, calories: 180, fat: 0 }] }));
   const historyStore = createNutritionStore({ ownerKey: owner });

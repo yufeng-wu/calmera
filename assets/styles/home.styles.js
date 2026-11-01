@@ -104,8 +104,8 @@ export const styles = StyleSheet.create({
   balanceCard: {
     backgroundColor: COLORS.card,
     borderRadius: 20,
-    padding: 20,
-    marginBottom: 15,
+    padding: 16,
+    marginBottom: 24,
     ...SURFACES.edge,
     ...SURFACES.elevated,
   },
@@ -165,7 +165,8 @@ export const styles = StyleSheet.create({
   },
   transactionContent: {
     flexDirection: "row",
-    padding: 15,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     alignItems: "center",
   },
   categoryIconContainer: {
@@ -217,8 +218,8 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 15,
-    paddingBottom: 15,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
     paddingTop: 0,
   },
   deleteButtonExpanded: {
@@ -302,13 +303,13 @@ export const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   mealGroupContainer: {
-    marginBottom: 10,
+    marginBottom: 16,
   },
   mealGroupTitle: {
     fontSize: 16,
     fontWeight: "600",
     color: COLORS.text,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   todayWordmark: {
     fontSize: 22,

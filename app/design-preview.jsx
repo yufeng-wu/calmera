@@ -51,7 +51,7 @@ export default function DesignPreview() {
         onVoicePress={previewOnly} onVoiceLongPress={() => {}} onVoicePressOut={() => {}}
         recording={false} analyzing={false} voiceWidth={120} seconds={0} />}
     </View>
-    <View style={styles.tabs}>{[["Dashboard", "grid"], ["History", "calendar"], ["Settings", "settings"]].map(([name, icon]) =>
+    <View style={styles.tabs}>{[["Dashboard", "grid"], ["Settings", "settings"]].map(([name, icon]) =>
       <Pressable key={name} onPress={() => { setExpanded(false); setTab(name); }} accessibilityRole="tab" accessibilityState={{ selected: tab === name }} style={styles.tab}>
         <Ionicons name={icon} size={24} color={tab === name ? COLORS.primary : "#8E8E93"} /><Text style={[styles.tabLabel, { color: tab === name ? COLORS.primary : "#8E8E93" }]}>{name}</Text>
       </Pressable>)}</View>

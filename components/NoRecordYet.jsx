@@ -3,7 +3,7 @@ import { Text, View } from "react-native";
 import { styles } from "../assets/styles/home.styles";
 import { COLORS } from "../constants/colors";
 
-const NoRecordYet = () => {
+const NoRecordYet = ({ title = "No food entries yet", text = "Log your first meal of the day!" }) => {
   return (
     <View style={styles.emptyState}>
       <Ionicons
@@ -12,8 +12,8 @@ const NoRecordYet = () => {
         color={COLORS.textLight}
         style={styles.emptyStateIcon}
       />
-      <Text style={styles.emptyStateTitle}>No food entries yet</Text>
-      <Text style={styles.emptyStateText}>Log your first meal of the day!</Text>
+      <Text style={styles.emptyStateTitle}>{title}</Text>
+      <Text style={styles.emptyStateText}>{text}</Text>
     </View>
   );
 };

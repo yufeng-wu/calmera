@@ -220,7 +220,7 @@ function EditFoodEntryForm({ entryId, getToken, userId, calmeraPreview, calmeraP
     } catch (error) {
       if (error.mayHaveSaved) refreshWrittenMeal();
       if (taskCurrent(task)) Alert.alert("Couldn’t save changes", error.timedOut
-        ? error.mayHaveSaved ? "Saving took too long. Your changes are still here. Check History before trying again."
+        ? error.mayHaveSaved ? "Saving took too long. Your changes are still here. Check your meals before trying again."
           : "Saving took too long. Your changes are still here. Please try again." : error.message);
     } finally {
       task.finish();
@@ -276,7 +276,7 @@ function EditFoodEntryForm({ entryId, getToken, userId, calmeraPreview, calmeraP
     try {
       const request = { getToken: () => tokenRef.current(), url: `${FOOD_ENTRIES_API_URL}/${entryId}`,
         signal: task.signal, isActive: () => taskCurrent(task) };
-      // Delete through the shared store, as Today and History do, so the row leaves at once.
+      // Delete through the shared store, as Today does, so the row leaves at once.
       const dateKey = storedMealDateKey(store, userId, entryId);
       const removed = dateKey && await removeStoredNutritionEntry({ ...request, store, ownerKey: userId, dateKey, id: entryId,
         onSettled: refreshWrittenMeal });
@@ -288,7 +288,7 @@ function EditFoodEntryForm({ entryId, getToken, userId, calmeraPreview, calmeraP
     } catch (error) {
       if (error.mayHaveDeleted) refreshWrittenMeal();
       if (taskCurrent(task)) Alert.alert("Couldn’t delete meal", error.timedOut
-        ? "Deleting took too long. Check History before trying again." : "Please try again.");
+        ? "Deleting took too long. Check your meals before trying again." : "Please try again.");
     } finally {
       task.finish();
       if (savingRef.current === task) {
