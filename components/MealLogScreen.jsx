@@ -325,7 +325,7 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
     estimating={operation.current?.kind === "estimate-item" ? operation.current.foodId : null}
     busy={busy} selecting={selecting} uncertain={uncertain} mealSaved={mealSaved}
     onBack={leaveLog} onSave={saveReview} onChangeInput={changeInput} onReestimate={reestimateFood}
-    onViewHistory={() => { if (!operation.current) router.replace("/history"); }} />;
+    onViewMeals={() => { if (!operation.current) router.replace("/dashboard"); }} />;
 
   const connectionCopy = connectionPresentation(connection);
   return (
@@ -386,7 +386,7 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
           {uncertain && (
             <View style={styles.status} accessibilityRole="text" accessibilityLiveRegion="polite">
               <Ionicons name="information-circle-outline" size={23} color={COLORS.primary} />
-              <Text style={styles.statusTitle}>Check History before trying again</Text>
+              <Text style={styles.statusTitle}>Check your meals before trying again</Text>
             </View>
           )}
           {!mealSaved && !uncertain && <View style={styles.status} accessibilityRole="text" accessibilityLiveRegion="polite">
@@ -412,7 +412,7 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
           />
           {mealSaved && <GlassButton title="Go back" symbol="chevron.left" onPress={leaveLog} disabled={busy || selecting} style={styles.logButton} />}
           {uncertain && (
-            <GlassButton title="View History" symbol="clock" onPress={() => { if (!operation.current) router.replace("/history"); }} disabled={busy || selecting} style={styles.logButton} />
+            <GlassButton title="View meals" symbol="clock" onPress={() => { if (!operation.current) router.replace("/dashboard"); }} disabled={busy || selecting} style={styles.logButton} />
           )}
           {uiFixture && !savedNavigationFixture && busy && (
             <GlassButton title="Reset preview" symbol="arrow.counterclockwise" onPress={resetPreview} style={styles.logButton} />

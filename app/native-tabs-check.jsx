@@ -8,7 +8,7 @@ import { COLORS } from "@/constants/colors";
 import AddMealMenu, { ADD_MENU_OPTION_WIDTH } from "@/components/AddMealMenu";
 
 export default function NativeTabsCheck() {
-  const [selected, setSelected] = useState(2);
+  const [selected, setSelected] = useState(1);
   const [changes, setChanges] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const [offset, setOffset] = useState(0);
@@ -46,7 +46,7 @@ export default function NativeTabsCheck() {
     <ScrollView ref={scroll} onTouchStart={() => setTouches((value) => value + 1)} onTouchMove={() => setMoves((value) => value + 1)} style={{ flex: 1 }} onScroll={({ nativeEvent }) => setOffset(Math.round(nativeEvent.contentOffset.y))} scrollEventThrottle={100} contentContainerStyle={{ paddingBottom: barHeight + 116 }} scrollIndicatorInsets={{ bottom: barHeight }}>
       <View style={{ padding: 24, gap: 12 }}>
         <Text style={{ color: COLORS.text, fontSize: 20 }}>Native tab layout check</Text>
-        <Text>Selected: {["Today", "History", "Settings"][selected]} · Events: {changes}</Text>
+        <Text>Selected: {["Today", "Settings"][selected]} · Events: {changes}</Text>
         <Text>No account data is loaded.</Text>
         <Text>Menu widths: photo={optionWidths.photo ?? "—"} text={optionWidths.text ?? "—"} voice={optionWidths.voice ?? "—"}</Text>
         <Text>Spacing: {JSON.stringify(optionSpacing)}</Text>

@@ -11,7 +11,7 @@ import SignIn from "@/app/(auth)/sign-in";
 import SignUp from "@/app/(auth)/sign-up";
 import ForgotPassword from "@/app/(auth)/forgot-password";
 import Settings from "@/app/(root)/(tabs)/settings";
-import History from "@/app/(root)/(tabs)/history";
+import TodayCalendarPreview from "@/components/TodayCalendarPreview";
 import ChatGPT from "@/app/(root)/chatgpt";
 import VoiceLanguage from "@/app/(root)/voice-language";
 import MealTimes from "@/app/(root)/meal-times";
@@ -96,10 +96,9 @@ const screens = [
   { id: "edit-meal-load-token", title: "Meal load token timeout", Component: EditMeal, state: "load-token-timeout" },
   { id: "edit-meal-load-json", title: "Meal load response timeout", Component: EditMeal, state: "load-json-timeout" },
   { id: "edit-session", title: "Edit scale item", Component: EditSession },
-  { id: "history", title: "History", Component: History },
-  { id: "history-loading", title: "History loading and retry", Component: History, state: "cold-loading" },
-  { id: "history-profile-error", title: "History goals retry", Component: History, state: "profile-error" },
-  { id: "history-error", title: "History cached meals retry", Component: History, state: "history-error" },
+  { id: "today-calendar", title: "Today calendar", Component: TodayCalendarPreview },
+  { id: "today-calendar-loading", title: "Today calendar loading", Component: TodayCalendarPreview, state: "cold-loading" },
+  { id: "today-calendar-error", title: "Today calendar retry", Component: TodayCalendarPreview, state: "history-error" },
   { id: "guide", title: "Tutorial", Component: Guide },
   { id: "welcome", title: "Welcome and scale setup", Component: Welcome },
   { id: "scale", title: "Scale display", Component: Scale },

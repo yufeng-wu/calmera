@@ -257,7 +257,7 @@ export function LegacyCameraScreen() {
     smoothLayout();
   }, [isPaused, displayedWeight]);
 
-  // Signal other screens (Dashboard, History) to refresh after session ends
+  // Signal other screens (Today) to refresh after session ends
   const { setShouldRefresh } = useRefreshSignal();
 
   const [isLoading, setIsLoading] = useState(false);

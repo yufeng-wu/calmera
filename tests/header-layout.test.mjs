@@ -6,7 +6,7 @@ test("adopted iOS26 forms own the safe area without shifting ordinary tabs", () 
   for (const path of ["/create", "/update-goals", "/photo-log", "/chatgpt", "/voice-language", "/meal-times", "/theme", "/goals-survey", "/update-scale-type", "/edit/synthetic-id", "/session-log-edit/synthetic-id", "/motion-check"]) {
     assert.equal(formOwnsTopInset(path, undefined, "ios", "26.0"), true, path);
   }
-  for (const path of ["/dashboard", "/history", "/settings", "/sign-in", "/ui-gallery", "/background-compare", "/unknown"]) {
+  for (const path of ["/dashboard", "/settings", "/sign-in", "/ui-gallery", "/background-compare", "/unknown"]) {
     assert.equal(formOwnsTopInset(path, undefined, "ios", "26.0"), false, path);
   }
 });
@@ -15,7 +15,7 @@ test("only adopted gallery pages get full-bleed headers", () => {
     assert.equal(formOwnsTopInset("/ui-gallery", page, "ios", 26), true);
   }
   assert.equal(formOwnsTopInset("/ui-gallery", ["theme"], "ios", 26), true);
-  for (const page of ["settings", "history", "sign-in", undefined]) {
+  for (const page of ["settings", "today-calendar", "sign-in", undefined]) {
     assert.equal(formOwnsTopInset("/ui-gallery", page, "ios", 26), false);
   }
 });

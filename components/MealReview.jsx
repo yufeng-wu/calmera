@@ -30,7 +30,7 @@ const haptic = run => { run().catch(() => {}); };
 const REVEAL = { duration: 260, easing: Easing.bezier(0.2, 0.9, 0.2, 1) };
 
 export default function MealReview({ photo, text, review, setReview, busy, estimating, selecting,
-  mealSaved, uncertain, onBack, onSave, onChangeInput, onReestimate, onViewHistory }) {
+  mealSaved, uncertain, onBack, onSave, onChangeInput, onReestimate, onViewMeals }) {
   const { bottom, top } = useSafeAreaInsets();
   const { fontScale, width, height } = useWindowDimensions();
   const reducedMotion = useReducedMotion();
@@ -363,8 +363,8 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
           <GlassButton title={review.entries.length ? "Add another item" : "Add item"} symbol="plus" onPress={addFood}
             disabled={locked || hasIncompleteFood(review) || review.entries.length >= MAX_MEAL_FOODS} />
         </View>
-        {uncertain && <FormCard><Text style={styles.heading}>Check History before trying again</Text><Text style={styles.caption}>Some foods may already have been saved. Check History before logging this meal again.</Text>
-          <GlassButton title="View History" symbol="clock" onPress={onViewHistory} /></FormCard>}
+        {uncertain && <FormCard><Text style={styles.heading}>Check your meals before trying again</Text><Text style={styles.caption}>Some foods may already have been saved. Check your meals before logging this one again.</Text>
+          <GlassButton title="View meals" symbol="clock" onPress={onViewMeals} /></FormCard>}
         {mealSaved && <FormCard><Text style={styles.heading}>Meal saved</Text><GlassButton title="Go back" onPress={onBack} /></FormCard>}
         {inFlowSave && <View style={[styles.inFlowSave, { paddingBottom: bottom }]}>{saveControl}</View>}
       </FormScrollView>
