@@ -220,7 +220,7 @@ const swipeStyles = StyleSheet.create({
   actionOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 1 },
   swipeable: { overflow: "visible", padding: MEAL_EFFECT_OUTSET,
     marginVertical: -MEAL_EFFECT_OUTSET, marginHorizontal: -MEAL_EFFECT_OUTSET },
-  card: { marginBottom: 0, minHeight: 70 },
+  card: { marginBottom: 0, minHeight: 64 },
   pressedCard: { opacity: 0.94 },
   // Keep the same text hosts, but let metadata take its own row rather than
   // squeezing the title between the badge and a scaled right-hand column.

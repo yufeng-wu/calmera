@@ -146,7 +146,7 @@ export const styles = StyleSheet.create({
     marginBottom: 4,
   },
   balanceStatAmount: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "600",
     textAlign: "left",
   },
@@ -165,7 +165,8 @@ export const styles = StyleSheet.create({
   },
   transactionContent: {
     flexDirection: "row",
-    padding: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     alignItems: "center",
   },
   categoryIconContainer: {
@@ -200,9 +201,9 @@ export const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   transactionAmount: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   transactionDate: {
     fontSize: 10,
@@ -218,7 +219,7 @@ export const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingBottom: 12,
     paddingTop: 0,
   },
   deleteButtonExpanded: {
