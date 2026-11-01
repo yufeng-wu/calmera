@@ -360,6 +360,7 @@ final class CalmeraSystemTabsView: ExpoView, UITabBarControllerDelegate {
     controller.tabBar.tintColor = UIColor(red: 188/255, green: 90/255, blue: 25/255, alpha: 1)
     let definitions = [
       ("Today", "fork.knife", "fork.knife"),
+      ("Insights", "chart.bar", "chart.bar.fill"),
       ("Settings", "gearshape", "gearshape.fill")
     ]
     controller.viewControllers = definitions.enumerated().map { index, definition in
@@ -380,7 +381,7 @@ final class CalmeraSystemTabsView: ExpoView, UITabBarControllerDelegate {
   func setPreviewPalette(_ id: String) { controller.tabBar.tintColor = comparisonAccent(id) }
 
   func select(_ index: Int) {
-    guard (0..<2).contains(index) else { return }
+    guard (0..<(controller.viewControllers?.count ?? 0)).contains(index) else { return }
     selected = index
     if controller.selectedIndex != index { controller.selectedIndex = index }
   }
