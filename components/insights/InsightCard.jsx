@@ -1,17 +1,24 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import * as Haptics from "expo-haptics";
+import { Ionicons } from "@expo/vector-icons";
 import { FormCard } from "@/components/GlassForm";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 
 // One question on the page: the question, the answer in words, then what backs it up.
-export default function InsightCard({ title, answer, footnote, children }) {
-  return <FormCard style={styles.card}>
-    <Text accessibilityRole="header" style={styles.title}>{title}</Text>
+// With onPress, the whole card opens more detail, and a chevron says so.
+export default function InsightCard({ title, answer, footnote, onPress, children }) {
+  const card = <FormCard style={styles.card}>
+    {!!title && <View style={styles.titleRow}>
+      <Text accessibilityRole="header" style={styles.title}>{title}</Text>
+      {!!onPress && <Ionicons name="chevron-forward" size={16} color={COLORS.textLight} />}
+    </View>}
     {!!answer && <Text style={styles.answer}>{answer}</Text>}
     {children}
     {!!footnote && <Text style={styles.footnote}>{footnote}</Text>}
   </FormCard>;
+  if (!onPress) return card;
+  return <Pressable accessibilityRole="button" accessibilityHint="Opens details" onPress={onPress} style={({ pressed }) => pressed && styles.pressed}>{card}</Pressable>;
 }
 
 // Numbers inside an answer.
@@ -33,7 +40,9 @@ export function Chips({ items, value, onChange, label }) {
 
 const styles = StyleSheet.create({
   card: { padding: 18, gap: 10 },
-  title: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text },
+  pressed: { opacity: 0.6 },
+  titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  title: { ...TYPOGRAPHY.sectionTitle, flexShrink: 1, color: COLORS.text },
   answer: { ...TYPOGRAPHY.body, color: COLORS.text },
   strong: { ...TYPOGRAPHY.button, color: COLORS.text },
   footnote: { ...TYPOGRAPHY.caption, color: COLORS.textLight },

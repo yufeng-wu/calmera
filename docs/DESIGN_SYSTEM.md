@@ -49,6 +49,7 @@ Text scales with the system setting. Labels locked to a chart grid set `maxFontS
 | Choose a value inside a form | `SegmentedControl` (native) |
 | Pick one of a list with explanations | `SettingsRow` with `accessibilityRole="radio"` |
 | Go somewhere | `SettingsRow` with a chevron |
+| Open more behind a card | `InsightCard` with `onPress`: the whole card is the target, with a chevron by the title |
 | The one main action on a screen | `GlassButton role="accent"` |
 
 Words, not abbreviations: "Month", not "M". Touch targets are at least 44 pt tall, or reach it with `hitSlop`.
@@ -60,9 +61,12 @@ Words, not abbreviations: "Month", not "M". Touch targets are at least 44 pt tal
 - Today and days with one meal logged draw in `soft`, and don't count toward typical values.
 - A goal is a thin dashed line, with its value labelled off the chart. Crossing it changes nothing.
 - Every chart has a text label for VoiceOver with what it shows.
+- On an overview, a chart beside its number is `compact`: no axis, no touch. Reading single bars happens on the detail page.
 
 ## Writing
 
 Sentence case. Plain statements of what happened. No praise, scolding, streaks, scores or exclamation marks. Say "typical day" for a median, and "Half your days are between A and B" for a range. Patterns get a caveat: "A pattern, not a cause."
+
+Overview cards are read at a glance: a title of three words or fewer, at most one line of body text with a number in it, and no footnotes. Ranges, comparisons and caveats live in the detail page behind the card.
 
 Empty and error states say what's going on and offer the next step. An error never replaces data already on screen.

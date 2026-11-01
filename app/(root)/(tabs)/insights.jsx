@@ -5,12 +5,12 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useRouter } from "expo-router";
 import MaskedView from "@react-native-masked-view/masked-view";
 import { LinearGradient } from "expo-linear-gradient";
-import Svg, { Line } from "react-native-svg";
 import { FormCard, GlassButton, formStyles } from "@/components/GlassForm";
 import FoodwrapRefreshScrollView from "@/components/FoodwrapRefreshScrollView";
 import DayTimeline from "@/components/insights/DayTimeline";
 import Heatmap, { WeekDots } from "@/components/insights/Heatmap";
-import InsightCard, { Chips, Strong } from "@/components/insights/InsightCard";
+import InsightCard from "@/components/insights/InsightCard";
+import { FoodLine, MEAL_LABELS, NUTRIENTS, PERIODS, PairBar, SplitTable, nutrientSummary, plural } from "@/components/insights/InsightDetails";
 import PeriodTabs from "@/components/insights/PeriodTabs";
 import TrendChart from "@/components/insights/TrendChart";
 import { SURFACES } from "@/constants/surfaces";
@@ -18,18 +18,11 @@ import { TYPOGRAPHY } from "@/constants/typography";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { useFoodIcons } from "@/context/FoodIconsContext";
 import { useInsights } from "@/hooks/useInsights";
-import { formatNearClock, formatNumber, formatRange } from "@/lib/insights/stats.mjs";
+import { formatNumber, formatRange } from "@/lib/insights/stats.mjs";
 
-const PERIODS = [
-  { id: "week", label: "Week", name: "7 days", accessibilityLabel: "Week, last 7 days" },
-  { id: "month", label: "Month", name: "30 days", accessibilityLabel: "Month, last 30 days" },
-  { id: "year", label: "Year", name: "12 months", accessibilityLabel: "Year, last 12 months" },
-];
-const NUTRIENTS = [["calories", "Calories", "kcal", "calorieGoal"], ["protein", "Protein", "g", "proteinGoal"], ["carbs", "Carbs", "g", "carbsGoal"], ["fat", "Fat", "g", "fatGoal"]];
-const MEAL_LABELS = { Breakfast: "Breakfast", Lunch: "Lunch", Dinner: "Dinner", Snack: "Snacks" };
-const FOOD_VIEWS = [["count", "Most eaten"], ["protein", "Protein"], ["calories", "Calories"]];
 const dayLetter = (key) => new Date(`${key}T12:00:00`).toLocaleDateString("en-US", { weekday: "narrow" });
-const plural = (count, word) => `${formatNumber(count)} ${word}${count === 1 ? "" : "s"}`;
+const TOP_FOODS = 3;
+const TOP_PRODUCE = 6;
 
 export default function InsightsScreen() {
   const { fontScale } = useWindowDimensions();
@@ -40,7 +33,8 @@ export default function InsightsScreen() {
   // Until history loads, the store holds only the days already opened, which would
   // read as a short history.
   const showData = loaded && !empty;
-  const hidesCards = showData && (!stats.rhythm || (stats.span > 7 && (!stats.difference || !stats.split)));
+  const hidesCards = showData && (!stats.rhythm || !stats.shares || (stats.span > 7 && (!stats.difference || !stats.split)));
+  const open = (card) => () => router.push({ pathname: "/insights/[card]", params: { card, period } });
 
   return <View style={formStyles.screen}>
     <PeriodTabs key={fontScale} items={PERIODS} value={period} onChange={setPeriod} />
@@ -61,11 +55,13 @@ export default function InsightsScreen() {
                 </FormCard>
                   : <>
                     <DaysCard stats={stats} />
-                    <TrendCard stats={stats} goals={goals} />
-                    <FoodsCard stats={stats} />
-                    {stats.rhythm && <RhythmCard rhythm={stats.rhythm} />}
-                    {stats.difference && <DifferenceCard difference={stats.difference} />}
-                    {stats.split && <SplitCard split={stats.split} />}
+                    <TypicalCard stats={stats} goals={goals} onPress={open("typical")} />
+                    {stats.foods.length > 0 && <FoodsCard foods={stats.foods} onPress={open("foods")} />}
+                    {stats.produce && <ProduceCard produce={stats.produce} onPress={open("produce")} />}
+                    {stats.rhythm && <RhythmCard rhythm={stats.rhythm} onPress={open("rhythm")} />}
+                    {stats.shares?.meals.some((row) => row.calories > 0) && <SharesCard shares={stats.shares} onPress={open("shares")} />}
+                    {stats.difference && <DifferenceCard difference={stats.difference} onPress={open("difference")} />}
+                    {stats.split && <SplitCard split={stats.split} onPress={open("split")} />}
                     {hidesCards && <Text style={styles.moreNote}>More shows up here as you log.</Text>}
                   </>}
               </Animated.View>}
@@ -84,7 +80,7 @@ function RetryCard({ onRetry }) {
 function LoadingCards() {
   return <View accessible accessibilityLabel="Loading your meals" style={styles.cards}>
     <View style={styles.rangeSkeleton} />
-    {[148, 248, 200].map((height) => <View key={height} style={[styles.skeleton, { height }]} />)}
+    {[92, 340, 180].map((height) => <View key={height} style={[styles.skeleton, { height }]} />)}
   </View>;
 }
 
@@ -99,167 +95,114 @@ function FirstRun({ onLog }) {
 function DaysCard({ stats }) {
   const { span, keys, loggedDays, started, todayKey, daysLogged } = stats;
   const label = plural(daysLogged, "day");
-  if (span === 30) {
-    return <FormCard style={styles.daysCard}>
-      <View style={styles.daysBeside} accessible accessibilityLabel={`${label} logged`}>
-        <View style={styles.daysSummary}>
-          <Text accessibilityRole="header" style={styles.cardTitle}>Days logged</Text>
-          <Text style={styles.metric}>{label}</Text>
-        </View>
-        <WeekDots keys={keys} logged={loggedDays} started={started} todayKey={todayKey} />
+  if (span > 30) {
+    return <InsightCard title="Days logged">
+      <View style={styles.days} accessible accessibilityLabel={`${label} logged`}>
+        <Text style={styles.metric}>{label}</Text>
+        <Heatmap keys={keys} logged={loggedDays} started={started} todayKey={todayKey} />
       </View>
-    </FormCard>;
+    </InsightCard>;
   }
-  return <InsightCard title="Days logged">
-    <View style={styles.days} accessible accessibilityLabel={`${label} logged`}>
-      <Text style={styles.metric}>{label}</Text>
-      {span > 30 ? <Heatmap keys={keys} logged={loggedDays} started={started} todayKey={todayKey} />
+  return <FormCard style={styles.daysCard}>
+    <View style={styles.daysBeside} accessible accessibilityLabel={`${label} logged`}>
+      <View style={styles.daysSummary}>
+        <Text accessibilityRole="header" style={styles.cardTitle}>Days logged</Text>
+        <Text style={styles.metric}>{label}</Text>
+      </View>
+      {span === 30 ? <WeekDots keys={keys} logged={loggedDays} started={started} todayKey={todayKey} />
         : <View style={styles.dayRow}>
           {keys.map((key, index) => <View key={key} style={styles.dayCell}>
             <View style={[styles.dayDot, !started[index] && styles.dayNotStarted, loggedDays[index] && styles.dayLogged, key === todayKey && styles.dayToday]} />
-            <Text style={styles.dayLabel}>{dayLetter(key)}</Text>
+            <Text maxFontSizeMultiplier={1.3} style={styles.dayLabel}>{dayLetter(key)}</Text>
           </View>)}
         </View>}
     </View>
-  </InsightCard>;
+  </FormCard>;
 }
 
-function TrendCard({ stats, goals }) {
-  const [field, setField] = useState("calories");
-  const [selected, setSelected] = useState(null);
-  // Reading a bar has less to say, and the chart shouldn't move under the finger.
-  const [headlineHeight, setHeadlineHeight] = useState(0);
-  const [, title, unit, goalField] = NUTRIENTS.find(([id]) => id === field);
-  const { typical, low, high, previous, chart } = stats.metrics[field];
-  const point = selected == null ? null : chart[selected];
-  const goal = Number(goals[goalField]) || null;
-  const period = PERIODS.find(({ name }) => name === (stats.span > 30 ? "12 months" : `${stats.span} days`)).name;
-  const hasPartial = chart.some((item) => item.partial && item.value != null);
-  const footnote = stats.span > 30 ? "Each bar is a month's daily average. Lighter bars are partial months."
-    : hasPartial ? "Lighter bars are today and days with one meal. They don't count toward typical." : null;
-  const present = chart.filter((item) => item.value != null);
-  const summary = `${title} by ${stats.span > 30 ? "month" : "day"}. ${typical != null ? `A typical day is ${formatNumber(typical)} ${unit}. ` : ""}`
-    + (present.length ? `Highest ${formatNumber(Math.max(...present.map((item) => item.value)))} ${unit}.` : "");
-  return <InsightCard title="A typical day" footnote={footnote}>
-    <Chips label="Nutrient" items={NUTRIENTS.map(([id, name]) => [id, name])} value={field} onChange={(id) => { setField(id); setSelected(null); }} />
-    <View style={[styles.headline, { minHeight: headlineHeight }]} accessibilityLiveRegion="polite"
-      onLayout={({ nativeEvent: { layout } }) => setHeadlineHeight((height) => Math.max(height, layout.height))}>
-      {(point || typical != null) && <Text style={styles.metric}>{formatNumber(point ? point.value : typical)} <Text style={styles.unit}>{unit}</Text></Text>}
-      {point ? <Text style={styles.answer}>{point.title}</Text>
-        : typical != null ? <>
-          <Text style={styles.answer}>Half your days are between <Strong>{formatNumber(low)}</Strong> and <Strong>{formatNumber(high)}</Strong>.</Text>
-          {previous != null && <Text style={styles.answer}>Previous {period}: {formatNumber(previous)} {unit}</Text>}
-        </> : <Text style={styles.answer}>Your typical day appears after three days with two or more meals.</Text>}
-    </View>
-    {!!goal && <View style={styles.goalKey}>
-      <Svg width={14} height={2}><Line x1={0} x2={14} y1={1} y2={1} stroke={COLORS.textLight} strokeOpacity={0.55} strokeWidth={1} strokeDasharray="3 4" /></Svg>
-      <Text style={styles.footnote}>Goal {formatNumber(goal)} {unit}</Text>
-    </View>}
-    <TrendChart points={chart} goal={goal} selected={selected} onSelect={setSelected} accessibilityLabel={summary} />
-  </InsightCard>;
-}
-
-function RhythmCard({ rhythm }) {
-  return <InsightCard title="When you eat" footnote="The dot is your usual time. Half your days fall inside the band. Times are when you logged, unless edited."
-    answer={rhythm.halfBy != null ? <>{"You've had half your calories by about "}<Strong>{formatNearClock(rhythm.halfBy)}</Strong>.</> : null}>
-    <DayTimeline meals={rhythm.meals} />
-  </InsightCard>;
-}
-
-function DifferenceCard({ difference }) {
+function TypicalCard({ stats, goals, onPress }) {
   const { fontScale } = useWindowDimensions();
-  const { goal, higherDays, lowerDays, meals, widest, foods } = difference;
-  const higherName = goal ? `${formatNumber(goal)} g or more` : "Higher days", lowerName = goal ? `Under ${formatNumber(goal)} g` : "Other days";
-  const top = Math.max(...meals.flatMap((meal) => [meal.higher, meal.lower]), 1);
-  const shown = meals.filter((meal) => meal.higher >= 1 || meal.lower >= 1);
-  const days = `From ${plural(higherDays + lowerDays, "day")} with two or more meals. A pattern, not a cause.`;
-  return <InsightCard title={goal ? `On days with ${formatNumber(goal)} g of protein or more` : "On your higher-protein days"}
-    answer={widest ? <>Biggest difference: {MEAL_LABELS[widest.meal].toLowerCase()}, with <Strong>{formatNumber(widest.higher)} g</Strong> of protein against <Strong>{formatNumber(widest.lower)} g</Strong>.</> : null}
-    footnote={goal ? days : `Higher days are the half with the most protein. ${days}`}>
-    <View style={styles.pairs}>
-      {shown.map((meal) => <View key={meal.meal} style={[styles.pair, fontScale > 1.3 && styles.pairStacked]} accessible
-        accessibilityLabel={`${MEAL_LABELS[meal.meal]}: ${formatNumber(meal.higher)} grams on days with ${higherName}, ${formatNumber(meal.lower)} grams on days with ${lowerName}`}>
-        <Text style={[styles.pairName, fontScale > 1.3 && styles.pairNameStacked]}>{MEAL_LABELS[meal.meal]}</Text>
-        <View style={styles.pairBars}>
-          <PairBar value={meal.higher} top={top} color={COLORS.primary} />
-          <PairBar value={meal.lower} top={top} color={COLORS.soft} />
-        </View>
-      </View>)}
+  const stacked = fontScale > 1.3;
+  const noTypical = NUTRIENTS.every(([field]) => stats.metrics[field].typical == null);
+  return <InsightCard title="A typical day" onPress={onPress} answer={noTypical ? "Appears after 3 days with 2+ meals." : null}>
+    <View>
+      {NUTRIENTS.map(([field, title, unit, goalField], index) => {
+        const metric = stats.metrics[field];
+        const goal = Number(goals[goalField]) || null;
+        return <View key={field} style={[styles.typicalRow, index > 0 && styles.divider, stacked && styles.typicalStacked]}>
+          <View style={stacked ? null : styles.typicalText}>
+            <Text style={styles.footnote}>{title}</Text>
+            <Text numberOfLines={1} adjustsFontSizeToFit style={styles.metric}>{formatNumber(metric.typical)} <Text style={styles.unit}>{unit}</Text></Text>
+            {!!goal && <Text style={styles.footnote}>Goal {formatNumber(goal)}</Text>}
+          </View>
+          <View style={stacked ? null : styles.typicalChart}>
+            <TrendChart compact height={52} points={metric.chart} goal={goal} accessibilityLabel={nutrientSummary(title, unit, stats.span, metric)} />
+          </View>
+        </View>;
+      })}
     </View>
-    <View style={styles.key}>
-      <KeyItem color={COLORS.primary} label={`${higherName} (${higherDays})`} />
-      <KeyItem color={COLORS.soft} label={`${lowerName} (${lowerDays})`} />
+  </InsightCard>;
+}
+
+function FoodsCard({ foods, onPress }) {
+  return <InsightCard title="Your foods" onPress={onPress}>
+    <View>
+      {foods.slice(0, TOP_FOODS).map((food, index) => <FoodLine key={food.id} compact name={food.name} value={`${food.count}×`} divider={index > 0} />)}
     </View>
-    {foods.length > 0 && <View style={styles.diffFoods}>
-      <Text style={styles.diffHeading}>More often on these days</Text>
-      {foods.map((food) => <FoodLine key={food.name} name={food.name} detail={`${food.higher} of ${higherDays} days, against ${food.lower} of ${lowerDays}`} />)}
+  </InsightCard>;
+}
+
+function ProduceCard({ produce, onPress }) {
+  const { iconFor } = useFoodIcons();
+  const { vegetables, fruits } = produce;
+  const counts = [vegetables.length && plural(vegetables.length, "vegetable"), fruits.length && plural(fruits.length, "fruit")].filter(Boolean);
+  // One emoji covers many greens, so each appears once, and ones without a real match are left out.
+  const icons = new Map();
+  for (const item of [...vegetables, ...fruits].sort((a, b) => b.count - a.count)) {
+    const icon = iconFor({ foodName: item.name });
+    if (icon.id !== "meal" && !icons.has(icon.emoji)) icons.set(icon.emoji, item.name);
+  }
+  return <InsightCard title="Veg and fruit" onPress={onPress} answer={counts.length ? counts.join(" · ") : "None in the foods checked."}>
+    {icons.size > 0 && <View style={styles.produceIcons}>
+      {[...icons.keys()].slice(0, TOP_PRODUCE).map((emoji) => <Text key={emoji} style={styles.produceIcon}>{emoji}</Text>)}
     </View>}
   </InsightCard>;
 }
 
-function PairBar({ value, top, color }) {
-  return <View style={styles.pairRow}>
-    <View style={[styles.pairBar, { backgroundColor: color, width: `${Math.max(value / top * 72, 2)}%` }]} />
-    <Text style={styles.pairValue}>{formatNumber(value)} g</Text>
-  </View>;
-}
-
-const KeyItem = ({ color, label }) => <View style={styles.keyItem}>
-  <View style={[styles.keyDot, { backgroundColor: color }]} />
-  <Text style={styles.footnote}>{label}</Text>
-</View>;
-
-function FoodLine({ name, value, detail, isNew, divider }) {
-  const { iconFor } = useFoodIcons();
-  return <View style={[styles.food, divider && styles.divider]} accessible accessibilityLabel={[name, value, detail, isNew && "new"].filter(Boolean).join(", ")}>
-    <Text style={styles.foodIcon}>{iconFor({ foodName: name }).emoji}</Text>
-    <View style={styles.foodCopy}>
-      <Text style={styles.foodName}>{name}</Text>
-      {!!detail && <Text style={styles.footnote}>{detail}</Text>}
-    </View>
-    {isNew && <Text style={styles.newBadge}>New</Text>}
-    {!!value && <Text style={styles.foodValue}>{value}</Text>}
-  </View>;
-}
-
-function FoodsCard({ stats }) {
-  const [view, setView] = useState("count");
-  const foods = stats.foodsBy[view];
-  if (!stats.foods.length) return null;
-  const value = (food) => view === "count" ? `${food.count}×` : `${Math.round(food[view] / stats.foodTotals[view] * 100)}%`;
-  const note = view === "count" ? null : `Share of your ${view === "protein" ? "protein" : "calories"} in this period.`;
-  return <InsightCard title="Your foods" footnote={note}>
-    <Chips label="Sort foods" items={FOOD_VIEWS} value={view} onChange={setView} />
-    {foods.length ? <View>
-      {foods.map((food, index) => <FoodLine key={food.id} name={food.name} value={value(food)} isNew={food.isNew} divider={index > 0} />)}
-    </View> : <Text style={styles.answer}>No {view} logged in this period.</Text>}
+function RhythmCard({ rhythm, onPress }) {
+  const { fontScale } = useWindowDimensions();
+  return <InsightCard title="When you eat" onPress={onPress}>
+    <DayTimeline meals={rhythm.meals} compact={fontScale <= 1.3} />
   </InsightCard>;
 }
 
-function SplitCard({ split }) {
-  const rows = [
-    ["Calories", "kcal", (side) => formatNumber(side.calories)],
-    ["Protein", "g", (side) => formatNumber(side.protein)],
-    ["First meal time", "", (side) => formatNearClock(side.firstMeal)],
-    ["Dinner time", "", (side) => formatNearClock(side.dinner)],
-  ].filter(([, , read]) => read(split.weekday) !== "–" || read(split.weekend) !== "–");
-  return <InsightCard title="Weekdays and weekends" footnote={`Typical values, from ${plural(split.weekday.days, "weekday")} and ${plural(split.weekend.days, "weekend day")}.`}>
-    <View>
-      <View style={styles.compareHead}>
-        <View style={styles.compareLabel} />
-        <Text style={styles.compareTitle}>Weekdays</Text>
-        <Text style={styles.compareTitle}>Weekends</Text>
-      </View>
-      {rows.map(([title, unit, read]) => <View key={title} style={[styles.compareRow, styles.divider]} accessible
-        accessibilityLabel={`${title}: ${read(split.weekday)} ${unit} on weekdays, ${read(split.weekend)} ${unit} on weekends`}>
-        <Text style={[styles.compareLabel, styles.compareName]}>{title}</Text>
-        <Text style={styles.compareValue}>{read(split.weekday)}{unit ? <Text style={styles.compareUnit}> {unit}</Text> : null}</Text>
-        <Text style={styles.compareValue}>{read(split.weekend)}{unit ? <Text style={styles.compareUnit}> {unit}</Text> : null}</Text>
-      </View>)}
+function SharesCard({ shares, onPress }) {
+  const meals = shares.meals.filter((row) => row.calories > 0);
+  return <InsightCard title="How much at each meal" onPress={onPress}>
+    <View style={styles.shareBar}>
+      {meals.map((row) => <View key={row.meal} style={[styles.shareSegment, { flex: row.calories }]} />)}
     </View>
+    <Text style={styles.footnote}>{meals.map((row) => `${MEAL_LABELS[row.meal]} ${row.calories}%`).join(" · ")}</Text>
   </InsightCard>;
 }
 
+function DifferenceCard({ difference, onPress }) {
+  const { widest, meals } = difference;
+  const top = Math.max(...meals.flatMap((meal) => [meal.higher, meal.lower]), 1);
+  return <InsightCard title="Higher-protein days" onPress={onPress}
+    answer={widest ? `${MEAL_LABELS[widest.meal]}: ${formatNumber(widest.higher)} g on these days, ${formatNumber(widest.lower)} g on others.` : "No meal stands out."}>
+    {!!widest && <View>
+      <PairBar value={widest.higher} top={top} color={COLORS.primary} />
+      <PairBar value={widest.lower} top={top} color={COLORS.soft} />
+    </View>}
+  </InsightCard>;
+}
+
+function SplitCard({ split, onPress }) {
+  return <InsightCard title="Weekdays and weekends" onPress={onPress}>
+    <SplitTable split={split} only={["Calories", "Dinner time"]} />
+  </InsightCard>;
+}
 
 const styles = StyleSheet.create({
   scrollMask: { flex: 1 },
@@ -279,47 +222,25 @@ const styles = StyleSheet.create({
   cardTitle: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text },
   metric: { ...TYPOGRAPHY.metric, color: COLORS.text },
   unit: { ...TYPOGRAPHY.body, color: COLORS.text },
-  answer: { ...TYPOGRAPHY.body, color: COLORS.text },
   footnote: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
-  headline: { gap: 2 },
-  goalKey: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: -6 },
   divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: SURFACES.separator },
   daysCard: { padding: 18 },
   days: { gap: 8 },
   daysBeside: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
   daysSummary: { flex: 1, gap: 4 },
-  dayRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 4 },
-  dayCell: { alignItems: "center", gap: 4 },
-  dayDot: { width: 28, height: 28, borderRadius: 14, backgroundColor: COLORS.track },
+  dayRow: { flexDirection: "row", gap: 5 },
+  dayCell: { alignItems: "center", gap: 2 },
+  dayDot: { width: 22, height: 22, borderRadius: 11, backgroundColor: COLORS.track },
   dayNotStarted: { backgroundColor: "transparent" },
   dayLogged: { backgroundColor: COLORS.primary },
   dayToday: { borderWidth: 2, borderColor: COLORS.text },
   dayLabel: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
-  pairs: { gap: 12 },
-  pair: { flexDirection: "row", alignItems: "center", gap: 10 },
-  pairStacked: { flexDirection: "column", alignItems: "stretch", gap: 4 },
-  pairName: { ...TYPOGRAPHY.body, width: 72, color: COLORS.text },
-  pairNameStacked: { width: "auto" },
-  pairBars: { flex: 1 },
-  pairRow: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 18 },
-  pairBar: { height: 8, borderRadius: 4 },
-  pairValue: { ...TYPOGRAPHY.caption, color: COLORS.textLight, fontVariant: ["tabular-nums"] },
-  key: { flexDirection: "row", flexWrap: "wrap", columnGap: 14, rowGap: 2 },
-  keyItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  keyDot: { width: 8, height: 8, borderRadius: 4 },
-  diffFoods: { marginTop: 8, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: SURFACES.separator },
-  diffHeading: { ...TYPOGRAPHY.bodyMedium, color: COLORS.text },
-  food: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 10 },
-  foodIcon: { fontSize: 24, lineHeight: 30 },
-  foodCopy: { flex: 1 },
-  foodName: { ...TYPOGRAPHY.body, color: COLORS.text },
-  newBadge: { ...TYPOGRAPHY.captionMedium, color: COLORS.primary },
-  foodValue: { ...TYPOGRAPHY.bodyMedium, color: COLORS.text, fontVariant: ["tabular-nums"] },
-  compareHead: { flexDirection: "row", paddingBottom: 8 },
-  compareRow: { flexDirection: "row", alignItems: "center", paddingVertical: 12 },
-  compareLabel: { flex: 1 },
-  compareName: { ...TYPOGRAPHY.body, color: COLORS.text },
-  compareTitle: { ...TYPOGRAPHY.caption, flex: 1, color: COLORS.textLight, textAlign: "right" },
-  compareValue: { ...TYPOGRAPHY.bodyMedium, flex: 1, color: COLORS.text, textAlign: "right", fontVariant: ["tabular-nums"] },
-  compareUnit: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
+  typicalRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
+  typicalStacked: { flexDirection: "column", alignItems: "stretch", gap: 6 },
+  typicalText: { width: 130 },
+  typicalChart: { flex: 1 },
+  produceIcons: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  produceIcon: { fontSize: 24, lineHeight: 30 },
+  shareBar: { flexDirection: "row", gap: 2, height: 10, borderRadius: 5, overflow: "hidden" },
+  shareSegment: { backgroundColor: COLORS.primary },
 });

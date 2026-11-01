@@ -24,7 +24,9 @@ These sources are mostly secondary and small-sample; none was a controlled study
 | Days logged | Have I been logging? | Always |
 | A typical day | What does a normal day look like? | Chart always. Typical value after 3 days with 2+ meals |
 | Your foods | What do I eat most, and what gives me protein? | Any food logged |
-| When you eat | When, and how much at each meal? | A meal logged on 3+ days |
+| Veg and fruit | What kinds have I had? | A checked food in the period |
+| When you eat | What time do I usually have each meal? | A meal logged on 3+ days |
+| How much at each meal | How do calories, protein, carbs and fat split across meals? | 3 days with 2+ meals |
 | On days with X g of protein or more | What's different on days with more protein? | Month and Year, with 3+ days on each side |
 | Weekdays and weekends | Are they different? | Month and Year, with 5+ weekdays and 3+ weekend days |
 
@@ -36,11 +38,12 @@ Left out on purpose: AI commentary, scored reports, weight, Apple Health, and co
 
 - A meal's time is usually when it was logged, unless edited. "When you eat" says so and rounds times to the nearest quarter hour.
 - Food name merging is deliberately cautious. "White Rice" and "Steamed White Rice" merge; "Fried Rice" and "Rice" stay apart. Rewordings like "Rice with chicken" won't merge.
+- Veg and fruit tags come from the AI at logging, on the person's own ChatGPT plan, and the Insights page itself does no AI work. Foods logged earlier or typed by hand have no tags (`ingredients` is null, meaning unchecked rather than none). Renaming a food clears its tags.
 - Android gets the export as text in the share sheet rather than as a file, since the app has no Android file-sharing module.
 
 ## Export file formats
 
-`Every food` (CSV): `date,time,meal,food,quantity,calories,protein_g,carbs_g,fat_g`, one row per food.
+`Every food` (CSV): `date,time,meal,food,quantity,calories,protein_g,carbs_g,fat_g,vegetables,fruits`, one row per food.
 
 `Daily totals` (CSV): `date,foods_logged,calories,protein_g,carbs_g,fat_g`, one row per day.
 

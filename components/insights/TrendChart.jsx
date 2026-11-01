@@ -5,8 +5,7 @@ import * as Haptics from "expo-haptics";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 
-const HEIGHT = 112;
-const FLOOR = HEIGHT - 2;
+const FULL_HEIGHT = 112;
 const LABEL_WIDTH = 48;
 // Axis labels sit under fixed bars, so they can only grow so far.
 const AXIS_TEXT = 1.3;
@@ -14,14 +13,16 @@ const AXIS_TEXT = 1.3;
 // A week lines up with the seven dots in Days logged above it. Longer periods space
 // bars evenly across the width.
 const DAY_DOT = 28;
-function spacing(width, count) {
-  const inset = count <= 7 ? DAY_DOT / 2 : width / count / 2;
+function spacing(width, count, compact) {
+  const inset = count <= 7 && !compact ? DAY_DOT / 2 : width / count / 2;
   return { inset, gap: (width - inset * 2) / Math.max(1, count - 1) };
 }
 
 // Bars for one nutrient, with a dashed line at the goal. Days without a log are a small
 // dot, so gaps read as gaps rather than zeros. Touch a bar, or drag across, to read it.
-export default function TrendChart({ points, goal, selected, onSelect, accessibilityLabel }) {
+// A compact chart only shows the shape: no labels, and touches go to the card around it.
+export default function TrendChart({ points, goal, selected, onSelect, accessibilityLabel, compact, height: HEIGHT = FULL_HEIGHT }) {
+  const FLOOR = HEIGHT - 2;
   const [width, setWidth] = useState(0);
   const latest = useRef({ points, width, selected, onSelect });
   latest.current = { points, width, selected, onSelect };
@@ -58,13 +59,13 @@ export default function TrendChart({ points, goal, selected, onSelect, accessibi
   const present = points.map((point) => point.value).filter((value) => value != null);
   const top = Math.max(...present, Number(goal) || 0, 1);
   const y = (value) => FLOOR - (value / top) * (FLOOR - 6);
-  const { inset, gap } = spacing(width, points.length);
+  const { inset, gap } = spacing(width, points.length, compact);
   const center = (index) => inset + index * gap;
-  const bar = Math.max(3, Math.min(16, width / points.length * 0.62));
+  const bar = Math.max(3, Math.min(compact ? 10 : 16, width / points.length * 0.62));
+  const touch = compact ? { pointerEvents: "none" } : { onTouchStart: (event) => { startX.current = event.nativeEvent.locationX; }, ...responder.panHandlers };
   return <View>
-    <View accessible accessibilityRole="image" accessibilityLabel={accessibilityLabel} style={styles.plot}
-      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
-      onTouchStart={(event) => { startX.current = event.nativeEvent.locationX; }} {...responder.panHandlers}>
+    <View accessible accessibilityRole="image" accessibilityLabel={accessibilityLabel} style={{ height: HEIGHT }}
+      onLayout={(event) => setWidth(event.nativeEvent.layout.width)} {...touch}>
       {width > 0 && <Svg width={width} height={HEIGHT}>
         {goal ? <Line x1={0} x2={width} y1={y(goal)} y2={y(goal)} stroke={COLORS.textLight} strokeOpacity={0.55} strokeWidth={1} strokeDasharray="3 4" /> : null}
         {points.map((point, index) => {
@@ -76,14 +77,13 @@ export default function TrendChart({ points, goal, selected, onSelect, accessibi
         })}
       </Svg>}
     </View>
-    {width > 0 && <View style={styles.labels}>
+    {width > 0 && !compact && <View style={styles.labels}>
       {points.map((point, index) => point.label && <Text key={point.key} numberOfLines={1} maxFontSizeMultiplier={AXIS_TEXT} style={[styles.label, { left: center(index) - LABEL_WIDTH / 2 }, selected === index && styles.labelSelected]}>{point.label}</Text>)}
     </View>}
   </View>;
 }
 
 const styles = StyleSheet.create({
-  plot: { height: HEIGHT },
   labels: { height: 24, marginTop: 2 },
   label: { ...TYPOGRAPHY.caption, position: "absolute", width: LABEL_WIDTH, textAlign: "center", color: COLORS.textLight },
   labelSelected: { color: COLORS.text },

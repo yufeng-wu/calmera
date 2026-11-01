@@ -43,11 +43,22 @@ test("the foods file has one row per food and leaves out account ids", () => {
   assert.ok(text.startsWith("﻿"));
   assert.ok(!text.includes("user_secret"));
   assert.deepEqual(lines(text), [
-    "date,time,meal,food,quantity,calories,protein_g,carbs_g,fat_g",
-    "2026-10-29,12:30,Lunch,番茄炒蛋,1 plate,300,18,12,20",
-    `2026-10-29,15:00,Snack,"He said ""yum""",'=SUM(A1),100,,,`,
-    '2026-10-30,19:05,Dinner,"Rice, steamed",1 cup,200.5,4,44,0.4',
+    "date,time,meal,food,quantity,calories,protein_g,carbs_g,fat_g,vegetables,fruits",
+    "2026-10-29,12:30,Lunch,番茄炒蛋,1 plate,300,18,12,20,,",
+    `2026-10-29,15:00,Snack,"He said ""yum""",'=SUM(A1),100,,,,,`,
+    '2026-10-30,19:05,Dinner,"Rice, steamed",1 cup,200.5,4,44,0.4,,',
   ]);
+});
+
+test("exports include vegetables and fruits, and unchecked stays different from none", () => {
+  const tagged = { "2026-10-30": { entries: [
+    { foodName: "Stir Fry", localTime: "19:05", ingredients: { vegetables: ["Carrot", "Bok Choy"], fruits: [] } },
+    { foodName: "Toast", localTime: "20:00" },
+  ] } };
+  assert.ok(lines(mealsCsv(tagged, ["2026-10-30"]))[1].endsWith("Carrot; Bok Choy,"));
+  const [checked, unchecked] = JSON.parse(everythingJson(tagged, ["2026-10-30"])).days[0].foods;
+  assert.deepEqual([checked.vegetables, checked.fruits], [["Carrot", "Bok Choy"], []]);
+  assert.deepEqual([unchecked.vegetables, unchecked.fruits], [null, null]);
 });
 
 test("the daily file adds up each day", () => {
@@ -65,13 +76,13 @@ test("the JSON file holds foods and goals as numbers, without account ids", () =
   assert.equal(parsed.app, "Calmera");
   assert.equal(parsed.exportedAt, "2026-10-31T00:00:00.000Z");
   assert.deepEqual(parsed.goals, { calories: 2000, protein_g: 100, carbs_g: null, fat_g: null });
-  assert.deepEqual(parsed.days, [{ date: "2026-10-30", foods: [{ time: "19:05", meal: "Dinner", food: "Rice, steamed", quantity: "1 cup", calories: 200.5, protein_g: 4, carbs_g: 44, fat_g: 0.4 }] }]);
+  assert.deepEqual(parsed.days, [{ date: "2026-10-30", foods: [{ time: "19:05", meal: "Dinner", food: "Rice, steamed", quantity: "1 cup", calories: 200.5, protein_g: 4, carbs_g: 44, fat_g: 0.4, vegetables: null, fruits: null }] }]);
   assert.deepEqual(JSON.parse(everythingJson({}, [])).goals.calories, null);
 });
 
 test("missing numbers stay blank, and short times still read as times", () => {
   const odd = { "2026-10-30": { entries: [{ foodName: "Soup", calories: null, protein: "", carbs: 0, fat: undefined, mealType: "Lunch", localTime: "8:05:00" }] } };
-  assert.equal(lines(mealsCsv(odd, ["2026-10-30"]))[1], "2026-10-30,08:05,Lunch,Soup,,,,0,");
+  assert.equal(lines(mealsCsv(odd, ["2026-10-30"]))[1], "2026-10-30,08:05,Lunch,Soup,,,,0,,,");
   assert.equal(JSON.parse(everythingJson(odd, ["2026-10-30"])).days[0].foods[0].calories, null);
 });
 

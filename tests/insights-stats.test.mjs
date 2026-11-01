@@ -120,14 +120,14 @@ test("foods merge under the most used spelling, rank three ways and mark new one
   assert.deepEqual(stats.foodsBy.protein.map((food) => food.name), ["Poke Bowl", "Oat Latte"]);
   assert.deepEqual(stats.foodsBy.calories.map((food) => [food.name, food.calories]), [["Oat Latte", 700], ["Poke Bowl", 500]]);
   assert.equal(stats.foodTotals.calories, 1200);
-  const week = periodStats(dayRange(1, 6, (ago) => Array.from({ length: 7 }, (_, index) => entry(`Food ${index}`, "Lunch", ago))), { today: TODAY });
-  assert.equal(week.foods.length, 5);
+  const week = periodStats(dayRange(1, 6, (ago) => Array.from({ length: 25 }, (_, index) => entry(`Food ${index}`, "Lunch", ago))), { today: TODAY });
+  assert.equal(week.foods.length, 20);
   assert.equal(week.foods[0].isNew, false);
   const year = periodStats({ ...dayRange(1, 40, () => fullDay(500)), ...dayRange(366, 410, () => [entry("Soup", "Lunch", 100), entry("Bread", "Snack", 100)]) }, { span: 365, today: TODAY });
   assert.equal(year.foods.find((food) => food.name === "Eggs").isNew, true);
 });
 
-test("rhythm gives each meal's usual time and share, once it has three days", () => {
+test("rhythm gives each meal's usual time, once it has three days", () => {
   const days = dayRange(1, 5, (ago) => [entry("Eggs", "Breakfast", 200, 0, `0${7 + ago % 3}:00`), entry("Toast", "Breakfast", 100, 0, "11:00"), entry("Rice", "Dinner", 700, 0, "19:00")]);
   days[key(6)] = { entries: [entry("Chips", "Snack", 100, 0, "15:00"), entry("Soup", "Lunch", 100, 0, "12:00")] };
   const { rhythm } = periodStats(days, { today: TODAY });
@@ -135,10 +135,57 @@ test("rhythm gives each meal's usual time and share, once it has three days", ()
   const breakfast = rhythm.meals[0];
   assert.equal(breakfast.days, 5);
   assert.equal(breakfast.median, 8 * 60); // Each day's earliest breakfast.
-  assert.ok(Math.abs(breakfast.share - 29) <= 1);
   assert.equal(rhythm.meals[1].median, 19 * 60);
-  assert.equal(rhythm.halfBy, 19 * 60);
   assert.equal(periodStats({ [key(1)]: { entries: fullDay(100) } }, { today: TODAY }).rhythm, null);
+});
+
+const macros = (foodName, mealType, calories, protein, carbs, fat) => ({ foodName, mealType, calories, protein, carbs, fat, localTime: "12:00" });
+
+test("meal shares give each nutrient's split across meals", () => {
+  const days = dayRange(1, 3, () => [macros("Eggs", "Breakfast", 200, 30, 10, 20), macros("Rice", "Dinner", 600, 10, 90, 0), macros("Nuts", "Snack", 200, 10, 0, 30)]);
+  const { shares } = periodStats(days, { today: TODAY });
+  assert.equal(shares.days, 3);
+  assert.deepEqual(shares.meals.map((row) => row.meal), ["Breakfast", "Dinner", "Snack"]);
+  assert.deepEqual(shares.meals[0], { meal: "Breakfast", calories: 20, protein: 60, carbs: 10, fat: 40 });
+  assert.equal(shares.meals[1].fat, 0);
+  assert.equal(shares.largest.meal, "Dinner");
+});
+
+test("meal shares add up to exactly 100 in every column", () => {
+  const days = dayRange(1, 3, () => [macros("A", "Breakfast", 100, 1, 1, 1), macros("B", "Lunch", 100, 1, 1, 1), macros("C", "Dinner", 100, 1, 1, 1)]);
+  const { shares } = periodStats(days, { today: TODAY });
+  for (const field of ["calories", "protein", "carbs", "fat"]) assert.equal(shares.meals.reduce((total, row) => total + row[field], 0), 100);
+  assert.equal(shares.largest, null); // A tie has no largest meal.
+});
+
+test("meal shares skip today and one-meal days, and wait for three complete days", () => {
+  const days = dayRange(1, 3, () => [macros("Eggs", "Breakfast", 500, 0, 0, 0), macros("Rice", "Dinner", 500, 0, 0, 0)]);
+  days[key(0)] = { entries: [macros("Cake", "Snack", 9000, 0, 0, 0)] };
+  days[key(4)] = { entries: [macros("Toast", "Lunch", 9000, 0, 0, 0)] };
+  const { shares } = periodStats(days, { today: TODAY });
+  assert.deepEqual(shares.meals.map((row) => row.meal), ["Breakfast", "Dinner"]);
+  assert.equal(shares.meals[0].calories, 50);
+  assert.equal(shares.meals[0].protein, null); // Nothing logged to divide.
+  assert.equal(periodStats(dayRange(1, 2, () => fullDay(100)), { today: TODAY }).shares, null);
+  assert.equal(periodStats(dayRange(1, 3, () => fullDay(0)), { today: TODAY }).shares, null);
+});
+
+test("veg and fruit lists merge spellings and count unchecked foods apart", () => {
+  const tagged = (name, vegetables, fruits) => ({ ...entry(name, "Lunch", 100), ingredients: { vegetables, fruits } });
+  const { produce } = periodStats({
+    [key(0)]: { entries: [tagged("Salad", ["Spinach", "Carrot"], ["Apple"])] }, // Today counts: it was eaten.
+    [key(1)]: { entries: [tagged("Soup", ["carrots", "Carrot"], []), entry("Toast", "Breakfast", 100)] },
+    [key(9)]: { entries: [tagged("Old", ["Kale"], [])] }, // Outside the week.
+  }, { today: TODAY });
+  assert.deepEqual(produce.vegetables.map(({ name, count }) => [name, count]), [["Carrot", 3], ["Spinach", 1]]);
+  assert.deepEqual(produce.fruits.map((item) => item.name), ["Apple"]);
+  assert.equal(produce.unchecked, 1);
+});
+
+test("veg and fruit stay hidden until a food has been checked", () => {
+  assert.equal(periodStats({ [key(1)]: { entries: fullDay(100) } }, { today: TODAY }).produce, null);
+  const none = periodStats({ [key(1)]: { entries: [{ ...entry("Toast", "Lunch", 100), ingredients: { vegetables: [], fruits: [] } }] } }, { today: TODAY }).produce;
+  assert.deepEqual([none.vegetables, none.fruits, none.unchecked], [[], [], 0]);
 });
 
 test("higher-protein days compare at the goal when both sides have three days", () => {

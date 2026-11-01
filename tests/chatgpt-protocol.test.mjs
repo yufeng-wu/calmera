@@ -109,6 +109,16 @@ test("saving allowlists only the existing database fields, never tokens, transcr
   assert.equal(payload.calories, 105);
 });
 
+test("vegetables and fruits survive to the save, and bad lists never lose the meal", () => {
+  const ingredients = { vegetables: ["Spinach"], fruits: [] };
+  assert.deepEqual(parseMeal(JSON.stringify({ ...meal, ingredients })), { ...meal, ingredients });
+  assert.deepEqual(foodEntryPayload({ ...meal, ingredients }, "2026-10-18T12:00:00-04:00").ingredients, ingredients);
+  assert.deepEqual(parseMeals(JSON.stringify([{ ...meal, ingredients }]))[0].ingredients, ingredients);
+  for (const bad of ["Spinach", ["Spinach"], {}, { vegetables: "Spinach" }, null]) assert.deepEqual(parseMeal(JSON.stringify({ ...meal, ingredients: bad })), meal);
+  assert.deepEqual(parseMeal(JSON.stringify({ ...meal, ingredients: { vegetables: [" Kale ", "kale", 3, ""], grains: ["Rice"] } })).ingredients, { vegetables: ["Kale"], fruits: [] });
+  assert.ok(transcriptPrompt("Synthetic salad").includes('"ingredients": { "vegetables": ["Romaine Lettuce"], "fruits": [] }'));
+});
+
 test("the original multi-food array is preserved, including empty/no-food and fractional portions", () => {
   const second = { ...meal, foodName: "Invented toast", quantity: "0.5 slices", calories: 40 };
   assert.deepEqual(parseMeals(JSON.stringify([meal, second])), [meal, second]);

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createMealReview, updateReviewFood, reviewTotals, saveMealReview } from "../lib/mealReview.mjs";
+import { createMealReview, updateReviewFood, reviewTotals, saveMealReview, setReviewField } from "../lib/mealReview.mjs";
 import { createConfirmedMealSave } from "../lib/confirmedMealSave.mjs";
 const food = { foodName: "Rice", quantity: "1 cup", mealType: "Lunch", calories: 200, protein: 4, carbs: 45, fat: 1 };
 const time = "2026-10-21T12:00:00-04:00";
@@ -15,6 +15,23 @@ test("analysis creates a separate local draft and does not mutate model results"
   assert.equal(review.entries[0].access_token, undefined);
   review.entries[0].foodName = "Edited";
   assert.equal(original.foodName, "Rice");
+});
+
+test("vegetables and fruits reach the save, unless the food was renamed", async () => {
+  const ingredients = { vegetables: ["Carrot"], fruits: [] };
+  const review = draft([{ ...food, ingredients }, { ...food, foodName: "Stew", ingredients }, { ...food, foodName: "Soup", ingredients }]);
+  assert.deepEqual(review.entries[0].ingredients, ingredients);
+  const keptName = updateReviewFood(review, "meal-food-0", { ...food, calories: 300 });
+  assert.deepEqual(keptName.entries[0].ingredients, ingredients);
+  const renamedInForm = updateReviewFood(keptName, "meal-food-1", { ...food, foodName: "Steak" });
+  const renamedInline = setReviewField(renamedInForm, "meal-food-2", "foodName", "Toast");
+  assert.deepEqual(setReviewField(renamedInline, "meal-food-0", "calories", "310").entries[0].ingredients, ingredients);
+  const sent = [];
+  await saveMealReview(renamedInline, "owner-a", options(async (_url, request) => {
+    sent.push(JSON.parse(request.body));
+    return new Response(JSON.stringify({ id: sent.length }), { status: 201, headers: { "Content-Type": "application/json" } });
+  }));
+  assert.deepEqual(sent.map((body) => body.ingredients), [ingredients, undefined, undefined]);
 });
 
 test("final save uses edits, removals, additions and chosen meal category, never original estimates", async () => {
