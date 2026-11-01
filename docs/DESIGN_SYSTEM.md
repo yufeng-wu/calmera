@@ -58,15 +58,17 @@ Words, not abbreviations: "Month", not "M". Touch targets are at least 44 pt tal
 
 - Days with no log are gaps (a small dot or nothing), never zeros.
 - Days before someone's first log are blank. They weren't missed.
-- Today and days with one meal logged draw in `soft`, and don't count toward typical values.
+- Today and days with one meal logged draw in `soft`, and don't count toward averages.
 - A goal is a thin dashed line, with its value labelled off the chart. Crossing it changes nothing.
 - Every chart has a text label for VoiceOver with what it shows.
-- On an overview, a chart beside its number is `compact`: no axis, no touch. Reading single bars happens on the detail page.
+- On an overview, a chart beside its number is `compact`: no axis, no touch, just bars and the goal line. Earlier periods and reading single bars happen on the detail page, where the previous period sits on the left and this one on the right, as two matching charts in the same color with a divider between.
+- Charts in a set share one scale, so their goal lines sit at the same height. Bars past twice the goal stop at the top of the chart.
+- On an overview, parts of a whole are a grid of dots: area shows the share, and only the biggest in each row is `primary` with its number, the rest `soft`. On a detail page, they're exact numbers over a full-width stacked bar, so it's clear what adds up to 100%.
 
 ## Writing
 
-Sentence case. Plain statements of what happened. No praise, scolding, streaks, scores or exclamation marks. Say "typical day" for a median, and "Half your days are between A and B" for a range. Patterns get a caveat: "A pattern, not a cause."
+Sentence case. Plain statements of what happened. No praise, scolding, streaks, scores or exclamation marks. Say "average day" for the middle day of a period, and "Half your days are between A and B" for a range. Progress against a goal is a plain percent, "99% of goal". Earlier periods live on the detail page, with the change as "↓ 11 points from previous 7 days". Points are the gap between two percents of goal, and are never colored. Patterns get a caveat: "A pattern, not a cause."
 
-Overview cards are read at a glance: a title of three words or fewer, at most one line of body text with a number in it, and no footnotes. Ranges, comparisons and caveats live in the detail page behind the card.
+Overview cards are read at a glance: a short title and at most one line of text, with a number in it. Ranges and caveats live in the detail page behind the card.
 
 Empty and error states say what's going on and offer the next step. An error never replaces data already on screen.

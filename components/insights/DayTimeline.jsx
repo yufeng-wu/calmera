@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { formatClock, formatNearClock } from "@/lib/insights/stats.mjs";
@@ -13,6 +13,7 @@ const LINE_GAP = 8;
 // Each meal on the same clock: the band is the middle half of days, the dot the usual time.
 // Compact puts each meal on one line: name, clock, time.
 export default function DayTimeline({ meals, compact }) {
+  const { fontScale } = useWindowDimensions();
   const start = Math.max(0, Math.floor(Math.min(...meals.map((meal) => meal.low)) / (3 * HOUR)) * 3 * HOUR);
   const end = Math.min(29 * HOUR, Math.ceil(Math.max(...meals.map((meal) => meal.high)) / (3 * HOUR)) * 3 * HOUR);
   const span = Math.max(end - start, 6 * HOUR);
@@ -23,7 +24,8 @@ export default function DayTimeline({ meals, compact }) {
     <View style={[styles.band, { left: at(meal.low), width: `${Math.max((meal.high - meal.low) / span * 100, 2)}%` }]} />
     <View style={[styles.dot, { left: at(meal.median) }]} />
   </View>;
-  const axis = <View style={[styles.axis, compact && styles.axisCompact]}>
+  const nameWidth = LINE_NAME * fontScale, timeWidth = LINE_TIME * fontScale;
+  const axis = <View style={[styles.axis, compact && { marginLeft: nameWidth + LINE_GAP, marginRight: timeWidth + LINE_GAP }]}>
     <Text style={styles.tick}>{label(start)}</Text>
     <Text style={[styles.tick, styles.tickMiddle, { left: at(middle) }]}>{label(middle)}</Text>
     <Text style={styles.tick}>{label(start + span)}</Text>
@@ -31,9 +33,9 @@ export default function DayTimeline({ meals, compact }) {
   if (compact) {
     return <View>
       {meals.map((meal) => <View key={meal.meal} accessible accessibilityLabel={`${MEAL_LABELS[meal.meal]}, usually about ${formatNearClock(meal.median)}`} style={styles.line}>
-        <Text numberOfLines={1} style={[styles.name, styles.lineName]}>{MEAL_LABELS[meal.meal]}</Text>
+        <Text numberOfLines={1} style={[styles.name, { width: nameWidth }]}>{MEAL_LABELS[meal.meal]}</Text>
         {track(meal)}
-        <Text numberOfLines={1} style={[styles.time, styles.lineTime]}>{formatNearClock(meal.median)}</Text>
+        <Text numberOfLines={1} style={[styles.time, styles.lineTime, { width: timeWidth }]}>{formatNearClock(meal.median)}</Text>
       </View>)}
       {axis}
     </View>;
@@ -61,10 +63,8 @@ const styles = StyleSheet.create({
   dot: { position: "absolute", top: 0, width: BAR, height: BAR, marginLeft: -BAR / 2, borderRadius: BAR / 2, backgroundColor: COLORS.primary },
   axis: { flexDirection: "row", justifyContent: "space-between" },
   line: { flexDirection: "row", alignItems: "center", gap: LINE_GAP, minHeight: 26 },
-  lineName: { width: LINE_NAME },
-  lineTime: { width: LINE_TIME, textAlign: "right" },
+  lineTime: { textAlign: "right" },
   trackCompact: { flex: 1 },
-  axisCompact: { marginLeft: LINE_NAME + LINE_GAP, marginRight: LINE_TIME + LINE_GAP },
   tick: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
   tickMiddle: { position: "absolute", width: 80, marginLeft: -40, textAlign: "center" },
 });

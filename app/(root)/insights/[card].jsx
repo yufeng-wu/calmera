@@ -10,7 +10,7 @@ import usePageExit from "@/hooks/usePageExit";
 import { formatRange } from "@/lib/insights/stats.mjs";
 
 const CARDS = {
-  typical: ["A typical day", (stats, goals) => <TrendDetail stats={stats} goals={goals} />],
+  typical: ["Average", (stats, goals) => <TrendDetail stats={stats} goals={goals} />],
   foods: ["Your foods", (stats) => stats.foods.length > 0 && <FoodsDetail stats={stats} />],
   produce: ["Veg and fruit", (stats) => stats.produce && <ProduceDetail produce={stats.produce} />],
   rhythm: ["When you eat", (stats) => stats.rhythm && <RhythmDetail rhythm={stats.rhythm} />],
@@ -27,7 +27,7 @@ export default function InsightDetail() {
   const { stats, goals } = useInsights(period.id);
   const [title, render] = CARDS[card] ?? ["Insights", () => null];
   return <FormScreen>
-    <FormHeader title={title} onBack={leave} />
+    <FormHeader title={card === "typical" ? `Past ${period.name} average` : title} onBack={leave} />
     <FormScrollView contentContainerStyle={[formStyles.content, styles.content]} showsVerticalScrollIndicator={false}>
       <Text style={styles.range}>{`Last ${period.name} · ${formatRange(stats.keys)}`}</Text>
       {render(stats, goals) || <InsightCard answer="Nothing to show for this period." />}

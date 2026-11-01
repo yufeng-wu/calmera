@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { dateKeys, foodKey, formatClock, formatNearClock, formatNumber, formatRange, hasAnyLog, heatmapWeeks, periodStats } from "../lib/insights/stats.mjs";
+import { dateKeys, foodKey, formatClock, formatNearClock, formatNumber, formatRange, goalScale, hasAnyLog, heatmapWeeks, percentOfGoal, periodStats } from "../lib/insights/stats.mjs";
 
 const TODAY = new Date(2026, 9, 31, 15); // A Saturday.
 const key = (daysAgo) => dateKeys(1, TODAY, daysAgo)[0];
@@ -20,6 +20,36 @@ test("typical values are medians of finished days with two or more meals", () =>
   assert.equal(stats.metrics.calories.typical, 2000);
   assert.equal(stats.metrics.calories.low, 1500);
   assert.equal(stats.metrics.calories.high, 4000);
+});
+
+test("the previous period comes with its bars once both sides have enough days", () => {
+  const both = periodStats({ ...dayRange(1, 3, () => fullDay(1000)), ...dayRange(7, 9, () => fullDay(2000)) }, { today: TODAY }).metrics.calories;
+  assert.equal(both.previous, 2000);
+  assert.equal(both.previousChart.length, 7);
+  assert.equal(both.previousChart.filter((point) => point.value === 2000).length, 3);
+  assert.equal(both.previousChart[0].label.length, 1);
+  const thin = periodStats({ ...dayRange(1, 3, () => fullDay(1000)), ...dayRange(7, 8, () => fullDay(2000)) }, { today: TODAY }).metrics.calories;
+  assert.deepEqual([thin.previous, thin.previousChart], [null, null]);
+  const month = periodStats({ ...dayRange(1, 8, () => fullDay(1000)), ...dayRange(30, 38, () => fullDay(2000)) }, { span: 30, today: TODAY }).metrics.calories;
+  assert.equal(month.previousChart.length, 30);
+  assert.ok(month.previousChart.every((point) => point.label === null));
+  assert.ok(month.chart.some((point) => point.label));
+});
+
+test("percent of goal rounds to whole numbers and needs both values", () => {
+  assert.equal(percentOfGoal(1873, 1894), 99);
+  assert.equal(percentOfGoal(214, "189"), 113);
+  assert.equal(percentOfGoal(0, 100), 0);
+  for (const [value, goal] of [[null, 100], [undefined, 100], [100, null], [100, 0], [100, ""]]) assert.equal(percentOfGoal(value, goal), null);
+});
+
+test("charts share a scale past their goals, within limits", () => {
+  const row = (goal, ...values) => ({ goal, points: values.map((value) => ({ value })) });
+  assert.equal(goalScale([row(100, 90, 150), row(200, 100, 200)]), 1.5);
+  assert.equal(goalScale([row(100, 50, null)]), 1.2); // Room above the line even when under it.
+  assert.equal(goalScale([row(100, 900)]), 2); // One huge day doesn't flatten the rest.
+  assert.equal(goalScale([row(null, 900)]), 1.2); // A row with no goal has no say.
+  assert.equal(goalScale([]), 1.2);
 });
 
 test("typical values wait for three complete days", () => {
@@ -148,14 +178,12 @@ test("meal shares give each nutrient's split across meals", () => {
   assert.deepEqual(shares.meals.map((row) => row.meal), ["Breakfast", "Dinner", "Snack"]);
   assert.deepEqual(shares.meals[0], { meal: "Breakfast", calories: 20, protein: 60, carbs: 10, fat: 40 });
   assert.equal(shares.meals[1].fat, 0);
-  assert.equal(shares.largest.meal, "Dinner");
 });
 
 test("meal shares add up to exactly 100 in every column", () => {
   const days = dayRange(1, 3, () => [macros("A", "Breakfast", 100, 1, 1, 1), macros("B", "Lunch", 100, 1, 1, 1), macros("C", "Dinner", 100, 1, 1, 1)]);
   const { shares } = periodStats(days, { today: TODAY });
   for (const field of ["calories", "protein", "carbs", "fat"]) assert.equal(shares.meals.reduce((total, row) => total + row[field], 0), 100);
-  assert.equal(shares.largest, null); // A tie has no largest meal.
 });
 
 test("meal shares skip today and one-meal days, and wait for three complete days", () => {

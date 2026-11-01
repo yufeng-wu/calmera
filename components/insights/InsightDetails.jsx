@@ -8,7 +8,7 @@ import { SURFACES } from "@/constants/surfaces";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { useFoodIcons } from "@/context/FoodIconsContext";
-import { formatNearClock, formatNumber } from "@/lib/insights/stats.mjs";
+import { formatNearClock, formatNumber, goalScale, percentOfGoal } from "@/lib/insights/stats.mjs";
 
 export const PERIODS = [
   { id: "week", label: "Week", name: "7 days", accessibilityLabel: "Week, last 7 days" },
@@ -18,51 +18,108 @@ export const PERIODS = [
 export const NUTRIENTS = [["calories", "Calories", "kcal", "calorieGoal"], ["protein", "Protein", "g", "proteinGoal"], ["carbs", "Carbs", "g", "carbsGoal"], ["fat", "Fat", "g", "fatGoal"]];
 export const MEAL_LABELS = { Breakfast: "Breakfast", Lunch: "Lunch", Dinner: "Dinner", Snack: "Snacks" };
 const FOOD_VIEWS = [["count", "Most eaten"], ["protein", "Protein"], ["calories", "Calories"]];
-const SHARE_GAP = 10;
 export const plural = (count, word) => `${formatNumber(count)} ${word}${count === 1 ? "" : "s"}`;
 
+export const periodName = (span) => span > 30 ? "12 months" : `${span} days`;
+
 // A short description of one nutrient's chart for VoiceOver.
-export function nutrientSummary(title, unit, span, { typical, chart }) {
+export function nutrientSummary(title, unit, span, { typical, previous, chart }, goal) {
   const present = chart.filter((item) => item.value != null);
-  return `${title} by ${span > 30 ? "month" : "day"}. ${typical != null ? `A typical day is ${formatNumber(typical)} ${unit}. ` : ""}`
+  const percent = percentOfGoal(typical, goal);
+  return `${title} by ${span > 30 ? "month" : "day"}. ${typical != null ? `An average day is ${formatNumber(typical)} ${unit}${percent != null ? `, ${percent}% of goal` : ""}. ` : ""}`
+    + (previous != null ? `Previous ${periodName(span)}: ${formatNumber(previous)} ${unit}. ` : "")
     + (present.length ? `Highest ${formatNumber(Math.max(...present.map((item) => item.value)))} ${unit}.` : "");
+}
+
+// One scale for all four nutrient charts, so their goal lines sit at the same height.
+export function nutrientScale(stats, goals) {
+  return goalScale(NUTRIENTS.map(([field, , , goalField]) => ({ goal: Number(goals[goalField]) || null,
+    points: [...stats.metrics[field].chart, ...(stats.metrics[field].previousChart ?? [])] })));
+}
+
+// Explains the marks in the nutrient charts. Compact charts only have the goal.
+export function ChartKey({ stats, goals, compact }) {
+  const metrics = NUTRIENTS.map(([field]) => stats.metrics[field]);
+  const hasGoal = NUTRIENTS.some(([, , , goalField]) => Number(goals[goalField]) > 0);
+  return <View style={styles.key}>
+    {!compact && metrics.some((metric) => metric.typical != null) && <View style={styles.keyItem}>
+      <Svg width={14} height={2}><Line x1={0} x2={14} y1={1} y2={1} stroke={COLORS.text} strokeWidth={1.5} /></Svg>
+      <Text style={styles.footnote}>Average</Text>
+    </View>}
+    {hasGoal && <View style={styles.keyItem}>
+      <Svg width={14} height={2}><Line x1={0} x2={14} y1={1} y2={1} stroke={COLORS.textLight} strokeOpacity={0.55} strokeWidth={1} strokeDasharray="3 4" /></Svg>
+      <Text style={styles.footnote}>Goal</Text>
+    </View>}
+  </View>;
 }
 
 // The full version of each card on the Insights page, shown when someone taps into it.
 export function TrendDetail({ stats, goals }) {
   const hasPartial = NUTRIENTS.some(([field]) => stats.metrics[field].chart.some((item) => item.partial && item.value != null));
-  const footnote = stats.span > 30 ? "Each bar is a month's daily average. Lighter bars are partial months."
-    : hasPartial ? "Lighter bars are today and days with one meal. They don't count toward typical." : null;
+  const footnote = stats.span > 30 ? "Each bar is a month's daily average. Pale orange bars are partial months."
+    : hasPartial ? "Pale orange bars are today and days with one meal. They don't count toward the average." : null;
   const noTypical = NUTRIENTS.every(([field]) => stats.metrics[field].typical == null);
-  return <InsightCard footnote={footnote} answer={noTypical ? "Your typical day appears after three days with two or more meals." : null}>
-    {NUTRIENTS.map(([field, title, unit, goalField], index) => <NutrientSection key={field} title={title} unit={unit} span={stats.span}
+  const scale = nutrientScale(stats, goals);
+  return <InsightCard footnote={footnote} answer={noTypical ? "Your average day appears after three days with two or more meals." : null}>
+    <ChartKey stats={stats} goals={goals} />
+    {NUTRIENTS.map(([field, title, unit, goalField], index) => <NutrientSection key={field} title={title} unit={unit} span={stats.span} scale={scale}
       metric={stats.metrics[field]} goal={Number(goals[goalField]) || null} divider={index > 0} />)}
   </InsightCard>;
 }
 
-function NutrientSection({ title, unit, span, metric, goal, divider }) {
+// How this period's average moved from the previous one, in the same terms as the headline.
+function changeFrom(typical, previous, goal, unit, span) {
+  if (typical == null || previous == null) return null;
+  const percent = percentOfGoal(typical, goal);
+  const difference = percent != null ? percent - percentOfGoal(previous, goal) : Math.round(typical) - Math.round(previous);
+  const before = `previous ${periodName(span)}`;
+  if (difference === 0) return `Same as ${before}`;
+  const size = Math.abs(difference);
+  return `${difference > 0 ? "↑" : "↓"} ${percent != null ? plural(size, "point") : `${formatNumber(size)} ${unit}`} from ${before}`;
+}
+
+// The previous period on the left and this one on the right, as two matching charts. On
+// very large text they stack, with this period first.
+function NutrientSection({ title, unit, span, scale, metric, goal, divider }) {
+  const { fontScale } = useWindowDimensions();
+  const stacked = fontScale > 1.3;
+  const { typical, previous, chart, previousChart } = metric;
+  const top = goal ? goal * scale : undefined;
+  const name = periodName(span);
+  return <View style={[styles.nutrient, divider && styles.nutrientDivider]}>
+    <Text accessibilityRole="header" style={styles.nutrientName}>{title}</Text>
+    <View style={[styles.sides, stacked && styles.sidesStacked]}>
+      {previousChart && <>
+        <PeriodSide heading={`Previous ${name}`} unit={unit} points={previousChart} average={previous} goal={goal} top={top}
+          accessibilityLabel={nutrientSummary(`${title}, previous ${name},`, unit, span, { typical: previous, chart: previousChart }, goal)} />
+        {!stacked && <View style={styles.sideDivider} />}
+      </>}
+      <PeriodSide heading={`Past ${name}`} unit={unit} points={chart} average={typical} goal={goal} top={top} change={changeFrom(typical, previous, goal, unit, span)}
+        accessibilityLabel={nutrientSummary(title, unit, span, metric, goal)} />
+    </View>
+  </View>;
+}
+
+function PeriodSide({ heading, unit, points, average, goal, top, change, accessibilityLabel }) {
   const [selected, setSelected] = useState(null);
   // Reading a bar has less to say, and the chart shouldn't move under the finger.
   const [headlineHeight, setHeadlineHeight] = useState(0);
-  const { typical, low, high, previous, chart } = metric;
-  const point = selected == null ? null : chart[selected];
-  const period = PERIODS.find(({ name }) => name === (span > 30 ? "12 months" : `${span} days`)).name;
-  return <View style={[styles.nutrient, divider && styles.nutrientDivider]}>
-    <Text accessibilityRole="header" style={styles.nutrientName}>{title}</Text>
+  const point = selected == null ? null : points[selected];
+  const shown = point ? point.value : average;
+  const percent = percentOfGoal(shown, goal);
+  return <View style={styles.side}>
     <View style={[styles.headline, { minHeight: headlineHeight }]} accessibilityLiveRegion="polite"
       onLayout={({ nativeEvent: { layout } }) => setHeadlineHeight((height) => Math.max(height, layout.height))}>
-      {(point || typical != null) && <Text style={styles.metric}>{formatNumber(point ? point.value : typical)} <Text style={styles.unit}>{unit}</Text></Text>}
-      {point ? <Text style={styles.answer}>{point.title}</Text>
-        : typical != null && <>
-          <Text style={styles.answer}>Half your days are between <Strong>{formatNumber(low)}</Strong> and <Strong>{formatNumber(high)}</Strong>.</Text>
-          {previous != null && <Text style={styles.answer}>Previous {period}: {formatNumber(previous)} {unit}</Text>}
+      <Text style={styles.footnote}>{heading}</Text>
+      {shown != null && <Text style={styles.metric}>{percent != null ? `${percent}%` : formatNumber(shown)} <Text style={styles.footnote}>{percent != null ? "of goal" : unit}</Text></Text>}
+      {point ? <Text style={styles.footnote}>{percent != null ? `${formatNumber(point.value)} ${unit} · ` : ""}{point.title}</Text>
+        : <>
+          {percent != null && <Text style={styles.footnote}>{formatNumber(average)} of {formatNumber(goal)} {unit}</Text>}
+          {!!change && <Text style={styles.footnote}>{change}</Text>}
         </>}
     </View>
-    {!!goal && <View style={styles.goalKey}>
-      <Svg width={14} height={2}><Line x1={0} x2={14} y1={1} y2={1} stroke={COLORS.textLight} strokeOpacity={0.55} strokeWidth={1} strokeDasharray="3 4" /></Svg>
-      <Text style={styles.footnote}>Goal {formatNumber(goal)} {unit}</Text>
-    </View>}
-    <TrendChart points={chart} goal={goal} selected={selected} onSelect={setSelected} accessibilityLabel={nutrientSummary(title, unit, span, metric)} />
+    <TrendChart points={points} goal={goal} top={top} typical={average}
+      selected={selected} onSelect={setSelected} accessibilityLabel={accessibilityLabel} />
   </View>;
 }
 
@@ -72,27 +129,31 @@ export function RhythmDetail({ rhythm }) {
   </InsightCard>;
 }
 
+// Each nutrient is one row, and its bar always runs the full width, so it's clear that
+// the row is the whole. Segments are in the same order as the columns above them.
 export function SharesDetail({ shares }) {
   const { fontScale } = useWindowDimensions();
-  const stacked = fontScale > 1.3;
-  const { meals, largest, days } = shares;
-  return <InsightCard footnote={`From ${plural(days, "day")} with two or more meals. Each column adds up to 100%.`}
-    answer={largest ? <>Your largest share of calories is {MEAL_LABELS[largest.meal].toLowerCase()}, at <Strong>{largest.calories}%</Strong>.</> : null}>
-    <View>
-      <View style={styles.shareHead}>
-        {!stacked && <View style={styles.shareMeal} />}
-        {NUTRIENTS.map(([field, name]) => <Text key={field} numberOfLines={1} adjustsFontSizeToFit maxFontSizeMultiplier={1.3} style={styles.shareTitle}>{name}</Text>)}
+  const stacked = fontScale > 1.15;
+  const nameColumn = { width: 58 * fontScale };
+  const { meals, days } = shares;
+  return <InsightCard answer="Each row adds up to 100%." footnote={`From ${plural(days, "day")} with two or more meals.`}>
+    <View style={styles.shareTable}>
+      <View style={styles.shareRow}>
+        {!stacked && <View style={nameColumn} />}
+        <View style={styles.shareColumns}>
+          {meals.map((row) => <Text key={row.meal} numberOfLines={1} maxFontSizeMultiplier={1.3} style={styles.shareHeading}>{MEAL_LABELS[row.meal]}</Text>)}
+        </View>
       </View>
-      {meals.map((row) => <View key={row.meal} style={[styles.shareRow, styles.divider, stacked && styles.shareRowStacked]} accessible
-        accessibilityLabel={`${MEAL_LABELS[row.meal]}: ${NUTRIENTS.filter(([field]) => row[field] != null).map(([field, name]) => `${row[field]}% of ${name.toLowerCase()}`).join(", ")}`}>
-        <Text style={[styles.shareName, !stacked && styles.shareMeal]}>{MEAL_LABELS[row.meal]}</Text>
-        <View style={styles.shareCells}>
-          {NUTRIENTS.map(([field]) => <View key={field} style={styles.shareCell}>
-            <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={styles.shareValue}>{row[field] == null ? "–" : `${row[field]}%`}</Text>
-            <View style={styles.shareTrack}>
-              {row[field] > 0 && <View style={[styles.shareFill, { width: `${row[field]}%` }]} />}
-            </View>
-          </View>)}
+      {NUTRIENTS.map(([field, title]) => <View key={field} style={[styles.shareRow, stacked && styles.shareRowStacked]} accessible
+        accessibilityLabel={`${title}: ${meals.filter((row) => row[field] != null).map((row) => `${row[field]}% at ${MEAL_LABELS[row.meal].toLowerCase()}`).join(", ")}`}>
+        <Text style={[styles.shareTitle, !stacked && nameColumn]}>{title}</Text>
+        <View style={styles.shareBody}>
+          <View style={styles.shareColumns}>
+            {meals.map((row) => <Text key={row.meal} numberOfLines={1} maxFontSizeMultiplier={1.3} style={styles.shareValue}>{row[field] == null ? "–" : `${row[field]}%`}</Text>)}
+          </View>
+          <View style={[styles.shareBar, !meals.some((row) => row[field] > 0) && styles.shareBarEmpty]}>
+            {meals.map((row) => row[field] > 0 && <View key={row.meal} style={[styles.shareSegment, { flex: row[field] }]} />)}
+          </View>
         </View>
       </View>)}
     </View>
@@ -218,7 +279,7 @@ export function SplitTable({ split, only }) {
 }
 
 export function SplitDetail({ split }) {
-  return <InsightCard footnote={`Typical values, from ${plural(split.weekday.days, "weekday")} and ${plural(split.weekend.days, "weekend day")}.`}>
+  return <InsightCard footnote={`Averages, from ${plural(split.weekday.days, "weekday")} and ${plural(split.weekend.days, "weekend day")}.`}>
     <SplitTable split={split} />
   </InsightCard>;
 }
@@ -232,7 +293,10 @@ const styles = StyleSheet.create({
   nutrientDivider: { marginTop: 6, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: SURFACES.separator },
   nutrientName: { ...TYPOGRAPHY.bodyMedium, color: COLORS.textLight },
   headline: { gap: 2 },
-  goalKey: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: -6 },
+  sides: { flexDirection: "row", gap: 12 },
+  sidesStacked: { flexDirection: "column-reverse", gap: 16 },
+  side: { flex: 1, minWidth: 0, gap: 10, justifyContent: "space-between" },
+  sideDivider: { width: StyleSheet.hairlineWidth, backgroundColor: SURFACES.separator },
   divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: SURFACES.separator },
   pairs: { gap: 12 },
   pair: { flexDirection: "row", alignItems: "center", gap: 10 },
@@ -259,17 +323,17 @@ const styles = StyleSheet.create({
   produceItems: { flexDirection: "row", flexWrap: "wrap", columnGap: 16, rowGap: 8 },
   produceItem: { flexDirection: "row", alignItems: "center", gap: 5 },
   produceIcon: { fontSize: 18, lineHeight: 24 },
-  shareHead: { flexDirection: "row", gap: SHARE_GAP, paddingBottom: 8 },
-  shareRow: { flexDirection: "row", alignItems: "center", gap: SHARE_GAP, paddingVertical: 12 },
-  shareRowStacked: { flexDirection: "column", alignItems: "stretch", gap: 6 },
-  shareMeal: { width: 74 },
-  shareName: { ...TYPOGRAPHY.body, color: COLORS.text },
-  shareTitle: { ...TYPOGRAPHY.caption, flex: 1, color: COLORS.textLight },
-  shareCells: { flex: 1, flexDirection: "row", gap: SHARE_GAP },
-  shareCell: { flex: 1, gap: 4 },
-  shareValue: { ...TYPOGRAPHY.bodyMedium, color: COLORS.text, fontVariant: ["tabular-nums"] },
-  shareTrack: { height: 6, borderRadius: 3, backgroundColor: COLORS.track, overflow: "hidden" },
-  shareFill: { height: 6, borderRadius: 3, backgroundColor: COLORS.primary },
+  shareTable: { gap: 12 },
+  shareRow: { flexDirection: "row", gap: 8 },
+  shareRowStacked: { flexDirection: "column", alignItems: "stretch", gap: 4 },
+  shareTitle: { ...TYPOGRAPHY.body, color: COLORS.text },
+  shareBody: { flex: 1, gap: 4 },
+  shareColumns: { flex: 1, flexDirection: "row" },
+  shareHeading: { ...TYPOGRAPHY.caption, flex: 1, color: COLORS.textLight },
+  shareValue: { ...TYPOGRAPHY.bodyMedium, flex: 1, color: COLORS.text, fontVariant: ["tabular-nums"] },
+  shareBar: { flexDirection: "row", gap: 2, height: 6, borderRadius: 3, overflow: "hidden" },
+  shareBarEmpty: { backgroundColor: COLORS.track },
+  shareSegment: { backgroundColor: COLORS.soft },
   compareHead: { flexDirection: "row", paddingBottom: 8 },
   compareRow: { flexDirection: "row", alignItems: "center", paddingVertical: 12 },
   compareLabel: { flex: 1 },

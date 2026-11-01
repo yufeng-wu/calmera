@@ -10,7 +10,7 @@ import FoodwrapRefreshScrollView from "@/components/FoodwrapRefreshScrollView";
 import DayTimeline from "@/components/insights/DayTimeline";
 import Heatmap, { WeekDots } from "@/components/insights/Heatmap";
 import InsightCard from "@/components/insights/InsightCard";
-import { FoodLine, MEAL_LABELS, NUTRIENTS, PERIODS, PairBar, SplitTable, nutrientSummary, plural } from "@/components/insights/InsightDetails";
+import { ChartKey, FoodLine, MEAL_LABELS, NUTRIENTS, PERIODS, PairBar, SplitTable, nutrientScale, nutrientSummary, periodName, plural } from "@/components/insights/InsightDetails";
 import PeriodTabs from "@/components/insights/PeriodTabs";
 import TrendChart from "@/components/insights/TrendChart";
 import { SURFACES } from "@/constants/surfaces";
@@ -18,11 +18,17 @@ import { TYPOGRAPHY } from "@/constants/typography";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { useFoodIcons } from "@/context/FoodIconsContext";
 import { useInsights } from "@/hooks/useInsights";
-import { formatNumber, formatRange } from "@/lib/insights/stats.mjs";
+import { formatNumber, formatRange, percentOfGoal } from "@/lib/insights/stats.mjs";
 
 const dayLetter = (key) => new Date(`${key}T12:00:00`).toLocaleDateString("en-US", { weekday: "narrow" });
 const TOP_FOODS = 3;
 const TOP_PRODUCE = 6;
+const TYPICAL_TEXT = 132;
+const SHARE_NAME = 58;
+const SHARE_DOT = 28;
+const SHARE_DOT_MIN = 5;
+const SHARE_DOT_NONE = 4;
+const SHARE_DOT_LABEL = 20;
 
 export default function InsightsScreen() {
   const { fontScale } = useWindowDimensions();
@@ -59,7 +65,7 @@ export default function InsightsScreen() {
                     {stats.foods.length > 0 && <FoodsCard foods={stats.foods} onPress={open("foods")} />}
                     {stats.produce && <ProduceCard produce={stats.produce} onPress={open("produce")} />}
                     {stats.rhythm && <RhythmCard rhythm={stats.rhythm} onPress={open("rhythm")} />}
-                    {stats.shares?.meals.some((row) => row.calories > 0) && <SharesCard shares={stats.shares} onPress={open("shares")} />}
+                    {stats.shares && <SharesCard shares={stats.shares} onPress={open("shares")} />}
                     {stats.difference && <DifferenceCard difference={stats.difference} onPress={open("difference")} />}
                     {stats.split && <SplitCard split={stats.split} onPress={open("split")} />}
                     {hidesCards && <Text style={styles.moreNote}>More shows up here as you log.</Text>}
@@ -87,7 +93,7 @@ function LoadingCards() {
 function FirstRun({ onLog }) {
   return <FormCard style={styles.emptyCard}>
     <Text accessibilityRole="header" style={styles.emptyTitle}>Your patterns will show up here</Text>
-    <Text style={styles.message}>This page fills in over a few days of logging: when you eat, your go-to foods and a typical day.</Text>
+    <Text style={styles.message}>This page fills in over a few days of logging: when you eat, your go-to foods and an average day.</Text>
     <GlassButton title="Log a meal" role="accent" onPress={onLog} style={styles.emptyAction} />
   </FormCard>;
 }
@@ -124,19 +130,30 @@ function TypicalCard({ stats, goals, onPress }) {
   const { fontScale } = useWindowDimensions();
   const stacked = fontScale > 1.3;
   const noTypical = NUTRIENTS.every(([field]) => stats.metrics[field].typical == null);
-  return <InsightCard title="A typical day" onPress={onPress} answer={noTypical ? "Appears after 3 days with 2+ meals." : null}>
+  const scale = nutrientScale(stats, goals);
+  return <InsightCard title={`Past ${periodName(stats.span)} average`} onPress={onPress} answer={noTypical ? "Appears after 3 days with 2+ meals." : null}>
+    <ChartKey compact stats={stats} goals={goals} />
     <View>
       {NUTRIENTS.map(([field, title, unit, goalField], index) => {
         const metric = stats.metrics[field];
         const goal = Number(goals[goalField]) || null;
+        const { typical } = metric;
+        const percent = percentOfGoal(typical, goal);
+        const detail = !goal ? null
+          : typical != null ? `${formatNumber(typical)} of ${formatNumber(goal)} ${unit}` : `Goal ${formatNumber(goal)} ${unit}`;
         return <View key={field} style={[styles.typicalRow, index > 0 && styles.divider, stacked && styles.typicalStacked]}>
-          <View style={stacked ? null : styles.typicalText}>
+          <View style={stacked ? null : { width: TYPICAL_TEXT * fontScale }}>
             <Text style={styles.footnote}>{title}</Text>
-            <Text numberOfLines={1} adjustsFontSizeToFit style={styles.metric}>{formatNumber(metric.typical)} <Text style={styles.unit}>{unit}</Text></Text>
-            {!!goal && <Text style={styles.footnote}>Goal {formatNumber(goal)}</Text>}
+            <Text numberOfLines={1} style={styles.metric}>
+              {percent != null ? `${percent}%` : formatNumber(typical)}
+              {percent == null && <Text style={styles.unit}> {unit}</Text>}
+              {percent != null && <Text style={styles.footnote}> of goal</Text>}
+            </Text>
+            {!!detail && <Text numberOfLines={1} style={styles.footnote}>{detail}</Text>}
           </View>
           <View style={stacked ? null : styles.typicalChart}>
-            <TrendChart compact height={52} points={metric.chart} goal={goal} accessibilityLabel={nutrientSummary(title, unit, stats.span, metric)} />
+            <TrendChart compact height={66} points={metric.chart} goal={goal} top={goal ? goal * scale : undefined}
+              accessibilityLabel={nutrientSummary(title, unit, stats.span, metric, goal)} />
           </View>
         </View>;
       })}
@@ -176,13 +193,39 @@ function RhythmCard({ rhythm, onPress }) {
   </InsightCard>;
 }
 
+// A dot for each nutrient at each meal, its area showing the share. Only the biggest in
+// each row carries its number, so the pattern reads first. The exact table is one tap away.
 function SharesCard({ shares, onPress }) {
-  const meals = shares.meals.filter((row) => row.calories > 0);
-  return <InsightCard title="How much at each meal" onPress={onPress}>
-    <View style={styles.shareBar}>
-      {meals.map((row) => <View key={row.meal} style={[styles.shareSegment, { flex: row.calories }]} />)}
+  const { fontScale } = useWindowDimensions();
+  const stacked = fontScale > 1.3;
+  const nameColumn = { width: SHARE_NAME * fontScale };
+  const { meals } = shares;
+  const top = Math.max(...meals.flatMap((row) => NUTRIENTS.map(([field]) => row[field] ?? 0)), 1);
+  return <InsightCard title="How much at each meal" onPress={onPress} footnote="Each row adds up to 100%.">
+    <View>
+      <View style={styles.shareRow}>
+        {!stacked && <View style={nameColumn} />}
+        {meals.map((row) => <Text key={row.meal} numberOfLines={1} maxFontSizeMultiplier={1.1} style={styles.shareHeading}>{MEAL_LABELS[row.meal]}</Text>)}
+      </View>
+      {NUTRIENTS.map(([field, title]) => {
+        const largest = Math.max(...meals.map((row) => row[field] ?? 0));
+        return <View key={field} style={stacked ? null : styles.shareRow}>
+          <Text numberOfLines={1} style={[styles.shareTitle, !stacked && nameColumn]}>{title}</Text>
+          <View style={styles.shareDots}>
+            {meals.map((row) => {
+              const share = row[field] ?? 0;
+              const size = share > 0 ? Math.max(SHARE_DOT_MIN, SHARE_DOT * Math.sqrt(share / top)) : SHARE_DOT_NONE;
+              const biggest = share > 0 && share === largest;
+              return <View key={row.meal} style={styles.shareCell}>
+                <View style={[styles.shareDot, { width: size, height: size, borderRadius: size / 2 }, share > 0 && styles.shareDotFilled, biggest && styles.shareDotBiggest]}>
+                  {biggest && size >= SHARE_DOT_LABEL && <Text maxFontSizeMultiplier={1} style={styles.shareDotValue}>{share}</Text>}
+                </View>
+              </View>;
+            })}
+          </View>
+        </View>;
+      })}
     </View>
-    <Text style={styles.footnote}>{meals.map((row) => `${MEAL_LABELS[row.meal]} ${row.calories}%`).join(" · ")}</Text>
   </InsightCard>;
 }
 
@@ -226,7 +269,7 @@ const styles = StyleSheet.create({
   divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: SURFACES.separator },
   daysCard: { padding: 18 },
   days: { gap: 8 },
-  daysBeside: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
+  daysBeside: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   daysSummary: { flex: 1, gap: 4 },
   dayRow: { flexDirection: "row", gap: 5 },
   dayCell: { alignItems: "center", gap: 2 },
@@ -237,10 +280,16 @@ const styles = StyleSheet.create({
   dayLabel: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
   typicalRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
   typicalStacked: { flexDirection: "column", alignItems: "stretch", gap: 6 },
-  typicalText: { width: 130 },
   typicalChart: { flex: 1 },
   produceIcons: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   produceIcon: { fontSize: 24, lineHeight: 30 },
-  shareBar: { flexDirection: "row", gap: 2, height: 10, borderRadius: 5, overflow: "hidden" },
-  shareSegment: { backgroundColor: COLORS.primary },
+  shareRow: { flexDirection: "row", alignItems: "center" },
+  shareTitle: { ...TYPOGRAPHY.body, color: COLORS.text },
+  shareHeading: { ...TYPOGRAPHY.caption, flex: 1, color: COLORS.textLight, textAlign: "center" },
+  shareCell: { flex: 1, height: SHARE_DOT + 4, alignItems: "center", justifyContent: "center" },
+  shareDot: { alignItems: "center", justifyContent: "center", backgroundColor: COLORS.track },
+  shareDotFilled: { backgroundColor: COLORS.soft },
+  shareDotBiggest: { backgroundColor: COLORS.primary },
+  shareDots: { flex: 1, flexDirection: "row" },
+  shareDotValue: { ...TYPOGRAPHY.captionMedium, color: COLORS.white, fontVariant: ["tabular-nums"] },
 });

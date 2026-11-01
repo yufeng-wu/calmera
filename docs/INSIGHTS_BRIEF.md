@@ -9,7 +9,7 @@ Help someone who logs food see their own patterns and spot one thing they could 
 | Finding | Decision |
 | --- | --- |
 | A UCL analysis of user posts linked lost streaks and missed targets to guilt and avoiding logging. INSEAD reports that broken streaks demotivate. | No streaks, scores, or colored misses. "Days logged" has no denominator. |
-| MacroFactor describes its dashboard as "adherence-neutral", favoring sustainable process over short-term success or failure. | Comparisons are plain numbers ("Previous 30 days: 2,010 kcal"). The −17% style of change is gone, since a drop in calories would read as praise. |
+| MacroFactor describes its dashboard as "adherence-neutral", favoring sustainable process over short-term success or failure. | Comparisons are plain values ("99% of goal", and "↓ 11 points from previous 7 days" on detail pages), and a number is never colored. Arrows state a direction only. |
 | Lived-informatics work (Epstein et al.) treats lapsing and resuming as normal stages of tracking. | Blank before the first log, gaps instead of zeros, and no message about being away. |
 | Reviews describe Cronometer's depth as overwhelming for beginners, and Yazio as light on analytics. | Each card asks one question, answers it in a sentence, then shows the chart. |
 | Apple's guidance keeps segmented controls for closely related choices, and Health pairs them with full words. | Replaced W/M/Y letters with the words Week, Month and Year. |
@@ -22,7 +22,7 @@ These sources are mostly secondary and small-sample; none was a controlled study
 | Card | Question | Shows when |
 | --- | --- | --- |
 | Days logged | Have I been logging? | Always |
-| A typical day | What does a normal day look like? | Chart always. Typical value after 3 days with 2+ meals |
+| Past 7 days average | What does a normal day look like? | Chart always. Average after 3 days with 2+ meals |
 | Your foods | What do I eat most, and what gives me protein? | Any food logged |
 | Veg and fruit | What kinds have I had? | A checked food in the period |
 | When you eat | What time do I usually have each meal? | A meal logged on 3+ days |
@@ -30,7 +30,7 @@ These sources are mostly secondary and small-sample; none was a controlled study
 | On days with X g of protein or more | What's different on days with more protein? | Month and Year, with 3+ days on each side |
 | Weekdays and weekends | Are they different? | Month and Year, with 5+ weekdays and 3+ weekend days |
 
-"Typical" is the median of finished days with two or more meals, so a forgotten dinner doesn't look like light eating and a holiday doesn't move the number.
+"Average" on screen is the median of finished days with two or more meals, so a forgotten dinner doesn't look like light eating and a holiday doesn't move the number.
 
 Left out on purpose: AI commentary, scored reports, weight, Apple Health, and comparisons with other people. The weekly collage page stays on the roadmap and isn't built.
 
