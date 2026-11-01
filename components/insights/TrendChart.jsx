@@ -7,6 +7,8 @@ import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 
 const FULL_HEIGHT = 112;
 const LABEL_WIDTH = 48;
+// Bars that are still partial are a paler step of the same color.
+const PARTIAL_OPACITY = 0.4;
 // Axis labels sit under fixed bars, so they can only grow so far.
 const AXIS_TEXT = 1.3;
 
@@ -24,7 +26,7 @@ function layout(width, count) {
 // dot, so gaps read as gaps rather than zeros. The full chart adds a solid line at the
 // average. Touch a bar, or drag across, to read it. A compact chart is just the bars and the goal. It has no labels, and touches go
 // to the card around it.
-export default function TrendChart({ points: bars, goal, top: ceiling, typical, selected, onSelect, accessibilityLabel, compact, height = FULL_HEIGHT }) {
+export default function TrendChart({ points: bars, goal, top: ceiling, typical, selected, onSelect, accessibilityLabel, compact, height = FULL_HEIGHT, color = COLORS.primary }) {
   const [width, setWidth] = useState(0);
   const latest = useRef(null);
   latest.current = { bars, width, selected, onSelect };
@@ -64,8 +66,8 @@ export default function TrendChart({ points: bars, goal, top: ceiling, typical, 
   const { pitch, center } = layout(width, bars.length);
   const bar = Math.max(compact ? 1.5 : 3, Math.min(compact ? 8 : 16, pitch * 0.62));
   const fillFor = (point, index) => {
-    if (selected != null) return selected === index ? COLORS.primary : COLORS.track;
-    return point.partial ? COLORS.soft : COLORS.primary;
+    if (selected != null) return selected === index ? color : COLORS.track;
+    return color;
   };
   const touch = compact ? { pointerEvents: "none" } : { onTouchStart: (event) => { startX.current = event.nativeEvent.locationX; }, ...responder.panHandlers };
   return <View>
@@ -77,7 +79,7 @@ export default function TrendChart({ points: bars, goal, top: ceiling, typical, 
           const x = center(index) - bar / 2;
           if (point.value == null) return <Circle key={point.key} cx={center(index)} cy={floor - 1.5} r={Math.min(1.5, bar / 2)} fill={COLORS.track} />;
           const barHeight = Math.max(3, floor - y(point.value));
-          return <Rect key={point.key} x={x} y={floor - barHeight} width={bar} height={barHeight} rx={Math.min(bar, barHeight) / 2} fill={fillFor(point, index)} />;
+          return <Rect key={point.key} x={x} y={floor - barHeight} width={bar} height={barHeight} rx={Math.min(bar, barHeight) / 2} fill={fillFor(point, index)} fillOpacity={selected == null && point.partial ? PARTIAL_OPACITY : 1} />;
         })}
         {!compact && typical != null && <Line x1={center(0) - bar / 2} x2={center(bars.length - 1) + bar / 2} y1={y(typical)} y2={y(typical)} stroke={COLORS.text} strokeWidth={1.5} strokeLinecap="round" />}
       </Svg>}

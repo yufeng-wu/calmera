@@ -74,3 +74,11 @@ export const RAINBOW_COLORS = [
   "#da808d",
   "#a85863",
 ];
+
+// Macros match the rings on Today's summary card. Calories stay the brand orange in Insights.
+export const NUTRIENT_COLORS = {
+  calories: COLORS.primary,
+  protein: RAINBOW_COLORS[1],
+  carbs: RAINBOW_COLORS[2],
+  fat: RAINBOW_COLORS[3],
+};

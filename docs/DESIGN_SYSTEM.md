@@ -16,7 +16,7 @@ Fun, healthy, lively, lightweight. The mark and the orange period carry the bran
 | `COLORS.text` / `COLORS.textLight` | Main and supporting text. Import from `constants/formTheme`, whose `textLight` passes contrast at small sizes |
 | `COLORS.expense` | Destructive actions and errors only, never for eating more or less than a goal |
 
-Data uses one hue in two steps. Don't add colors to tell meals or nutrients apart; label them instead. Never color a nutrition number as good or bad.
+In Insights, calories are `primary`, and protein, carbs and fat keep the colors of their rings on Today's summary card (`NUTRIENT_COLORS`). Other data uses one hue in two steps. Don't add colors to tell meals apart; label them instead. Never color a nutrition number as good or bad.
 
 ## Type
 
@@ -58,7 +58,7 @@ Words, not abbreviations: "Month", not "M". Touch targets are at least 44 pt tal
 
 - Days with no log are gaps (a small dot or nothing), never zeros.
 - Days before someone's first log are blank. They weren't missed.
-- Today and days with one meal logged draw in `soft`, and don't count toward averages.
+- Today and days with one meal logged draw in a paler step of the same color, and don't count toward averages.
 - A goal is a thin dashed line, with its value labelled off the chart. Crossing it changes nothing.
 - Every chart has a text label for VoiceOver with what it shows.
 - On an overview, a chart beside its number is `compact`: no axis, no touch, just bars and the goal line. Earlier periods and reading single bars happen on the detail page, where the previous period sits on the left and this one on the right, as two matching charts in the same color with a divider between.

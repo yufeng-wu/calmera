@@ -6,6 +6,7 @@ import InsightCard, { Chips, Strong } from "@/components/insights/InsightCard";
 import TrendChart from "@/components/insights/TrendChart";
 import { SURFACES } from "@/constants/surfaces";
 import { TYPOGRAPHY } from "@/constants/typography";
+import { NUTRIENT_COLORS } from "@/constants/colors";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { useFoodIcons } from "@/context/FoodIconsContext";
 import { formatNearClock, formatNumber, goalScale, percentOfGoal } from "@/lib/insights/stats.mjs";
@@ -56,13 +57,13 @@ export function ChartKey({ stats, goals, compact }) {
 // The full version of each card on the Insights page, shown when someone taps into it.
 export function TrendDetail({ stats, goals }) {
   const hasPartial = NUTRIENTS.some(([field]) => stats.metrics[field].chart.some((item) => item.partial && item.value != null));
-  const footnote = stats.span > 30 ? "Each bar is a month's daily average. Pale orange bars are partial months."
-    : hasPartial ? "Pale orange bars are today and days with one meal. They don't count toward the average." : null;
+  const footnote = stats.span > 30 ? "Each bar is a month's daily average. Pale bars are partial months."
+    : hasPartial ? "Pale bars are today and days with one meal. They don't count toward the average." : null;
   const noTypical = NUTRIENTS.every(([field]) => stats.metrics[field].typical == null);
   const scale = nutrientScale(stats, goals);
   return <InsightCard footnote={footnote} answer={noTypical ? "Your average day appears after three days with two or more meals." : null}>
     <ChartKey stats={stats} goals={goals} />
-    {NUTRIENTS.map(([field, title, unit, goalField], index) => <NutrientSection key={field} title={title} unit={unit} span={stats.span} scale={scale}
+    {NUTRIENTS.map(([field, title, unit, goalField], index) => <NutrientSection key={field} color={NUTRIENT_COLORS[field]} title={title} unit={unit} span={stats.span} scale={scale}
       metric={stats.metrics[field]} goal={Number(goals[goalField]) || null} divider={index > 0} />)}
   </InsightCard>;
 }
@@ -80,7 +81,7 @@ function changeFrom(typical, previous, goal, unit, span) {
 
 // The previous period on the left and this one on the right, as two matching charts. On
 // very large text they stack, with this period first.
-function NutrientSection({ title, unit, span, scale, metric, goal, divider }) {
+function NutrientSection({ color, title, unit, span, scale, metric, goal, divider }) {
   const { fontScale } = useWindowDimensions();
   const stacked = fontScale > 1.3;
   const { typical, previous, chart, previousChart } = metric;
@@ -90,17 +91,17 @@ function NutrientSection({ title, unit, span, scale, metric, goal, divider }) {
     <Text accessibilityRole="header" style={styles.nutrientName}>{title}</Text>
     <View style={[styles.sides, stacked && styles.sidesStacked]}>
       {previousChart && <>
-        <PeriodSide heading={`Previous ${name}`} unit={unit} points={previousChart} average={previous} goal={goal} top={top}
+        <PeriodSide color={color} heading={`Previous ${name}`} unit={unit} points={previousChart} average={previous} goal={goal} top={top}
           accessibilityLabel={nutrientSummary(`${title}, previous ${name},`, unit, span, { typical: previous, chart: previousChart }, goal)} />
         {!stacked && <View style={styles.sideDivider} />}
       </>}
-      <PeriodSide heading={`Past ${name}`} unit={unit} points={chart} average={typical} goal={goal} top={top} change={changeFrom(typical, previous, goal, unit, span)}
+      <PeriodSide color={color} heading={`Past ${name}`} unit={unit} points={chart} average={typical} goal={goal} top={top} change={changeFrom(typical, previous, goal, unit, span)}
         accessibilityLabel={nutrientSummary(title, unit, span, metric, goal)} />
     </View>
   </View>;
 }
 
-function PeriodSide({ heading, unit, points, average, goal, top, change, accessibilityLabel }) {
+function PeriodSide({ color, heading, unit, points, average, goal, top, change, accessibilityLabel }) {
   const [selected, setSelected] = useState(null);
   // Reading a bar has less to say, and the chart shouldn't move under the finger.
   const [headlineHeight, setHeadlineHeight] = useState(0);
@@ -118,7 +119,7 @@ function PeriodSide({ heading, unit, points, average, goal, top, change, accessi
           {!!change && <Text style={styles.footnote}>{change}</Text>}
         </>}
     </View>
-    <TrendChart points={points} goal={goal} top={top} typical={average}
+    <TrendChart color={color} points={points} goal={goal} top={top} typical={average}
       selected={selected} onSelect={setSelected} accessibilityLabel={accessibilityLabel} />
   </View>;
 }

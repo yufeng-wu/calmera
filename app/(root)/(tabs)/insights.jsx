@@ -14,6 +14,7 @@ import { ChartKey, FoodLine, MEAL_LABELS, NUTRIENTS, PERIODS, PairBar, SplitTabl
 import PeriodTabs from "@/components/insights/PeriodTabs";
 import TrendChart from "@/components/insights/TrendChart";
 import { SURFACES } from "@/constants/surfaces";
+import { NUTRIENT_COLORS } from "@/constants/colors";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { useFoodIcons } from "@/context/FoodIconsContext";
@@ -152,7 +153,7 @@ function TypicalCard({ stats, goals, onPress }) {
             {!!detail && <Text numberOfLines={1} style={styles.footnote}>{detail}</Text>}
           </View>
           <View style={stacked ? null : styles.typicalChart}>
-            <TrendChart compact height={66} points={metric.chart} goal={goal} top={goal ? goal * scale : undefined}
+            <TrendChart compact color={NUTRIENT_COLORS[field]} height={66} points={metric.chart} goal={goal} top={goal ? goal * scale : undefined}
               accessibilityLabel={nutrientSummary(title, unit, stats.span, metric, goal)} />
           </View>
         </View>;
