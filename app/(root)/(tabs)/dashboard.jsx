@@ -46,13 +46,13 @@ const AnimatedMealGroupContainer = AnimatedRe.createAnimatedComponent(View);
 
 const MEAL_LAYOUT = ReLayout.springify().damping(15);
 
-const MealGroup = ({ title, entries, onDelete, animateLayout }) => {
+const MealGroup = ({ title, entries, onDelete }) => {
   if (entries.length === 0) return null;
 
   return (
     <AnimatedMealGroupContainer
       style={styles.mealGroupContainer}
-      layout={animateLayout ? MEAL_LAYOUT : undefined}
+      layout={MEAL_LAYOUT}
     >
       <Text style={styles.mealGroupTitle}>{title}</Text>
       {entries.map((item) => (
@@ -143,8 +143,6 @@ export default function SummaryScreen() {
   const goToToday = useCallback(() => setPickedDate(null), []);
   // Closing shortens the page, so leave the scrolled position before it clamps.
   const scrollRef = useRef(null);
-  // The meal spring also fires when the page moves them, and would lag behind the calendar.
-  const [calendarMoving, setCalendarMoving] = useState(false);
   const scrollToTop = useCallback(() => scrollRef.current?.scrollTo({ y: 0, animated: true }), []);
   useFocusEffect(useCallback(() => () => {
     closeMenu();
@@ -375,7 +373,7 @@ export default function SummaryScreen() {
       >
         <View style={[styles.headerContainer, { paddingTop: 8 }]}>
           <FoodwrapWordmark style={{ marginBottom: 4 }} />
-          <DayDrop selectedDate={selectedDate} isToday={isToday} onSelectDate={selectDate} onToday={goToToday} onClose={scrollToTop} onMovingChange={setCalendarMoving}
+          <DayDrop selectedDate={selectedDate} isToday={isToday} onSelectDate={selectDate} onToday={goToToday} onClose={scrollToTop}
             dataByDate={dataByDate} calorieGoal={goals.calorieGoal} signUpDate={signUpDate} historyLoading={historyLoading}
             historyError={historyError} historyPending={historyPending} onRetryHistory={retryHistory} />
         </View>
@@ -393,8 +391,9 @@ export default function SummaryScreen() {
           </Pressable>}
         </View>
 
-        {/* Keyed by day so switching dates swaps meals without spring layout animations. */}
-        <View key={dateKey} style={styles.transactionsContainer}>
+        {/* Keyed by day so switching dates swaps meals without spring layout animations.
+            Kept unflattened so the meal springs measure from here, not from the page the calendar moves. */}
+        <View key={dateKey} collapsable={false} style={styles.transactionsContainer}>
           {!hasData ? null : entries.length > 0 ? (
             mealOrder.map((meal) => (
               <MealGroup
@@ -402,7 +401,6 @@ export default function SummaryScreen() {
                 title={meal}
                 entries={groupedEntries[meal] || []}
                 onDelete={handleDelete}
-                animateLayout={!calendarMoving}
               />
             ))
           ) : isToday ? (
