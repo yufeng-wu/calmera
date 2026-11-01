@@ -1,15 +1,21 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, InteractionManager, PixelRatio, Pressable, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { FlatList, InteractionManager, PixelRatio, Pressable, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
-import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import Svg, { Path } from "react-native-svg";
 import { FormCard, GlassButton } from "@/components/GlassForm";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
-import { calendarStart, isDaySelectable, listMonths, monthCells, monthKey, monthRowCount } from "@/lib/calendarMonths.mjs";
+import { SURFACES } from "@/constants/surfaces";
+import { calendarStart, isDaySelectable, listMonths, monthCells, monthKey, monthRowCount, parseLocalDate } from "@/lib/calendarMonths.mjs";
 import { calendarDayStatus } from "@/lib/nutritionPresentation.mjs";
 import { localDateKey } from "@/lib/nutritionStore.mjs";
 
 const CELL_HEIGHT = 38;
-const MAX_ROWS = 6;
+const MONTH_LABEL_HEIGHT = 34;
+// A touch taller than a five-row month, so the neighboring month peeks in and shows there's more to scroll.
+const VIEWPORT_HEIGHT = MONTH_LABEL_HEIGHT + 5 * CELL_HEIGHT + 18;
+// Today's week rests at the bottom edge, so the list ends in clear space and the fade never dims it.
+const BOTTOM_FADE = 10;
 const SELECTED_DISC = 32;
 const LOG_DOT = 4;
 const CARD_PADDING = 4;
@@ -19,6 +25,8 @@ const FADE_BELOW = 0.35;
 // Clamped just under critical damping, so a move lands once without reversing a pixel or crawling to a stop.
 // Progress runs 0 to 1, so the default rest thresholds would snap the last few points of height.
 const SPRING = { mass: 0.9, stiffness: 300, damping: 30, overshootClamping: true, restDisplacementThreshold: 0.001, restSpeedThreshold: 0.01 };
+
+const monthHeight = ({ year, month }) => MONTH_LABEL_HEIGHT + monthRowCount(year, month) * CELL_HEIGHT;
 
 const DayCell = memo(function DayCell({ date, selected, isToday, disabled, statusText, logged, width, onSelect }) {
   return <TouchableOpacity accessibilityRole="button"
@@ -35,108 +43,96 @@ const DayCell = memo(function DayCell({ date, selected, isToday, disabled, statu
 });
 
 const MonthPage = memo(function MonthPage({ year, month, width, selectedKey, todayKey, signUpDate, dataByDate, calorieGoal, historyAvailable, onSelect }) {
-  const cells = useMemo(() => monthCells(year, month), [year, month]);
+  const cells = useMemo(() => monthCells(year, month, parseLocalDate(todayKey)), [year, month, todayKey]);
   // Snapped down to whole pixels: seven rounded-up percentages can overflow and wrap a row.
   const cellWidth = Math.floor(width / 7 * PixelRatio.get()) / PixelRatio.get();
-  return <View style={[styles.monthGrid, { width }]}>
-    {cells.map((date, index) => {
-      if (!date) return <View key={`blank-${index}`} style={[styles.day, { width: cellWidth }]} />;
-      const key = localDateKey(date);
-      const day = dataByDate[key];
-      return <DayCell key={key} date={date} selected={key === selectedKey} isToday={key === todayKey}
-        disabled={!isDaySelectable(date, signUpDate)} width={cellWidth} onSelect={onSelect}
-        statusText={calendarDayStatus(day, calorieGoal, { historyAvailable }).text} logged={day?.entries?.length > 0} />;
-    })}
+  return <View style={{ width }}>
+    <Text accessibilityRole="header" maxFontSizeMultiplier={1.2} numberOfLines={1} style={styles.month}>
+      {new Date(year, month, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+    </Text>
+    <View style={styles.monthGrid}>
+      {cells.map((date, index) => {
+        if (!date) return <View key={`blank-${index}`} style={[styles.day, { width: cellWidth }]} />;
+        const key = localDateKey(date);
+        const day = dataByDate[key];
+        return <DayCell key={key} date={date} selected={key === selectedKey} isToday={key === todayKey}
+          disabled={!isDaySelectable(date, signUpDate)} width={cellWidth} onSelect={onSelect}
+          statusText={calendarDayStatus(day, calorieGoal, { historyAvailable }).text} logged={day?.entries?.length > 0} />;
+      })}
+    </View>
   </View>;
 });
 
-// Today's date header. Tapping it opens a month with a dot on each logged day;
-// months flip with the chevrons or a horizontal swipe.
-export default function DayDrop({ selectedDate, isToday, onSelectDate, onToday, onClose, dataByDate, calorieGoal, signUpDate,
+// Today's date header. Tapping it opens the calendar: one continuous scroll of months, oldest at the top.
+export default function DayDrop({ selectedDate, isToday, onSelectDate, onToday, onOpen, onClose, dataByDate, calorieGoal, signUpDate,
   historyLoading = false, historyError = null, historyPending = false, onRetryHistory }) {
   const { fontScale } = useWindowDimensions();
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [pageWidth, setPageWidth] = useState(0);
   const selectedKey = localDateKey(selectedDate);
-  const [viewKey, setViewKey] = useState(monthKey(selectedDate));
   const today = new Date();
   const todayKey = localDateKey(today);
   const list = useRef(null);
   const progress = useSharedValue(0);
-  const chrome = useSharedValue(90);
-  const grid = useSharedValue(0);
-  const rowsShown = useRef(0);
+  const chrome = useSharedValue(60);
 
   const dateKeys = useMemo(() => Object.keys(dataByDate), [dataByDate]);
-  const months = useMemo(() => listMonths(calendarStart(signUpDate, dateKeys, new Date()), new Date()),
+  // Inverted, so the list starts on this month and older months arriving later can't move what's on screen.
+  const months = useMemo(() => listMonths(calendarStart(signUpDate, dateKeys, new Date()), new Date()).reverse(),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- todayKey rolls the list over at midnight.
     [signUpDate, dateKeys, todayKey]);
-  const found = months.findIndex((item) => item.key === viewKey);
-  const index = found < 0 ? months.length - 1 : found;
-  const current = months[index];
-  const rows = monthRowCount(current.year, current.month);
+  const offsets = useMemo(() => {
+    let total = BOTTOM_FADE;
+    return months.map((month) => { const offset = total; total += monthHeight(month); return offset; });
+  }, [months]);
 
-  // Mounted ahead of the first tap: building the grid mid-animation drops frames.
+  // Mounted ahead of the first tap: building the months mid-animation drops frames.
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => setMounted(true));
     return () => task.cancel();
   }, []);
 
-  useEffect(() => {
-    if (rowsShown.current === rows) return;
-    rowsShown.current = rows;
-    const height = rows * CELL_HEIGHT;
-    grid.value = open ? withSpring(height, SPRING) : height;
-  }, [open, rows, grid]);
+  // Shows a date's month from its label down, unless that would crop the date itself off the bottom.
+  const scrollToDate = useCallback((date, animated) => {
+    const position = Math.max(months.findIndex((item) => item.key === monthKey(date)), 0);
+    const { year, month } = months[position];
+    const rowsBelow = monthRowCount(year, month) - 1 - Math.floor((new Date(year, month, 1).getDay() + date.getDate() - 1) / 7);
+    const offset = offsets[position] + Math.min(monthHeight(months[position]) - VIEWPORT_HEIGHT, rowsBelow * CELL_HEIGHT - BOTTOM_FADE);
+    list.current?.scrollToOffset({ offset: Math.max(offset, 0), animated });
+  }, [months, offsets]);
 
   const toggle = useCallback((next) => {
     setOpen(next);
     if (next) {
-      const key = monthKey(selectedDate);
-      const position = Math.max(months.findIndex((item) => item.key === key), 0);
-      const target = months[position] || months[months.length - 1];
-      setViewKey(target.key);
-      rowsShown.current = monthRowCount(target.year, target.month);
-      grid.value = rowsShown.current * CELL_HEIGHT;
+      onOpen?.();
       setMounted(true);
-      list.current?.scrollToIndex({ index: position, animated: false });
+      scrollToDate(selectedDate, false);
       progress.value = withSpring(1, SPRING);
     } else {
       onClose?.();
       progress.value = withSpring(0, SPRING);
     }
-  }, [selectedDate, months, grid, progress, onClose]);
+  }, [selectedDate, scrollToDate, progress, onOpen, onClose]);
 
   const select = useCallback((date) => {
     if (localDateKey(date) === selectedKey) toggle(false);
     else onSelectDate(date);
   }, [selectedKey, onSelectDate, toggle]);
 
-  const flip = (delta) => {
-    const target = months[index + delta];
-    if (!target) return;
-    setViewKey(target.key);
-    list.current?.scrollToIndex({ index: index + delta, animated: true });
-  };
-
   const goToToday = () => {
     onToday();
-    if (!open) return;
-    setViewKey(months[months.length - 1].key);
-    list.current?.scrollToIndex({ index: months.length - 1, animated: true });
+    if (open) list.current?.scrollToOffset({ offset: 0, animated: true });
   };
 
   // One height drives the page, so the cards below move with the calendar's edge.
   const panelStyle = useAnimatedStyle(() => ({
-    height: progress.value * (chrome.value + grid.value),
+    height: progress.value * (chrome.value + VIEWPORT_HEIGHT),
     opacity: Math.min(progress.value / FADE_BELOW, 1),
   }));
-  const gridStyle = useAnimatedStyle(() => ({ height: grid.value }));
   const chevronStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${progress.value * 180}deg` }] }));
 
   const label = selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-  const monthLabel = new Date(current.year, current.month, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
   const weekdays = fontScale > 1.4 ? ["S", "M", "T", "W", "T", "F", "S"] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const historyAvailable = !historyLoading && !historyError;
 
@@ -146,7 +142,12 @@ export default function DayDrop({ selectedDate, isToday, onSelectDate, onToday, 
         accessibilityLabel={`${isToday ? "Today, " : ""}${label}. ${open ? "Hide" : "Show"} calendar`} accessibilityState={{ expanded: open }}
         style={styles.toggle}>
         <Text style={styles.date}>{isToday ? "Today" : label}</Text>
-        <Animated.View style={chevronStyle}><Ionicons name="chevron-down" size={16} color={COLORS.primary} /></Animated.View>
+        {/* Drawn because the icon font's stroke is too thin beside the semibold date. Centered on 8, so it turns in place. */}
+        <Animated.View style={chevronStyle}>
+          <Svg width={16} height={16} viewBox="0 0 16 16" fill="none">
+            <Path d="M3 5.5 L8 10.5 L13 5.5" stroke={COLORS.primary} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+          </Svg>
+        </Animated.View>
       </Pressable>
       {!isToday && <GlassButton title="Today" accessibilityLabel="Go to today"
         onPress={goToToday}
@@ -156,50 +157,30 @@ export default function DayDrop({ selectedDate, isToday, onSelectDate, onToday, 
       accessibilityElementsHidden={!open} importantForAccessibility={open ? "auto" : "no-hide-descendants"}>
       {mounted && <FormCard variant="grouped" style={styles.card}>
         <View onLayout={({ nativeEvent }) => {
-          chrome.value = nativeEvent.layout.height + 2 * CARD_PADDING + CARD_GAP + 1;
+          const height = nativeEvent.layout.height + 2 * CARD_PADDING + CARD_GAP + 1;
+          chrome.value = open ? withSpring(height, SPRING) : height;
         }}>
-          <View style={styles.nav}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Previous month" accessibilityState={{ disabled: index === 0 }}
-              disabled={index === 0} onPress={() => flip(-1)} hitSlop={4} style={[styles.navButton, index === 0 && styles.navDisabled]}>
-              <Ionicons name="chevron-back" size={22} color={COLORS.text} />
-            </Pressable>
-            <Text accessibilityRole="header" style={styles.month}>{monthLabel}</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="Next month" accessibilityState={{ disabled: index === months.length - 1 }}
-              disabled={index === months.length - 1} onPress={() => flip(1)} hitSlop={4}
-              style={[styles.navButton, index === months.length - 1 && styles.navDisabled]}>
-              <Ionicons name="chevron-forward" size={22} color={COLORS.text} />
-            </Pressable>
-          </View>
-          {historyLoading && <View style={styles.status}>
-            <ActivityIndicator size="small" color={COLORS.primary} />
-            <Text style={styles.statusText}>Getting your meals…</Text>
-          </View>}
+          {/* Dots fill in once history arrives. Only history that never loaded earns a line here. */}
           {Boolean(historyError) && <Pressable onPress={onRetryHistory} disabled={historyPending} accessibilityRole="button"
-            accessibilityLabel={historyPending ? "Retrying meal history" : "Meal history couldn’t refresh. Retry."}
-            accessibilityState={{ disabled: historyPending, busy: historyPending }} style={styles.status}>
-            {historyPending && <ActivityIndicator size="small" color={COLORS.primary} accessible={false} />}
-            <Text style={styles.statusText} accessibilityLiveRegion="polite">{historyPending ? "Retrying…"
-              : <>Meal history couldn’t refresh. <Text style={styles.retry}>Retry</Text></>}</Text>
+            accessibilityLabel="Meal history couldn’t load. Retry." accessibilityState={{ disabled: historyPending, busy: historyPending }}
+            style={[styles.status, historyPending && styles.statusPending]}>
+            <Text style={styles.statusText}>Meal history couldn’t load. <Text style={styles.retry}>Retry</Text></Text>
           </Pressable>}
           <View style={styles.weekdays}>
             {weekdays.map((day, position) => <Text key={position} maxFontSizeMultiplier={1.35} style={styles.weekday}>{day}</Text>)}
           </View>
         </View>
-        <Animated.View style={[styles.grid, gridStyle]} onLayout={({ nativeEvent }) => setPageWidth(nativeEvent.layout.width)}>
-          {pageWidth > 0 && <FlatList ref={list} key={`${months.length}-${pageWidth}`} data={months} horizontal pagingEnabled
-            style={{ height: MAX_ROWS * CELL_HEIGHT }} showsHorizontalScrollIndicator={false} scrollsToTop={false}
-            keyExtractor={(item) => item.key} initialScrollIndex={index} initialNumToRender={1} maxToRenderPerBatch={1}
-            // Two neighbors stay built and more wait until a flip has settled: building a month mid-flip drops a frame.
-            windowSize={5} updateCellsBatchingPeriod={500} onStartReachedThreshold={0} onEndReachedThreshold={0}
-            getItemLayout={(_, position) => ({ length: pageWidth, offset: pageWidth * position, index: position })}
-            onMomentumScrollEnd={({ nativeEvent }) => {
-              const target = months[Math.round(nativeEvent.contentOffset.x / pageWidth)];
-              if (target) setViewKey(target.key);
-            }}
+        <View style={styles.months} onLayout={({ nativeEvent }) => setPageWidth(nativeEvent.layout.width)}>
+          {pageWidth > 0 && <FlatList ref={list} inverted data={months} contentContainerStyle={{ paddingTop: BOTTOM_FADE }} showsVerticalScrollIndicator={false} scrollsToTop={false}
+            keyExtractor={(item) => item.key} initialNumToRender={2} maxToRenderPerBatch={2} windowSize={9} updateCellsBatchingPeriod={100}
+            getItemLayout={(_, position) => ({ length: monthHeight(months[position]), offset: offsets[position], index: position })}
             renderItem={({ item }) => <MonthPage year={item.year} month={item.month} width={pageWidth} selectedKey={selectedKey}
               todayKey={todayKey} signUpDate={signUpDate} dataByDate={dataByDate} calorieGoal={calorieGoal}
               historyAvailable={historyAvailable} onSelect={select} />} />}
-        </Animated.View>
+          {/* Months dissolve at the edges, so a row cut off by the scroll never reads as a glitch. */}
+          <LinearGradient pointerEvents="none" colors={[SURFACES.grouped, `${SURFACES.grouped}00`]} style={[styles.fade, { top: 0, height: 16 }]} />
+          <LinearGradient pointerEvents="none" colors={[`${SURFACES.grouped}00`, SURFACES.grouped]} style={[styles.fade, { bottom: 0, height: BOTTOM_FADE }]} />
+        </View>
       </FormCard>}
     </Animated.View>
   </View>;
@@ -212,16 +193,15 @@ const styles = StyleSheet.create({
   panel: { overflow: "hidden" },
   // Absolute so the panel's height can't reach it: with no room left, Yoga lays a child out at zero height.
   card: { position: "absolute", top: 0, left: 0, right: 0, paddingVertical: CARD_PADDING, paddingHorizontal: 0, gap: 0 },
-  nav: { flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 8 },
-  navButton: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
-  navDisabled: { opacity: 0.35 },
-  month: { flex: 1, fontSize: 16, fontWeight: "600", color: COLORS.text, textAlign: "center" },
   status: { minHeight: 44, paddingVertical: 8, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  statusPending: { opacity: 0.5 },
   statusText: { color: COLORS.textLight, textAlign: "center", flexShrink: 1 },
   retry: { color: COLORS.primary },
-  weekdays: { flexDirection: "row" },
+  weekdays: { flexDirection: "row", paddingTop: 10, paddingBottom: 6 },
   weekday: { flex: 1, textAlign: "center", fontSize: 12, fontWeight: "500", color: COLORS.textLight },
-  grid: { overflow: "hidden" },
+  months: { height: VIEWPORT_HEIGHT, overflow: "hidden" },
+  fade: { position: "absolute", left: 0, right: 0 },
+  month: { height: MONTH_LABEL_HEIGHT, paddingTop: 10, paddingHorizontal: 16, fontSize: 15, fontWeight: "600", color: COLORS.text },
   monthGrid: { flexDirection: "row", flexWrap: "wrap", alignContent: "flex-start" },
   day: { height: CELL_HEIGHT, alignItems: "center", justifyContent: "center" },
   number: { width: SELECTED_DISC, height: SELECTED_DISC, borderRadius: SELECTED_DISC / 2, alignItems: "center", justifyContent: "center" },

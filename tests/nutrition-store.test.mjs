@@ -113,6 +113,26 @@ test("a Strict Mode release/reacquire does not dispose the active store", async 
 });
 
 
+test("age alone re-reads today but never a past day, which waits for an edit or a pull", async () => {
+  let time = new Date(2026, 9, 20, 12).getTime(), today = 0, past = 0;
+  const store = createNutritionStore({ now: () => time });
+  const readToday = async () => { today++; return summary(row(1)); };
+  const readPast = async () => { past++; return summary(row(2)); };
+  await store.loadDay("2026-10-20", readToday); await store.loadDay(date, readPast);
+  time += 24 * 3600000;
+  await store.loadDay("2026-10-21", readToday);
+  time += 300001;
+  await store.loadDay("2026-10-21", readToday);
+  assert.equal(today, 3);
+  await store.loadDay(date, readPast);
+  assert.equal(past, 1);
+  await store.loadDay(date, readPast, { force: true });
+  assert.equal(past, 2);
+  store.invalidateEntries();
+  await store.loadDay(date, readPast);
+  assert.equal(past, 3);
+});
+
 test("failed automatic refresh backs off while an explicit retry remains immediate", async () => {
   let time = 1000, calls = 0;
   const store = createNutritionStore({ now: () => time });

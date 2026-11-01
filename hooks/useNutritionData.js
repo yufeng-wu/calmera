@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { AppState, InteractionManager } from "react-native";
+import { AppState } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import { useIsFocused } from "@react-navigation/native";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
@@ -9,6 +9,9 @@ import { nutritionViewState, retryNutritionError } from "@/lib/nutritionPresenta
 import { readNutrition } from "@/lib/nutritionRequest.mjs";
 import { completeNutritionRefresh } from "@/lib/completeNutritionRefresh.mjs";
 import { removeStoredNutritionEntry } from "@/lib/nutritionDelete.mjs";
+
+// History is the whole meal log, so it waits until Today has landed and the page has settled.
+const HISTORY_DELAY_MS = 2000;
 
 export function profileGoals(profile) {
   const p = profile || {};
@@ -28,6 +31,7 @@ export function useNutritionData(date = new Date(), history = false) {
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
   const focused = useIsFocused();
   const [wakeVersion, setWakeVersion] = useState(0);
+  const [pullFailed, setPullFailed] = useState(false);
   const dateKey = localDateKey(date);
   const isSessionActive = useCallback(() => ownerRef.current === userId && store.belongsTo(userId), [store, userId]);
   const loader = useCallback(({ resource, date: day, signal }) => {
@@ -51,14 +55,16 @@ export function useNutritionData(date = new Date(), history = false) {
     const request = history ? store.loadHistory(loader) : store.loadDay(dateKey, loader);
     request.then(() => {
       if (!history && active) {
-        prefetch = InteractionManager.runAfterInteractions(() => { store.loadHistory(loader).catch(() => {}); });
+        prefetch = setTimeout(() => { store.loadHistory(loader).catch(() => {}); }, HISTORY_DELAY_MS);
       }
     }).catch(() => {});
-    return () => { active = false; prefetch?.cancel(); };
+    return () => { active = false; clearTimeout(prefetch); };
   }, [store, loader, focused, isLoaded, userId, dateKey, history, entriesRevision, goalsRevision, wakeVersion]);
   const refresh = useCallback(() => {
+    setPullFailed(false);
     const data = history ? store.loadHistory(loader, { force: true }) : store.loadDay(dateKey, loader, { force: true });
-    return completeNutritionRefresh([data, store.loadProfile(loader, { force: true })]);
+    return completeNutritionRefresh([data, store.loadProfile(loader, { force: true })])
+      .catch((error) => { setPullFailed(true); throw error; });
   }, [store, loader, history, dateKey]);
   const refreshProfile = useCallback(() => store.loadProfile(loader, { force: true }), [store, loader]);
   const deleteEntry = useCallback((id) => removeStoredNutritionEntry({
@@ -74,7 +80,9 @@ export function useNutritionData(date = new Date(), history = false) {
   const retryError = useCallback(() => retryNutritionError(
     { error: presentation.error, profileError: presentation.profileError }, { refresh, refreshProfile }),
   [presentation.error, presentation.profileError, refresh, refreshProfile]);
-  return { store, dateKey, ...presentation, goals, profile: snapshot.profile, dataByDate: snapshot.days,
+  // A pull is the one refresh someone asked for, so its failure shows over loaded data until a read succeeds.
+  const refreshFailed = pullFailed && Boolean(snapshot.errors[history ? "history" : `day:${dateKey}`] || snapshot.errors.profile);
+  return { store, dateKey, ...presentation, refreshFailed, goals, profile: snapshot.profile, dataByDate: snapshot.days,
     historyPending: Boolean(snapshot.pending.history), profilePending: Boolean(snapshot.pending.profile),
     refresh, refreshProfile, retryError, deleteEntry, isSessionActive, snapshot, loader };
 }
