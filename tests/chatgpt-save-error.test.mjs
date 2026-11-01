@@ -22,7 +22,7 @@ test("known HTTP rejection presents a failed save without claiming an uncertain 
   const presentation = mealSaveErrorPresentation(error);
   assert.equal(presentation.kind, "failed");
   assert.equal(presentation.title, "Couldn’t save meal");
-  assert.doesNotMatch(presentation.message, /History|may already/i);
+  assert.doesNotMatch(presentation.message, /Check your meals|may already/i);
   assert.equal(calls, 1);
 });
 
@@ -38,14 +38,14 @@ test("pre-dispatch timeout presents a known non-write and never reaches fetch", 
   assert.equal(calls, 0);
 });
 
-test("server uncertainty presents Check History and never retries automatically", async () => {
+test("server uncertainty presents Check your meals and never retries automatically", async () => {
   let calls = 0;
   const error = await failureOf(saveEstimatedEntries([meal], { ...options, fetchImpl: async () => {
     calls++;
     return { ok: false, status: 503, json: async () => null };
   } }));
   assert.equal(mealSaveErrorPresentation(error).kind, "uncertain");
-  assert.equal(mealSaveErrorPresentation(error).title, "Check History");
+  assert.equal(mealSaveErrorPresentation(error).title, "Check your meals");
   assert.equal(calls, 1);
 });
 
@@ -59,7 +59,7 @@ test("a dropped POST response stays uncertain instead of suggesting a known non-
   assert.equal(calls, 1);
 });
 
-test("partial success followed by a known rejection still requires checking History", async () => {
+test("partial success followed by a known rejection still requires checking meals", async () => {
   let calls = 0;
   const error = await failureOf(saveEstimatedEntries([meal, meal], { ...options, fetchImpl: async () => {
     calls++;

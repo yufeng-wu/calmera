@@ -75,10 +75,10 @@ test("explicit profile retry clears its error without discarding meals or fetchi
 test("calendar describes a historical goal instead of the current goal", () => {
   const historical = normalizeDay({ foodEntries: [meal], dailyTotals: { calories: 105 }, goals: { calorieGoal: 100 } });
   assert.deepEqual(calendarDayStatus(historical, 2000), {
-    text: "1 food entry recorded; above calorie goal", goalStatus: "above",
+    text: "1 food entry recorded; 105 of 100 calories, 5 over goal", goalStatus: "above",
   });
   assert.deepEqual(calendarDayStatus(day, 105), {
-    text: "1 food entry recorded; within calorie goal", goalStatus: "within",
+    text: "1 food entry recorded; 105 of 105 calories, within goal", goalStatus: "within",
   });
 });
 
@@ -90,7 +90,7 @@ test("calendar describes entry counts independently of unavailable goals", () =>
 
 test("cached dates keep their status even if a later history refresh is unavailable", () => {
   assert.deepEqual(calendarDayStatus(day, 2000, { historyAvailable: false }), {
-    text: "1 food entry recorded; within calorie goal", goalStatus: "within",
+    text: "1 food entry recorded; 105 of 2,000 calories, within goal", goalStatus: "within",
   });
 });
 

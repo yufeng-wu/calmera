@@ -37,15 +37,6 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name="history"
-          options={{
-            title: "History",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="calendar" color={color} size={size} />
-            ),
-          }}
-        />
-        <Tabs.Screen
           name="settings"
           options={{
             title: "Settings",
