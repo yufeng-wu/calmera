@@ -216,7 +216,7 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
 });
 
 const swipeStyles = StyleSheet.create({
-  row: { marginBottom: 10 },
+  row: { marginBottom: 8 },
   actionOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 1 },
   swipeable: { overflow: "visible", padding: MEAL_EFFECT_OUTSET,
     marginVertical: -MEAL_EFFECT_OUTSET, marginHorizontal: -MEAL_EFFECT_OUTSET },

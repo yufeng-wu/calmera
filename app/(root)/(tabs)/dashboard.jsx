@@ -373,8 +373,8 @@ export default function SummaryScreen() {
         contentContainerStyle={{ paddingBottom: SCROLL_BOTTOM_PADDING }}
         scrollIndicatorInsets={{ bottom: floatingBarInset }}
       >
-        <View style={[styles.headerContainer, { paddingTop: 12 }]}>
-          <FoodwrapWordmark style={{ marginBottom: 16 }} />
+        <View style={[styles.headerContainer, { paddingTop: 8 }]}>
+          <FoodwrapWordmark style={{ marginBottom: 8 }} />
           <DayDrop selectedDate={selectedDate} isToday={isToday} onSelectDate={selectDate} onToday={goToToday} onClose={scrollToTop} onMovingChange={setCalendarMoving}
             dataByDate={dataByDate} calorieGoal={goals.calorieGoal} signUpDate={signUpDate} historyLoading={historyLoading}
             historyError={historyError} historyPending={historyPending} onRetryHistory={retryHistory} />

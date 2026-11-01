@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, InteractionManager, Pressable, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, FlatList, InteractionManager, PixelRatio, Pressable, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { FormCard, GlassButton } from "@/components/GlassForm";
@@ -12,16 +12,16 @@ const CELL_HEIGHT = 38;
 const MAX_ROWS = 6;
 const SELECTED_DISC = 32;
 const LOG_DOT = 4;
-const CARD_PADDING = 10;
+const CARD_PADDING = 4;
 const CARD_GAP = 12;
 const OPEN_SPRING = { mass: 0.9, stiffness: 300, damping: 28 };
 const CLOSE_SPRING = { mass: 0.9, stiffness: 300, damping: 34, overshootClamping: true };
 
-const DayCell = memo(function DayCell({ date, selected, isToday, disabled, statusText, logged, onSelect }) {
+const DayCell = memo(function DayCell({ date, selected, isToday, disabled, statusText, logged, width, onSelect }) {
   return <TouchableOpacity accessibilityRole="button"
     accessibilityLabel={date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
     accessibilityValue={{ text: statusText }} accessibilityState={{ selected, disabled }}
-    disabled={disabled} onPress={() => onSelect(date)} style={styles.day}>
+    disabled={disabled} onPress={() => onSelect(date)} style={[styles.day, { width }]}>
     <View style={[styles.number, selected && styles.numberSelected]}>
       <Text maxFontSizeMultiplier={1.2} style={[styles.dayNumber, isToday && styles.dayToday,
         disabled && styles.dayDisabled, selected && styles.dayNumberSelected]}>{date.getDate()}</Text>
@@ -33,13 +33,15 @@ const DayCell = memo(function DayCell({ date, selected, isToday, disabled, statu
 
 const MonthPage = memo(function MonthPage({ year, month, width, selectedKey, todayKey, signUpDate, dataByDate, calorieGoal, historyAvailable, onSelect }) {
   const cells = useMemo(() => monthCells(year, month), [year, month]);
+  // Snapped down to whole pixels: seven rounded-up percentages can overflow and wrap a row.
+  const cellWidth = Math.floor(width / 7 * PixelRatio.get()) / PixelRatio.get();
   return <View style={[styles.monthGrid, { width }]}>
     {cells.map((date, index) => {
-      if (!date) return <View key={`blank-${index}`} style={styles.day} />;
+      if (!date) return <View key={`blank-${index}`} style={[styles.day, { width: cellWidth }]} />;
       const key = localDateKey(date);
       const day = dataByDate[key];
       return <DayCell key={key} date={date} selected={key === selectedKey} isToday={key === todayKey}
-        disabled={!isDaySelectable(date, signUpDate)} onSelect={onSelect}
+        disabled={!isDaySelectable(date, signUpDate)} width={cellWidth} onSelect={onSelect}
         statusText={calendarDayStatus(day, calorieGoal, { historyAvailable }).text} logged={day?.entries?.length > 0} />;
     })}
   </View>;
@@ -157,14 +159,19 @@ export default function DayDrop({ selectedDate, isToday, onSelectDate, onToday, 
       accessibilityElementsHidden={!open} importantForAccessibility={open ? "auto" : "no-hide-descendants"}>
       {mounted && <FormCard variant="grouped" style={styles.card}>
         <View onLayout={({ nativeEvent }) => {
-          chrome.value = nativeEvent.layout.height + 2 * CARD_PADDING + CARD_GAP + 2;
+          chrome.value = nativeEvent.layout.height + 2 * CARD_PADDING + CARD_GAP + 1;
         }}>
           <View style={styles.nav}>
-            <GlassButton symbol="chevron.left" accessibilityLabel="Previous month" disabled={index === 0}
-              onPress={() => flip(-1)} style={styles.navButton} />
+            <Pressable accessibilityRole="button" accessibilityLabel="Previous month" accessibilityState={{ disabled: index === 0 }}
+              disabled={index === 0} onPress={() => flip(-1)} hitSlop={4} style={[styles.navButton, index === 0 && styles.navDisabled]}>
+              <Ionicons name="chevron-back" size={22} color={COLORS.text} />
+            </Pressable>
             <Text accessibilityRole="header" style={styles.month}>{monthLabel}</Text>
-            <GlassButton symbol="chevron.right" accessibilityLabel="Next month" disabled={index === months.length - 1}
-              onPress={() => flip(1)} style={styles.navButton} />
+            <Pressable accessibilityRole="button" accessibilityLabel="Next month" accessibilityState={{ disabled: index === months.length - 1 }}
+              disabled={index === months.length - 1} onPress={() => flip(1)} hitSlop={4}
+              style={[styles.navButton, index === months.length - 1 && styles.navDisabled]}>
+              <Ionicons name="chevron-forward" size={22} color={COLORS.text} />
+            </Pressable>
           </View>
           {historyLoading && <View style={styles.status}>
             <ActivityIndicator size="small" color={COLORS.primary} />
@@ -200,28 +207,29 @@ export default function DayDrop({ selectedDate, isToday, onSelectDate, onToday, 
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
+  header: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 },
   toggle: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 44, flexShrink: 1, flexGrow: 1 },
   date: { fontSize: 18, fontWeight: "600", color: COLORS.text, flexShrink: 1 },
   panel: { overflow: "hidden" },
-  card: { padding: CARD_PADDING, gap: 0, marginBottom: CARD_GAP },
-  nav: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 2 },
-  navButton: { width: 36, height: 36, minHeight: 36, minWidth: 36 },
-  month: { flex: 1, fontSize: 17, fontWeight: "600", color: COLORS.text, textAlign: "center" },
+  card: { paddingVertical: CARD_PADDING, paddingHorizontal: 0, gap: 0, marginBottom: CARD_GAP },
+  nav: { flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 8 },
+  navButton: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
+  navDisabled: { opacity: 0.35 },
+  month: { flex: 1, fontSize: 16, fontWeight: "600", color: COLORS.text, textAlign: "center" },
   status: { minHeight: 44, paddingVertical: 8, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   statusText: { color: COLORS.textLight, textAlign: "center", flexShrink: 1 },
   retry: { color: COLORS.primary },
-  weekdays: { flexDirection: "row", marginBottom: 2 },
+  weekdays: { flexDirection: "row" },
   weekday: { flex: 1, textAlign: "center", fontSize: 12, fontWeight: "500", color: COLORS.textLight },
   grid: { overflow: "hidden" },
   monthGrid: { flexDirection: "row", flexWrap: "wrap", alignContent: "flex-start" },
-  day: { width: `${100 / 7}%`, height: CELL_HEIGHT, alignItems: "center", justifyContent: "center" },
+  day: { height: CELL_HEIGHT, alignItems: "center", justifyContent: "center" },
   number: { width: SELECTED_DISC, height: SELECTED_DISC, borderRadius: SELECTED_DISC / 2, alignItems: "center", justifyContent: "center" },
   numberSelected: { backgroundColor: COLORS.primary },
   logDot: { width: LOG_DOT, height: LOG_DOT, borderRadius: LOG_DOT / 2, marginTop: 1 },
   logDotOn: { backgroundColor: COLORS.primary },
   logDotSelected: { backgroundColor: COLORS.white },
-  dayNumber: { fontSize: 14, fontWeight: "600", fontVariant: ["tabular-nums"], color: COLORS.text },
+  dayNumber: { fontSize: 15, fontWeight: "500", fontVariant: ["tabular-nums"], color: COLORS.text },
   dayNumberSelected: { color: COLORS.white },
   dayToday: { color: COLORS.primary },
   dayDisabled: { color: COLORS.textLight, opacity: 0.7 },
