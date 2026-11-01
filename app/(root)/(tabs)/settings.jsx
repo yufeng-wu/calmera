@@ -53,6 +53,11 @@ export default function SettingsScreen({ calmeraPreview = false }) {
         <SettingsRow title="Nutrition goals" subtitle="Adjust your daily targets" icon="options-outline" divider
           onPress={() => openPage("/update-goals", "Nutrition goals")} />
       </FormCard>
+      <Text style={styles.section}>YOUR DATA</Text>
+      <FormCard variant="grouped" style={styles.group}>
+        <SettingsRow title="Export your data" subtitle="Save your meals as a file" icon="share-outline"
+          onPress={() => openPage("/export-data", "Export your data")} />
+      </FormCard>
       <View style={styles.accountHeading}>
         <Text style={styles.section}>ACCOUNT</Text>
         {!!accountEmail && <View accessible accessibilityRole="text" accessibilityLabel={`Signed in as ${accountEmail}`} style={styles.accountIdentity}>

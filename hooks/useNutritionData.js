@@ -10,6 +10,14 @@ import { readNutrition } from "@/lib/nutritionRequest.mjs";
 import { completeNutritionRefresh } from "@/lib/completeNutritionRefresh.mjs";
 import { removeStoredNutritionEntry } from "@/lib/nutritionDelete.mjs";
 
+export function profileGoals(profile) {
+  const p = profile || {};
+  return { calorieGoal: p.calorieGoal ?? p.calorie_goal ?? p.calories,
+    proteinGoal: p.proteinGoal ?? p.protein_goal ?? p.protein,
+    carbsGoal: p.carbsGoal ?? p.carbs_goal ?? p.carbs,
+    fatGoal: p.fatGoal ?? p.fat_goal ?? p.fat };
+}
+
 export function useNutritionData(date = new Date(), history = false) {
   const { userId, getToken, isLoaded } = useAuth();
   const tokenRef = useRef(getToken);
@@ -61,13 +69,7 @@ export function useNutritionData(date = new Date(), history = false) {
       if (ownerRef.current === userId && store.belongsTo(userId)) setShouldRefresh(true);
     },
   }), [store, dateKey, userId, setShouldRefresh]);
-  const goals = useMemo(() => {
-    const p = snapshot.profile || {};
-    return { calorieGoal: p.calorieGoal ?? p.calorie_goal ?? p.calories,
-      proteinGoal: p.proteinGoal ?? p.protein_goal ?? p.protein,
-      carbsGoal: p.carbsGoal ?? p.carbs_goal ?? p.carbs,
-      fatGoal: p.fatGoal ?? p.fat_goal ?? p.fat };
-  }, [snapshot.profile]);
+  const goals = useMemo(() => profileGoals(snapshot.profile), [snapshot.profile]);
   const presentation = nutritionViewState(snapshot, dateKey, history);
   const retryError = useCallback(() => retryNutritionError(
     { error: presentation.error, profileError: presentation.profileError }, { refresh, refreshProfile }),

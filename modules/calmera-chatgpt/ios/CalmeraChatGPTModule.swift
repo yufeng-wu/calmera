@@ -4,7 +4,6 @@ import AVFoundation
 public final class CalmeraChatGPTModule: Module {
   private let callback = PlanLoopback()
   private let picker = PlanPhotoPicker()
-  private let health = PlanHealth()
 
   public func definition() -> ModuleDefinition {
     Name("CalmeraChatGPT")
@@ -37,19 +36,6 @@ public final class CalmeraChatGPTModule: Module {
       Prop("buttonDisabled") { (view: CalmeraFormButtonView, value: Bool) in view.buttonDisabled = value }
       Prop("loading") { (view: CalmeraFormButtonView, value: Bool) in view.loading = value }
       OnViewDidUpdateProps { (view: CalmeraFormButtonView) in view.updateControl() }
-    }
-    View(CalmeraInsightsSegmentedView.self) {
-      ViewName("InsightsSegmented")
-      Events("onChange")
-      Prop("items") { (view: CalmeraInsightsSegmentedView, value: [String]) in view.setItems(value) }
-      Prop("selectedIndex") { (view: CalmeraInsightsSegmentedView, value: Int) in view.select(value) }
-    }
-    View(CalmeraGlassMenuView.self) {
-      ViewName("GlassMenu")
-      Events("onSelect")
-      Prop("symbol") { (view: CalmeraGlassMenuView, value: String) in view.symbol = value }
-      Prop("label") { (view: CalmeraGlassMenuView, value: String) in view.label = value }
-      Prop("items") { (view: CalmeraGlassMenuView, value: [[String: String]]) in view.items = value }
     }
     View(CalmeraMenuButtonView.self) {
       ViewName("MenuButton")
@@ -152,10 +138,6 @@ public final class CalmeraChatGPTModule: Module {
       }
     }
     Function("cancelCallback") { self.callback.stop() }
-    Function("healthAvailable") { self.health.isAvailable }
-    AsyncFunction("requestHealthAccess") { () async throws -> Bool in try await self.health.requestAccess() }
-    AsyncFunction("healthSummary") { (days: Int) async throws -> [String: Any] in try await self.health.summary(days: days) }
-    AsyncFunction("seedSampleHealth") { () async throws -> Int in try await self.health.seedSample() }
     AsyncFunction("voiceClipMetadata") { (uri: String) async throws -> [String: Double] in
       // Only the just-recorded app-owned cache clip; never enumerate files.
       let cache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
@@ -379,7 +361,7 @@ final class CalmeraSystemTabsView: ExpoView, UITabBarControllerDelegate {
     let definitions = [
       ("Today", "fork.knife", "fork.knife"),
       ("History", "calendar", "calendar"),
-      ("Insights", "sparkles", "sparkles"),
+      ("Insights", "chart.bar", "chart.bar.fill"),
       ("Settings", "gearshape", "gearshape.fill")
     ]
     controller.viewControllers = definitions.enumerated().map { index, definition in

@@ -16,14 +16,9 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "Allow calmera to use the camera to capture meal photos and read scale displays.",
         "NSPhotoLibraryUsageDescription": "Allow calmera to access your photo library to load/import meal photos.",
-        "NSPhotoLibraryAddUsageDescription": "Allow calmera to save captured photos to your photo library.",
-        "NSHealthShareUsageDescription": "calmera reads activity, sleep and weight from Apple Health to personalize your Insights. Nothing is sent to calmera's servers.",
-        "NSHealthUpdateUsageDescription": "calmera only writes sample data in development builds."
+        "NSPhotoLibraryAddUsageDescription": "Allow calmera to save captured photos to your photo library."
       },
-      "bundleIdentifier": "com.yfwu02.mobile",
-      "entitlements": {
-        "com.apple.developer.healthkit": true
-      }
+      "bundleIdentifier": "com.yfwu02.mobile"
     },
     "android": {
       "adaptiveIcon": {

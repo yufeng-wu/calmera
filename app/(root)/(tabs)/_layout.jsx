@@ -50,7 +50,7 @@ export default function TabLayout() {
           options={{
             title: "Insights",
             tabBarIcon: ({ color, size }) => (
-              <Ionicons name="sparkles" color={color} size={size} />
+              <Ionicons name="bar-chart" color={color} size={size} />
             ),
           }}
         />

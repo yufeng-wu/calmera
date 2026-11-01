@@ -8,6 +8,7 @@ const pages = [
   () => import("@/app/(root)/voice-language"),
   () => import("@/app/(root)/meal-times"),
   () => import("@/app/(root)/chatgpt"),
+  () => import("@/app/(root)/export-data"),
 ];
 const warmed = new Set();
 

@@ -13,5 +13,6 @@ export const TYPOGRAPHY = Object.freeze({
   eyebrow: { fontSize: 12, fontWeight: "600", lineHeight: 18, letterSpacing: 0.8 },
   input: { fontSize: 16, fontWeight: "400", lineHeight: 22 },
   value: { fontSize: 18, fontWeight: "600", lineHeight: 24, fontVariant: ["tabular-nums"] },
+  metric: { fontSize: 22, fontWeight: "600", lineHeight: 28, fontVariant: ["tabular-nums"] },
   code: { fontSize: 22, fontWeight: "600", lineHeight: 28, letterSpacing: 4 },
 });
