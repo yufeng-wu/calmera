@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, InteractionManager, PixelRatio, Pressable, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { FormCard, GlassButton } from "@/components/GlassForm";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
@@ -14,8 +14,11 @@ const SELECTED_DISC = 32;
 const LOG_DOT = 4;
 const CARD_PADDING = 4;
 const CARD_GAP = 12;
-const OPEN_SPRING = { mass: 0.9, stiffness: 300, damping: 28 };
-const CLOSE_SPRING = { mass: 0.9, stiffness: 300, damping: 34, overshootClamping: true };
+// Below this progress the card fades, so its clipped last few points never show as a flat sliver.
+const FADE_BELOW = 0.35;
+// Clamped just under critical damping, so a move lands once without reversing a pixel or crawling to a stop.
+// Progress runs 0 to 1, so the default rest thresholds would snap the last few points of height.
+const SPRING = { mass: 0.9, stiffness: 300, damping: 30, overshootClamping: true, restDisplacementThreshold: 0.001, restSpeedThreshold: 0.01 };
 
 const DayCell = memo(function DayCell({ date, selected, isToday, disabled, statusText, logged, width, onSelect }) {
   return <TouchableOpacity accessibilityRole="button"
@@ -49,7 +52,7 @@ const MonthPage = memo(function MonthPage({ year, month, width, selectedKey, tod
 
 // Today's date header. Tapping it opens a month with a dot on each logged day;
 // months flip with the chevrons or a horizontal swipe.
-export default function DayDrop({ selectedDate, isToday, onSelectDate, onToday, onClose, onMovingChange, dataByDate, calorieGoal, signUpDate,
+export default function DayDrop({ selectedDate, isToday, onSelectDate, onToday, onClose, dataByDate, calorieGoal, signUpDate,
   historyLoading = false, historyError = null, historyPending = false, onRetryHistory }) {
   const { fontScale } = useWindowDimensions();
   const [open, setOpen] = useState(false);
@@ -80,24 +83,15 @@ export default function DayDrop({ selectedDate, isToday, onSelectDate, onToday, 
     return () => task.cancel();
   }, []);
 
-  // Reports when a move settles, so the page can hold other layout animations until then.
-  const settled = useCallback((finished) => {
-    "worklet";
-    if (finished && onMovingChange) runOnJS(onMovingChange)(false);
-  }, [onMovingChange]);
-
   useEffect(() => {
     if (rowsShown.current === rows) return;
     rowsShown.current = rows;
     const height = rows * CELL_HEIGHT;
-    if (!open) { grid.value = height; return; }
-    onMovingChange?.(true);
-    grid.value = withSpring(height, OPEN_SPRING, settled);
-  }, [open, rows, grid, settled, onMovingChange]);
+    grid.value = open ? withSpring(height, SPRING) : height;
+  }, [open, rows, grid]);
 
   const toggle = useCallback((next) => {
     setOpen(next);
-    onMovingChange?.(true);
     if (next) {
       const key = monthKey(selectedDate);
       const position = Math.max(months.findIndex((item) => item.key === key), 0);
@@ -107,12 +101,12 @@ export default function DayDrop({ selectedDate, isToday, onSelectDate, onToday, 
       grid.value = rowsShown.current * CELL_HEIGHT;
       setMounted(true);
       list.current?.scrollToIndex({ index: position, animated: false });
-      progress.value = withSpring(1, OPEN_SPRING, settled);
+      progress.value = withSpring(1, SPRING);
     } else {
       onClose?.();
-      progress.value = withSpring(0, CLOSE_SPRING, settled);
+      progress.value = withSpring(0, SPRING);
     }
-  }, [selectedDate, months, grid, progress, onClose, onMovingChange, settled]);
+  }, [selectedDate, months, grid, progress, onClose]);
 
   const select = useCallback((date) => {
     if (localDateKey(date) === selectedKey) toggle(false);
@@ -134,7 +128,10 @@ export default function DayDrop({ selectedDate, isToday, onSelectDate, onToday, 
   };
 
   // One height drives the page, so the cards below move with the calendar's edge.
-  const panelStyle = useAnimatedStyle(() => ({ height: progress.value * (chrome.value + grid.value) }));
+  const panelStyle = useAnimatedStyle(() => ({
+    height: progress.value * (chrome.value + grid.value),
+    opacity: Math.min(progress.value / FADE_BELOW, 1),
+  }));
   const gridStyle = useAnimatedStyle(() => ({ height: grid.value }));
   const chevronStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${progress.value * 180}deg` }] }));
 
@@ -191,7 +188,9 @@ export default function DayDrop({ selectedDate, isToday, onSelectDate, onToday, 
         <Animated.View style={[styles.grid, gridStyle]} onLayout={({ nativeEvent }) => setPageWidth(nativeEvent.layout.width)}>
           {pageWidth > 0 && <FlatList ref={list} key={`${months.length}-${pageWidth}`} data={months} horizontal pagingEnabled
             style={{ height: MAX_ROWS * CELL_HEIGHT }} showsHorizontalScrollIndicator={false} scrollsToTop={false}
-            keyExtractor={(item) => item.key} initialScrollIndex={index} initialNumToRender={1} windowSize={3} maxToRenderPerBatch={1}
+            keyExtractor={(item) => item.key} initialScrollIndex={index} initialNumToRender={1} maxToRenderPerBatch={1}
+            // Two neighbors stay built and more wait until a flip has settled: building a month mid-flip drops a frame.
+            windowSize={5} updateCellsBatchingPeriod={500} onStartReachedThreshold={0} onEndReachedThreshold={0}
             getItemLayout={(_, position) => ({ length: pageWidth, offset: pageWidth * position, index: position })}
             onMomentumScrollEnd={({ nativeEvent }) => {
               const target = months[Math.round(nativeEvent.contentOffset.x / pageWidth)];
@@ -211,7 +210,8 @@ const styles = StyleSheet.create({
   toggle: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 44, flexShrink: 1, flexGrow: 1 },
   date: { fontSize: 18, fontWeight: "600", color: COLORS.text, flexShrink: 1 },
   panel: { overflow: "hidden" },
-  card: { paddingVertical: CARD_PADDING, paddingHorizontal: 0, gap: 0, marginBottom: CARD_GAP },
+  // Absolute so the panel's height can't reach it: with no room left, Yoga lays a child out at zero height.
+  card: { position: "absolute", top: 0, left: 0, right: 0, paddingVertical: CARD_PADDING, paddingHorizontal: 0, gap: 0 },
   nav: { flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 8 },
   navButton: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   navDisabled: { opacity: 0.35 },
