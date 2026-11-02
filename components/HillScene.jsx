@@ -25,7 +25,7 @@ export const sunAt = (progress) => {
   const share = Math.min(1, Math.max(0, progress));
   const a = Math.PI * (1 + 0.04 + 0.92 * share);
   const height = -Math.sin(a);
-  return { cx: 215 + 75 * Math.cos(a), cy: 96 - 96 * (share < 0.5 ? Math.pow(height, 0.25) : height) };
+  return { cx: 205 + 54 * Math.cos(a), cy: 96 - 96 * (share < 0.5 ? Math.pow(height, 0.25) : height) };
 };
 
 // The front hill's ridge, as drawn below: one cubic from the left edge to the crest's far side.
