@@ -26,7 +26,7 @@ const FADE_BELOW = 0.35;
 // Progress runs 0 to 1, so the default rest thresholds would snap the last few points of height.
 const SPRING = { mass: 0.9, stiffness: 300, damping: 30, overshootClamping: true, restDisplacementThreshold: 0.001, restSpeedThreshold: 0.01 };
 
-const monthHeight = ({ year, month }) => MONTH_LABEL_HEIGHT + monthRowCount(year, month) * CELL_HEIGHT;
+const monthHeight = ({ year, month, firstDay }) => MONTH_LABEL_HEIGHT + monthRowCount(year, month, new Date(), firstDay) * CELL_HEIGHT;
 
 const DayCell = memo(function DayCell({ date, selected, isToday, disabled, statusText, logged, width, onSelect }) {
   return <TouchableOpacity accessibilityRole="button"
@@ -42,8 +42,8 @@ const DayCell = memo(function DayCell({ date, selected, isToday, disabled, statu
   </TouchableOpacity>;
 });
 
-const MonthPage = memo(function MonthPage({ year, month, width, selectedKey, todayKey, signUpDate, dataByDate, calorieGoal, historyAvailable, onSelect }) {
-  const cells = useMemo(() => monthCells(year, month, parseLocalDate(todayKey)), [year, month, todayKey]);
+const MonthPage = memo(function MonthPage({ year, month, firstDay, width, selectedKey, todayKey, signUpDate, dataByDate, calorieGoal, historyAvailable, onSelect }) {
+  const cells = useMemo(() => monthCells(year, month, parseLocalDate(todayKey), firstDay), [year, month, firstDay, todayKey]);
   // Snapped down to whole pixels: seven rounded-up percentages can overflow and wrap a row.
   const cellWidth = Math.floor(width / 7 * PixelRatio.get()) / PixelRatio.get();
   return <View style={{ width }}>
@@ -86,6 +86,10 @@ export default function DayDrop({ selectedDate, isToday, onSelectDate, onToday, 
     let total = BOTTOM_FADE;
     return months.map((month) => { const offset = total; total += monthHeight(month); return offset; });
   }, [months]);
+  // A new account's few days fit snugly: an inverted list would otherwise rest them at the bottom under a blank gap.
+  const viewportHeight = Math.min(VIEWPORT_HEIGHT, offsets.at(-1) + monthHeight(months.at(-1)));
+  const viewport = useSharedValue(viewportHeight);
+  useEffect(() => { viewport.value = withSpring(viewportHeight, SPRING); }, [viewport, viewportHeight]);
 
   // Mounted ahead of the first tap: building the months mid-animation drops frames.
   useEffect(() => {
@@ -96,8 +100,8 @@ export default function DayDrop({ selectedDate, isToday, onSelectDate, onToday, 
   // Shows a date's month from its label down, unless that would crop the date itself off the bottom.
   const scrollToDate = useCallback((date, animated) => {
     const position = Math.max(months.findIndex((item) => item.key === monthKey(date)), 0);
-    const { year, month } = months[position];
-    const rowsBelow = monthRowCount(year, month) - 1 - Math.floor((new Date(year, month, 1).getDay() + date.getDate() - 1) / 7);
+    const { year, month, firstDay } = months[position];
+    const rowsBelow = monthRowCount(year, month, new Date(), firstDay) - 1 - Math.floor((new Date(year, month, firstDay).getDay() + date.getDate() - firstDay) / 7);
     const offset = offsets[position] + Math.min(monthHeight(months[position]) - VIEWPORT_HEIGHT, rowsBelow * CELL_HEIGHT - BOTTOM_FADE);
     list.current?.scrollToOffset({ offset: Math.max(offset, 0), animated });
   }, [months, offsets]);
@@ -127,7 +131,7 @@ export default function DayDrop({ selectedDate, isToday, onSelectDate, onToday, 
 
   // One height drives the page, so the cards below move with the calendar's edge.
   const panelStyle = useAnimatedStyle(() => ({
-    height: progress.value * (chrome.value + VIEWPORT_HEIGHT),
+    height: progress.value * (chrome.value + viewport.value),
     opacity: Math.min(progress.value / FADE_BELOW, 1),
   }));
   const chevronStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${progress.value * 180}deg` }] }));
@@ -170,11 +174,11 @@ export default function DayDrop({ selectedDate, isToday, onSelectDate, onToday, 
             {weekdays.map((day, position) => <Text key={position} maxFontSizeMultiplier={1.35} style={styles.weekday}>{day}</Text>)}
           </View>
         </View>
-        <View style={styles.months} onLayout={({ nativeEvent }) => setPageWidth(nativeEvent.layout.width)}>
+        <View style={[styles.months, { height: viewportHeight }]} onLayout={({ nativeEvent }) => setPageWidth(nativeEvent.layout.width)}>
           {pageWidth > 0 && <FlatList ref={list} inverted data={months} contentContainerStyle={{ paddingTop: BOTTOM_FADE }} showsVerticalScrollIndicator={false} scrollsToTop={false}
             keyExtractor={(item) => item.key} initialNumToRender={2} maxToRenderPerBatch={2} windowSize={9} updateCellsBatchingPeriod={100}
             getItemLayout={(_, position) => ({ length: monthHeight(months[position]), offset: offsets[position], index: position })}
-            renderItem={({ item }) => <MonthPage year={item.year} month={item.month} width={pageWidth} selectedKey={selectedKey}
+            renderItem={({ item }) => <MonthPage year={item.year} month={item.month} firstDay={item.firstDay} width={pageWidth} selectedKey={selectedKey}
               todayKey={todayKey} signUpDate={signUpDate} dataByDate={dataByDate} calorieGoal={calorieGoal}
               historyAvailable={historyAvailable} onSelect={select} />} />}
           {/* Months dissolve at the edges, so a row cut off by the scroll never reads as a glitch. */}
@@ -199,7 +203,8 @@ const styles = StyleSheet.create({
   retry: { color: COLORS.primary },
   weekdays: { flexDirection: "row", paddingTop: 10, paddingBottom: 6 },
   weekday: { flex: 1, textAlign: "center", fontSize: 12, fontWeight: "500", color: COLORS.textLight },
-  months: { height: VIEWPORT_HEIGHT, overflow: "hidden" },
+  // Rounded to follow the card's corners, so the bottom fade's square ends can't poke past them.
+  months: { overflow: "hidden", borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
   fade: { position: "absolute", left: 0, right: 0 },
   month: { height: MONTH_LABEL_HEIGHT, paddingTop: 10, paddingHorizontal: 16, fontSize: 15, fontWeight: "600", color: COLORS.text },
   monthGrid: { flexDirection: "row", flexWrap: "wrap", alignContent: "flex-start" },

@@ -61,6 +61,42 @@ test("the row count always matches the cells shown", () => {
   }
 });
 
+test("the first month opens at the start date's week, and later months stay whole", () => {
+  const firstDays = (start, end) => listMonths(start, end).map(item => item.firstDay);
+  assert.deepEqual(firstDays(new Date(2026, 9, 31), new Date(2026, 11, 2)), [25, 1, 1]);
+  assert.deepEqual(firstDays(new Date(2026, 10, 18), new Date(2026, 10, 18)), [15]);
+  assert.deepEqual(firstDays(new Date(2026, 10, 1), new Date(2026, 10, 1)), [1]);
+});
+
+test("a start week reaching back into the month before stops at the 1st", () => {
+  const [december] = listMonths(new Date(2026, 11, 1), new Date(2026, 11, 1));
+  assert.equal(december.firstDay, 1);
+  const cells = monthCells(2026, 11, new Date(2026, 11, 1), december.firstDay);
+  assert.deepEqual(cells.slice(0, 3).map(cell => cell?.getDate() ?? null), [null, null, 1]);
+  assert.equal(cells.at(-1).getDate(), 5);
+});
+
+test("a trimmed month shows only the weeks from its first day", () => {
+  const november = new Date(2026, 10, 1);
+  assert.deepEqual(monthCells(2026, 9, november, 25).map(cell => cell.getDate()), [25, 26, 27, 28, 29, 30, 31]);
+  assert.equal(monthRowCount(2026, 9, november, 25), 1);
+  const thisMonth = monthCells(2026, 10, new Date(2026, 10, 18), 15);
+  assert.deepEqual([thisMonth[0].getDate(), thisMonth.at(-1).getDate()], [15, 21]);
+  assert.equal(monthRowCount(2026, 10, new Date(2026, 10, 18), 15), 1);
+  assert.equal(monthRowCount(2026, 10, new Date(2026, 10, 25), 15), 2);
+});
+
+test("the row count matches the cells for every signup day", () => {
+  const today = new Date(2026, 10, 3);
+  for (let day = 1; day <= 31; day++) {
+    const [{ year, month, firstDay }] = listMonths(new Date(2026, 9, day), today);
+    const cells = monthCells(year, month, today, firstDay);
+    assert.equal(monthRowCount(year, month, today, firstDay), Math.ceil(cells.length / 7));
+    assert.ok(cells.includes(null) ? firstDay === 1 : cells[0].getDay() === 0);
+    assert.ok(cells.some(cell => cell?.getDate() === day));
+  }
+});
+
 test("only days from signup through today are selectable", () => {
   const today = new Date(2026, 9, 31, 9);
   const signup = new Date(2026, 8, 15);
