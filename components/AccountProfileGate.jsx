@@ -1,13 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { AppState, Text, View } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth, useClerk, useUser } from "@clerk/clerk-expo";
 import { AuthLink, AuthNotice, AuthScreen } from "@/components/AuthForm";
 import FoodwrapLoading from "@/components/FoodwrapLoading";
 import { FormCard, GlassButton } from "@/components/GlassForm";
-import { checkAccountProfile } from "@/lib/accountProfile.mjs";
+import { checkAccountProfile, createAccountReadyMemory } from "@/lib/accountProfile.mjs";
 import { completeAccountSetup } from "@/lib/accountSetup.mjs";
 import { localDateKey } from "@/lib/nutritionStore.mjs";
 import { USERS_API_URL } from "@/constants/api";
+
+const accountReady = createAccountReadyMemory(AsyncStorage);
+// On a known device this check comes last, so it never competes with Today on a weak connection.
+const QUIET_CHECK_DELAY_MS = 5000;
 
 export function AccountLoadingScreen() {
   return <View style={{ flex: 1, justifyContent: "center" }}>
@@ -18,6 +23,7 @@ export function AccountLoadingScreen() {
 export default function AccountProfileGate({ children, topInset = 0, disabled = false, calmeraPreview = false, calmeraPreviewState = "missing" }) {
   const { getToken } = useAuth();
   const { user } = useUser();
+  const userId = user?.id;
   const { signOut } = useClerk();
   const tokenRef = useRef(getToken);
   tokenRef.current = getToken;
@@ -30,12 +36,14 @@ export default function AccountProfileGate({ children, topInset = 0, disabled = 
   const phaseRef = useRef(state.phase);
   phaseRef.current = state.phase;
 
-  const run = async (setup = false) => {
+  // A quiet check runs behind an open app, so only a confirmed missing profile interrupts it.
+  const run = async (setup = false, quiet = false) => {
     if (!mounted.current || pending.current || disabled) return;
     const operation = new AbortController();
     pending.current = operation;
     const current = () => mounted.current && pending.current === operation && !operation.signal.aborted;
-    setState({ phase: setup ? "setting-up" : "checking", error: "" });
+    const remember = ready => { if (!calmeraPreview && userId) accountReady.set(userId, ready); };
+    if (!quiet) setState({ phase: setup ? "setting-up" : "checking", error: "" });
     try {
       const options = { getToken: () => tokenRef.current(), url: USERS_API_URL,
         signal: operation.signal, timeoutMs: 20000 };
@@ -61,13 +69,16 @@ export default function AccountProfileGate({ children, topInset = 0, disabled = 
         const email = calmeraPreview ? "calmera@example.invalid" : user?.primaryEmailAddress?.emailAddress;
         if (!email) throw Error("account_setup_email_missing");
         await completeAccountSetup({ ...options, email, localDate: localDateKey() });
-        if (current()) setState({ phase: "ready", error: "" });
+        if (current()) { setState({ phase: "ready", error: "" }); remember(true); }
       } else {
         const phase = await checkAccountProfile(options);
-        if (current()) setState({ phase, error: "" });
+        if (current()) {
+          if (!quiet || phase === "missing") setState({ phase, error: "" });
+          remember(phase === "ready");
+        }
       }
     } catch (error) {
-      if (current()) setState({ phase: "error", error: setup
+      if (current() && !quiet) setState({ phase: "error", error: setup
         ? error.mayHaveCreated ? "We couldn’t confirm setup. Check again to continue." : "Account setup couldn’t finish. Please try again."
         : "We couldn’t check your calmera account. Check your connection and try again." });
     } finally {
@@ -79,17 +90,24 @@ export default function AccountProfileGate({ children, topInset = 0, disabled = 
   useEffect(() => {
     if (disabled) return;
     mounted.current = true;
-    operationRef.current();
+    let quietCheck;
+    (calmeraPreview || !userId ? Promise.resolve(false) : accountReady.known(userId)).then(known => {
+      if (!mounted.current) return;
+      if (!known) { operationRef.current(); return; }
+      setState({ phase: "ready", error: "" });
+      quietCheck = setTimeout(() => operationRef.current(false, true), QUIET_CHECK_DELAY_MS);
+    });
     const listener = AppState.addEventListener("change", next => {
       if (next === "active" && phaseRef.current !== "ready") operationRef.current();
     });
     return () => {
       mounted.current = false;
+      clearTimeout(quietCheck);
       pending.current?.abort();
       pending.current = null;
       listener.remove();
     };
-  }, [disabled]);
+  }, [disabled, calmeraPreview, userId]);
 
   if (disabled || state.phase === "ready") return children ?? <AuthScreen title="Setup complete" subtitle="Synthetic review. No real account records were changed." />;
   if (state.phase === "checking" || state.phase === "setting-up") return <AccountLoadingScreen topInset={topInset} />;

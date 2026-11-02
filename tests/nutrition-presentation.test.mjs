@@ -39,13 +39,27 @@ test("a known empty history remains empty rather than loading after profile fail
   assert.equal(calendarDayStatus(view.day, null).text, "No food entries recorded");
 });
 
-test("meal and profile errors remain independently available with stale meals", () => {
-  const view = nutritionViewState(snapshot({ days: { [date]: day }, historyLoaded: true,
-    errors: { profile: "Synthetic profile failure", history: "Synthetic meal failure" } }), date, true);
-  assert.equal(view.day, day);
-  assert.equal(view.error, "Synthetic meal failure");
-  assert.equal(view.profileError, "Synthetic profile failure");
-  assert.equal(view.historyLoading, false);
+test("a failed refresh stays silent while its data is on screen", () => {
+  const errors = { profile: "Synthetic profile failure", history: "Synthetic meal failure", [`day:${date}`]: "Synthetic day failure" };
+  const loaded = snapshot({ days: { [date]: day }, historyLoaded: true, profile: { calorieGoal: 2000 }, errors });
+  for (const history of [true, false]) {
+    const view = nutritionViewState(loaded, date, history);
+    assert.equal(view.day, day);
+    assert.equal(view.error, null);
+    assert.equal(view.profileError, null);
+    assert.equal(view.loading, false);
+  }
+});
+
+test("a failure with nothing to show still offers a retry", () => {
+  const failed = snapshot({ errors: { profile: "Synthetic profile failure", [`day:${date}`]: "Synthetic day failure" } });
+  const today = nutritionViewState(failed, date);
+  assert.equal(today.error, "Synthetic day failure");
+  assert.equal(today.profileError, "Synthetic profile failure");
+  assert.equal(today.loading, false);
+  const onlyToday = snapshot({ days: { [date]: day }, errors: { history: "Synthetic meal failure" } });
+  assert.equal(nutritionViewState(onlyToday, date).error, null);
+  assert.equal(nutritionViewState(onlyToday, date, true).error, "Synthetic meal failure");
 });
 
 test("explicit profile retry clears its error without discarding meals or fetching history again", async () => {

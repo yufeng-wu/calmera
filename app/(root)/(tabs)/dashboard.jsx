@@ -22,7 +22,6 @@ import { NutritionSummaryCard } from "@/components/NutritionSummaryCard";
 import { FoodEntryItem, closeOpenMealActions } from "@/components/FoodEntryItem";
 import NoRecordYet from "@/components/NoRecordYet";
 import FoodwrapRefreshScrollView from "@/components/FoodwrapRefreshScrollView";
-import FoodwrapLoading from "@/components/FoodwrapLoading";
 import FoodwrapWordmark from "@/components/FoodwrapWordmark";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { Audio } from "expo-av";
@@ -95,7 +94,6 @@ export default function SummaryScreen() {
   const voicePhase1AnimRef = useRef(null);
   const voiceGrowAnimRef = useRef(null);
   const SCROLL_BOTTOM_PADDING = 116 + floatingBarInset;
-  const firstLoadDone = useRef(false);
 
   // A past day the user picked; null follows today, including across midnight.
   const [pickedDate, setPickedDate] = useState(null);
@@ -103,9 +101,11 @@ export default function SummaryScreen() {
   const isToday = localDateKey(selectedDate) === localDateKey();
 
   // user.id comes from Clerk
-  const { dateKey, entries, summary, goals, hasData, error: dataError, profileError, retryError, retrying, isSessionActive, isLoading, loadData, deleteEntry, addEntries,
-    profile, dataByDate, historyLoading, historyError, historyPending, retryHistory } =
+  const { dateKey, entries, summary, goals, hasData, error: dataError, profileError, refreshFailed, goalsLoading, retryError, retrying, isSessionActive, loadData, deleteEntry, addEntries,
+    profile, dataByDate, historyLoading, historyError, historyPending, retryHistory, loadCalendar } =
     useDailyNutrition(selectedDate);
+  // Today's card waits for its goals, so it never rewrites its own numbers when they land a moment later.
+  const summaryReady = hasData && !(isToday && goalsLoading);
   const signUpDate = useMemo(() => profile?.createdAtLocalDate ? parseLocalDate(profile.createdAtLocalDate) : null,
     [profile?.createdAtLocalDate]);
 
@@ -357,13 +357,6 @@ export default function SummaryScreen() {
 
   const mealOrder = ["Breakfast", "Lunch", "Dinner", "Snack"];
 
-  // The logo loader is only for the first load; later reloads (a new day
-  // after midnight, an account refresh) keep the scroll view and its pull.
-  if (!isLoading) firstLoadDone.current = true;
-  if (isLoading && !firstLoadDone.current) return <View style={[styles.container, { justifyContent: "center" }]}>
-    <FoodwrapLoading active={isFocused} showCaption={false} />
-  </View>;
-
   return (
     <View style={styles.container}>
       <FoodwrapRefreshScrollView scrollRef={scrollRef} active={isFocused} onRefresh={loadData} onScrollBeginDrag={closeOpenMealActions} directionalLockEnabled alwaysBounceHorizontal={false}
@@ -373,7 +366,7 @@ export default function SummaryScreen() {
       >
         <View style={[styles.headerContainer, { paddingTop: 8 }]}>
           <FoodwrapWordmark style={{ marginBottom: 4 }} />
-          <DayDrop selectedDate={selectedDate} isToday={isToday} onSelectDate={selectDate} onToday={goToToday} onClose={scrollToTop}
+          <DayDrop selectedDate={selectedDate} isToday={isToday} onSelectDate={selectDate} onToday={goToToday} onOpen={loadCalendar} onClose={scrollToTop}
             dataByDate={dataByDate} calorieGoal={goals.calorieGoal} signUpDate={signUpDate} historyLoading={historyLoading}
             historyError={historyError} historyPending={historyPending} onRetryHistory={retryHistory} />
         </View>
@@ -382,12 +375,13 @@ export default function SummaryScreen() {
         <View style={{ minHeight: 360 }}>
         <View style={styles.headerContainer}>
           {/* A past day without meals has no saved goal to measure against. */}
-          {!hasData ? <NutritionSummarySkeleton loading={isLoading} />
+          {!summaryReady ? <NutritionSummarySkeleton loading={!dataError} />
             : (isToday || entries.length > 0) && <NutritionSummaryCard summary={summary} goals={isToday ? goals : summary.goals || goals} />}
-          {(dataError || profileError) && <Pressable onPress={() => retryError().catch(() => {})} disabled={retrying}
+          {(dataError || profileError || refreshFailed) && <Pressable onPress={() => (dataError || profileError ? retryError() : loadData()).catch(() => {})} disabled={retrying}
             accessibilityRole="button" accessibilityState={{ disabled: retrying, busy: retrying }} style={{ paddingVertical: 10 }}>
             <Text style={styles.macrosText} accessibilityLiveRegion="polite">{retrying ? "Retrying…"
-              : dataError ? "Meals couldn’t refresh. Tap to retry." : "Your nutrition goals couldn’t refresh. Tap to retry."}</Text>
+              : dataError ? "Meals couldn’t load. Tap to retry."
+                : profileError ? "Your nutrition goals couldn’t load. Tap to retry." : "Couldn’t refresh. Tap to retry."}</Text>
           </Pressable>}
         </View>
 

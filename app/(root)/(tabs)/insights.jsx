@@ -36,7 +36,7 @@ export default function InsightsScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const [period, setPeriod] = useState("week");
-  const { stats, goals, empty, loaded, error, retryError, refresh } = useInsights(period);
+  const { stats, goals, empty, loaded, error, refreshFailed, retryError, refresh } = useInsights(period);
   // Until history loads, the store holds only the days already opened, which would
   // read as a short history.
   const showData = loaded && !empty;
@@ -53,7 +53,7 @@ export default function InsightsScreen() {
             : !showData ? <FirstRun onLog={() => router.navigate("/dashboard")} />
               : <Animated.View key={period} entering={FadeIn.duration(180)} style={styles.cards}>
                 <Text style={styles.range}>{`Last ${PERIODS.find(({ id }) => id === period).name} · ${formatRange(stats.keys)}`}</Text>
-                {!!error && <Pressable accessibilityRole="button" onPress={retryError} hitSlop={{ top: 12, bottom: 12 }}><Text style={styles.staleNote}>{"Couldn't refresh. Tap to try again."}</Text></Pressable>}
+                {refreshFailed && <Pressable accessibilityRole="button" onPress={() => refresh().catch(() => {})} hitSlop={{ top: 12, bottom: 12 }}><Text style={styles.staleNote}>{"Couldn't refresh. Tap to try again."}</Text></Pressable>}
                 {!stats.daysLogged ? <FormCard style={styles.emptyCard}>
                   <Text style={styles.message}>{`No meals to show for the last ${PERIODS.find(({ id }) => id === period).name}.`}</Text>
                   {period !== "year" && <Pressable accessibilityRole="button" onPress={() => setPeriod(period === "week" ? "month" : "year")} hitSlop={12}>

@@ -1,4 +1,4 @@
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import { Platform } from "react-native";
 import { SafeScreenTopContext } from "@/components/SafeScreen";
 import { formOwnsTopInset } from "@/lib/headerLayout.mjs";
@@ -19,6 +19,8 @@ export default function Layout() {
   const review = Constants.expoConfig?.extra?.calmeraFullAppTest === true
     && ["/ui-gallery", "/background-compare", "/glass-compare", "/motion-check", "/theme-check", "/palette-compare"].includes(pathname);
   const topInset = useContext(SafeScreenTopContext);
+  // The launch redirect lands on Today without sliding in; later moves back to the tabs still animate.
+  const [launched, setLaunched] = useState(false);
 
   if (!isLoaded) return <AccountLoadingScreen topInset={topInset} />;
   if (!isSignedIn) {
@@ -41,6 +43,7 @@ export default function Layout() {
                 || ["camera", "camera-loading"].includes(name) ? 0 : topInset },
           }} />
         ))}
+        <Stack.Screen name="(tabs)" options={{ animation: launched ? "simple_push" : "none" }} listeners={{ transitionEnd: () => setLaunched(true) }} />
         <Stack.Screen name="ui-gallery" options={{ contentStyle: { backgroundColor: COLORS.background, paddingTop: 0 } }} />
       </Stack>
     </FoodwrapStartupGate>

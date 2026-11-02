@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { checkAccountProfile } from "../lib/accountProfile.mjs";
+import { checkAccountProfile, createAccountReadyMemory } from "../lib/accountProfile.mjs";
 import { completeAccountSetup } from "../lib/accountSetup.mjs";
 const options = { url: "https://calmera.invalid/users/", getToken: async () => "synthetic-token" };
 const response = status => ({ ok: status === 200, status, json: async () => ({ userId: "synthetic-user" }) });
@@ -56,4 +56,26 @@ test("missing account recovery creates once, verifies, then becomes ready", asyn
   await completeAccountSetup({ ...options, fetchImpl, email: "calmera@example.invalid", localDate: "2026-10-20", pollIntervalMs: 0 });
   assert.equal(await checkAccountProfile({ ...options, fetchImpl }), "ready");
   assert.deepEqual(calls, ["GET", "GET", "POST", "GET", "GET"]);
+});
+
+test("a confirmed account is remembered per account, and storage failures read as unknown", async () => {
+  const saved = new Map();
+  const memory = createAccountReadyMemory({
+    getItem: async key => saved.get(key) ?? null,
+    setItem: async (key, value) => { saved.set(key, value); },
+    removeItem: async key => { saved.delete(key); },
+  });
+  assert.equal(await memory.known("synthetic-a"), false);
+  await memory.set("synthetic-a", true);
+  assert.equal(await memory.known("synthetic-a"), true);
+  assert.equal(await memory.known("synthetic-b"), false);
+  await memory.set("synthetic-a", false);
+  assert.equal(await memory.known("synthetic-a"), false);
+  const broken = createAccountReadyMemory({
+    getItem: async () => { throw Error("synthetic_storage_failure"); },
+    setItem: async () => { throw Error("synthetic_storage_failure"); },
+    removeItem: async () => { throw Error("synthetic_storage_failure"); },
+  });
+  assert.equal(await broken.known("synthetic-a"), false);
+  await broken.set("synthetic-a", true);
 });
