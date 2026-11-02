@@ -13,11 +13,13 @@ import HillScene, { HILL_BAND, hillTopAt } from "./HillScene";
 // is a single choreography rather than two screens swapping.
 const HERO_TOP = 43;
 const COMPANION_SCALE = 56 / BUDDY_SIZE;
-// Seated, the orange's left edge, and how far its base sinks into the grass so it never looks afloat.
-const SEAT = { left: 78, sink: 5 };
+// Seated, the orange's left edge, and how far the fruit overlaps the hill, so it plainly rests on it.
+const SEAT = { left: 78, sink: 7 };
+// The fruit stops short of its 80 pt box: its base is 42% of the box below the centre, before scaling.
+const BODY_BELOW_CENTER = BUDDY_SIZE * 0.42 * COMPANION_SCALE;
 const LIST_GAP = 30;
 // Level with the seated orange's face, with its tail corner pointing back at it.
-const PILL_ABOVE_BASE = 50;
+const PILL_ABOVE_BASE = 52;
 // How long what she says stays up: a beat to read it, and a little longer for longer lines.
 const speechMs = (text) => 1900 + text.length * 45;
 const FALL = Easing.bezier(0.5, 0, 0.9, 0.5);
@@ -33,9 +35,9 @@ export default function TodayScene({ hasMeals, children, greeting, lines, mood =
   // Hanging, the orange is placed from the top of the scene; seated, from the bottom, so it stays on the
   // hill however the page above it resizes. The drop travels between the two in top coordinates.
   const hero = { left: width / 2 - BUDDY_SIZE / 2, top: HERO_TOP };
-  // The scaled orange is drawn centred in its 80 pt box, so its base sits (1 + scale) / 2 of the box down.
+  // seatBase is where the bottom of the fruit itself sits, measured from the top of the band.
   const seatBase = hillTopAt(SEAT.left + BUDDY_SIZE * COMPANION_SCALE / 2, width) + SEAT.sink;
-  const seatBox = { left: SEAT.left - BUDDY_SIZE * (1 - COMPANION_SCALE) / 2, bottom: HILL_BAND - seatBase - BUDDY_SIZE * (1 - COMPANION_SCALE) / 2 };
+  const seatBox = { left: SEAT.left - BUDDY_SIZE * (1 - COMPANION_SCALE) / 2, bottom: HILL_BAND - seatBase + BODY_BELOW_CENTER - BUDDY_SIZE / 2 };
   const seat = { x: seatBox.left - hero.left, y: height - seatBox.bottom - BUDDY_SIZE - hero.top };
   const seatX = SEAT.left + BUDDY_SIZE * COMPANION_SCALE / 2;
   const ridgeTilt = Math.atan2(hillTopAt(seatX + 20, width) - hillTopAt(seatX - 20, width), 40) * 180 / Math.PI;
@@ -83,10 +85,10 @@ export default function TodayScene({ hasMeals, children, greeting, lines, mood =
       // The bough lifts her a little before letting go, then she stretches as she speeds up. Through the
       // squash and the two hops the bottom of the fruit stays on the hill.
       ty.value = withSequence(beat(-9, DROP.fall), withTiming(seat.y, fall),
-        beat(seat.y + 4.8, 100),
+        beat(seat.y + 4, 100),
         beat(seat.y - 10.4, 140),
         withTiming(seat.y, { duration: 140, easing: Easing.in(Easing.quad) }),
-        beat(seat.y + 1.6, 70),
+        beat(seat.y + 1.3, 70),
         beat(seat.y, 90));
       sx.value = withSequence(beat(0.97, DROP.fall), withTiming(c * 0.9, fall), beat(0.8, 100), beat(0.66, 140), beat(c, 140), beat(0.73, 70), beat(c, 90));
       sy.value = withSequence(beat(1.04, DROP.fall), withTiming(c * 1.14, fall), beat(0.58, 100), beat(0.76, 140), beat(c, 140), beat(0.66, 70), beat(c, 90));

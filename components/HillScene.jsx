@@ -54,7 +54,7 @@ export default function HillScene({ progress, tone = "day", height, seat, ground
   const shadow = useAnimatedProps(() => ({ rx: 15 + ground.value * 9, fillOpacity: Math.min(1, ground.value) }));
   const units = Math.round(height * UNITS_PER_POINT);
   const shadowX = seat ? seat.x * 400 / seat.width : 0;
-  const shadowY = seat ? seat.y * UNITS_PER_POINT - 2 : 0;
+  const shadowY = seat ? seat.y * UNITS_PER_POINT - 1 : 0;
   const front = `M0 118 C50 58 150 52 215 76 C280 100 340 130 400 150 L400 ${units + 10} L0 ${units + 10} Z`;
   return <>
     {/* Ground below the drawing, so bouncing past the end of the page never shows where the hill stops. */}

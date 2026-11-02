@@ -1,20 +1,17 @@
 import { useEffect } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withRepeat, withSequence, withSpring, withTiming } from "react-native-reanimated";
-import Svg, { Circle, Defs, Ellipse, Path, RadialGradient, Stop } from "react-native-svg";
+import Svg, { Circle, Ellipse, Path } from "react-native-svg";
 import * as Haptics from "expo-haptics";
 
 export const BUDDY_SIZE = 80;
 const SIZE = BUDDY_SIZE;
 // Points per unit of the 100-unit canvas, so the eyes line up with what's drawn on it.
 const UNIT = SIZE / 100;
-const PEEL_LIT = "#FFAD4A";
 const PEEL = "#F9922B";
-const PEEL_SHADE = "#E97A18";
-const PORE = "#E5801F";
-const CHEEK = "#FF7A6B";
+const PEEL_SHADE = "#EE7F1B";
+const CHEEK = "#FFC4A3";
 const LEAF = "#7FB069";
-const CALYX = "#6FA35B";
 const STEM = "#7A5230";
 const FACE = "#4A3428";
 const FIRST_GLANCE_MS = 900;
@@ -136,22 +133,16 @@ export default function CitrusBuddy({ mood = "awake", asleep = false, hang = fal
       </Animated.View>
       <Canvas>
         <Path d="M50 21 C50 18 51 15 52 13" stroke={STEM} strokeWidth={4} strokeLinecap="round" />
-        <Defs><RadialGradient id="peel" gradientUnits="userSpaceOnUse" cx={40} cy={40} r={60}>
-          <Stop offset="0" stopColor={PEEL_LIT} /><Stop offset="0.5" stopColor={PEEL} /><Stop offset="1" stopColor={PEEL_SHADE} />
-        </RadialGradient></Defs>
-        <Path d="M50 19 C71 19 88 35 88 56 C88 77 71 92 50 92 C29 92 12 77 12 56 C12 35 29 19 50 19 Z" fill="url(#peel)" />
-        {PORES.map(([cx, cy]) => <Circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={0.9} fill={PORE} />)}
-        {state === "asleep" && <Path d="M50 19 C71 19 88 35 88 56 C88 77 71 92 50 92 C29 92 12 77 12 56 C12 35 29 19 50 19 Z" fill="#5B4A8A" fillOpacity={0.07} />}
-        <Path d="M21.5 45 C22.5 35 30 27.5 39 25.6 C41.4 25.2 42 27.6 40 28.4 C33 31.4 28 37 26.2 45 C25.6 47.6 21.4 47.6 21.5 45 Z" fill="#FFFFFF" fillOpacity={0.5} />
-        <Path d="M50 18.6 L51.2 19.9 L53.6 19.8 L52 21 L52.5 22.6 L50 21.8 L47.5 22.6 L48 21 L46.4 19.8 L48.8 19.9 Z" fill={CALYX} stroke={CALYX} strokeWidth={1.4} strokeLinejoin="round" />
+        <Path d="M50 19 C71 19 88 35 88 56 C88 77 71 92 50 92 C29 92 12 77 12 56 C12 35 29 19 50 19 Z" fill={PEEL} />
+        <Path d="M16 68 C22 83 35 92 50 92 C65 92 78 83 84 68 C76 79 64 85 50 85 C36 85 24 79 16 68 Z" fill={PEEL_SHADE} />
+        {PORES.map(([cx, cy]) => <Circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={0.9} fill={PEEL_SHADE} />)}
+        <Path d="M21.5 45 C22.5 35 30 27.5 39 25.6 C41.4 25.2 42 27.6 40 28.4 C33 31.4 28 37 26.2 45 C25.6 47.6 21.4 47.6 21.5 45 Z" fill="#FFFFFF" fillOpacity={0.55} />
+        <Path d="M50 18.6 L51.2 19.9 L53.6 19.8 L52 21 L52.5 22.6 L50 21.8 L47.5 22.6 L48 21 L46.4 19.8 L48.8 19.9 Z" fill={LEAF} stroke={LEAF} strokeWidth={1.4} strokeLinejoin="round" />
       </Canvas>
       <Animated.View style={[StyleSheet.absoluteFill, cheeksStyle]}>
         <Canvas>
-          <Defs><RadialGradient id="cheek">
-            <Stop offset="0" stopColor={CHEEK} stopOpacity={0.72} /><Stop offset="0.55" stopColor={CHEEK} stopOpacity={0.6} /><Stop offset="1" stopColor={CHEEK} stopOpacity={0} />
-          </RadialGradient></Defs>
-          <Ellipse cx={27} cy={65.5} rx={7.5} ry={5.2} fill="url(#cheek)" />
-          <Ellipse cx={73} cy={65.5} rx={7.5} ry={5.2} fill="url(#cheek)" />
+          <Ellipse cx={23} cy={66} rx={5.5} ry={3.8} fill={CHEEK} />
+          <Ellipse cx={77} cy={66} rx={5.5} ry={3.8} fill={CHEEK} />
         </Canvas>
       </Animated.View>
       <Animated.View style={[StyleSheet.absoluteFill, faceStyle]}>
