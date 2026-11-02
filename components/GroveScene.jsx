@@ -2,8 +2,9 @@ import { StyleSheet, useWindowDimensions } from "react-native";
 import Svg, { Circle, Defs, G, LinearGradient, Path, Rect, Stop } from "react-native-svg";
 
 // The bough the orange hangs from on an empty day. Drawn in coordinates centered on the
-// orange (x = 0 is the screen's middle), so it holds together at any phone width.
-const BOUGH = "M-250 -33 C-150 -15 -80 45.5 2 47.5 C90 49.5 150 18 250 -20 L250 -16 C150 22 90 56.5 2 54.5 C-80 52.5 -150 -5 -250 -23 Z";
+// orange (x = 0 is the screen's middle), so it holds together at any phone width. Both ends
+// leave through the sides of the screen, never the top, so nothing is cut off flat.
+const BOUGH = "M-250 4 C-150 12 -80 45.5 2 47.5 C90 49.5 150 22 250 6 L250 10 C150 26 90 56.5 2 54.5 C-80 52.5 -150 19 -250 11 Z";
 const LEAVES = [[-128, 20, 40, 1, "#7FB069"], [-100, 30, -135, .75, "#A9CF8E"], [-46, 46, -40, .8, "#A9CF8E"], [-24, 50, 80, .8, "#7FB069"],
   [62, 46, 55, .9, "#6FA35B"], [128, 30, -30, .75, "#A9CF8E"], [150, 22, 60, .9, "#6FA35B"], [-66, 41, 150, .6, "#6FA35B"]];
 const TWIGS = ["M-78 37 C-84 44 -88 51 -90 60", "M134 28 C136 36 137 42 138 49", "M98 39 C98 48 98 58 98 68"];
