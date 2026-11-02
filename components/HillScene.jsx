@@ -24,6 +24,23 @@ export const sunAt = (progress) => {
   return { cx: 150 + 106 * Math.cos(a), cy: 100 + 90 * Math.sin(a) };
 };
 
+// The front hill's ridge, as drawn below: one cubic from the left edge to the crest's far side.
+const RIDGE = [[0, 118], [50, 58], [150, 52], [215, 76]];
+const bezier = (p0, p1, p2, p3, t) => (1 - t) ** 3 * p0 + 3 * (1 - t) ** 2 * t * p1 + 3 * (1 - t) * t ** 2 * p2 + t ** 3 * p3;
+
+// Height of the front hill's surface, in points below the band's top, at `x` points from the left
+// of a band `width` points wide. Used to seat the orange on the grass whatever the phone's width.
+export const hillTopAt = (x, width) => {
+  const target = Math.min(RIDGE[3][0], Math.max(0, x * 400 / width));
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 24; i += 1) {
+    const mid = (lo + hi) / 2;
+    if (bezier(RIDGE[0][0], RIDGE[1][0], RIDGE[2][0], RIDGE[3][0], mid) < target) lo = mid; else hi = mid;
+  }
+  return bezier(RIDGE[0][1], RIDGE[1][1], RIDGE[2][1], RIDGE[3][1], (lo + hi) / 2) / UNITS_PER_POINT;
+};
+
 // The hill under the meal list. `progress` is a shared value of calories over goal, so the sun
 // crosses the sky as the day fills. Stretched to the band's width and height, which reaches under the tab bar.
 export default function HillScene({ progress, tone = "day", height }) {

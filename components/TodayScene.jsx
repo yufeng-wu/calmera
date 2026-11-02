@@ -5,7 +5,7 @@ import * as Haptics from "expo-haptics";
 import { styles as home } from "../assets/styles/home.styles";
 import CitrusBuddy, { BUDDY_SIZE } from "./CitrusBuddy";
 import GroveScene, { GROVE_HEIGHT } from "./GroveScene";
-import HillScene, { HILL_BAND } from "./HillScene";
+import HillScene, { HILL_BAND, hillTopAt } from "./HillScene";
 
 // The orange's two homes. Empty, it hangs from a bough above the greeting. Once the first meal lands the
 // bough lifts away, the orange drops, the hill rises to catch it, and from then on it sits under the list
@@ -13,7 +13,9 @@ import HillScene, { HILL_BAND } from "./HillScene";
 // is a single choreography rather than two screens swapping.
 const HERO_TOP = 46;
 const COMPANION_SCALE = 56 / BUDDY_SIZE;
-const SEAT = { left: 62, top: 6 };
+// Seated, the orange's left edge, and how far its base sinks into the grass so it never looks afloat.
+const SEAT = { left: 62, sink: 5 };
+const LIST_GAP = 30;
 const FALL = Easing.bezier(0.5, 0, 0.9, 0.5);
 const RISE = Easing.bezier(0.2, 0.9, 0.3, 1.08);
 const POP = Easing.bezier(0.2, 0.9, 0.3, 1.1);
@@ -27,7 +29,9 @@ export default function TodayScene({ hasMeals, children, greeting, line, mood = 
   // Hanging, the orange is placed from the top of the scene; seated, from the bottom, so it stays on the
   // hill however the page above it resizes. The drop travels between the two in top coordinates.
   const hero = { left: width / 2 - BUDDY_SIZE / 2, top: HERO_TOP };
-  const seatBox = { left: SEAT.left - BUDDY_SIZE * (1 - COMPANION_SCALE) / 2, bottom: HILL_BAND - SEAT.top - BUDDY_SIZE * (1 + COMPANION_SCALE) / 2 };
+  // The scaled orange is drawn centred in its 80 pt box, so its base sits (1 + scale) / 2 of the box down.
+  const seatBase = hillTopAt(SEAT.left + BUDDY_SIZE * COMPANION_SCALE / 2, width) + SEAT.sink;
+  const seatBox = { left: SEAT.left - BUDDY_SIZE * (1 - COMPANION_SCALE) / 2, bottom: HILL_BAND - seatBase - BUDDY_SIZE * (1 - COMPANION_SCALE) / 2 };
   const seat = { x: seatBox.left - hero.left, y: height - seatBox.bottom - BUDDY_SIZE - hero.top };
   const [anchor, setAnchor] = useState(hasMeals ? "bottom" : "top");
 
@@ -107,7 +111,7 @@ export default function TodayScene({ hasMeals, children, greeting, line, mood = 
     {hasMeals && <Animated.View style={[styles.list, listStyle]}>{children}</Animated.View>}
     <Animated.View pointerEvents="none" style={[styles.band, { height: bandHeight, marginBottom: -bottomInset }, bandStyle]}>
       <HillScene progress={sun} tone={tone} height={bandHeight} />
-      {line && <Animated.View style={[styles.pill, pillStyle]}><Text style={styles.pillText}>{line}</Text></Animated.View>}
+      {line && <Animated.View style={[styles.pill, { top: seatBase - BUDDY_SIZE * (1 + COMPANION_SCALE) / 2 + 2 }, pillStyle]}><Text style={styles.pillText}>{line}</Text></Animated.View>}
     </Animated.View>
     {height > 0 && <Animated.View style={[styles.orange, anchor === "top" ? hero : seatBox, orangeStyle]}>
       <CitrusBuddy mood={mood} hang={!hasMeals} cheerSignal={cheerSignal} />
@@ -119,10 +123,10 @@ const styles = StyleSheet.create({
   scene: { flexGrow: 1, minHeight: 360 },
   grove: { position: "absolute", left: 0, right: 0, top: 0, height: GROVE_HEIGHT },
   greeting: { alignItems: "center", paddingTop: HERO_TOP + BUDDY_SIZE + 10, paddingHorizontal: 24 },
-  list: { paddingHorizontal: 16 },
+  list: { paddingHorizontal: 16, paddingBottom: LIST_GAP },
   band: { marginTop: "auto" },
-  // Beside the seated orange, clear of the Add button on the right.
-  pill: { position: "absolute", left: 124, top: 10, paddingVertical: 6, paddingHorizontal: 11, borderRadius: 14, borderBottomLeftRadius: 4, backgroundColor: "#FFFFFF",
+  // Beside the seated orange's head, clear of the Add button on the right.
+  pill: { position: "absolute", left: 124, paddingVertical: 6, paddingHorizontal: 11, borderRadius: 14, borderBottomLeftRadius: 4, backgroundColor: "#FFFFFF",
     shadowColor: "#4A3428", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.14, shadowRadius: 6, elevation: 3 },
   pillText: { fontSize: 13, fontWeight: "600", color: "#4A3428" },
   orange: { position: "absolute" },
