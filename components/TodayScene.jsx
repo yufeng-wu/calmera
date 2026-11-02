@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withSequence, withTiming } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { styles as home } from "../assets/styles/home.styles";
-import CitrusBuddy, { BUDDY_SIZE, PEELS } from "./CitrusBuddy";
+import CitrusBuddy, { BUDDY_SIZE } from "./CitrusBuddy";
 import GroveScene, { GROVE_HEIGHT } from "./GroveScene";
 import HillScene, { HILL_BAND, hillTopAt } from "./HillScene";
 
@@ -26,10 +26,6 @@ const FALL = Easing.bezier(0.5, 0, 0.9, 0.5);
 const RISE = Easing.bezier(0.2, 0.9, 0.3, 1.08);
 const POP = Easing.bezier(0.2, 0.9, 0.3, 1.1);
 const DROP = { lift: 0, fall: 250, land: 870, meals: 900, cheer: 1250, settled: 1430 };
-
-// TEMPORARY: lets the peels be compared on the simulator. Remove this flag, the switcher and PEELS once one is chosen.
-const SHOW_PEEL_SWITCHER = true;
-let chosenPeel = "current"; // Outlives the scene, which remounts on each new day.
 
 export default function TodayScene({ hasMeals, children, greeting, lines, mood = "awake", progress = 0, isToday, bottomInset = 0, style }) {
   const { width } = useWindowDimensions();
@@ -61,7 +57,6 @@ export default function TodayScene({ hasMeals, children, greeting, lines, mood =
   const sy = useSharedValue(hasMeals ? COMPANION_SCALE : 1);
   const ground = useSharedValue(hasMeals ? 1 : 0);
   const sun = useSharedValue(progress);
-  const [peel, setPeel] = useState(chosenPeel);
   const [cheerSignal, setCheerSignal] = useState(0);
   const [landSignal, setLandSignal] = useState(0);
   const [bough, setBough] = useState(!hasMeals);
@@ -156,14 +151,8 @@ export default function TodayScene({ hasMeals, children, greeting, lines, mood =
       {hasMeals && said && <Animated.View style={[styles.pill, { left: SEAT.left + BUDDY_SIZE * COMPANION_SCALE + 6, top: seatBase - PILL_ABOVE_BASE, maxWidth: width - SEAT.left - 72 }, pillStyle]}><Text style={styles.pillText}>{said}</Text></Animated.View>}
     </Animated.View>
     {height > 0 && <Animated.View style={[styles.orange, anchor === "top" ? hero : seatBox, orangeStyle]}>
-      <CitrusBuddy mood={mood} hang={!hasMeals} cheerSignal={cheerSignal} landSignal={landSignal} onTap={speak} peel={peel} />
+      <CitrusBuddy mood={mood} hang={!hasMeals} cheerSignal={cheerSignal} landSignal={landSignal} onTap={speak} />
     </Animated.View>}
-    {SHOW_PEEL_SWITCHER && <View style={styles.switcher}>
-      {Object.entries(PEELS).map(([id, option]) => <Pressable key={id} testID={`peel-${id}`} onPress={() => { chosenPeel = id; setPeel(id); }} style={[styles.switch, peel === id && styles.switchOn]}>
-        <View style={[styles.swatch, { backgroundColor: option.peel }]} />
-        <Text style={[styles.switchText, peel === id && styles.switchTextOn]}>{option.label}</Text>
-      </Pressable>)}
-    </View>}
     {!hasMeals && said && <Animated.View pointerEvents="none" style={[styles.pill, { left: hero.left + BUDDY_SIZE + 2, top: HERO_TOP + 16, maxWidth: width - hero.left - BUDDY_SIZE - 18 }, pillStyle]}><Text style={styles.pillText}>{said}</Text></Animated.View>}
   </View>;
 }
@@ -180,10 +169,4 @@ const styles = StyleSheet.create({
     shadowColor: "#4A3428", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.14, shadowRadius: 6, elevation: 3 },
   pillText: { fontSize: 13, fontWeight: "600", color: "#4A3428" },
   orange: { position: "absolute" },
-  switcher: { position: "absolute", left: 12, bottom: 18, flexDirection: "row", gap: 5, zIndex: 2 },
-  switch: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 7, paddingHorizontal: 9, borderRadius: 16, borderWidth: 1.5, borderColor: "#EFE3DA", backgroundColor: "#FFFFFF" },
-  switchOn: { borderColor: "#BC5A19", backgroundColor: "#FFF3EA" },
-  swatch: { width: 12, height: 12, borderRadius: 6 },
-  switchText: { fontSize: 12, fontWeight: "600", color: "#4A3428" },
-  switchTextOn: { color: "#BC5A19" },
 });

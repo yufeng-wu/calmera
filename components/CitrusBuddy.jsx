@@ -8,12 +8,8 @@ export const BUDDY_SIZE = 80;
 const SIZE = BUDDY_SIZE;
 // Points per unit of the 100-unit canvas, so the eyes line up with what's drawn on it.
 const UNIT = SIZE / 100;
-// The peels being compared on the simulator. Only the fruit's two oranges change between them.
-export const PEELS = {
-  current: { label: "Current", peel: "#F9922B", shade: "#EE7F1B" },
-  honey: { label: "Honey", peel: "#FFB03B", shade: "#F7981F" },
-  clementine: { label: "Clementine", peel: "#FFA033", shade: "#F5861C" },
-};
+const PEEL = "#FFA033";
+const PEEL_SHADE = "#F5861C";
 const CHEEK = "#FFC4A3";
 const LEAF = "#7FB069";
 const STEM = "#7A5230";
@@ -38,9 +34,8 @@ function Canvas({ children }) {
 // Today's character. Awake it blinks and glances down at the Add button; happy it keeps smiling eyes
 // after dinner; asleep on past days with nothing logged. `hang` sways it from its stem, as on the bough.
 // Decorative, so VoiceOver skips it. A changed `cheerSignal` makes it cheer, as does a tap.
-export default function CitrusBuddy({ mood = "awake", asleep = false, hang = false, cheerSignal = 0, landSignal = 0, onTap, peel = "current", style }) {
+export default function CitrusBuddy({ mood = "awake", asleep = false, hang = false, cheerSignal = 0, landSignal = 0, onTap, style }) {
   const state = asleep ? "asleep" : mood;
-  const colors = PEELS[peel] || PEELS.current;
   const reducedMotion = useReducedMotion();
   const lid = useSharedValue(0);
   const look = useSharedValue(0);
@@ -135,9 +130,9 @@ export default function CitrusBuddy({ mood = "awake", asleep = false, hang = fal
       </Animated.View>
       <Canvas>
         <Path d="M50 21 C50 18 51 15 52 13" stroke={STEM} strokeWidth={4} strokeLinecap="round" />
-        <Path d="M50 19 C71 19 88 35 88 56 C88 77 71 92 50 92 C29 92 12 77 12 56 C12 35 29 19 50 19 Z" fill={colors.peel} />
-        <Path d="M16 68 C22 83 35 92 50 92 C65 92 78 83 84 68 C76 79 64 85 50 85 C36 85 24 79 16 68 Z" fill={colors.shade} />
-        {PORES.map(([cx, cy]) => <Circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={0.9} fill={colors.shade} />)}
+        <Path d="M50 19 C71 19 88 35 88 56 C88 77 71 92 50 92 C29 92 12 77 12 56 C12 35 29 19 50 19 Z" fill={PEEL} />
+        <Path d="M16 68 C22 83 35 92 50 92 C65 92 78 83 84 68 C76 79 64 85 50 85 C36 85 24 79 16 68 Z" fill={PEEL_SHADE} />
+        {PORES.map(([cx, cy]) => <Circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={0.9} fill={PEEL_SHADE} />)}
         <Path d="M23 43 C25 35 31 29 39 27" stroke="#FFFFFF" strokeOpacity={0.55} strokeWidth={4} strokeLinecap="round" />
         <Ellipse cx={50} cy={20.5} rx={5} ry={2} fill={LEAF} />
       </Canvas>
