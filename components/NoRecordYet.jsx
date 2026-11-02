@@ -1,17 +1,11 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Text, View } from "react-native";
 import { styles } from "../assets/styles/home.styles";
-import { COLORS } from "../constants/colors";
+import CitrusBuddy from "./CitrusBuddy";
 
-const NoRecordYet = ({ title = "No food entries yet", text = "Log your first meal of the day!" }) => {
+const NoRecordYet = ({ title, text, asleep = false }) => {
   return (
     <View style={styles.emptyState}>
-      <Ionicons
-        name="nutrition-outline"
-        size={60}
-        color={COLORS.textLight}
-        style={styles.emptyStateIcon}
-      />
+      <CitrusBuddy asleep={asleep} style={styles.emptyStateIcon} />
       <Text style={styles.emptyStateTitle}>{title}</Text>
       <Text style={styles.emptyStateText}>{text}</Text>
     </View>

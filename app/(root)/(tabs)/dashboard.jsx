@@ -20,7 +20,8 @@ import { styles } from "@/assets/styles/home.styles";
 import { useRouter } from "expo-router";
 import { NutritionSummaryCard } from "@/components/NutritionSummaryCard";
 import { FoodEntryItem, closeOpenMealActions } from "@/components/FoodEntryItem";
-import NoRecordYet from "@/components/NoRecordYet";
+import TodayScene from "@/components/TodayScene";
+import { buddyState, daySeed, emptyTodayGreeting } from "@/lib/nutritionPresentation.mjs";
 import FoodwrapRefreshScrollView from "@/components/FoodwrapRefreshScrollView";
 import FoodwrapWordmark from "@/components/FoodwrapWordmark";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
@@ -356,12 +357,20 @@ export default function SummaryScreen() {
   }, {});
 
   const mealOrder = ["Breakfast", "Lunch", "Dinner", "Snack"];
+  // The orange's day: its line and mood by this day's calories against that day's goal.
+  const seed = daySeed(selectedDate);
+  const dayGoals = isToday ? goals : summary.goals || goals;
+  const buddy = buddyState({ calories: Number(summary.calories ?? summary.dailyTotals?.calories ?? 0), goal: dayGoals.calorieGoal,
+    loggedMeals: Object.keys(groupedEntries), seed });
+  const emptyGreeting = entries.length ? null : isToday
+    ? emptyTodayGreeting(new Date().getHours(), Boolean(signUpDate) && localDateKey(signUpDate) === dateKey, seed)
+    : { title: "No meals logged", text: "Nothing was logged on this day." };
 
   return (
     <View style={styles.container}>
       <FoodwrapRefreshScrollView scrollRef={scrollRef} active={isFocused} onRefresh={loadData} onScrollBeginDrag={closeOpenMealActions} directionalLockEnabled alwaysBounceHorizontal={false}
         style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: SCROLL_BOTTOM_PADDING }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: SCROLL_BOTTOM_PADDING }}
         scrollIndicatorInsets={{ bottom: floatingBarInset }}
       >
         <View style={[styles.headerContainer, { paddingTop: 8 }]}>
@@ -371,8 +380,8 @@ export default function SummaryScreen() {
             historyError={historyError} historyPending={historyPending} onRetryHistory={retryHistory} />
         </View>
 
-        {/* The height keeps the page from jumping between days while the calendar stays open. */}
-        <View style={{ minHeight: 360 }}>
+        {/* Fills the page so the hill reaches the bottom; the minimum keeps the page from jumping between days while the calendar stays open. */}
+        <View style={{ flexGrow: 1, minHeight: 360 }}>
         <View style={styles.headerContainer}>
           {/* A past day without meals has no saved goal to measure against. */}
           {!summaryReady ? <NutritionSummarySkeleton loading={!dataError} />
@@ -387,21 +396,18 @@ export default function SummaryScreen() {
 
         {/* Keyed by day so switching dates swaps meals without spring layout animations.
             Kept unflattened so the meal springs measure from here, not from the page the calendar moves. */}
-        <View key={dateKey} collapsable={false} style={styles.transactionsContainer}>
-          {!hasData ? null : entries.length > 0 ? (
-            mealOrder.map((meal) => (
+        <View key={dateKey} collapsable={false} style={styles.sceneContainer}>
+          {hasData && <TodayScene hasMeals={entries.length > 0} isToday={isToday} greeting={emptyGreeting} bottomInset={SCROLL_BOTTOM_PADDING}
+            line={isToday ? buddy.line : null} mood={entries.length ? buddy.mood : isToday ? "awake" : "asleep"} progress={buddy.progress}>
+            {mealOrder.map((meal) => (
               <MealGroup
                 key={meal}
                 title={meal}
                 entries={groupedEntries[meal] || []}
                 onDelete={handleDelete}
               />
-            ))
-          ) : isToday ? (
-            <NoRecordYet />
-          ) : (
-            <NoRecordYet title="No meals logged" text="Nothing was logged on this day." />
-          )}
+            ))}
+          </TodayScene>}
         </View>
         </View>
       </FoodwrapRefreshScrollView>
