@@ -361,7 +361,7 @@ export default function SummaryScreen() {
   const seed = daySeed(selectedDate);
   const dayGoals = isToday ? goals : summary.goals || goals;
   const buddy = buddyState({ calories: Number(summary.calories ?? summary.dailyTotals?.calories ?? 0), goal: dayGoals.calorieGoal,
-    loggedMeals: Object.keys(groupedEntries), seed });
+    loggedMeals: Object.keys(groupedEntries), seed, past: !isToday });
   const emptyGreeting = entries.length ? null : isToday
     ? emptyTodayGreeting(new Date().getHours(), Boolean(signUpDate) && localDateKey(signUpDate) === dateKey, seed)
     : { title: "No meals logged", text: "Nothing was logged on this day." };
@@ -398,7 +398,7 @@ export default function SummaryScreen() {
             Kept unflattened so the meal springs measure from here, not from the page the calendar moves. */}
         <View key={dateKey} collapsable={false} style={styles.sceneContainer}>
           {hasData && <TodayScene hasMeals={entries.length > 0} isToday={isToday} greeting={emptyGreeting} bottomInset={SCROLL_BOTTOM_PADDING}
-            line={isToday ? buddy.line : null} mood={entries.length ? buddy.mood : isToday ? "awake" : "asleep"} progress={buddy.progress}>
+            lines={buddy.lines} mood={entries.length ? buddy.mood : isToday ? "awake" : "asleep"} progress={buddy.progress}>
             {mealOrder.map((meal) => (
               <MealGroup
                 key={meal}

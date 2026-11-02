@@ -141,13 +141,25 @@ test("greetings and lines vary from day to day but hold within a day", () => {
   const titles = new Set(seeds.map(seed => emptyTodayGreeting(9, false, seed).title));
   assert.ok(titles.size > 1);
   for (const title of titles) assert.match(title, /^(Morning|Good morning|Rise and dine)/);
-  const lines = new Set(seeds.map(seed => buddyState({ calories: 300, goal: 1800, seed }).line));
+  const lines = new Set(seeds.map(seed => buddyState({ calories: 300, goal: 1800, seed }).lines[0]));
   assert.ok(lines.size > 1);
-  assert.equal(buddyState({ calories: 300, goal: 1800, seed: 5 }).line, buddyState({ calories: 300, goal: 1800, seed: 5 }).line);
+  assert.deepEqual(buddyState({ calories: 300, goal: 1800, seed: 5 }).lines, buddyState({ calories: 300, goal: 1800, seed: 5 }).lines);
+});
+
+test("the orange has something to say in every moment, including a text emoji", () => {
+  const cases = [{ calories: 0 }, { calories: 300 }, { calories: 950 }, { calories: 1700 }, { calories: 2100 }, { calories: 0, past: true }, { calories: 500, past: true }];
+  const moments = cases.map(day => {
+    const { moment, lines } = buddyState({ goal: 1800, ...day });
+    assert.equal(new Set(lines).size, lines.length);
+    assert.ok(lines.some(line => !/[a-z]{3}/i.test(line) || /_/.test(line)), moment);
+    return moment;
+  });
+  assert.deepEqual(moments, ["empty", "first", "midway", "done", "over", "asleep", "past"]);
 });
 
 test("the orange's mood follows the day", () => {
-  assert.deepEqual(buddyState({ calories: 430, goal: 1800 }), { moment: "first", line: "Good start.", mood: "awake", progress: 430 / 1800 });
+  const { moment, mood, progress } = buddyState({ calories: 430, goal: 1800 });
+  assert.deepEqual({ moment, mood, progress }, { moment: "first", mood: "awake", progress: 430 / 1800 });
   assert.equal(buddyState({ calories: 950, goal: 1800 }).moment, "midway");
   assert.equal(buddyState({ calories: 1700, goal: 1800 }).mood, "happy");
   assert.equal(buddyState({ calories: 600, goal: 1800, loggedMeals: ["Breakfast", "Dinner"] }).moment, "done");
