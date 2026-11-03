@@ -12,6 +12,8 @@ export default function TabLayout() {
       <Tabs tabBar={(props) => <SystemTabBar {...props} />}
         screenOptions={{
           headerShown: false,
+          // A tab out of view skips re-renders until it's shown again, then catches up at once.
+          freezeOnBlur: true,
           tabBarActiveTintColor: COLORS.primary,
           tabBarStyle: { height: Platform.OS === "ios" ? 64 + insets.bottom : 84, paddingBottom: 18, paddingTop: 8 },
           sceneStyle: { backgroundColor: COLORS.background },

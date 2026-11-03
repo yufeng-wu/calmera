@@ -10,8 +10,9 @@ import {
   Easing,
   Dimensions,
   Linking,
+  StyleSheet,
 } from "react-native";
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { memo, useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useDailyNutrition } from "../../../hooks/useDailyNutrition";
@@ -20,7 +21,7 @@ import { styles } from "@/assets/styles/home.styles";
 import { useRouter } from "expo-router";
 import { NutritionSummaryCard } from "@/components/NutritionSummaryCard";
 import { FoodEntryItem, closeOpenMealActions } from "@/components/FoodEntryItem";
-import TodayScene from "@/components/TodayScene";
+import TodayScene, { TodayStageHost } from "@/components/TodayScene";
 import { buddyState, daySeed, emptyTodayGreeting } from "@/lib/nutritionPresentation.mjs";
 import FoodwrapRefreshScrollView from "@/components/FoodwrapRefreshScrollView";
 import FoodwrapWordmark from "@/components/FoodwrapWordmark";
@@ -36,23 +37,27 @@ import { mealTimePreferences } from "@/lib/mealTimeSettings";
 import { estimateVoiceMeal } from "@/lib/chatgpt/mealTimeEstimate.mjs";
 import { saveEstimatedEntries } from "@/lib/chatgpt/entryPersistence.mjs";
 import { getLocalTimeWithOffset } from "@/lib/utils";
-import AnimatedRe, { Layout as ReLayout } from "react-native-reanimated";
+import AnimatedRe, { Layout as ReLayout, useAnimatedStyle } from "react-native-reanimated";
 import AddMealMenu, { ADD_MENU_OPTION_WIDTH } from "@/components/AddMealMenu";
-import DayDrop from "@/components/DayDrop";
+import DayDrop, { dayDropLift, useDayDropMotion } from "@/components/DayDrop";
 import { parseLocalDate } from "@/lib/calendarMonths.mjs";
 import { localDateKey } from "@/lib/nutritionStore.mjs";
 
 const AnimatedMealGroupContainer = AnimatedRe.createAnimatedComponent(View);
 
+// Only while a meal is being removed, so what's below springs up to fill its place. The rest of the time the groups
+// have no layout animation: a row opening moves the page every frame, and a spring restarted that often only trails.
 const MEAL_LAYOUT = ReLayout.springify().damping(15);
+const MEAL_SPRING_MS = 900;
+const NO_ENTRIES = [];
 
-const MealGroup = ({ title, entries, onDelete }) => {
+const MealGroup = memo(function MealGroup({ title, entries, onDelete, springs }) {
   if (entries.length === 0) return null;
 
   return (
     <AnimatedMealGroupContainer
       style={styles.mealGroupContainer}
-      layout={MEAL_LAYOUT}
+      layout={springs ? MEAL_LAYOUT : undefined}
     >
       <Text style={styles.mealGroupTitle}>{title}</Text>
       {entries.map((item) => (
@@ -60,7 +65,7 @@ const MealGroup = ({ title, entries, onDelete }) => {
       ))}
     </AnimatedMealGroupContainer>
   );
-};
+});
 
 export default function SummaryScreen() {
   const isFocused = useIsFocused();
@@ -98,8 +103,10 @@ export default function SummaryScreen() {
 
   // A past day the user picked; null follows today, including across midnight.
   const [pickedDate, setPickedDate] = useState(null);
-  const selectedDate = pickedDate ?? new Date();
-  const isToday = localDateKey(selectedDate) === localDateKey();
+  // One Date per day, so the calendar and the meals below don't see a new day on every render.
+  const todayKey = localDateKey();
+  const selectedDate = useMemo(() => pickedDate ?? new Date(), [pickedDate, todayKey]); // eslint-disable-line react-hooks/exhaustive-deps -- todayKey rolls today over at midnight.
+  const isToday = localDateKey(selectedDate) === todayKey;
 
   // user.id comes from Clerk
   const { dateKey, entries, summary, goals, hasData, error: dataError, profileError, refreshFailed, goalsLoading, retryError, retrying, isSessionActive, loadData, deleteEntry, addEntries,
@@ -110,7 +117,21 @@ export default function SummaryScreen() {
   const signUpDate = useMemo(() => profile?.createdAtLocalDate ? parseLocalDate(profile.createdAtLocalDate) : null,
     [profile?.createdAtLocalDate]);
 
-  const handleDelete = (id) => {
+  const stageHost = useRef(null);
+  // The page below the calendar slides with its edge as it opens and closes.
+  const calendarMotion = useDayDropMotion();
+  const belowCalendarStyle = useAnimatedStyle(() => ({ transform: [{ translateY: dayDropLift(calendarMotion) }] }));
+  const [mealsSpring, setMealsSpring] = useState(false);
+  const springEnds = useRef(null);
+  useEffect(() => () => clearTimeout(springEnds.current), []);
+  // Removed only once the spring has been committed, so the page always has it when it changes.
+  const [pendingDelete, setPendingDelete] = useState(null);
+  useEffect(() => {
+    if (!pendingDelete || !mealsSpring) return;
+    setPendingDelete(null);
+    deleteEntry(pendingDelete);
+  }, [pendingDelete, mealsSpring, deleteEntry]);
+  const handleDelete = useCallback((id) => {
     Alert.alert(
       "Delete Entry",
       "Are you sure you want to delete this food entry?",
@@ -119,11 +140,16 @@ export default function SummaryScreen() {
         {
           text: "Delete",
           style: "destructive",
-          onPress: () => deleteEntry(id),
+          onPress: () => {
+            setMealsSpring(true);
+            setPendingDelete(id);
+            clearTimeout(springEnds.current);
+            springEnds.current = setTimeout(() => setMealsSpring(false), MEAL_SPRING_MS);
+          },
         },
       ]
     );
-  };
+  }, []);
 
   useEffect(() => {
     // Enable LayoutAnimation on Android
@@ -347,14 +373,14 @@ export default function SummaryScreen() {
     if (recordingRef.current) stopRecording();
   };
 
-  const groupedEntries = entries.reduce((acc, entry) => {
+  const groupedEntries = useMemo(() => entries.reduce((acc, entry) => {
     const meal = entry.mealType;
     if (!acc[meal]) {
       acc[meal] = [];
     }
     acc[meal].push(entry);
     return acc;
-  }, {});
+  }, {}), [entries]);
 
   const mealOrder = ["Breakfast", "Lunch", "Dinner", "Snack"];
   // The orange's day: its line and mood by this day's calories against that day's goal.
@@ -368,21 +394,25 @@ export default function SummaryScreen() {
 
   return (
     <View style={styles.container}>
+      {/* The hill and the seated orange, pinned behind the page (which sits above them at zIndex 1); the scene
+          below sends what it shows. */}
+      <TodayStageHost ref={stageHost} />
       <FoodwrapRefreshScrollView scrollRef={scrollRef} active={isFocused} onRefresh={loadData} onScrollBeginDrag={closeOpenMealActions} directionalLockEnabled alwaysBounceHorizontal={false}
-        style={styles.scrollView}
+        style={[styles.scrollView, { zIndex: 1 }]}
         contentContainerStyle={{ flexGrow: 1, paddingBottom: SCROLL_BOTTOM_PADDING }}
         scrollIndicatorInsets={{ bottom: floatingBarInset }}
       >
-        <View style={[styles.headerContainer, { paddingTop: 8 }]}>
+        {/* Header and card sit above the scene, whose empty-day sky starts up behind them. */}
+        <View style={[styles.headerContainer, { paddingTop: 8, zIndex: 1 }]}>
           <FoodwrapWordmark style={{ marginBottom: 4 }} />
-          <DayDrop selectedDate={selectedDate} isToday={isToday} onSelectDate={selectDate} onToday={goToToday} onOpen={loadCalendar} onClose={scrollToTop}
+          <DayDrop motion={calendarMotion} selectedDate={selectedDate} isToday={isToday} onSelectDate={selectDate} onToday={goToToday} onOpen={loadCalendar} onClose={scrollToTop}
             dataByDate={dataByDate} calorieGoal={goals.calorieGoal} signUpDate={signUpDate} historyLoading={historyLoading}
             historyError={historyError} historyPending={historyPending} onRetryHistory={retryHistory} />
         </View>
 
         {/* Fills the page so the hill reaches the bottom; the minimum keeps the page from jumping between days while the calendar stays open. */}
-        <View style={{ flexGrow: 1, minHeight: 360 }}>
-        <View style={styles.headerContainer}>
+        <AnimatedRe.View style={[{ flexGrow: 1, minHeight: 360 }, belowCalendarStyle]}>
+        <View style={[styles.headerContainer, { zIndex: 1 }]}>
           {/* A past day without meals has no saved goal to measure against. */}
           {!summaryReady ? <NutritionSummarySkeleton loading={!dataError} />
             : (isToday || entries.length > 0) && <NutritionSummaryCard summary={summary} goals={isToday ? goals : summary.goals || goals} />}
@@ -397,29 +427,31 @@ export default function SummaryScreen() {
         {/* Keyed by day so switching dates swaps meals without spring layout animations.
             Kept unflattened so the meal springs measure from here, not from the page the calendar moves. */}
         <View key={dateKey} collapsable={false} style={styles.sceneContainer}>
-          {hasData && <TodayScene hasMeals={entries.length > 0} isToday={isToday} greeting={emptyGreeting} bottomInset={SCROLL_BOTTOM_PADDING}
-            lines={buddy.lines} mood={entries.length ? buddy.mood : isToday ? "awake" : "asleep"} progress={buddy.progress}>
+          {hasData && <TodayScene stageHost={stageHost} hasMeals={entries.length > 0} isToday={isToday} printSeed={seed} greeting={emptyGreeting} bottomInset={SCROLL_BOTTOM_PADDING}
+            lines={buddy.lines} mood={entries.length ? buddy.mood : isToday ? "awake" : "asleep"}>
             {mealOrder.map((meal) => (
               <MealGroup
                 key={meal}
                 title={meal}
-                entries={groupedEntries[meal] || []}
+                entries={groupedEntries[meal] || NO_ENTRIES}
                 onDelete={handleDelete}
+                springs={mealsSpring}
               />
             ))}
           </TodayScene>}
         </View>
-        </View>
+        </AnimatedRe.View>
       </FoodwrapRefreshScrollView>
 
       {/* Meals always log to today. A voice meal still in progress keeps its status visible. */}
-      {(isToday || recording || analyzing) && <AddMealMenu bottomInset={floatingBarInset} expanded={fabExpanded} onToggle={toggleAddMenu}
+      {/* Above the page, which sits above the pinned scene. */}
+      {(isToday || recording || analyzing) && <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { zIndex: 3 }]}><AddMealMenu bottomInset={floatingBarInset} expanded={fabExpanded} onToggle={toggleAddMenu}
         onClose={closeMenu} onText={() => collapseFabThenNavigate("/create")}
         onPhoto={() => collapseFabThenNavigate("/photo-log")}
         onVoicePress={handleVoiceShortPress} onVoiceLongPress={handleVoiceLongPress}
         onVoicePressOut={handleVoicePressOut} recording={Boolean(recording)}
         seconds={recordingSeconds} analyzing={analyzing} voiceWidth={voiceWidthAnim}
-        />}
+        /></View>}
     </View>
   );
 }

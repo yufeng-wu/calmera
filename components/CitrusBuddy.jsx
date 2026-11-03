@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withRepeat, withSequence, withSpring, withTiming } from "react-native-reanimated";
+import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import Svg, { Circle, Ellipse, Path } from "react-native-svg";
 import * as Haptics from "expo-haptics";
 
@@ -34,7 +34,9 @@ function Canvas({ children }) {
 // Today's character. Awake it blinks and glances down at the Add button; happy it keeps smiling eyes
 // after dinner; asleep on past days with nothing logged. `hang` sways it from its stem, as on the bough.
 // Decorative, so VoiceOver skips it. A changed `cheerSignal` makes it cheer, as does a tap.
-export default function CitrusBuddy({ mood = "awake", asleep = false, hang = false, cheerSignal = 0, landSignal = 0, onTap, style }) {
+// `arrive` pops it in when it mounts; off when it takes over from another orange mid-motion. While `active` is
+// false (its screen isn't showing) it holds still, so nothing runs where no one can see it.
+export default function CitrusBuddy({ mood = "awake", asleep = false, hang = false, arrive = true, active = true, cheerSignal = 0, landSignal = 0, onTap, style }) {
   const state = asleep ? "asleep" : mood;
   const reducedMotion = useReducedMotion();
   const lid = useSharedValue(0);
@@ -43,36 +45,24 @@ export default function CitrusBuddy({ mood = "awake", asleep = false, hang = fal
   const leaf = useSharedValue(0);
   const joy = useSharedValue(state === "happy" ? 1 : 0);
   const sway = useSharedValue(0);
-  const breath = useSharedValue(0);
-  const scale = useSharedValue(reducedMotion || state === "asleep" ? 1 : 0.86);
+  const scale = useSharedValue(reducedMotion || state === "asleep" || !arrive ? 1 : 0.86);
 
   useEffect(() => {
     joy.value = reducedMotion ? (state === "happy" ? 1 : 0) : timing(state === "happy" ? 1 : 0, 220);
   }, [state, reducedMotion, joy]);
 
+  // Hanging, it swings once when it comes into view and then rests: a loop that never ends would redraw the page
+  // every frame for as long as Today is open.
   useEffect(() => {
-    if (reducedMotion) { sway.value = 0; return undefined; }
-    if (!hang) { sway.value = timing(0, 300); return undefined; }
-    // Ease out to one side, then ping-pong. A repeat that doesn't reverse restarts from its first value,
-    // which would snap the swing back to centre at the end of every cycle.
-    sway.value = withSequence(timing(2.5, 1050), withRepeat(timing(-2.5, 2100), -1, true));
-    return () => { sway.value = timing(0, 300); };
-  }, [hang, reducedMotion, sway]);
-
-  // Seated, it breathes from its base, so it stays planted on the hill. Asleep has its own, slower breath.
-  useEffect(() => {
-    if (reducedMotion || hang || state === "asleep") { breath.value = timing(0, 300); return undefined; }
-    breath.value = withRepeat(withSequence(timing(1, 1900), timing(0, 2300)), -1);
-    return () => { breath.value = 0; };
-  }, [hang, state, reducedMotion, breath]);
+    if (reducedMotion || !hang || !active) { sway.value = 0; return undefined; }
+    sway.value = withSequence(timing(2.5, 900), timing(-2, 1300), timing(1, 1100), timing(0, 900));
+    return () => { sway.value = 0; };
+  }, [hang, active, reducedMotion, sway]);
 
   useEffect(() => {
     if (reducedMotion) return undefined;
-    if (state === "asleep") {
-      scale.value = withRepeat(withSequence(timing(1.03, 1800), timing(1, 1800)), -1);
-      return undefined;
-    }
-    scale.value = withSpring(1, ARRIVE);
+    if (!active || state === "asleep") { scale.value = 1; return undefined; }
+    scale.value = arrive ? withSpring(1, ARRIVE) : 1;
     if (state === "happy") return undefined;
     const blink = (times = 1) => {
       const once = () => withSequence(timing(1, 70), timing(0, 110));
@@ -94,7 +84,7 @@ export default function CitrusBuddy({ mood = "awake", asleep = false, hang = fal
     nextBlink();
     nextGlance(FIRST_GLANCE_MS);
     return () => { clearTimeout(blinkTimer); clearTimeout(glanceTimer); };
-  }, [state, reducedMotion, lid, look, leaf, scale]);
+  }, [state, active, reducedMotion, lid, look, leaf, scale]); // eslint-disable-line react-hooks/exhaustive-deps -- `arrive` only matters on mount
 
   const cheer = () => {
     Haptics.selectionAsync().catch(() => {});
@@ -111,7 +101,6 @@ export default function CitrusBuddy({ mood = "awake", asleep = false, hang = fal
 
   const hangStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${sway.value}deg` }] }));
   const bodyStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${look.value * 4 + tilt.value}deg` }, { scale: scale.value }] }));
-  const breathStyle = useAnimatedStyle(() => ({ transform: [{ scaleX: 1 - breath.value * 0.008 }, { scaleY: 1 + breath.value * 0.02 }] }));
   // The leaf trails the sway, a little further than the fruit, like something light on a heavy thing.
   const leafStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${leaf.value - sway.value * 1.8}deg` }] }));
   // The whole face slides toward the Add button, at the bottom right of the screen.
@@ -123,7 +112,6 @@ export default function CitrusBuddy({ mood = "awake", asleep = false, hang = fal
 
   return <Pressable onPress={() => { cheer(); onTap?.(); }} accessible={false} importantForAccessibility="no-hide-descendants" style={[styles.fruit, style]}>
     <Animated.View style={[StyleSheet.absoluteFill, styles.hang, hangStyle]}>
-    <Animated.View style={[StyleSheet.absoluteFill, styles.base, breathStyle]}>
     <Animated.View style={[StyleSheet.absoluteFill, bodyStyle]}>
       <Animated.View style={[StyleSheet.absoluteFill, styles.leaf, leafStyle]}>
         <Canvas><Path d="M52 17 C55 7 66 3 76 6 C74 16 63 22 52 17 Z" fill={LEAF} /></Canvas>
@@ -158,7 +146,6 @@ export default function CitrusBuddy({ mood = "awake", asleep = false, hang = fal
       </Animated.View>
     </Animated.View>
     </Animated.View>
-    </Animated.View>
   </Pressable>;
 }
 
@@ -166,8 +153,6 @@ const styles = StyleSheet.create({
   fruit: { width: SIZE, height: SIZE },
   // Swings from the stem, like fruit on a branch.
   hang: { transformOrigin: "50% 13%" },
-  // Breathes from where it meets the ground.
-  base: { transformOrigin: "50% 92%" },
   // Turns on its base at the stem.
   leaf: { transformOrigin: "52% 17%" },
   eye: { position: "absolute", top: (EYE.y - EYE.h / 2) * UNIT, width: EYE.w * UNIT, height: EYE.h * UNIT, borderRadius: EYE.w / 2 * UNIT, backgroundColor: FACE },

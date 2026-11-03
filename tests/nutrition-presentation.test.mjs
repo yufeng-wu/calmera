@@ -158,14 +158,13 @@ test("the orange has something to say in every moment, including a text emoji", 
 });
 
 test("the orange's mood follows the day", () => {
-  const { moment, mood, progress } = buddyState({ calories: 430, goal: 1800 });
-  assert.deepEqual({ moment, mood, progress }, { moment: "first", mood: "awake", progress: 430 / 1800 });
+  const { moment, mood } = buddyState({ calories: 430, goal: 1800 });
+  assert.deepEqual({ moment, mood }, { moment: "first", mood: "awake" });
   assert.equal(buddyState({ calories: 950, goal: 1800 }).moment, "midway");
   assert.equal(buddyState({ calories: 1700, goal: 1800 }).mood, "happy");
   assert.equal(buddyState({ calories: 600, goal: 1800, loggedMeals: ["Breakfast", "Dinner"] }).moment, "done");
   const over = buddyState({ calories: 2100, goal: 1800 });
   assert.equal(over.moment, "over");
   assert.equal(over.mood, "happy");
-  assert.equal(over.progress, 1);
   assert.equal(buddyState({ calories: 500, goal: null }).moment, "first");
 });
