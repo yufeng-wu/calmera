@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createNutritionStore, EMPTY_DAY, normalizeDay } from "../lib/nutritionStore.mjs";
-import { buddyState, calendarDayStatus, daySeed, emptyTodayGreeting, nutritionViewState, retryNutritionError } from "../lib/nutritionPresentation.mjs";
+import { BUDDY_FACES, buddyFace, buddyMood, calendarDayStatus, daySeed, emptyTodayGreeting, nutritionViewState, retryNutritionError } from "../lib/nutritionPresentation.mjs";
 
 const date = "2026-10-19";
 const meal = { id: 1, food_name: "Synthetic banana", calories: 105 };
@@ -133,7 +133,7 @@ test("the empty Today greets by the hour, and says hello on signup day", () => {
   assert.equal(title(9, true), "Hi! What's your first bite?");
 });
 
-test("greetings and lines vary from day to day but hold within a day", () => {
+test("greetings vary from day to day but hold within a day", () => {
   const days = [new Date(2026, 10, 1), new Date(2026, 10, 2), new Date(2026, 10, 3), new Date(2026, 10, 4)];
   const seeds = days.map(daySeed);
   assert.equal(new Set(seeds).size, 4);
@@ -141,30 +141,32 @@ test("greetings and lines vary from day to day but hold within a day", () => {
   const titles = new Set(seeds.map(seed => emptyTodayGreeting(9, false, seed).title));
   assert.ok(titles.size > 1);
   for (const title of titles) assert.match(title, /^(Morning|Good morning|Rise and dine)/);
-  const lines = new Set(seeds.map(seed => buddyState({ calories: 300, goal: 1800, seed }).lines[0]));
-  assert.ok(lines.size > 1);
-  assert.deepEqual(buddyState({ calories: 300, goal: 1800, seed: 5 }).lines, buddyState({ calories: 300, goal: 1800, seed: 5 }).lines);
 });
 
-test("the orange has something to say in every moment, including a text emoji", () => {
-  const cases = [{ calories: 0 }, { calories: 300 }, { calories: 950 }, { calories: 1700 }, { calories: 2100 }, { calories: 0, past: true }, { calories: 500, past: true }];
-  const moments = cases.map(day => {
-    const { moment, lines } = buddyState({ goal: 1800, ...day });
-    assert.equal(new Set(lines).size, lines.length);
-    assert.ok(lines.some(line => !/[a-z]{3}/i.test(line) || /_/.test(line)), moment);
-    return moment;
-  });
-  assert.deepEqual(moments, ["empty", "first", "midway", "done", "over", "asleep", "past"]);
+test("the orange only says text emojis from its list, at random, never twice in a row", () => {
+  assert.equal(new Set(BUDDY_FACES).size, BUDDY_FACES.length);
+  for (const face of BUDDY_FACES) assert.doesNotMatch(face, /[a-z]{2}/i);
+  const said = [];
+  let previous = null;
+  for (let i = 0; i < 200; i += 1) {
+    const face = buddyFace(previous);
+    assert.ok(BUDDY_FACES.includes(face));
+    assert.notEqual(face, previous);
+    said.push(face);
+    previous = face;
+  }
+  assert.ok(new Set(said).size > BUDDY_FACES.length / 2);
+  // Every face can come up, the first and the last of the list included.
+  assert.equal(buddyFace(null, () => 0), BUDDY_FACES[0]);
+  assert.equal(buddyFace(null, () => 0.9999), BUDDY_FACES.at(-1));
+  assert.equal(buddyFace(BUDDY_FACES[0], () => 0), BUDDY_FACES[1]);
 });
 
 test("the orange's mood follows the day", () => {
-  const { moment, mood } = buddyState({ calories: 430, goal: 1800 });
-  assert.deepEqual({ moment, mood }, { moment: "first", mood: "awake" });
-  assert.equal(buddyState({ calories: 950, goal: 1800 }).moment, "midway");
-  assert.equal(buddyState({ calories: 1700, goal: 1800 }).mood, "happy");
-  assert.equal(buddyState({ calories: 600, goal: 1800, loggedMeals: ["Breakfast", "Dinner"] }).moment, "done");
-  const over = buddyState({ calories: 2100, goal: 1800 });
-  assert.equal(over.moment, "over");
-  assert.equal(over.mood, "happy");
-  assert.equal(buddyState({ calories: 500, goal: null }).moment, "first");
+  assert.equal(buddyMood({ calories: 430, goal: 1800 }), "awake");
+  assert.equal(buddyMood({ calories: 824, goal: 2000, loggedMeals: ["Breakfast", "Lunch"] }), "awake");
+  assert.equal(buddyMood({ calories: 1700, goal: 1800 }), "happy");
+  assert.equal(buddyMood({ calories: 600, goal: 1800, loggedMeals: ["Breakfast", "Dinner"] }), "happy");
+  assert.equal(buddyMood({ calories: 2100, goal: 1800 }), "happy");
+  assert.equal(buddyMood({ calories: 500, goal: null }), "awake");
 });

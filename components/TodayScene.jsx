@@ -11,6 +11,7 @@ import GroveScene, { GROVE_HEIGHT } from "./GroveScene";
 import { DUSK_WASH_STRENGTH, WASH } from "./SkyLayer";
 import HillScene, { HILL_BAND, hillTopAt, SKY_POINTS } from "./HillScene";
 import useSkyClock from "../hooks/useSkyClock";
+import { buddyFace } from "../lib/nutritionPresentation.mjs";
 
 // The orange's two homes. Empty, it hangs from a bough above the greeting, part of the page. Once the first meal
 // lands the bough lifts away, the orange drops, the hill rises to catch it, and from then on it sits on the hill.
@@ -60,7 +61,7 @@ export const TodayStageHost = forwardRef(function TodayStageHost(_, ref) {
   return stage;
 });
 
-export default function TodayScene({ hasMeals, children, greeting, lines, mood = "awake", isToday, printSeed = 0, bottomInset = 0, stageHost, style }) {
+export default function TodayScene({ hasMeals, children, greeting, mood = "awake", isToday, printSeed = 0, bottomInset = 0, stageHost, style }) {
   const { width } = useWindowDimensions();
   const reducedMotion = useReducedMotion();
   const { height: screenHeight } = useWindowDimensions();
@@ -81,7 +82,6 @@ export default function TodayScene({ hasMeals, children, greeting, lines, mood =
   const onHill = useSharedValue(hasMeals ? 1 : 0);
   const speech = useSharedValue(0);
   const [said, setSaid] = useState(null);
-  const taps = useRef(0);
   const quiet = useRef(null);
   const dropping = useRef(false);
   const tx = useSharedValue(0);
@@ -202,11 +202,10 @@ export default function TodayScene({ hasMeals, children, greeting, lines, mood =
     transform: [{ translateX: tx.value }, { translateY: ty.value }, { scaleX: sx.value }, { scaleY: sy.value }],
   }));
 
-  // She only speaks when tapped: each tap moves to the next line, and it clears itself after a moment.
+  // She only speaks when tapped: each tap brings another face, and it clears itself after a moment.
   const speak = () => {
-    if (dropping.current || !lines?.length) return;
-    const text = lines[taps.current % lines.length];
-    taps.current += 1;
+    if (dropping.current) return;
+    const text = buddyFace(said);
     setSaid(text);
     clearTimeout(quiet.current);
     speech.value = reducedMotion ? 1 : withSequence(withTiming(1.06, { duration: 170, easing: POP }), withTiming(1, { duration: 90 }));
@@ -226,8 +225,8 @@ export default function TodayScene({ hasMeals, children, greeting, lines, mood =
       }
     });
   };
-  // A line belongs to the moment it was said in, so a new meal or a new day clears it.
-  useEffect(() => { speech.value = 0; clearTimeout(quiet.current); }, [hasMeals, isToday, lines?.[0], speech]); // eslint-disable-line react-hooks/exhaustive-deps
+  // A face belongs to the moment it was made in, so the first meal landing or a new day clears it.
+  useEffect(() => { speech.value = 0; clearTimeout(quiet.current); }, [hasMeals, isToday, speech]);
   useEffect(() => () => clearTimeout(quiet.current), []);
 
   // Two layers of the screen, beside the page: the hill and its sky stay behind it; the orange's layer comes in

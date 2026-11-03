@@ -22,7 +22,7 @@ import { useRouter } from "expo-router";
 import { NutritionSummaryCard } from "@/components/NutritionSummaryCard";
 import { FoodEntryItem, closeOpenMealActions } from "@/components/FoodEntryItem";
 import TodayScene, { TodayStageHost } from "@/components/TodayScene";
-import { buddyState, daySeed, emptyTodayGreeting } from "@/lib/nutritionPresentation.mjs";
+import { buddyMood, daySeed, emptyTodayGreeting } from "@/lib/nutritionPresentation.mjs";
 import FoodwrapRefreshScrollView from "@/components/FoodwrapRefreshScrollView";
 import FoodwrapWordmark from "@/components/FoodwrapWordmark";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
@@ -383,11 +383,11 @@ export default function SummaryScreen() {
   }, {}), [entries]);
 
   const mealOrder = ["Breakfast", "Lunch", "Dinner", "Snack"];
-  // The orange's day: its line and mood by this day's calories against that day's goal.
+  // The orange's mood, by this day's calories against that day's goal.
   const seed = daySeed(selectedDate);
   const dayGoals = isToday ? goals : summary.goals || goals;
-  const buddy = buddyState({ calories: Number(summary.calories ?? summary.dailyTotals?.calories ?? 0), goal: dayGoals.calorieGoal,
-    loggedMeals: Object.keys(groupedEntries), seed, past: !isToday });
+  const mood = !entries.length ? (isToday ? "awake" : "asleep")
+    : buddyMood({ calories: Number(summary.calories ?? summary.dailyTotals?.calories ?? 0), goal: dayGoals.calorieGoal, loggedMeals: Object.keys(groupedEntries) });
   const emptyGreeting = entries.length ? null : isToday
     ? emptyTodayGreeting(new Date().getHours(), Boolean(signUpDate) && localDateKey(signUpDate) === dateKey, seed)
     : { title: "No meals logged", text: "Nothing was logged on this day." };
@@ -428,7 +428,7 @@ export default function SummaryScreen() {
             Kept unflattened so the meal springs measure from here, not from the page the calendar moves. */}
         <View key={dateKey} collapsable={false} style={styles.sceneContainer}>
           {hasData && <TodayScene stageHost={stageHost} hasMeals={entries.length > 0} isToday={isToday} printSeed={seed} greeting={emptyGreeting} bottomInset={SCROLL_BOTTOM_PADDING}
-            lines={buddy.lines} mood={entries.length ? buddy.mood : isToday ? "awake" : "asleep"}>
+            mood={mood}>
             {mealOrder.map((meal) => (
               <MealGroup
                 key={meal}
