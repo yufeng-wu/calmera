@@ -1182,15 +1182,7 @@ final class CalmeraMealActionsView: ExpoView {
       } else { container.effect = nil }
       let font = UIFontMetrics(forTextStyle: .subheadline).scaledFont(for: .systemFont(ofSize: 14, weight: .medium), compatibleWith: traitCollection)
       for (index, material) in materials.enumerated() {
-        // Keep the material mounted through repeated reveals. Droplet
-        // geometry owns visibility; do not fade the effect or depend on a
-        // paused nil-to-glass animation for a fully open action.
-        if opaque { material.effect = nil }
-        else if #available(iOS 26.0, *) {
-          let glass = UIGlassEffect(style: .regular)
-          glass.isInteractive = true
-          material.effect = glass
-        } else { material.effect = UIBlurEffect(style: .systemMaterial) }
+        applyMaterial(material, opaque: opaque)
         material.backgroundColor = opaque ? .secondarySystemBackground : .clear
         let color: UIColor = .systemRed
         buttons[index].tintColor = color
@@ -1200,6 +1192,29 @@ final class CalmeraMealActionsView: ExpoView {
     }
     setNeedsLayout()
     renderProgress()
+  }
+
+  // Keep the material mounted through repeated reveals. Droplet geometry owns visibility; do not fade the effect or
+  // depend on a paused nil-to-glass animation for a fully open action.
+  private func applyMaterial(_ material: UIVisualEffectView, opaque: Bool) {
+    if opaque { material.effect = nil }
+    else if #available(iOS 26.0, *) {
+      let glass = UIGlassEffect(style: .regular)
+      glass.isInteractive = true
+      material.effect = glass
+    } else { material.effect = UIBlurEffect(style: .systemMaterial) }
+  }
+
+  // Glass set up while the row was off screen or under a fading ancestor, as when a first meal's row arrives
+  // mid-animation, can stay blank. Each reveal starts from a hidden droplet, so applying it afresh then can't be seen.
+  private func refreshGlass() {
+    let opaque = UIAccessibility.isReduceTransparencyEnabled
+    if #available(iOS 26.0, *), !opaque {
+      let group = UIGlassContainerEffect()
+      group.spacing = 6
+      container.effect = group
+    }
+    for material in materials { applyMaterial(material, opaque: opaque) }
   }
 
   override func layoutSubviews() {
@@ -1219,6 +1234,7 @@ final class CalmeraMealActionsView: ExpoView {
     let labelOpacity = labelPhase * labelPhase * (3 - 2 * labelPhase)
     // The original UI-thread progress still drives the same droplet geometry;
     // the actual glass effect and native shadow are never scrubbed or faded.
+    if p > 0, materials.allSatisfy({ $0.isHidden }), window != nil { refreshGlass() }
     for (index, material) in materials.enumerated() {
       // The droplet grows from the rail's right-edge seed.
       let originX = anchor - visibleWidth

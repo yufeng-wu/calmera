@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createNutritionStore, EMPTY_DAY, normalizeDay } from "../lib/nutritionStore.mjs";
-import { calendarDayStatus, nutritionViewState, retryNutritionError } from "../lib/nutritionPresentation.mjs";
+import { BUDDY_FACES, buddyFace, buddyMood, calendarDayStatus, daySeed, emptyTodayGreeting, nutritionViewState, retryNutritionError } from "../lib/nutritionPresentation.mjs";
 
 const date = "2026-10-19";
 const meal = { id: 1, food_name: "Synthetic banana", calories: 105 };
@@ -120,4 +120,53 @@ test("retry without an error performs no request", async () => {
   await retryNutritionError({}, {
     refresh: () => assert.fail("no meal failure"), refreshProfile: () => assert.fail("no profile failure"),
   });
+});
+
+test("the empty Today greets by the hour, and says hello on signup day", () => {
+  const title = (hour, signupDay) => emptyTodayGreeting(hour, signupDay).title;
+  assert.equal(title(4), "Late-night bite?");
+  assert.equal(title(5), "Morning! What's for breakfast?");
+  assert.equal(title(11), "Lunchtime! What looks good?");
+  assert.equal(title(14), "Snack o'clock?");
+  assert.equal(title(17), "What's for dinner?");
+  assert.equal(title(22), "Late-night bite?");
+  assert.equal(title(9, true), "Hi! What's your first bite?");
+});
+
+test("greetings vary from day to day but hold within a day", () => {
+  const days = [new Date(2026, 10, 1), new Date(2026, 10, 2), new Date(2026, 10, 3), new Date(2026, 10, 4)];
+  const seeds = days.map(daySeed);
+  assert.equal(new Set(seeds).size, 4);
+  assert.equal(daySeed(new Date(2026, 10, 1, 7)), daySeed(new Date(2026, 10, 1, 21)));
+  const titles = new Set(seeds.map(seed => emptyTodayGreeting(9, false, seed).title));
+  assert.ok(titles.size > 1);
+  for (const title of titles) assert.match(title, /^(Morning|Good morning|Rise and dine)/);
+});
+
+test("the orange only says text emojis from its list, at random, never twice in a row", () => {
+  assert.equal(new Set(BUDDY_FACES).size, BUDDY_FACES.length);
+  for (const face of BUDDY_FACES) assert.doesNotMatch(face, /[a-z]{2}/i);
+  const said = [];
+  let previous = null;
+  for (let i = 0; i < 200; i += 1) {
+    const face = buddyFace(previous);
+    assert.ok(BUDDY_FACES.includes(face));
+    assert.notEqual(face, previous);
+    said.push(face);
+    previous = face;
+  }
+  assert.ok(new Set(said).size > BUDDY_FACES.length / 2);
+  // Every face can come up, the first and the last of the list included.
+  assert.equal(buddyFace(null, () => 0), BUDDY_FACES[0]);
+  assert.equal(buddyFace(null, () => 0.9999), BUDDY_FACES.at(-1));
+  assert.equal(buddyFace(BUDDY_FACES[0], () => 0), BUDDY_FACES[1]);
+});
+
+test("the orange's mood follows the day", () => {
+  assert.equal(buddyMood({ calories: 430, goal: 1800 }), "awake");
+  assert.equal(buddyMood({ calories: 824, goal: 2000, loggedMeals: ["Breakfast", "Lunch"] }), "awake");
+  assert.equal(buddyMood({ calories: 1700, goal: 1800 }), "happy");
+  assert.equal(buddyMood({ calories: 600, goal: 1800, loggedMeals: ["Breakfast", "Dinner"] }), "happy");
+  assert.equal(buddyMood({ calories: 2100, goal: 1800 }), "happy");
+  assert.equal(buddyMood({ calories: 500, goal: null }), "awake");
 });

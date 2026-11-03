@@ -41,18 +41,21 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
   const expansion = useSharedValue(0);
   const measuredDetailsHeight = useSharedValue(0);
   const renderedDetailsHeight = useSharedValue(0);
-  useEffect(() => {
+  const expandedNow = useRef(false);
+  const animateDetails = useCallback((open, height) => {
     const timing = {
       duration: reducedMotion ? 0 : 260,
       easing: Easing.out(Easing.cubic),
       reduceMotion: reducedMotion ? ReduceMotion.Always : ReduceMotion.System,
     };
-    measuredDetailsHeight.value = detailsHeight;
+    measuredDetailsHeight.value = height;
     // Retarget from the currently displayed pixel height. Multiplying a newly
     // measured height by an already-open progress value jumps on text reflow.
-    renderedDetailsHeight.value = withTiming(isExpanded ? detailsHeight : 0, timing);
-    expansion.value = withTiming(isExpanded ? 1 : 0, timing);
-  }, [detailsHeight, isExpanded, reducedMotion, expansion, measuredDetailsHeight, renderedDetailsHeight]);
+    renderedDetailsHeight.value = withTiming(open ? height : 0, timing);
+    expansion.value = withTiming(open ? 1 : 0, timing);
+  }, [reducedMotion, expansion, measuredDetailsHeight, renderedDetailsHeight]);
+  // Only for a new measurement. A tap starts its own animation at once, without waiting on a render.
+  useEffect(() => { animateDetails(expandedNow.current, detailsHeight); }, [detailsHeight, animateDetails]);
   // The actual rendered style and optional diagnostics share the same UI value.
   const detailsStyle = useAnimatedStyle(() => ({
     height: renderedDetailsHeight.value,
@@ -134,7 +137,9 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
   const remove = () => { close(); onDelete?.(item.id); };
   const toggleExpand = () => {
     if (isOpen.current) { close(); return; }
-    setIsExpanded(value => !value);
+    expandedNow.current = !expandedNow.current;
+    animateDetails(expandedNow.current, detailsHeight);
+    setIsExpanded(expandedNow.current);
   };
   const accessibilityAction = ({ nativeEvent: { actionName } }) => {
     if (actionName === "edit") edit();

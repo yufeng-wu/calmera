@@ -241,6 +241,10 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 20,
   },
+  // Full width and full height: the scene paints its own hill to the screen's bottom edge.
+  sceneContainer: {
+    flexGrow: 1,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -264,14 +268,14 @@ export const styles = StyleSheet.create({
     marginBottom: 16,
   },
   emptyStateTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "600",
     color: COLORS.text,
     marginBottom: 8,
   },
   emptyStateText: {
     color: COLORS.textLight,
-    fontSize: 12,
+    fontSize: 14,
     textAlign: "center",
     marginBottom: 20,
     lineHeight: 20,

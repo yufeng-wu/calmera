@@ -66,7 +66,7 @@ export default function TodayCalendarPreview({ calmeraPreviewState = "ready" }) 
       {day?.entries.length ? groups.map(([title, entries]) => entries.length > 0 && <View key={title} style={styles.mealGroupContainer}>
         <Text style={styles.mealGroupTitle}>{title}</Text>
         {entries.map((item) => <FoodEntryItem key={item.id} item={item} onDelete={previewNote} onEdit={previewNote} />)}
-      </View>) : <NoRecordYet title="No meals logged" text="Nothing was logged on this day." />}
+      </View>) : <NoRecordYet title="No meals logged" text="Nothing was logged on this day." asleep />}
     </View>
   </ScrollView>;
 }
