@@ -99,8 +99,12 @@ test("progress follows real stream events once per stage and never exposes provi
 test("malformed model output cannot turn into a meal; clarification stays unsaved", () => {
   assert.deepEqual(parseMeal(JSON.stringify(meal)), meal);
   assert.deepEqual(parseMeal('{"needsClarification":"What was in the bowl?"}'), { needsClarification: "What was in the bowl?" });
-  for (const patch of [{ calories: -1 }, { protein: "10" }, { carbs: null }, { foodName: "" }, { mealType: "Unknown" }, { quantity: "one bowl" }, { quantity: "-1 bowl" }, { quantity: "1 ?" }, { fat: 10000 }, { foodName: "x".repeat(256) }]) assert.throws(() => parseMeal(JSON.stringify({ ...meal, ...patch })));
+  for (const patch of [{ calories: -1 }, { protein: "10" }, { carbs: null }, { foodName: "" }, { mealType: "Unknown" }, { quantity: "-1 bowl" }, { quantity: "- 1 bowl" }, { quantity: "0 g" }, { quantity: "?!" }, { fat: 10000 }, { foodName: "x".repeat(256) }]) assert.throws(() => parseMeal(JSON.stringify({ ...meal, ...patch })));
   assert.throws(() => foodEntryPayload({ needsClarification: "Which meal?" }, new Date().toISOString()));
+});
+
+test("an amount can be words alone, as people say it", () => {
+  for (const quantity of ["a bowl", "one bowl", "half a plate", "一碗", "2"]) assert.equal(parseMeal(JSON.stringify({ ...meal, quantity })).quantity, quantity);
 });
 
 test("saving allowlists only the existing database fields, never tokens, transcripts or images", () => {

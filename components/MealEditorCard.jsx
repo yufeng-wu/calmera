@@ -49,7 +49,7 @@ export default function MealEditorCard({ values, onChange, icon, onChangeIcon, m
         <View style={styles.fieldGroup}>
           {textField("foodName", "Name", "What did you eat?", "quantity")}
           <View style={styles.fieldDivider} />
-          {textField("quantity", "Amount", "e.g. 1 bowl")}
+          {textField("quantity", "Amount", "e.g. a bowl, 150 g")}
         </View>
 
         <View style={styles.grid}>{NUTRIENTS.map(([label, key, unit], index) =>

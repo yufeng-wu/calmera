@@ -62,9 +62,11 @@ test("invalid or empty reviews and a changed account never begin a write", () =>
 
 test("food validation rejects unsupported amounts, negative macros and excessive values", () => {
   const review = draft([food]);
-  for (const change of [{ foodName: " " }, { quantity: "0 g" }, { quantity: "unknown" }, { calories: "" }, { fat: "-1" }, { calories: 20001 }]) {
+  for (const change of [{ foodName: " " }, { quantity: "0 g" }, { quantity: "--" }, { calories: "" }, { fat: "-1" }, { calories: 20001 }]) {
     assert.throws(() => updateReviewFood(review, review.entries[0].id, { ...food, ...change }));
   }
+  const words = updateReviewFood(review, review.entries[0].id, { ...food, quantity: "a bowl" });
+  assert.equal(words.entries[0].quantity, "a bowl");
 });
 
 test("IDs survive removals and never collide with later additions", () => {
