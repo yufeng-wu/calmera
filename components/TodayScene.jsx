@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useIsFocused } from "@react-navigation/native";
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Animated, { Easing, measure, useAnimatedRef, useAnimatedStyle, useFrameCallback, useReducedMotion, useSharedValue, withDelay, withSequence, withTiming } from "react-native-reanimated";
@@ -94,6 +94,7 @@ export default function TodayScene({ hasMeals, children, greeting, mood = "awake
   const stageView = useRef(null);
   const focused = useIsFocused();
   const clock = useSkyClock({ active: focused });
+  const sceneId = useId();
   const [cheerSignal, setCheerSignal] = useState(0);
   const [landSignal, setLandSignal] = useState(0);
   const hillSeat = useMemo(() => ({ x: seatX, y: seatBase, width, tilt: ridgeTilt }), [seatX, seatBase, width, ridgeTilt]);
@@ -238,8 +239,10 @@ export default function TodayScene({ hasMeals, children, greeting, mood = "awake
   // Rebuilt only when something on the stage changes, not on every render of the page (which can be every frame
   // while a meal row opens). The seated orange exists only once there are meals; on the bough there is just one.
   const stage = useMemo(() => <>
-    {/* Native gradients: this tint covers the whole screen, too big to redraw as a drawing. */}
-    {bough && <Animated.View pointerEvents="none" style={[styles.groveWash, { height: screenHeight }, groveWashStyle]}>
+    {/* Native gradients: this tint covers the whole screen, too big to redraw as a drawing. Each day's scene gets
+        its own: one reused from the day before loses its dusk and night strengths (an animated style only sets
+        them on a view's first render) and shows full night until the clock next moves. */}
+    {bough && <Animated.View key={sceneId} pointerEvents="none" style={[styles.groveWash, { height: screenHeight }, groveWashStyle]}>
       <Animated.View style={[StyleSheet.absoluteFill, groveDuskStyle]}>
         <LinearGradient colors={groveGradient.dusk} locations={groveGradient.locations} style={StyleSheet.absoluteFill} />
       </Animated.View>
@@ -258,7 +261,7 @@ export default function TodayScene({ hasMeals, children, greeting, mood = "awake
         <CitrusBuddy mood={mood} active={focused} arrive={!inFront && !dropStarting} cheerSignal={cheerSignal} landSignal={landSignal} />
       </Animated.View>}
     </View>
-  </>, [bough, screenHeight, groveWashStyle, groveDuskStyle, groveNightStyle, groveGradient, attachStage, bandHeight, bandStyle, hasMeals, clock, focused, printSeed, ground, hillSeat, said, seatBase, width, pillStyle, inFront, seatBox.left, seatBox.bottom, seatedStyle, mood, cheerSignal, landSignal, dropStarting]);
+  </>, [bough, sceneId, screenHeight, groveWashStyle, groveDuskStyle, groveNightStyle, groveGradient, attachStage, bandHeight, bandStyle, hasMeals, clock, focused, printSeed, ground, hillSeat, said, seatBase, width, pillStyle, inFront, seatBox.left, seatBox.bottom, seatedStyle, mood, cheerSignal, landSignal, dropStarting]);
   // Sent whenever it changes; let go when this day's scene goes away, for the next day's scene to replace.
   useLayoutEffect(() => { stageHost?.current?.show(stage); }, [stage, stageHost]);
   useLayoutEffect(() => () => stageHost?.current?.release(), [stageHost]);
