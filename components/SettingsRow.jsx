@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Animated, { FadeIn, LayoutAnimationConfig, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import { SettingsTile } from "@/components/SettingsSection";
+import { SettingsTile, usePressHighlight } from "@/components/SettingsSection";
 import { SETTINGS, SETTINGS_MOTION } from "@/constants/settingsTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { useMotionPreference } from "@/hooks/useMotionPreference";
@@ -20,6 +20,7 @@ export default function SettingsRow({ title, subtitle, value, icon, tint, iconEl
   const rowStyles = [styles.row, centered && styles.centered, disabled && !radio && styles.disabled];
   const spoken = accessibilityValue ?? (value ? { text: value } : undefined);
   const stacked = useWindowDimensions().fontScale > 1.3;
+  const { pressProps, highlight } = usePressHighlight();
   // A value there from the start just shows; one that arrives or changes later fades in.
   const shownValue = <LayoutAnimationConfig skipEntering>
     {!!value && <Animated.Text key={value} entering={FadeIn.duration(SETTINGS_MOTION.fade)} numberOfLines={stacked ? undefined : 1}
@@ -29,8 +30,9 @@ export default function SettingsRow({ title, subtitle, value, icon, tint, iconEl
     accessibilityLabel={[title, subtitle].filter(Boolean).join(". ")}
     accessibilityValue={spoken} accessibilityHint={accessibilityHint}
     accessibilityState={interactive ? { disabled, busy: loading, ...(radio ? { checked: selected } : {}) } : undefined}
-    {...(interactive ? { disabled, onPress } : {})}
-    style={interactive ? ({ pressed }) => [...rowStyles, pressed && styles.pressed] : rowStyles}>
+    {...(interactive ? { disabled, onPress, ...pressProps } : {})}
+    style={rowStyles}>
+    {interactive && highlight}
     {divider && <View style={[styles.divider, { left: tiled ? SETTINGS.rowPadding + SETTINGS.tile + SETTINGS.rowGap : SETTINGS.rowPadding }]} />}
     {tiled && <SettingsTile icon={icon} tint={tint}>{iconElement}</SettingsTile>}
     <View style={[styles.copy, centered && styles.copyCentered]}>
@@ -66,7 +68,6 @@ const styles = StyleSheet.create({
     flexDirection: "row", alignItems: "center" },
   centered: { justifyContent: "center" },
   disabled: { opacity: 0.5 },
-  pressed: { backgroundColor: SETTINGS.pressed },
   divider: { position: "absolute", top: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: SETTINGS.hairline },
   copy: { flex: 1, gap: 2 },
   copyCentered: { flex: 0, alignItems: "center" },

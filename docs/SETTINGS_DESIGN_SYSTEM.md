@@ -17,10 +17,18 @@ The Settings tab and every page it opens share one list style. Tokens live in
 - **Icon tiles:** 30 pt, radius 9, a pale fill with a darker icon, in these tints:
   cocoa for ChatGPT, sky for voice, rose for meal times, plum for theme and model,
   tangerine for export, leaf for goal suggestions.
-- **Goals** always use the nutrient ring colors from `NUTRIENT_COLORS`.
+- **Goals** always use the nutrient ring colors from `NUTRIENT_COLORS`, on the dots and
+  on each slider's track. No goal can go below 1.
+- **Saving** pages name their button for what it does (Update) and keep it off until
+  something changed. Leaving with unsaved changes asks: Update, Discard Changes, or Keep
+  Editing.
+- **Menus** of commands open from their button (a "•••" pull-down), not as a sheet.
+- The app is light only, so system menus, sheets and alerts stay light at night too.
 
 ## Motion
 
+- A touched row or card shows the pressed color a moment after touch-down (so scrolling
+  doesn't flash it) and fades it out over 260 ms on release (`usePressHighlight`).
 - A chosen row's check springs in from 0.6 scale in about 200 ms; a check that's no
   longer chosen disappears at once. The theme ring and badge use the same spring.
 - A value that arrives or changes after the page appears fades in over 180 ms. Values

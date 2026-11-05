@@ -12,7 +12,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import FoodwrapWordmark from "@/components/FoodwrapWordmark";
 import OpenAILogo from "@/components/OpenAILogo";
 import SettingsRow from "@/components/SettingsRow";
-import { SettingsSection, settingsStyles } from "@/components/SettingsSection";
+import { SettingsSection, settingsStyles, usePressHighlight } from "@/components/SettingsSection";
 import { NUTRIENT_COLORS } from "@/constants/colors";
 import { SETTINGS, SETTINGS_MOTION, TINTS } from "@/constants/settingsTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
@@ -21,6 +21,7 @@ import useProfile from "@/hooks/useProfile";
 import useWarmSettingsRoutes from "@/hooks/useWarmSettingsRoutes";
 import { getVoiceLanguage } from "@/lib/chatgpt/nutrition";
 import { createPlanClient, isChatGPTAvailable } from "@/lib/chatgpt/planClient";
+import { parseLocalDate } from "@/lib/calendarMonths.mjs";
 import { formatNumber } from "@/lib/insights/stats.mjs";
 import { VOICE_LANGUAGES } from "@/lib/voiceLanguagePreferences.mjs";
 
@@ -36,7 +37,9 @@ const goalNumber = (value) => {
   const number = value === null || value === undefined || value === "" ? NaN : Number(value);
   return Number.isFinite(number) && number > 0 ? number : null;
 };
-const joinedDate = (key) => key ? new Date(`${key}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null;
+// The server sends the join day as a full timestamp ("2025-10-12T00:00:00.000Z"); only its
+// date part is the day you joined.
+const joinedDate = (value) => parseLocalDate(value)?.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) ?? null;
 
 // Who you are, your goals, how you log, and the app itself, in that order.
 export default function SettingsScreen({ calmeraPreview = false }) {
@@ -157,8 +160,10 @@ function GoalsCard({ goals, failed, large, onPress }) {
   const values = GOALS.map((goal) => ({ ...goal, value: goalNumber(goals?.[goal.key]) }));
   const unset = values.every(({ value }) => value === null);
   const spoken = unset ? "Not set" : values.map(({ label, value, spoken: unit }) => `${label} ${value === null ? "not set" : `${formatNumber(value)} ${unit}`}`).join(", ");
+  const { pressProps, highlight } = usePressHighlight();
   return <Pressable accessibilityRole="button" accessibilityLabel="Daily goals" accessibilityValue={{ text: spoken }}
-    accessibilityHint="Opens your daily goals" onPress={onPress} style={({ pressed }) => [styles.goals, pressed && styles.pressed]}>
+    accessibilityHint="Opens your daily goals" onPress={onPress} {...pressProps} style={styles.goals}>
+    {highlight}
     <View style={styles.goalGrid}>
       {values.map(({ key, label, unit, color, value }) => <View key={key} style={[styles.goal, large && styles.goalLarge]}>
         <View style={styles.goalLabelRow}>
@@ -187,7 +192,6 @@ const styles = StyleSheet.create({
   email: { ...TYPOGRAPHY.sectionTitle, color: SETTINGS.ink },
   joined: { ...TYPOGRAPHY.caption, color: SETTINGS.inkSoft },
   goals: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, paddingVertical: 16, paddingLeft: SETTINGS.rowPadding, paddingRight: 14 },
-  pressed: { backgroundColor: SETTINGS.pressed },
   goalGrid: { flex: 1, flexDirection: "row", flexWrap: "wrap", rowGap: 14 },
   goal: { width: "25%", gap: 3, paddingRight: 6 },
   goalLarge: { width: "50%" },

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { goalInputValue, goalSaveValue, goalSliderBounds } from "../lib/goalSlider.mjs";
+import { goalAllowed, goalInputValue, goalSaveValue, goalSliderBounds } from "../lib/goalSlider.mjs";
 
 test("stored and survey decimal targets become whole-unit display values", () => {
   assert.deepEqual([2425.6, 50.25, "290.75", "88.00"].map(goalInputValue), ["2426", "50", "291", "88"]);
@@ -22,5 +22,10 @@ test("slider range includes a rounded goal above the initial limit", () => {
   const goal = goalInputValue(6123.6);
   const bounds = goalSliderBounds(goal, 5000, 500);
   assert.ok(bounds.maximumValue >= Number(goal));
-  assert.equal(bounds.minimumValue, 0);
+  assert.equal(bounds.minimumValue, 1);
+});
+test("every goal's lowest value is 1, and only an unset goal may be empty", () => {
+  for (const value of [0, -5, 50, 2000]) assert.equal(goalSliderBounds(value, 300, 50).minimumValue, 1);
+  for (const value of ["1", "2000", 1, "", null]) assert.equal(goalAllowed(value), true, String(value));
+  for (const value of ["0", 0, "-3", 0.4, "abc"]) assert.equal(goalAllowed(value), false, String(value));
 });

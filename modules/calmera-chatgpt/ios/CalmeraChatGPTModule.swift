@@ -49,6 +49,8 @@ public final class CalmeraChatGPTModule: Module {
       Prop("symbol") { (view: CalmeraMenuButtonView, value: String) in view.symbol = value }
       Prop("prominent") { (view: CalmeraMenuButtonView, value: Bool) in view.prominent = value }
       Prop("buttonHint") { (view: CalmeraMenuButtonView, value: String) in view.buttonHint = value }
+      Prop("actions") { (view: CalmeraMenuButtonView, value: Bool) in view.actions = value }
+      Prop("destructiveOptions") { (view: CalmeraMenuButtonView, value: [String]) in view.destructiveOptions = value }
       OnViewDidUpdateProps { (view: CalmeraMenuButtonView) in view.updateControl() }
     }
     View(CalmeraMealTimePickerView.self) {
@@ -80,6 +82,7 @@ public final class CalmeraChatGPTModule: Module {
       Prop("sliderDisabled") { (view: CalmeraGoalSliderView, value: Bool) in view.sliderDisabled = value }
       Prop("sliderLabel") { (view: CalmeraGoalSliderView, value: String) in view.sliderLabel = value }
       Prop("unit") { (view: CalmeraGoalSliderView, value: String) in view.unit = value }
+      Prop("trackColor") { (view: CalmeraGoalSliderView, value: UIColor?) in view.trackColor = value }
       OnViewDidUpdateProps { (view: CalmeraGoalSliderView) in view.updateControl() }
     }
     View(CalmeraMealActionsView.self) {
@@ -1648,6 +1651,10 @@ final class CalmeraMenuButtonView: ExpoView {
   var symbol = ""
   var prominent = false
   var buttonHint = ""
+  // An actions menu lists commands rather than choices: no checkmarks, and with a symbol
+  // and no title the button is just that symbol (a "•••" menu).
+  var actions = false
+  var destructiveOptions: [String] = []
   private let button = UIButton(type: .system)
   private var menuKey = ""
   private let tint = UIColor(red: 188/255, green: 90/255, blue: 25/255, alpha: 1)
@@ -1684,15 +1691,17 @@ final class CalmeraMenuButtonView: ExpoView {
     config.baseForegroundColor = foreground
     config.imageColorTransformer = UIConfigurationColorTransformer { _ in foreground }
     config.cornerStyle = .capsule
-    let fixed = !buttonTitle.isEmpty
-    config.title = fixed ? buttonTitle : selected
+    let iconOnly = actions && buttonTitle.isEmpty && !symbol.isEmpty
+    let fixed = !buttonTitle.isEmpty || iconOnly
+    config.title = iconOnly ? nil : (fixed ? buttonTitle : selected)
     config.image = UIImage(systemName: fixed ? symbol : "chevron.up.chevron.down")
     config.imagePlacement = fixed ? .leading : .trailing
     config.imagePadding = fixed ? 8 : 6
     config.preferredSymbolConfigurationForImage = fixed
       ? UIImage.SymbolConfiguration(textStyle: .body, scale: .medium)
       : UIImage.SymbolConfiguration(textStyle: .footnote, scale: .small)
-    config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 14)
+    config.contentInsets = iconOnly ? NSDirectionalEdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8)
+      : NSDirectionalEdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 14)
     // Resolve the font when UIKit applies it, so text-size changes are current.
     config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { [weak self] incoming in
       var outgoing = incoming
@@ -1703,17 +1712,18 @@ final class CalmeraMenuButtonView: ExpoView {
     button.configuration = config
     button.isEnabled = !buttonDisabled
     // Rebuild the menu only when its contents change.
-    let key = ([menuTitle, selected] + options).joined(separator: "\u{1F}")
+    let key = ([menuTitle, selected, actions ? "actions" : "choices"] + options + destructiveOptions).joined(separator: "\u{1F}")
     if key != menuKey {
       menuKey = key
-      button.menu = UIMenu(title: menuTitle, options: .singleSelection, children: options.map { option in
-        UIAction(title: option, state: option == selected ? .on : .off) { [weak self] _ in
+      button.menu = UIMenu(title: menuTitle, options: actions ? [] : .singleSelection, children: options.map { option in
+        UIAction(title: option, attributes: destructiveOptions.contains(option) ? .destructive : [],
+          state: !actions && option == selected ? .on : .off) { [weak self] _ in
           self?.onSelect(["value": option])
         }
       })
     }
     button.accessibilityLabel = buttonLabel.isEmpty ? (fixed ? buttonTitle : selected) : buttonLabel
-    button.accessibilityValue = selected
+    button.accessibilityValue = actions ? nil : selected
     button.accessibilityHint = buttonHint.isEmpty ? nil : buttonHint
     button.titleLabel?.adjustsFontForContentSizeCategory = true
     button.titleLabel?.numberOfLines = 1
@@ -1887,13 +1897,16 @@ final class CalmeraGoalSliderView: ExpoView {
   var sliderDisabled = false
   var sliderLabel = "Goal"
   var unit = ""
+  // The goal's own color fills the track; a pale wash of it shows the rest.
+  var trackColor: UIColor?
   private let slider = UISlider()
+  private let tangerine = UIColor(red: 188/255, green: 90/255, blue: 25/255, alpha: 1)
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
     backgroundColor = .clear
     overrideUserInterfaceStyle = .light
-    slider.minimumTrackTintColor = UIColor(red: 188/255, green: 90/255, blue: 25/255, alpha: 1)
+    slider.minimumTrackTintColor = tangerine
     slider.maximumTrackTintColor = UIColor(red: 229/255, green: 211/255, blue: 183/255, alpha: 1)
     slider.addTarget(self, action: #selector(changed), for: .valueChanged)
     slider.addTarget(self, action: #selector(completed), for: [.touchUpInside, .touchUpOutside, .touchCancel])
@@ -1909,6 +1922,10 @@ final class CalmeraGoalSliderView: ExpoView {
     value = value.isFinite ? value.rounded() : lower.rounded()
     if !slider.isTracking { slider.value = Float(value) }
     slider.isEnabled = !sliderDisabled
+    if let trackColor {
+      slider.minimumTrackTintColor = trackColor
+      slider.maximumTrackTintColor = trackColor.withAlphaComponent(0.2)
+    }
     slider.accessibilityLabel = sliderLabel
     updateAccessibleValue()
   }

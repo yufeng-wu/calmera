@@ -9,8 +9,10 @@ import {
   UIManager,
   Platform,
   ActivityIndicator,
+  Keyboard,
   useWindowDimensions,
 } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 import Constants from "expo-constants";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { USERS_API_URL } from "@/constants/api";
@@ -19,12 +21,13 @@ import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { NUTRIENT_COLORS } from "@/constants/colors";
 import { SETTINGS } from "@/constants/settingsTheme";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
+import { profileGoals } from "@/hooks/useNutritionData";
 import { useAuth } from "@clerk/clerk-expo";
 import { FormScreen, FormScrollView, FormHeader, GlassButton } from "@/components/GlassForm";
 import GoalSliderRow from "@/components/GoalSliderRow";
 import SettingsRow from "@/components/SettingsRow";
 import { SettingsSection, settingsStyles } from "@/components/SettingsSection";
-import { goalInputValue, goalSaveValue } from "@/lib/goalSlider.mjs";
+import { goalAllowed, goalInputValue, goalSaveValue } from "@/lib/goalSlider.mjs";
 import { fetchGoalProfile, saveGoalProfile, goalSaveErrorMessage } from "@/lib/goalProfile.mjs";
 import useFormTaskScope from "@/hooks/useFormTaskScope";
 import usePageExit from "@/hooks/usePageExit";
@@ -32,6 +35,12 @@ import usePageExit from "@/hooks/usePageExit";
 const EMPTY_GOALS = { calorieGoal: "", proteinGoal: "", carbsGoal: "", fatGoal: "" };
 const FIXTURE_GOALS = { calorieGoal: "2000", proteinGoal: "150", carbsGoal: "200", fatGoal: "50" };
 const FRACTIONAL_FIXTURE_GOALS = { calorieGoal: 2425.6, proteinGoal: 50.25, carbsGoal: 290.75, fatGoal: 88.1 };
+const goalInputs = data => ({
+  calorieGoal: goalInputValue(data.calorieGoal),
+  proteinGoal: goalInputValue(data.proteinGoal),
+  carbsGoal: goalInputValue(data.carbsGoal),
+  fatGoal: goalInputValue(data.fatGoal),
+});
 const GOAL_FIELDS = [
   { key: "calorieGoal", label: "Calories", unit: "kcal", maximum: 5000, rangeIncrement: 500, step: 25, color: NUTRIENT_COLORS.calories },
   { key: "proteinGoal", label: "Protein", unit: "g", maximum: 300, rangeIncrement: 50, step: 1, color: NUTRIENT_COLORS.protein },
@@ -54,9 +63,18 @@ export default function UpdateGoals() {
   tokenRef.current = getToken;
   const ownerRef = useRef(userId);
   ownerRef.current = userId;
-  const [goals, setGoals] = useState(isFixture ? FIXTURE_GOALS : EMPTY_GOALS);
+  // Settings already holds these goals, so the page opens with them at once. It reads
+  // the server only when they aren't loaded yet, or on Try again.
+  const [cached] = useState(() => {
+    const { profile } = store.getSnapshot();
+    return !isFixture && profile && userId && store.belongsTo(userId) ? { owner: userId, goals: goalInputs(profileGoals(profile)) } : null;
+  });
+  const [goals, setGoals] = useState(isFixture ? FIXTURE_GOALS : cached?.goals ?? EMPTY_GOALS);
+  // What's saved now; Update and the leave prompt only matter once the sliders differ.
+  const [saved, setSaved] = useState(goals);
+  const changed = Object.keys(EMPTY_GOALS).some(key => String(goals[key]) !== String(saved[key]));
   const [loading, setLoading] = useState(false);
-  const [isFetching, setIsFetching] = useState(!isFixture);
+  const [isFetching, setIsFetching] = useState(!isFixture && !cached);
   const [loadError, setLoadError] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const loadCount = useRef(0);
@@ -69,6 +87,22 @@ export default function UpdateGoals() {
   const leaveEditor = usePageExit(isFixture ? "/form-style-check" : "/dashboard");
   const [fixtureSaved, setFixtureSaved] = useState(false);
   const hasAnimated = useRef(false);
+  const navigation = useNavigation();
+  const leaving = useRef(false);
+
+  // Back, the swipe gesture and any other exit ask first while there are unsaved changes.
+  const guard = useRef(null);
+  guard.current = { changed: changed && !loading, update: () => handleSave() };
+  useEffect(() => navigation.addListener("beforeRemove", event => {
+    if (leaving.current || !guard.current.changed) return;
+    event.preventDefault();
+    Keyboard.dismiss();
+    Alert.alert("Update your goals?", "You’ve made changes that haven’t been saved.", [
+      { text: "Update", onPress: () => guard.current.update() },
+      { text: "Discard Changes", style: "destructive", onPress: () => { leaving.current = true; navigation.dispatch(event.data.action); } },
+      { text: "Keep Editing", style: "cancel" },
+    ]);
+  }), [navigation]);
 
   useEffect(() => {
     if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -94,12 +128,13 @@ export default function UpdateGoals() {
   useEffect(() => {
     if (fixtureMode === "ui-goals") {
       setGoals({ ...FIXTURE_GOALS });
+      setSaved({ ...FIXTURE_GOALS });
       setIsFetching(false);
       setLoadError(false);
       setFixtureSaved(false);
       return;
     }
-    if (!isLoaded || !userId) return;
+    if (!isLoaded || !userId || (cached?.owner === userId && loadAttempt === 0)) return;
     let active = true;
     const controller = new AbortController();
     let fixtureTimer;
@@ -123,12 +158,10 @@ export default function UpdateGoals() {
             url: `${USERS_API_URL}/get-user`, signal: controller.signal,
             isActive: () => active && ownerRef.current === userId });
         }
-        if (active && (fixtureMode || ownerRef.current === userId)) setGoals({
-          calorieGoal: goalInputValue(data.calorieGoal),
-          proteinGoal: goalInputValue(data.proteinGoal),
-          carbsGoal: goalInputValue(data.carbsGoal),
-          fatGoal: goalInputValue(data.fatGoal),
-        });
+        if (active && (fixtureMode || ownerRef.current === userId)) {
+          setGoals(goalInputs(data));
+          setSaved(goalInputs(data));
+        }
       } catch (error) {
         if (active && (fixtureMode || ownerRef.current === userId)) setLoadError(error.message === "goals_request_timeout" ? "timeout" : "failed");
       } finally {
@@ -137,7 +170,7 @@ export default function UpdateGoals() {
     };
     load();
     return () => { active = false; controller.abort(); clearTimeout(fixtureTimer); };
-  }, [fixtureMode, userId, isLoaded, loadAttempt]);
+  }, [fixtureMode, userId, isLoaded, loadAttempt, cached]);
 
   const handleChange = (field, value) => {
     const sanitized = goalInputValue(value);
@@ -149,14 +182,15 @@ export default function UpdateGoals() {
     const currentOwner = () => ownerRef.current === userId && store.belongsTo(userId);
     if (!scope.isActive() || (!isFixture && !currentOwner())
       || savePending.current || loading || isFetching || loadError) return;
-    if (Object.values(goals).some((value) => value !== "" && (!Number.isFinite(Number(value)) || Number(value) < 0))) {
-      Alert.alert("Check your goals", "Please enter a valid amount of zero or more for each goal.");
+    if (!Object.values(goals).every(goalAllowed)) {
+      Alert.alert("Check your goals", "Each goal needs to be at least 1.");
       return;
     }
     // QA uses the real editor, but cannot read or update the user's profile.
     const exerciseSave = isFixture && ["ui-goals-save", "ui-goals-save-error"].includes(fixtureMode);
     if (isFixture && !exerciseSave) {
       setFixtureSaved(true);
+      setSaved(goals);
       return;
     }
     const task = scope.start();
@@ -197,6 +231,7 @@ export default function UpdateGoals() {
       // Settings and Today show the new numbers as soon as this page closes, so a tap of
       // success is confirmation enough.
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      leaving.current = true;
       leaveEditor();
     } catch (error) {
       if (error.mayHaveSaved) refreshSavedGoals();
@@ -218,8 +253,9 @@ export default function UpdateGoals() {
         title="Daily goals"
         onBack={leaveEditor}
         onSave={handleSave}
+        saveTitle="Update"
         saving={loading}
-        saveDisabled={isFetching || Boolean(loadError)}
+        saveDisabled={isFetching || Boolean(loadError) || !changed}
         backDisabled={loading}
       />
       <FormScrollView
