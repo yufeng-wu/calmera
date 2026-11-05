@@ -7,7 +7,10 @@ public final class CalmeraChatGPTModule: Module {
 
   public func definition() -> ModuleDefinition {
     Name("CalmeraChatGPT")
-    View(CalmeraGlassView.self) {}
+    View(CalmeraGlassView.self) {
+      // Zero keeps the capsule shape; a panel passes its own corner radius.
+      Prop("cornerRadius") { (view: CalmeraGlassView, value: Double) in view.cornerRadius = CGFloat(max(0, value)) }
+    }
     // Isolated material comparison; production controls keep their appearance.
     View(CalmeraMaterialSampleView.self) {
       ViewName("MaterialSample")
@@ -287,6 +290,7 @@ final class CalmeraMaterialSampleView: ExpoView {
 // Decorative material only; all accessible controls remain React Native siblings.
 final class CalmeraGlassView: ExpoView {
   private let material = UIVisualEffectView()
+  var cornerRadius: CGFloat = 0 { didSet { setNeedsLayout() } }
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -315,7 +319,8 @@ final class CalmeraGlassView: ExpoView {
   override func layoutSubviews() {
     super.layoutSubviews()
     material.frame = bounds
-    material.layer.cornerRadius = min(bounds.height / 2, 32)
+    material.layer.cornerRadius = cornerRadius > 0 ? min(cornerRadius, bounds.height / 2) : min(bounds.height / 2, 32)
+    material.layer.cornerCurve = cornerRadius > 0 ? .continuous : .circular
     material.clipsToBounds = true
   }
 
@@ -516,7 +521,7 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
       }
       let button = UIButton(type: .custom)
       button.tag = index
-      button.accessibilityLabel = ["Log a meal from a photo", "Add a meal with text", "Hold to log a meal by voice", "Add a meal"][index]
+      button.accessibilityLabel = ["Log a meal from a photo", "Add a meal with text", "Log a meal by voice", "Add a meal"][index]
       button.translatesAutoresizingMaskIntoConstraints = false
       glass.contentView.addSubview(button)
       NSLayoutConstraint.activate([
@@ -570,13 +575,7 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
         row.widthAnchor.constraint(lessThanOrEqualTo: button.widthAnchor, constant: -32)
       ])
       button.addTarget(self, action: #selector(tapped(_:)), for: .touchUpInside)
-      if index == 2 {
-        let hold = UILongPressGestureRecognizer(target: self, action: #selector(voiceHold(_:)))
-        hold.minimumPressDuration = 0.45
-        hold.cancelsTouchesInView = true
-        button.addGestureRecognizer(hold)
-        button.accessibilityHint = "Press and hold while speaking, then release to save."
-      }
+      if index == 2 { button.accessibilityHint = "Opens a voice panel to describe your meal." }
       container.contentView.addSubview(glass)
       glasses.append(glass); buttons.append(button); rows.append(row); labels.append(label); icons.append(icon)
     }
@@ -952,19 +951,6 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
       render()
     }
     onAction(["action": actions[button.tag]])
-  }
-
-  @objc private func voiceHold(_ gesture: UILongPressGestureRecognizer) {
-    if gesture.state == .began && !analyzing && !recording {
-      onAction(["action": "voiceStart"])
-    } else if gesture.state == .ended || gesture.state == .cancelled || gesture.state == .failed {
-      if recording {
-        recording = false
-        analyzing = true
-        render()
-      }
-      onAction(["action": "voiceEnd"])
-    }
   }
 
   @objc private func backgroundTapped() {

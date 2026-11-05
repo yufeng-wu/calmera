@@ -1,4 +1,4 @@
-import { useUser, useAuth } from "@clerk/clerk-expo";
+import { useUser } from "@clerk/clerk-expo";
 import {
   Text,
   Pressable,
@@ -6,9 +6,6 @@ import {
   Platform,
   UIManager,
   Alert,
-  Animated,
-  Easing,
-  Dimensions,
   Linking,
   StyleSheet,
 } from "react-native";
@@ -26,19 +23,13 @@ import { buddyMood, daySeed, emptyTodayGreeting } from "@/lib/nutritionPresentat
 import FoodwrapRefreshScrollView from "@/components/FoodwrapRefreshScrollView";
 import FoodwrapWordmark from "@/components/FoodwrapWordmark";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
-import { Audio } from "expo-av";
-import Constants from "expo-constants";
-import { processRecordedMeal } from "@/lib/chatgpt/voiceCapture.mjs";
-import { voiceFeedbackDiagnostics } from "@/lib/chatgpt/voiceFeedbackDiagnostics.mjs";
-import { FOOD_ENTRIES_API_URL } from "@/constants/api";
 import { createPlanClient, preloadNutritionModels } from "@/lib/chatgpt/planClient";
-import { nutritionClient, transcribeMealAudio, voiceClipMetadata, getVoiceLanguage, inferenceError } from "@/lib/chatgpt/nutrition";
-import { mealTimePreferences } from "@/lib/mealTimeSettings";
-import { estimateVoiceMeal } from "@/lib/chatgpt/mealTimeEstimate.mjs";
-import { saveEstimatedEntries } from "@/lib/chatgpt/entryPersistence.mjs";
-import { getLocalTimeWithOffset } from "@/lib/utils";
+import { getVoiceLanguage, inferenceError } from "@/lib/chatgpt/nutrition";
+import { speechEngine } from "@/lib/voice/speechEngine";
+import { ensureVoicePermission } from "@/lib/voice/voiceLog.mjs";
 import AnimatedRe, { Layout as ReLayout, useAnimatedStyle } from "react-native-reanimated";
-import AddMealMenu, { ADD_MENU_OPTION_WIDTH } from "@/components/AddMealMenu";
+import AddMealMenu from "@/components/AddMealMenu";
+import VoiceLogSheet from "@/components/voice/VoiceLogSheet";
 import DayDrop, { dayDropLift, useDayDropMotion } from "@/components/DayDrop";
 import { parseLocalDate } from "@/lib/calendarMonths.mjs";
 import { localDateKey } from "@/lib/nutritionStore.mjs";
@@ -70,35 +61,14 @@ const MealGroup = memo(function MealGroup({ title, entries, onDelete, springs })
 export default function SummaryScreen() {
   const isFocused = useIsFocused();
   const { user } = useUser();
-  const { getToken } = useAuth();
   const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
   const floatingBarInset = Platform.OS === "ios" ? tabBarHeight : 0;
   const { setShouldRefresh } = useRefreshSignal();
   const [fabExpanded, setFabExpanded] = useState(false);
-  const [recording, setRecording] = useState(null);
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const [analyzing, setAnalyzing] = useState(false);
-  const longPressTriggered = useRef(false);
-  const INITIAL_VOICE_WIDTH = ADD_MENU_OPTION_WIDTH;
-  const voiceWidthAnim = useRef(
-    new Animated.Value(INITIAL_VOICE_WIDTH)
-  ).current;
-  // No translation needed; button is anchored to right so it grows leftwards
-
-
-  const timerRef = useRef(null);
-  const recordingRef = useRef(null);
-  const recordingAttemptRef = useRef(0);
-  const recorderReadyRef = useRef(false);
-  const recordingStartedAtRef = useRef(null);
-  const voiceBusyRef = useRef(false);
-  const processingRef = useRef(false);
-  // Flag to request an early stop when the user lifts finger before the recorder is ready
-  const stopRequestedRef = useRef(false);
-  // Animation refs to cancel queued animations cleanly
-  const voicePhase1AnimRef = useRef(null);
-  const voiceGrowAnimRef = useRef(null);
+  // The voice sheet, opened with the user's voice language once access is confirmed.
+  const [voice, setVoice] = useState(null);
+  const voiceOpening = useRef(false);
   const SCROLL_BOTTOM_PADDING = 116 + floatingBarInset;
 
   // A past day the user picked; null follows today, including across midnight.
@@ -171,20 +141,7 @@ export default function SummaryScreen() {
   // Closing shortens the page, so leave the scrolled position before it clamps.
   const scrollRef = useRef(null);
   const scrollToTop = useCallback(() => scrollRef.current?.scrollTo({ y: 0, animated: true }), []);
-  useFocusEffect(useCallback(() => () => {
-    closeMenu();
-    recordingAttemptRef.current += 1;
-    if (!processingRef.current) voiceBusyRef.current = false;
-    const rec = recordingRef.current;
-    recordingRef.current = null;
-    if (rec && recorderReadyRef.current) rec.stopAndUnloadAsync().catch(() => {});
-    recorderReadyRef.current = false;
-    stopRequestedRef.current = false;
-    setRecording(null);
-    if (timerRef.current) clearInterval(timerRef.current);
-    voicePhase1AnimRef.current?.stop();
-    voiceGrowAnimRef.current?.stop();
-  }, [closeMenu]));
+  useFocusEffect(useCallback(() => () => closeMenu(), [closeMenu]));
   const prepareMeal = () => { void preloadNutritionModels(user?.id); };
   const toggleAddMenu = () => {
     if (!fabExpanded) prepareMeal();
@@ -196,182 +153,47 @@ export default function SummaryScreen() {
     router.push(path);
   };
 
-  // ---------------- Voice Log handlers ----------------
-  const markVoice = (code, duration) => {
-    if (Constants.expoConfig?.extra?.calmeraFullAppTest === true) voiceFeedbackDiagnostics.mark(code, duration);
-  };
-  const stopVoiceAnimations = () => {
-    voicePhase1AnimRef.current?.stop();
-    voiceGrowAnimRef.current?.stop();
-    voiceWidthAnim.stopAnimation();
-    Animated.timing(voiceWidthAnim, { toValue: ADD_MENU_OPTION_WIDTH, duration: 280, useNativeDriver: false }).start();
-  };
-  const showProcessing = () => {
-    setRecording(null);
-    setAnalyzing(true);
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = null;
-    setRecordingSeconds(0);
-    stopVoiceAnimations();
-  };
-  const shortRecording = () => Alert.alert("Nothing recorded yet", "Hold Voice until the timer starts, describe your meal, then release.");
-
-  const stopRecording = async () => {
-    const rec = recordingRef.current;
-    if (!rec) return;
-    showProcessing();
-    if (!recorderReadyRef.current) { stopRequestedRef.current = true; return; }
-    // Claim this recorder once, including a release racing the 30-second limit.
-    recordingRef.current = null;
-    recorderReadyRef.current = false;
-    processingRef.current = true;
-    try {
-      const recordedAt = recordingStartedAtRef.current || new Date();
-      const createdAt = getLocalTimeWithOffset();
-      const savedEntries = await processRecordedMeal({
-        recording: rec, isActive: isSessionActive,
-        onStage: (stage) => markVoice(stage), onDuration: (duration) => markVoice("duration", duration),
-        inspectClip: voiceClipMetadata, onFileDuration: (duration) => markVoice("file_duration", duration),
-        transcribe: async (uri) => {
-          const language = await getVoiceLanguage(user.id, { isActive: isSessionActive });
-          if (!isSessionActive()) throw new Error("voice_operation_cancelled");
-          return transcribeMealAudio(uri, language);
-        },
-        estimate: transcript => estimateVoiceMeal({ userId: user.id, transcript, recordedAt,
-          isActive: isSessionActive, loadMealTimes: (owner, options) => mealTimePreferences.load(owner, options),
-          getNutritionClient: nutritionClient }),
-        save: (entries) => saveEstimatedEntries(entries, {
-          createdAt, getToken: async () => {
-            const token = await getToken();
-            return isSessionActive() ? token : null;
-          }, url: FOOD_ENTRIES_API_URL, isActive: isSessionActive,
-        }),
-      });
-      if (savedEntries && isSessionActive()) {
-        addEntries(savedEntries);
-        setShouldRefresh(true);
-        setFabExpanded(false);
-        setPickedDate(null);
-      }
-    } catch (error) {
-      markVoice(error.message === "voice_clip_too_short" ? "too_short" : "failed");
-      if (isSessionActive()) {
-        if (error.message === "voice_clip_too_short") shortRecording();
-        else {
-          if (error.savedEntries?.length) { addEntries(error.savedEntries); setShouldRefresh(true); }
-          inferenceError(error, router);
-        }
-      }
-    } finally {
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true }).catch(() => {});
-      setRecording(null);
-      setAnalyzing(false);
-      processingRef.current = false;
-      voiceBusyRef.current = false;
-      stopRequestedRef.current = false;
-      if (timerRef.current) clearInterval(timerRef.current);
-      timerRef.current = null;
-      markVoice("idle");
-    }
-  };
-
-  const startRecording = async () => {
-    const attempt = ++recordingAttemptRef.current;
-    let rec;
-    let started = false;
+  // ---------------- Voice Log ----------------
+  // A tap opens the voice sheet. iOS is asked for the microphone and speech recognition the first
+  // time; if they've been turned off, Settings is the only way back, so offer it.
+  const openVoice = async () => {
+    if (voiceOpening.current || voice) return;
+    voiceOpening.current = true;
+    prepareMeal();
+    setFabExpanded(false);
     try {
       if (!await createPlanClient(user.id).connected()) {
         inferenceError(new Error("chatgpt_sign_in_required"), router);
         return;
       }
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Microphone Access Required", "To use voice logging, please grant microphone permission in your device settings.", [
-          { text: "Cancel", style: "cancel" },
-          { text: "Open Settings", onPress: () => Platform.OS === "ios" ? Linking.openURL("app-settings:") : Linking.openSettings() },
+      const speech = speechEngine();
+      const access = await ensureVoicePermission(speech).catch(() => "unavailable");
+      if (access === "unavailable") {
+        Alert.alert("Voice logging unavailable", "This version of calmera can’t listen yet. Use Text or Photo instead.");
+        return;
+      }
+      if (access !== "granted") {
+        Alert.alert("Allow microphone and speech", "Voice logging listens on your iPhone to write down what you ate. Turn on Microphone and Speech Recognition for calmera in Settings.", [
+          { text: "Not now", style: "cancel" },
+          { text: "Open Settings", onPress: () => (Platform.OS === "ios" ? Linking.openURL("app-settings:") : Linking.openSettings()).catch(() => {}) },
         ]);
         return;
       }
-      if (attempt !== recordingAttemptRef.current || !isSessionActive()) return;
-      if (stopRequestedRef.current) { markVoice("too_short"); shortRecording(); return; }
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-      if (attempt !== recordingAttemptRef.current) return;
-      rec = new Audio.Recording();
-      recorderReadyRef.current = false;
-      recordingRef.current = rec;
-      await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-      if (attempt !== recordingAttemptRef.current) return;
-      if (stopRequestedRef.current) { markVoice("too_short"); shortRecording(); return; }
-      recordingStartedAtRef.current = new Date();
-      await rec.startAsync();
-      if (attempt !== recordingAttemptRef.current) return;
-      started = true;
-      recorderReadyRef.current = true;
-      markVoice("recording");
-      // A release during native startup still gets immediate Processing feedback.
-      if (stopRequestedRef.current) { await stopRecording(); return; }
-      setRecording(rec);
-      setRecordingSeconds(0);
-      voiceWidthAnim.setValue(ADD_MENU_OPTION_WIDTH);
-      const phase1 = Animated.timing(voiceWidthAnim, {
-        toValue: ADD_MENU_OPTION_WIDTH + 40, duration: 200, useNativeDriver: false,
-      });
-      voicePhase1AnimRef.current = phase1;
-      phase1.start(({ finished }) => {
-        if (!finished || stopRequestedRef.current || recordingRef.current !== rec) return;
-        const grow = Animated.timing(voiceWidthAnim, {
-          toValue: Dimensions.get("window").width * 0.7, duration: 30000,
-          easing: Easing.out(Easing.quad), useNativeDriver: false,
-        });
-        voiceGrowAnimRef.current = grow;
-        grow.start();
-      });
-      timerRef.current = setInterval(() => setRecordingSeconds((seconds) => seconds + 1), 1000);
-      setTimeout(() => { if (recordingRef.current === rec) stopRecording(); }, 30000);
-    } catch {
-      markVoice("failed");
-      if (attempt === recordingAttemptRef.current) Alert.alert("Voice recording unavailable", "The recorder could not start. Please try again.");
+      const language = await getVoiceLanguage(user.id, { isActive: isSessionActive }).catch(() => undefined);
+      if (!isSessionActive()) return;
+      setVoice({ language, key: Date.now() });
+    } catch (error) {
+      inferenceError(error, router);
     } finally {
-      if (!started) {
-        if (rec) await rec.stopAndUnloadAsync().catch(() => {});
-        if (attempt === recordingAttemptRef.current) {
-          recordingRef.current = null;
-          recorderReadyRef.current = false;
-          voiceBusyRef.current = false;
-          stopRequestedRef.current = false;
-          setRecording(null);
-          setAnalyzing(false);
-          stopVoiceAnimations();
-          await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true }).catch(() => {});
-          markVoice("idle");
-        }
-      }
+      voiceOpening.current = false;
     }
   };
-
-  const handleVoiceShortPress = () => {
-    if (voiceBusyRef.current || longPressTriggered.current) return;
-    prepareMeal();
-    Alert.alert("Log a meal by voice", 'Hold Voice until the timer starts, describe your meal, then release. For example: “A 16-ounce latte for breakfast.”');
-  };
-  const handleVoiceLongPress = () => {
-    if (voiceBusyRef.current) return;
-    prepareMeal();
-    voiceBusyRef.current = true;
-    stopRequestedRef.current = false;
-    longPressTriggered.current = true;
-    markVoice("starting");
-    startRecording();
-  };
-  const handleVoicePressOut = () => {
-    if (!longPressTriggered.current) return;
-    longPressTriggered.current = false;
-    if (!voiceBusyRef.current) return; // The automatic time limit may have already completed.
-    stopRequestedRef.current = true;
-    markVoice("released");
-    showProcessing();
-    if (recordingRef.current) stopRecording();
-  };
+  const closeVoice = useCallback(() => setVoice(null), []);
+  const voiceSaved = useCallback((savedEntries) => {
+    if (savedEntries?.length) addEntries(savedEntries);
+    setShouldRefresh(true);
+    setPickedDate(null);
+  }, [addEntries, setShouldRefresh]);
 
   const groupedEntries = useMemo(() => entries.reduce((acc, entry) => {
     const meal = entry.mealType;
@@ -443,15 +265,13 @@ export default function SummaryScreen() {
         </AnimatedRe.View>
       </FoodwrapRefreshScrollView>
 
-      {/* Meals always log to today. A voice meal still in progress keeps its status visible. */}
-      {/* Above the page, which sits above the pinned scene. */}
-      {(isToday || recording || analyzing) && <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { zIndex: 3 }]}><AddMealMenu bottomInset={floatingBarInset} expanded={fabExpanded} onToggle={toggleAddMenu}
+      {/* Meals always log to today. Above the page, which sits above the pinned scene. */}
+      {isToday && <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { zIndex: 3 }]}><AddMealMenu bottomInset={floatingBarInset} expanded={fabExpanded} onToggle={toggleAddMenu}
         onClose={closeMenu} onText={() => collapseFabThenNavigate("/create")}
         onPhoto={() => collapseFabThenNavigate("/photo-log")}
-        onVoicePress={handleVoiceShortPress} onVoiceLongPress={handleVoiceLongPress}
-        onVoicePressOut={handleVoicePressOut} recording={Boolean(recording)}
-        seconds={recordingSeconds} analyzing={analyzing} voiceWidth={voiceWidthAnim}
+        onVoicePress={openVoice}
         /></View>}
+      <VoiceLogSheet key={voice?.key} open={Boolean(voice)} language={voice?.language} onClose={closeVoice} onSaved={voiceSaved} />
     </View>
   );
 }

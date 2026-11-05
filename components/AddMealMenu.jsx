@@ -8,8 +8,7 @@ import { requireNativeViewManager } from "expo-modules-core";
 export const ADD_MENU_OPTION_WIDTH = 120;
 
 function FallbackAddMealMenu({ expanded, onToggle, onClose, onText, onPhoto,
-  onVoicePress, onVoiceLongPress, onVoicePressOut, recording, seconds, analyzing,
-  voiceWidth, bottomInset = 0, onOptionLayout }) {
+  onVoicePress, bottomInset = 0, onOptionLayout }) {
   const progress = useRef(new Animated.Value(0)).current;
   const [reduceMotion, setReduceMotion] = useState(true);
   useEffect(() => {
@@ -30,55 +29,48 @@ function FallbackAddMealMenu({ expanded, onToggle, onClose, onText, onPhoto,
   useEffect(() => {
     if (!expanded) return;
     const listener = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (!recording) onClose();
+      onClose();
       return true;
     });
     return () => listener.remove();
-  }, [expanded, recording, onClose]);
-  const dismiss = () => { if (!recording) onClose(); };
+  }, [expanded, onClose]);
+  const dismiss = () => onClose();
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}
       accessibilityViewIsModal={expanded} onAccessibilityEscape={dismiss}>
       {expanded && <Pressable style={StyleSheet.absoluteFill} onPress={dismiss}
         accessibilityRole="button" accessibilityLabel="Dismiss add meal menu" />}
-      {(expanded || recording || analyzing) && <Animated.View style={[styles.stack, {
+      {expanded && <Animated.View style={[styles.stack, {
         bottom: 108 + bottomInset,
-        opacity: expanded ? progress : 1,
-        transform: [{ translateY: expanded ? progress.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) : 0 }],
+        opacity: progress,
+        transform: [{ translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }],
       }]}>
-        {expanded && <>
-          <Pressable accessibilityRole="button" accessibilityLabel="Log a meal from a photo"
-            disabled={recording} onPress={onPhoto}
+          <Pressable accessibilityRole="button" accessibilityLabel="Log a meal from a photo" onPress={onPhoto}
             onLayout={onOptionLayout ? ({ nativeEvent }) => onOptionLayout("photo", nativeEvent.layout.width) : undefined}
-            style={({ pressed }) => [styles.option, pressed && styles.pressed, recording && styles.disabled]}>
+            style={({ pressed }) => [styles.option, pressed && styles.pressed]}>
             <GlassSurface />
             <Ionicons name="camera-outline" size={20} color={COLORS.primary} />
             <Text style={styles.label}>Photo</Text>
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="Add a meal with text"
-            disabled={recording} onPress={onText}
+          <Pressable accessibilityRole="button" accessibilityLabel="Add a meal with text" onPress={onText}
             onLayout={onOptionLayout ? ({ nativeEvent }) => onOptionLayout("text", nativeEvent.layout.width) : undefined}
-            style={({ pressed }) => [styles.option, pressed && styles.pressed, recording && styles.disabled]}>
+            style={({ pressed }) => [styles.option, pressed && styles.pressed]}>
             <GlassSurface />
             <Ionicons name="pencil-outline" size={20} color={COLORS.primary} />
             <Text style={styles.label}>Text</Text>
           </Pressable>
-        </>}
-        <Animated.View style={{ width: recording || analyzing ? voiceWidth : ADD_MENU_OPTION_WIDTH, minWidth: ADD_MENU_OPTION_WIDTH }}>
-          <Pressable onPress={onVoicePress} onLongPress={onVoiceLongPress} onPressOut={onVoicePressOut}
+          <Pressable onPress={onVoicePress} accessibilityRole="button" accessibilityLabel="Log a meal by voice"
             onLayout={onOptionLayout ? ({ nativeEvent }) => onOptionLayout("voice", nativeEvent.layout.width) : undefined}
-            disabled={analyzing} accessibilityRole="button" accessibilityLabel={analyzing ? "Analyzing meal" : "Hold to log a meal by voice"}
-            accessibilityHint="Press and hold while speaking, then release to save."
-            style={({ pressed }) => [styles.option, styles.voice, pressed && styles.pressed]}>
+            accessibilityHint="Opens a voice panel to describe your meal."
+            style={({ pressed }) => [styles.option, pressed && styles.pressed]}>
             <GlassSurface />
-            <Ionicons name={recording ? "radio" : "mic-outline"} size={20} color={COLORS.primary} />
-            <Text style={styles.label}>{analyzing ? "Processing…" : recording ? `${seconds}s · Release` : "Voice"}</Text>
+            <Ionicons name="mic-outline" size={20} color={COLORS.primary} />
+            <Text style={styles.label}>Voice</Text>
           </Pressable>
-        </Animated.View>
       </Animated.View>}
-      <Pressable onPress={onToggle} disabled={Boolean(recording)} accessibilityRole="button"
+      <Pressable onPress={onToggle} accessibilityRole="button"
         accessibilityLabel={expanded ? "Close add meal menu" : "Add a meal"}
-        accessibilityState={{ expanded, disabled: Boolean(recording) }}
+        accessibilityState={{ expanded }}
         style={({ pressed }) => [styles.trigger, { bottom: 40 + bottomInset, width: expanded ? 56 : 80 }, pressed && styles.pressed]}>
         <GlassSurface />
         <Ionicons name={expanded ? "close" : "add"} size={20} color={COLORS.primary} />
@@ -93,14 +85,12 @@ const styles = StyleSheet.create({
   option: { width: ADD_MENU_OPTION_WIDTH, maxWidth: "100%", minHeight: 48, paddingVertical: 12, paddingHorizontal: 16,
     borderRadius: 24, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
     backgroundColor: "transparent", shadowColor: COLORS.shadow, shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
-  voice: { width: "100%", minWidth: ADD_MENU_OPTION_WIDTH },
   label: { fontSize: 14, fontWeight: "600", color: COLORS.text, flexShrink: 1 },
   trigger: { position: "absolute", bottom: 40, right: 20, minHeight: 56,
     minWidth: 56, paddingHorizontal: 12, borderRadius: 28, gap: 4,
     flexDirection: "row", alignItems: "center", justifyContent: "center",
     backgroundColor: "transparent", shadowColor: COLORS.shadow, shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
   pressed: { opacity: 0.7 },
-  disabled: { opacity: 0.5 },
 });
 
 
@@ -113,9 +103,7 @@ export default function AddMealMenu(props) {
   const onAction = ({ nativeEvent }) => {
     const actions = {
       toggle: props.onToggle, close: props.onClose,
-      photo: props.onPhoto, text: props.onText,
-      voiceTap: props.onVoicePress, voiceStart: props.onVoiceLongPress,
-      voiceEnd: props.onVoicePressOut,
+      photo: props.onPhoto, text: props.onText, voiceTap: props.onVoicePress,
     };
     actions[nativeEvent.action]?.();
   };
@@ -127,8 +115,8 @@ export default function AddMealMenu(props) {
     });
   };
   return <NativeMenu style={StyleSheet.absoluteFill}
-    expanded={props.expanded} recording={Boolean(props.recording)} analyzing={Boolean(props.analyzing)}
-    seconds={props.seconds || 0} bottomInset={props.bottomInset || 0} optionWidth={ADD_MENU_OPTION_WIDTH}
+    expanded={props.expanded} recording={false} analyzing={false}
+    seconds={0} bottomInset={props.bottomInset || 0} optionWidth={ADD_MENU_OPTION_WIDTH}
     previewPalette={props.previewPalette || "tangerine"} motionDiagnostics={Boolean(props.onMenuMetrics)}
     onAction={onAction} onMetrics={props.onOptionLayout || props.onOptionSpacing || props.onMenuMetrics ? onMetrics : undefined} />;
 }
