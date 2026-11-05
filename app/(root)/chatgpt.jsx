@@ -9,8 +9,9 @@ import { readChatGPTConnection } from "@/lib/chatgpt/connectionOutcome.mjs";
 import { connectionIssue, isAuthorizationCancelled } from "@/lib/chatgpt/connectionStatus.mjs";
 import { selectNutritionModel } from "@/lib/chatgpt/modelSelection.mjs";
 import { Ionicons } from "@expo/vector-icons";
-import { FormScreen, FormScrollView, FormCard, FormHeader, GlassButton, formStyles } from "@/components/GlassForm";
+import { FormScreen, FormScrollView, FormHeader, GlassButton, formStyles } from "@/components/GlassForm";
 import SettingsRow from "@/components/SettingsRow";
+import { SettingsSection, SettingsTile, settingsStyles } from "@/components/SettingsSection";
 import OpenAILogo, { OPENAI_BLOSSOM_SYMBOL } from "@/components/OpenAILogo";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import usePageExit from "@/hooks/usePageExit";
@@ -175,30 +176,28 @@ function ChatGPTSettingsForm({ userId, calmeraPreview = false, calmeraPreviewSta
 
   return <FormScreen style={formStyles.screen}>
     <FormHeader title={view === "models" ? "Default model" : "ChatGPT"} onBack={view === "models" ? () => { if (!pending) { setView("connection"); setNotice(null); } } : leave} backDisabled={view === "models" && pending} />
-    <FormScrollView key={`chatgpt-${view}-${fontScale}`} contentContainerStyle={formStyles.content} showsVerticalScrollIndicator={false}>
+    <FormScrollView key={`chatgpt-${view}-${fontScale}`} contentContainerStyle={settingsStyles.content} showsVerticalScrollIndicator={false}>
       {view === "models" ? <>
-        <Text style={styles.sectionNote}>Your default model for calmera’s AI requests.</Text>
-        <FormCard style={styles.group}>
+        <SettingsSection footnote={connection.detailsError ? <View style={styles.modelFeedback}>
+          <Text style={settingsStyles.footnote}>{issue?.message || "Available models couldn’t be loaded. Your default hasn’t changed."}</Text>
+          {issue?.action === "retry" && <GlassButton title="Try again" symbol="arrow.clockwise" onPress={retry} disabled={pending} />}
+        </View> : connection.preferred && !preferredModel ? "Your saved model isn’t available for this account. Automatic selection is being used."
+          : "Calmera uses this model for its AI requests."}>
           <SettingsRow title="Automatic" subtitle="Calmera chooses an available model." accessibilityRole="radio"
             selected={automaticSelected} onPress={() => selectModel(null)} disabled={pending} />
           {savedChoiceUnconfirmed && <SettingsRow title={connection.preferred} subtitle="Saved default" divider accessibilityRole="radio"
             selected onPress={() => selectModel(connection.preferred)} disabled={pending} />}
           {connection.choices.map(item => <SettingsRow key={item.slug} title={item.display_name || item.slug} divider accessibilityRole="radio"
             selected={connection.preferred === item.slug} onPress={() => selectModel(item.slug)} disabled={pending} />)}
-        </FormCard>
-        {connection.detailsError && <View style={styles.modelFeedback}>
-          <Text style={styles.sectionNote}>{issue?.message || "Available models couldn’t be loaded. Your default hasn’t changed."}</Text>
-          {issue?.action === "retry" && <GlassButton title="Try again" symbol="arrow.clockwise" onPress={retry} disabled={pending} />}
-        </View>}
-        {connection.preferred && !preferredModel && !connection.detailsError && <Text style={styles.sectionNote}>Your saved model isn’t available for this account. Automatic selection is being used.</Text>}
+        </SettingsSection>
         {pending && <ActivityIndicator color={COLORS.primary} accessibilityLabel={action === "model" ? "Saving default model" : "Loading available models"} />}
       </> : <>
-        <FormCard style={styles.group}>
+        <SettingsSection label="Account" footnote={!linked && !canSignIn && !pending && issue ? issue.message : undefined}>
           <View style={styles.connectionHeader}>
-            <View style={styles.brand}><OpenAILogo /></View>
+            <SettingsTile tint="cocoa" size={40}><OpenAILogo /></SettingsTile>
             <View style={styles.statusCopy} accessibilityLiveRegion="polite">
               <Text accessibilityRole="header" style={styles.title}>{title}</Text>
-              {email ? <Text style={styles.email}>{email}</Text> : !pending && <Text style={styles.detail}>{linked ? "Connected on this phone" : "Use your ChatGPT plan in calmera."}</Text>}
+              {email ? <Text style={styles.detail} numberOfLines={1}>{email}</Text> : !pending && <Text style={styles.detail}>{linked ? "Connected on this phone" : "Use your ChatGPT plan in calmera."}</Text>}
             </View>
             {pending ? <ActivityIndicator color={COLORS.primary} accessible={false} /> : connection.account && <GlassButton symbol="ellipsis" role="navigation"
               accessibilityLabel="Manage ChatGPT account" onPress={manageAccount} style={styles.accountMenu} />}
@@ -206,10 +205,9 @@ function ChatGPTSettingsForm({ userId, calmeraPreview = false, calmeraPreviewSta
           {(canSignIn || canRetry) && <View style={styles.signInAction}>
             <GlassButton title={canSignIn ? "Continue with ChatGPT" : "Try again"} symbol={canSignIn ? OPENAI_BLOSSOM_SYMBOL : "arrow.clockwise"} onPress={canSignIn ? signIn : retry} />
           </View>}
-          {linked && <SettingsRow title="Default model" subtitle={defaultLabel} icon="sparkles-outline" divider
+          {linked && <SettingsRow title="Default model" value={defaultLabel} icon="sparkles" tint="plum" divider
             onPress={() => { if (!pending) { setNotice(null); setView("models"); } }} disabled={pending} />}
-        </FormCard>
-        {!linked && !canSignIn && !pending && issue && <Text style={styles.sectionNote}>{issue.message}</Text>}
+        </SettingsSection>
         {connection.connected && <Pressable accessibilityRole="link" accessibilityLabel="Manage usage in ChatGPT"
           disabled={pending} onPress={manageUsage} style={styles.usageLink}>
           <Text style={styles.linkText}>Manage usage in ChatGPT</Text><Ionicons name="open-outline" size={14} color={COLORS.primary} />
@@ -224,18 +222,14 @@ function ChatGPTSettingsForm({ userId, calmeraPreview = false, calmeraPreviewSta
   </FormScreen>;
 }
 const styles = StyleSheet.create({
-  group: { padding: 0, gap: 0, overflow: "hidden" },
-  connectionHeader: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 18, paddingVertical: 18 },
-  brand: { width: 26, minHeight: 26, alignItems: "center", justifyContent: "center" },
-  statusCopy: { flex: 1, gap: 5 },
+  connectionHeader: { flexDirection: "row", alignItems: "center", gap: 12, padding: 16 },
+  statusCopy: { flex: 1, gap: 2 },
   title: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text },
-  email: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
-  detail: { ...TYPOGRAPHY.body, color: COLORS.textLight },
+  detail: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
   accountMenu: { width: 44, minHeight: 44, height: 44 },
-  signInAction: { paddingHorizontal: 18, paddingBottom: 18 },
-  modelFeedback: { gap: 12 },
-  sectionNote: { ...TYPOGRAPHY.caption, color: COLORS.textLight, marginHorizontal: 4 },
-  usageLink: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 7, minHeight: 44, paddingHorizontal: 4, marginTop: -10 },
+  signInAction: { paddingHorizontal: 16, paddingBottom: 16 },
+  modelFeedback: { gap: 10 },
+  usageLink: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 7, minHeight: 44, paddingHorizontal: 4, marginTop: -16 },
   linkText: { ...TYPOGRAPHY.captionMedium, color: COLORS.primary },
   notice: { ...TYPOGRAPHY.caption, color: COLORS.primary, paddingHorizontal: 4 },
   privacy: { flexDirection: "row", alignItems: "flex-start", gap: 8, paddingHorizontal: 4 },

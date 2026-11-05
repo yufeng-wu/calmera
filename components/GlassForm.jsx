@@ -74,7 +74,7 @@ const fallbackSymbols = {
   "chevron.right": "chevron-forward", "arrow.clockwise": "refresh-outline",
   "arrow.counterclockwise": "refresh-outline", xmark: "close", clock: "time-outline",
   "rectangle.portrait.and.arrow.right": "log-out-outline", "gearshape": "settings-outline",
-  "checkmark.circle": "checkmark-circle-outline", trash: "trash-outline", "book": "book-outline", "lock": "lock-closed-outline",
+  "checkmark.circle": "checkmark-circle-outline", "square.and.arrow.up": "share-outline", trash: "trash-outline", "book": "book-outline", "lock": "lock-closed-outline",
 };
 
 // UIKit owns the glass material and press response. Never fade an effect ancestor.

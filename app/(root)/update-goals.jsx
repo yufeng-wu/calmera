@@ -14,12 +14,16 @@ import {
 import Constants from "expo-constants";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { USERS_API_URL } from "@/constants/api";
+import * as Haptics from "expo-haptics";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
-import { Ionicons } from "@expo/vector-icons";
+import { NUTRIENT_COLORS } from "@/constants/colors";
+import { SETTINGS } from "@/constants/settingsTheme";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { useAuth } from "@clerk/clerk-expo";
-import { FormScreen, FormScrollView, FormHeader, FormCard, GlassButton } from "@/components/GlassForm";
+import { FormScreen, FormScrollView, FormHeader, GlassButton } from "@/components/GlassForm";
 import GoalSliderRow from "@/components/GoalSliderRow";
+import SettingsRow from "@/components/SettingsRow";
+import { SettingsSection, settingsStyles } from "@/components/SettingsSection";
 import { goalInputValue, goalSaveValue } from "@/lib/goalSlider.mjs";
 import { fetchGoalProfile, saveGoalProfile, goalSaveErrorMessage } from "@/lib/goalProfile.mjs";
 import useFormTaskScope from "@/hooks/useFormTaskScope";
@@ -29,10 +33,10 @@ const EMPTY_GOALS = { calorieGoal: "", proteinGoal: "", carbsGoal: "", fatGoal: 
 const FIXTURE_GOALS = { calorieGoal: "2000", proteinGoal: "150", carbsGoal: "200", fatGoal: "50" };
 const FRACTIONAL_FIXTURE_GOALS = { calorieGoal: 2425.6, proteinGoal: 50.25, carbsGoal: 290.75, fatGoal: 88.1 };
 const GOAL_FIELDS = [
-  { key: "calorieGoal", label: "Calories", unit: "kcal", maximum: 5000, rangeIncrement: 500, step: 25 },
-  { key: "proteinGoal", label: "Protein", unit: "g", maximum: 300, rangeIncrement: 50, step: 1 },
-  { key: "carbsGoal", label: "Carbs", unit: "g", maximum: 600, rangeIncrement: 100, step: 1 },
-  { key: "fatGoal", label: "Fat", unit: "g", maximum: 200, rangeIncrement: 25, step: 1 },
+  { key: "calorieGoal", label: "Calories", unit: "kcal", maximum: 5000, rangeIncrement: 500, step: 25, color: NUTRIENT_COLORS.calories },
+  { key: "proteinGoal", label: "Protein", unit: "g", maximum: 300, rangeIncrement: 50, step: 1, color: NUTRIENT_COLORS.protein },
+  { key: "carbsGoal", label: "Carbs", unit: "g", maximum: 600, rangeIncrement: 100, step: 1, color: NUTRIENT_COLORS.carbs },
+  { key: "fatGoal", label: "Fat", unit: "g", maximum: 200, rangeIncrement: 25, step: 1, color: NUTRIENT_COLORS.fat },
 ];
 
 export default function UpdateGoals() {
@@ -190,12 +194,10 @@ export default function UpdateGoals() {
       await saveGoalProfile(options);
       refreshSavedGoals();
       if (!task.isCurrent() || (!isFixture && !currentOwner())) return;
-      Alert.alert("Success", "Goals updated successfully", [{
-        text: "OK",
-        onPress: () => {
-          if (task.isCurrent() && (isFixture || currentOwner())) leaveEditor();
-        },
-      }]);
+      // Settings and Today show the new numbers as soon as this page closes, so a tap of
+      // success is confirmation enough.
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      leaveEditor();
     } catch (error) {
       if (error.mayHaveSaved) refreshSavedGoals();
       if (task.isCurrent() && (isFixture || currentOwner())) {
@@ -213,7 +215,7 @@ export default function UpdateGoals() {
   return (
     <FormScreen style={styles.screen}>
       <FormHeader
-        title="Edit Goals"
+        title="Daily goals"
         onBack={leaveEditor}
         onSave={handleSave}
         saving={loading}
@@ -224,17 +226,16 @@ export default function UpdateGoals() {
         // Re-measure RN text after a live Dynamic Type change; keep draft state
         // in this screen so remounting the scroll content never reloads goals.
         key={`goals-text-${fontScale}`}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={settingsStyles.content}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.eyebrow}>DAILY TARGETS</Text>
-        <Text style={styles.description}>Adjust your daily goals with the sliders.</Text>
-        <FormCard style={styles.goalCard}>
+        <Text style={settingsStyles.lead}>Slide to set what you aim for each day. Today’s rings fill toward these.</Text>
+        <SettingsSection label="Daily targets" cardStyle={styles.goalCard}>
           {isFetching ? (
             <View style={styles.loading} accessibilityLiveRegion="polite">
               <ActivityIndicator color={COLORS.primary} />
-              <Text style={styles.description}>Loading your goals…</Text>
+              <Text style={settingsStyles.footnote}>Loading your goals…</Text>
             </View>
           ) : loadError ? (
             <View style={styles.errorFeedback} accessibilityLiveRegion="polite">
@@ -256,7 +257,7 @@ export default function UpdateGoals() {
               />
             </View>
           ))}
-        </FormCard>
+        </SettingsSection>
         {isFixture && fixtureMode !== "ui-goals" && (
           <View style={{ gap: 4 }}>
             <Text style={styles.fixtureStatus}>Synthetic profile loads: {loadCount.current}</Text>
@@ -269,29 +270,17 @@ export default function UpdateGoals() {
             Test goals updated locally. Your account was not changed.
           </Text>
         )}
-        <FormCard style={styles.helpCard}>
-          <View style={styles.helpHeading}>
-            <Ionicons name="sparkles" size={19} color={COLORS.primary} />
-            <Text style={styles.helpTitle}>Need some help?</Text>
-          </View>
-          <Text style={styles.helpDescription}>
-            Take a 1-minute survey for suggested calories and macros.
-          </Text>
-          <GlassButton
-            title="Take the survey"
-            symbol="arrow.right"
+        <SettingsSection label="Not sure?">
+          <SettingsRow title="Suggest my goals" subtitle="A 1-minute survey for calories and macros" icon="sparkles" tint="leaf"
+            disabled={loading || isFetching} accessibilityHint="Opens the goals survey"
             onPress={() => {
               if (isFixture) {
                 Alert.alert("Isolated UI test", "The survey is available in the normal app. This test stays local and does not open your profile or change your goals.");
                 return;
               }
               router.push("/goals-survey");
-            }}
-            disabled={loading || isFetching}
-            style={styles.surveyButton}
-            accessibilityLabel="Take the goals survey"
-          />
-        </FormCard>
+            }} />
+        </SettingsSection>
       </FormScrollView>
     </FormScreen>
   );
@@ -299,18 +288,12 @@ export default function UpdateGoals() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.background },
-  content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 40, gap: 12 },
-  eyebrow: { ...TYPOGRAPHY.eyebrow, color: COLORS.textLight,},
-  description: { ...TYPOGRAPHY.body, color: COLORS.textLight,},
-  goalCard: { paddingHorizontal: 18, paddingVertical: 6, gap: 0 },
-  divider: { height: StyleSheet.hairlineWidth, backgroundColor: "#EDE6DF" },
+  description: { ...TYPOGRAPHY.body, color: COLORS.textLight },
+  goalCard: { paddingHorizontal: 18, paddingVertical: 6 },
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: SETTINGS.hairline },
   loading: { minHeight: 280, alignItems: "center", justifyContent: "center", gap: 14 },
   errorFeedback: { alignItems: "center", paddingVertical: 20, gap: 12 },
   centeredText: { textAlign: "center" },
-  helpCard: { padding: 18, gap: 12 },
-  helpHeading: { flexDirection: "row", alignItems: "center", gap: 8 },
-  helpTitle: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text,},
-  helpDescription: { ...TYPOGRAPHY.body, color: COLORS.textLight,},
-  surveyButton: { minHeight: 46, alignSelf: "stretch" },
-  fixtureStatus: { ...TYPOGRAPHY.caption, color: COLORS.primary,},
+  helpTitle: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text },
+  fixtureStatus: { ...TYPOGRAPHY.caption, color: COLORS.primary },
 });
