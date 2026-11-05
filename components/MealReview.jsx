@@ -58,7 +58,8 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
   const headerHeight = useRef(top + 64);
   const revealFrame = useRef(null);
   const [iconFoodId, setIconFoodId] = useState(null);
-  // A food's numbers before Re-estimate; when its estimate lands, the changed tiles count up.
+  // A food before Re-estimate. Every landed estimate plays over all four tiles, even
+  // when a number came back the same; a failed one leaves the food untouched and plays nothing.
   const beforeEstimate = useRef({});
   const [pulse, setPulse] = useState(null);
   const lastEstimating = useRef(estimating);
@@ -66,11 +67,11 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
     const finished = lastEstimating.current;
     lastEstimating.current = estimating;
     if (!finished || finished === estimating) return;
-    const from = beforeEstimate.current[finished];
+    const before = beforeEstimate.current[finished];
     delete beforeEstimate.current[finished];
     const entry = review.entries.find(item => item.id === finished);
-    if (!from || !entry || nutrients.every(([, key]) => Number(from[key]) === Number(entry[key]))) return;
-    setPulse({ id: Date.now(), entryId: finished, from });
+    if (!before || !entry || entry === before.entry) return;
+    setPulse({ id: Date.now(), entryId: finished, from: pick(before.entry) });
     haptic(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success));
   }, [estimating, review.entries]);
   const [removed, setRemoved] = useState(null);
@@ -347,7 +348,7 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
                 {/* Glass buttons are built only once a row has been opened; until then a
                     same-size placeholder keeps the measured height exact. */}
                 {!expanded && !openedIds.current.has(entry.id) ? <View style={[styles.itemActions, styles.actionsPlaceholder]} /> : <View style={styles.itemActions}>
-                  <GlassButton title="Re-estimate" symbol="sparkles" onPress={() => { Keyboard.dismiss(); beforeEstimate.current[entry.id] = pick(entry); onReestimate(entry.id); }}
+                  <GlassButton title="Re-estimate" symbol="sparkles" onPress={() => { Keyboard.dismiss(); beforeEstimate.current[entry.id] = { entry }; onReestimate(entry.id); }}
                     disabled={locked || !entry.foodName.trim() || !entry.quantity.trim()} loading={estimating === entry.id} style={styles.reestimate} />
                   <GlassButton symbol="trash" role="destructive" onPress={() => removeFood(entry.id)} disabled={locked}
                     accessibilityLabel={`Remove ${name}`} style={styles.remove} />

@@ -11,18 +11,21 @@ const decimals = value => (String(value).split(".")[1] || "").length;
 // An editable nutrient number with its unit, shared by Review and Edit Meal.
 // The field spans the whole row and never resizes, so typed digits stay put; an
 // invisible copy of the number sits under it only to place the unit after the last digit.
-// When an estimate lands (pulse.id changes) and the value moved, the number counts from
-// pulse.from to the new value while its digits glow tangerine; order staggers the tiles.
+// Each time an estimate lands (pulse.id changes) the digits glow tangerine and count from
+// pulse.from (0 when it was empty) to the new value, so the new number visibly replaces the
+// old one even when it came back the same. order staggers the tiles.
 export default forwardRef(function NutrientValue({ value, unit, pulse, order = 0, style, valueStyle, unitStyle, ...inputProps }, ref) {
   const reducedMotion = useReducedMotion();
   const glow = useSharedValue(0);
   const [shown, setShown] = useState(null);
   useEffect(() => {
-    const from = Number(pulse?.from);
+    if (!pulse) return;
+    const empty = pulse.from == null || String(pulse.from).trim() === "";
+    const from = empty ? 0 : Number(pulse.from);
     const to = Number(value);
-    if (!pulse || pulse.from == null || pulse.from === "" || !Number.isFinite(from) || !Number.isFinite(to) || from === to) return;
+    if (!Number.isFinite(from) || !Number.isFinite(to)) return;
     const delay = order * STAGGER_MS;
-    const places = Math.max(decimals(pulse.from), decimals(value));
+    const places = Math.max(empty ? 0 : decimals(pulse.from), decimals(value));
     const began = Date.now() + delay;
     let frame;
     // The glowing copy stays until its glow has faded, then the field returns.

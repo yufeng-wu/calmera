@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { authorizationURL, callbackResult, tokenRecord, mealInput, parseMeal,
-  completedText, completedResponse, foodEntryPayload, parseMeals } from "../lib/chatgpt/protocol.mjs";
+  completedText, completedResponse, foodEntryPayload, parseMeals, parseNutrition } from "../lib/chatgpt/protocol.mjs";
 import { transcriptPrompt, mealInstructions, quantityPrompt } from "../lib/chatgpt/prompts.mjs";
 
 const redirectUri = "http://127.0.0.1:1455/auth/callback";
@@ -164,4 +164,31 @@ test("Fast metadata never converts an incomplete or failed stream into success",
   const event = { ...completed, response: { ...completed.response, service_tier: "priority" } };
   await assert.rejects(completedResponse(stream(frame({ type: "response.created", response: { service_tier: "priority" } }))));
   await assert.rejects(completedResponse(stream(frame(event) + frame({ type: "response.failed" }))));
+});
+
+test("a re-estimate reads its four numbers from any answer shape that holds them", () => {
+  const want = { calories: 154, protein: 5.4, carbs: 27.4, fat: 2.6 };
+  const read = value => parseNutrition(typeof value === "string" ? value : JSON.stringify(value));
+  assert.deepEqual(read(want), want);
+  assert.deepEqual(read({ calories: "154 kcal", protein: "5.4 g", carbs: "27.4g", fat: "2.6 grams" }), want);
+  assert.deepEqual(read({ "calories (kcal)": 154, "protein (g)": 5.4, "carbs (g)": 27.4, "fat (g)": 2.6 }), want);
+  assert.deepEqual(read({ calories_kcal: 154, protein_g: 5.4, carbohydrates_g: 27.4, total_fat_g: 2.6, saturated_fat_g: 1 }), want);
+  assert.deepEqual(read({ calories: 154, macronutrients: { protein: 5.4, carbs: 27.4, fat: 2.6 } }), want);
+  assert.deepEqual(read({ food: "Oatmeal", nutrition: { calories: { value: 154, unit: "kcal" }, protein: 5.4, carbs: 27.4, fat: 2.6 } }), want);
+  assert.deepEqual(read({ per_100g: { calories: 70, protein: 2, carbs: 12, fat: 1 }, total: want }), want);
+  assert.deepEqual(read([want]), want);
+  assert.deepEqual(read([{ calories: 100, protein: 4, carbs: 17.4, fat: 1.6 }, { calories: 54, protein: 1.4, carbs: 10, fat: 1 }]), want);
+  assert.deepEqual(read({ calories: "140-168", protein: 5.4, carbs: 27.4, fat: 2.6 }), want);
+  assert.deepEqual(read({ calories: "1,200", protein: 5, carbs: 27, fat: 3 }).calories, 1200);
+  assert.deepEqual(read("Here is the estimate:\n```json\n" + JSON.stringify(want) + "\n```\nEnjoy!"), want);
+  assert.deepEqual(read("```json\n" + JSON.stringify(want) + "\n```"), want);
+  assert.equal(read({ calories: 0.1 + 0.2, protein: 0, carbs: 0, fat: 0 }).calories, 0.3);
+});
+
+test("a re-estimate without all four usable numbers still fails", () => {
+  const bad = [{ calories: 154, protein: 5.4, carbs: 27.4 }, { calories: "-5", protein: 1, carbs: 1, fat: 1 },
+    { calories: "about 150 or 200", protein: 1, carbs: 1, fat: 1 }, { energy_kj: 640, protein: 1, carbs: 1, fat: 1 },
+    { calories: 30000, protein: 1, carbs: 1, fat: 1 }, { error: "Please say how much" }, [], [{ calories: 1, protein: 1, carbs: 1, fat: 1 }, {}]];
+  for (const value of bad) assert.throws(() => parseNutrition(JSON.stringify(value)), /invalid_estimate/);
+  assert.throws(() => parseNutrition("I can't tell how much that is."), SyntaxError);
 });
