@@ -6,10 +6,11 @@ const NativeGlass = Platform.OS === "ios"
   : null;
 
 // Keep content above the material so text and touch targets stay crisp.
-export default function GlassSurface({ style }) {
+// Without a cornerRadius the material is a capsule (rounded up to 32 pt); panels pass their own.
+export default function GlassSurface({ style, cornerRadius }) {
   return NativeGlass
-    ? <NativeGlass pointerEvents="none" style={[StyleSheet.absoluteFill, style]} />
-    : <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.fallback, style]} />;
+    ? <NativeGlass pointerEvents="none" cornerRadius={cornerRadius || 0} style={[StyleSheet.absoluteFill, style]} />
+    : <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.fallback, cornerRadius ? { borderRadius: cornerRadius } : null, style]} />;
 }
 
 const styles = StyleSheet.create({

@@ -29,8 +29,10 @@ const haptic = run => { run().catch(() => {}); };
 // Starts fast and settles: the panel visibly moves on the first frame after a tap.
 const REVEAL = { duration: 260, easing: Easing.bezier(0.2, 0.9, 0.2, 1) };
 
+// `embedded` drops the page header so the review can sit inside another surface (the voice sheet),
+// which supplies its own title and close control.
 export default function MealReview({ photo, text, review, setReview, busy, estimating, selecting,
-  mealSaved, uncertain, onBack, onSave, onChangeInput, onReestimate, onViewMeals }) {
+  mealSaved, uncertain, onBack, onSave, onChangeInput, onReestimate, onViewMeals, embedded = false }) {
   const { bottom, top } = useSafeAreaInsets();
   const { fontScale, width, height } = useWindowDimensions();
   const reducedMotion = useReducedMotion();
@@ -55,7 +57,7 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
   const breakdownY = useRef(null);
   const listOffset = useRef(null);
   const foodRowsY = useRef({});
-  const headerHeight = useRef(top + 64);
+  const headerHeight = useRef(embedded ? 0 : top + 64);
   const revealFrame = useRef(null);
   const [iconFoodId, setIconFoodId] = useState(null);
   // A food before Re-estimate. Every landed estimate plays over all four tiles, even
@@ -236,8 +238,10 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
         value="" options={MEAL_TYPES} onChange={save} disabled={saveDisabled}
         accessibilityLabel="Save meal as" accessibilityHint="Opens a menu to choose the meal" style={styles.saveButton} />;
 
-  return <FormScreen compactControls onHeaderHeightChange={value => { headerHeight.current = value; }}>
-      <FormHeader title="Review" onBack={onBack} backDisabled={busy || selecting} />
+  const Screen = embedded ? View : FormScreen;
+  const screenProps = embedded ? { style: styles.embedded } : { compactControls: true, onHeaderHeightChange: value => { headerHeight.current = value; } };
+  return <Screen {...screenProps}>
+      {!embedded && <FormHeader title="Review" onBack={onBack} backDisabled={busy || selecting} />}
       <FormScrollView ref={scroll} keyboardAware enableOnAndroid extraScrollHeight={20} enableResetScrollToCoords={false}
         onContentSizeChange={(_, content) => { updateBarEdge({ content }); revealNewFood(); }}
         onLayout={event => updateBarEdge({ height: event.nativeEvent.layout.height })}
@@ -418,7 +422,7 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
           </Pressable>
         </View>
       </InputAccessoryView>))}
-    </FormScreen>;
+    </Screen>;
 }
 
 // Eases displayed totals toward edited values so changes read as one motion.
@@ -498,6 +502,7 @@ function Chevron({ expanded, reducedMotion }) {
 
 const styles = StyleSheet.create({
   content: { padding: 20, paddingTop: 12, paddingBottom: 28, gap: 20 },
+  embedded: { flex: 1 },
   section: { gap: 10 },
   reveal: { overflow: "hidden" },
   revealContent: { position: "absolute", top: 0, left: 0, right: 0 },
