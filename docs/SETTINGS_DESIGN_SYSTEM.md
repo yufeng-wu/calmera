@@ -1,0 +1,41 @@
+# Settings design system
+
+The Settings tab and every page it opens share one list style. Tokens live in
+`constants/settingsTheme.js`; the parts are `SettingsSection`, `SettingsTile` and
+`settingsStyles` in `components/SettingsSection.jsx`, and `components/SettingsRow.jsx`.
+
+## Rules
+
+- **Show the value, not a description.** A row shows its current value on the right
+  (English, Soft Tangerine, Connected) instead of a subtitle that explains the row.
+  With large text the value moves under the title.
+- **Every page has the same shape:** header, an optional one-line intro
+  (`settingsStyles.lead`), then sections of label, white card and optional note, then one
+  main button.
+- **Cards:** white, radius 24, a 0.5 pt warm edge. Rows are at least 56 pt tall with
+  16 pt padding. Dividers start where the title starts, not at the card edge.
+- **Icon tiles:** 30 pt, radius 9, a pale fill with a darker icon, in these tints:
+  cocoa for ChatGPT, sky for voice, rose for meal times, plum for theme and model,
+  tangerine for export, leaf for goal suggestions.
+- **Goals** always use the nutrient ring colors from `NUTRIENT_COLORS`.
+
+## Motion
+
+- A chosen row's check springs in from 0.6 scale in about 200 ms; a check that's no
+  longer chosen disappears at once. The theme ring and badge use the same spring.
+- A value that arrives or changes after the page appears fades in over 180 ms. Values
+  already there on first render just show (`LayoutAnimationConfig skipEntering`).
+- Choosing gives a selection haptic; saving goals gives a success haptic and closes the
+  page with no alert.
+- With Reduce Motion on, the pops and fades happen at once.
+
+## Layout of the Settings tab
+
+1. Account card: initial, email, join date.
+2. Daily goals: four targets. Tap to edit.
+3. Logging: ChatGPT, Voice language, Meal times.
+4. App: Theme, Export your data.
+5. Sign out, then the wordmark and version.
+
+Export always writes one JSON file with everything (`exportJson` in
+`lib/dataExport.mjs`). The only choice is the last 30 days or all history.

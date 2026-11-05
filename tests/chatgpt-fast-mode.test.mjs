@@ -103,6 +103,16 @@ test('the capability probe cannot send requests from a production build', async 
   assert.equal(requests.length, 0);
 });
 
+test('a re-estimate reads units in its answer, and asks once more when an answer has no numbers', async () => {
+  const units = fixture({ meals: { calories: '105 kcal', protein: '1 g', carbs: '27 g', fat: '0 g' } });
+  assert.deepEqual({ ...await estimate(units.client) }, { calories: 105, protein: 1, carbs: 27, fat: 0, normalizedQuantity: '1 counts' });
+  assert.equal(units.requests.length, 1);
+  const empty = fixture({ meals: { note: 'Please say how much' } });
+  await assert.rejects(estimate(empty.client), /invalid_estimate/);
+  assert.equal(empty.requests.length, 2);
+  assert.equal(empty.requests[1].body.instructions, empty.requests[0].body.instructions);
+});
+
 const syntheticMeals = [ { foodName: "Synthetic banana", quantity: "1 banana", mealType: "Breakfast",
   calories: 105, protein: 1, carbs: 27, fat: 0 } ];
 test('voice requests carry the trusted meal fallback, while keeping explicit per-item names higher priority', async () => {

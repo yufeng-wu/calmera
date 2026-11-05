@@ -1,17 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useIsFocused } from "@react-navigation/native";
 import useFormTaskScope from "@/hooks/useFormTaskScope";
-import { createVoiceLanguagePreferences } from "@/lib/voiceLanguagePreferences.mjs";
-import { ActivityIndicator, StyleSheet, Text, useWindowDimensions } from "react-native";
+import { VOICE_LANGUAGES, createVoiceLanguagePreferences } from "@/lib/voiceLanguagePreferences.mjs";
+import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
-import { FormScreen, FormScrollView, FormCard, FormHeader, GlassButton, formStyles } from "@/components/GlassForm";
+import { FormScreen, FormScrollView, FormHeader, GlassButton, formStyles } from "@/components/GlassForm";
 import SettingsRow from "@/components/SettingsRow";
-import { FORM_COLORS as COLORS } from "@/constants/formTheme";
+import { SettingsSection, settingsStyles } from "@/components/SettingsSection";
 import usePageExit from "@/hooks/usePageExit";
 import { getVoiceLanguage, setVoiceLanguage } from "@/lib/chatgpt/nutrition";
-
-const LANGUAGES = [{ value: "en-US", label: "English" }, { value: "zh-CN", label: "中文" }];
 
 export default function VoiceLanguage({ calmeraPreview = false, calmeraPreviewState = "ready" }) {
   const router = useRouter();
@@ -127,26 +126,25 @@ export default function VoiceLanguage({ calmeraPreview = false, calmeraPreviewSt
 
   return <FormScreen style={formStyles.screen}>
     <FormHeader title="Voice language" onBack={back} />
-    <FormScrollView key={`voice-language-text-${fontScale}`} contentContainerStyle={formStyles.content}>
-      <Text style={formStyles.caption}>Choose the language for voice logging.</Text>
-      {loading ? <FormCard style={styles.feedback}>
-        <ActivityIndicator color={COLORS.primary} /><Text style={formStyles.caption}>Loading your language…</Text>
-      </FormCard> : loadError ? <FormCard>
-        <Text style={formStyles.sectionTitle}>Couldn’t confirm your voice language</Text>
-        <Text style={formStyles.caption}>Try again to check your saved voice language.</Text>
-        <GlassButton title="Try again" onPress={retryLoad} />
-      </FormCard> : <FormCard variant="grouped" style={styles.group}>
-        {LANGUAGES.map((item, index) => <SettingsRow key={item.value} title={item.label}
-          selected={language === item.value} divider={index > 0} accessibilityRole="radio"
-          disabled={saving} onPress={() => selectLanguage(item.value)} />)}
-      </FormCard>}
-      {!loading && !loadError && <Text accessibilityLiveRegion="polite" style={formStyles.caption}>
-        {saving ? "Saving…" : calmeraPreview ? "Preview only · nothing is saved." : "Changes are saved automatically."}
-      </Text>}
+    <FormScrollView key={`voice-language-text-${fontScale}`} contentContainerStyle={settingsStyles.content}>
+      {loadError ? <SettingsSection label="Language">
+        <View style={styles.problem}>
+          <Text style={formStyles.sectionTitle}>Couldn’t confirm your voice language</Text>
+          <Text style={formStyles.caption}>Try again to check your saved voice language.</Text>
+          <GlassButton title="Try again" symbol="arrow.clockwise" onPress={retryLoad} />
+        </View>
+      </SettingsSection>
+        // While the saved choice loads, the rows keep their place without a check, so nothing jumps.
+        // The note stays put while a choice saves; the check already shows it took.
+        : <SettingsSection label="Language" footnote={calmeraPreview ? "Preview only · nothing is saved."
+          : "Calmera listens in this language when you log by voice. Changes save automatically."}>
+          {VOICE_LANGUAGES.map((item, index) => <SettingsRow key={item.value} title={item.label}
+            selected={!loading && language === item.value} divider={index > 0} accessibilityRole="radio"
+            disabled={saving || loading} onPress={() => { if (item.value !== language) Haptics.selectionAsync().catch(() => {}); selectLanguage(item.value); }} />)}
+        </SettingsSection>}
     </FormScrollView>
   </FormScreen>;
 }
 const styles = StyleSheet.create({
-  group: { padding: 0, gap: 0, overflow: "hidden" },
-  feedback: { minHeight: 130, alignItems: "center", justifyContent: "center" },
+  problem: { padding: 18, gap: 10 },
 });
