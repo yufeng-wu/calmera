@@ -9,10 +9,10 @@ import { readChatGPTConnection } from "@/lib/chatgpt/connectionOutcome.mjs";
 import { connectionIssue, isAuthorizationCancelled } from "@/lib/chatgpt/connectionStatus.mjs";
 import { selectNutritionModel } from "@/lib/chatgpt/modelSelection.mjs";
 import { Ionicons } from "@expo/vector-icons";
-import { FormScreen, FormScrollView, FormHeader, GlassButton, formStyles } from "@/components/GlassForm";
+import { FormScreen, FormScrollView, FormHeader, GlassButton, MenuButton, formStyles } from "@/components/GlassForm";
 import SettingsRow from "@/components/SettingsRow";
 import { SettingsSection, SettingsTile, settingsStyles } from "@/components/SettingsSection";
-import OpenAILogo, { OPENAI_BLOSSOM_SYMBOL } from "@/components/OpenAILogo";
+import OpenAILogo from "@/components/OpenAILogo";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import usePageExit from "@/hooks/usePageExit";
 import { createPlanClient, isChatGPTAvailable } from "@/lib/chatgpt/planClient";
@@ -144,12 +144,11 @@ function ChatGPTSettingsForm({ userId, calmeraPreview = false, calmeraPreviewSta
     ]);
     else connect(false);
   };
-  const manageAccount = () => {
+  // The "•••" menu opens from its button, as Mail's and Photos' do.
+  const manageAccount = choice => {
     if (action || !connection.account || !scope.isActive()) return;
-    chooseAction(connection.account.email || "ChatGPT account", [
-      { title: "Change account", onPress: () => connect(true) },
-      { title: "Disconnect", destructive: true, onPress: () => runOperation("disconnect", () => client.disconnect(), () => { setConnection(emptyConnection()); setView("connection"); }) },
-    ]);
+    if (choice === "Change account") connect(true);
+    else if (choice === "Disconnect") runOperation("disconnect", () => client.disconnect(), () => { setConnection(emptyConnection()); setView("connection"); });
   };
   const selectModel = slug => {
     if (!connection.preferenceError && slug === connection.preferred) { setView("connection"); return; }
@@ -199,17 +198,18 @@ function ChatGPTSettingsForm({ userId, calmeraPreview = false, calmeraPreviewSta
               <Text accessibilityRole="header" style={styles.title}>{title}</Text>
               {email ? <Text style={styles.detail} numberOfLines={1}>{email}</Text> : !pending && <Text style={styles.detail}>{linked ? "Connected on this phone" : "Use your ChatGPT plan in calmera."}</Text>}
             </View>
-            {pending ? <ActivityIndicator color={COLORS.primary} accessible={false} /> : connection.account && <GlassButton symbol="ellipsis" role="navigation"
-              accessibilityLabel="Manage ChatGPT account" onPress={manageAccount} style={styles.accountMenu} />}
+            {pending ? <ActivityIndicator color={COLORS.primary} accessible={false} /> : connection.account && <MenuButton actions symbol="ellipsis"
+              title={connection.account.email || "ChatGPT account"} options={["Change account", "Disconnect"]} destructiveOptions={["Disconnect"]}
+              accessibilityLabel="Manage ChatGPT account" onChange={manageAccount} disabled={Boolean(action)} style={styles.accountMenu} />}
           </View>
           {(canSignIn || canRetry) && <View style={styles.signInAction}>
-            <GlassButton title={canSignIn ? "Continue with ChatGPT" : "Try again"} symbol={canSignIn ? OPENAI_BLOSSOM_SYMBOL : "arrow.clockwise"} onPress={canSignIn ? signIn : retry} />
+            <GlassButton title={canSignIn ? "Continue with ChatGPT" : "Try again"} symbol={canSignIn ? "" : "arrow.clockwise"} onPress={canSignIn ? signIn : retry} />
           </View>}
           {linked && <SettingsRow title="Default model" value={defaultLabel} icon="sparkles" tint="plum" divider
             onPress={() => { if (!pending) { setNotice(null); setView("models"); } }} disabled={pending} />}
         </SettingsSection>
         {connection.connected && <Pressable accessibilityRole="link" accessibilityLabel="Manage usage in ChatGPT"
-          disabled={pending} onPress={manageUsage} style={styles.usageLink}>
+          disabled={pending} onPress={manageUsage} style={({ pressed }) => [styles.usageLink, pressed && styles.linkPressed]}>
           <Text style={styles.linkText}>Manage usage in ChatGPT</Text><Ionicons name="open-outline" size={14} color={COLORS.primary} />
         </Pressable>}
       </>}
@@ -226,11 +226,12 @@ const styles = StyleSheet.create({
   statusCopy: { flex: 1, gap: 2 },
   title: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text },
   detail: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
-  accountMenu: { width: 44, minHeight: 44, height: 44 },
+  accountMenu: { width: 48, height: 48 },
   signInAction: { paddingHorizontal: 16, paddingBottom: 16 },
   modelFeedback: { gap: 10 },
   usageLink: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 7, minHeight: 44, paddingHorizontal: 4, marginTop: -16 },
   linkText: { ...TYPOGRAPHY.captionMedium, color: COLORS.primary },
+  linkPressed: { opacity: 0.45 },
   notice: { ...TYPOGRAPHY.caption, color: COLORS.primary, paddingHorizontal: 4 },
   privacy: { flexDirection: "row", alignItems: "flex-start", gap: 8, paddingHorizontal: 4 },
   privacyText: { ...TYPOGRAPHY.caption, color: COLORS.textLight, flex: 1 },

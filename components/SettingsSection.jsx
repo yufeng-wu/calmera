@@ -1,7 +1,26 @@
 import { StyleSheet, Text, View } from "react-native";
+import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import { SETTINGS, TINTS } from "@/constants/settingsTheme";
+import { SETTINGS, SETTINGS_MOTION, TINTS } from "@/constants/settingsTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
+import { useMotionPreference } from "@/hooks/useMotionPreference";
+
+// The touch highlight every Settings row and card shares. As in iOS lists, it shows a
+// moment after touch-down (so a scroll doesn't flash it) and fades out once released.
+// Spread pressProps on the Pressable and render highlight as its first child.
+export function usePressHighlight(style) {
+  const { reduceMotion } = useMotionPreference();
+  const shown = useSharedValue(0);
+  const fade = useAnimatedStyle(() => ({ opacity: shown.value }));
+  return {
+    pressProps: {
+      unstable_pressDelay: 60,
+      onPressIn: () => { cancelAnimation(shown); shown.value = 1; },
+      onPressOut: () => { shown.value = reduceMotion ? 0 : withTiming(0, { duration: SETTINGS_MOTION.release }); },
+    },
+    highlight: <Animated.View pointerEvents="none" style={[styles.highlight, style, fade]} />,
+  };
+}
 
 // One group on a Settings page: a label above, a white card, and an optional note below.
 export function SettingsSection({ label, footnote, children, style, cardStyle }) {
@@ -35,4 +54,5 @@ const styles = StyleSheet.create({
   label: { ...TYPOGRAPHY.eyebrow, color: SETTINGS.inkSoft, textTransform: "uppercase", marginHorizontal: 4 },
   card: CARD,
   tile: { alignItems: "center", justifyContent: "center" },
+  highlight: { ...StyleSheet.absoluteFillObject, backgroundColor: SETTINGS.pressed },
 });

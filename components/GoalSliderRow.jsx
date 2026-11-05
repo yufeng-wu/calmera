@@ -38,6 +38,7 @@ export default function GoalSliderRow({
       onValueChange={(next) => onChange(goalInputValue(next))}
       accessibilityLabel={`${label} goal`}
       unit={unit}
+      color={color}
       style={styles.slider}
     />
   </View>;

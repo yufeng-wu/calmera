@@ -110,22 +110,26 @@ export function GlassButton({ title = "", symbol = "", onPress, disabled = false
 // Glass button that opens a native menu of options with the current one checked.
 // With a buttonTitle it is a fixed action (e.g. Save) and reports every pick;
 // otherwise it shows the current value and reports only changes.
+// actions: a menu of commands (no checkmarks); with a symbol and no buttonTitle the button
+// is only that symbol. destructiveOptions are listed in red.
 export function MenuButton({ value, options, onChange, disabled = false, title = "", accessibilityLabel, accessibilityHint = "", style,
-  buttonTitle = "", symbol = "", role = "default", testID }) {
-  const fixed = Boolean(buttonTitle);
+  buttonTitle = "", symbol = "", role = "default", testID, actions = false, destructiveOptions = [] }) {
+  const fixed = Boolean(buttonTitle) || actions;
   const pick = option => { if (fixed || option !== value) onChange(option); };
   const { fontScale } = useWindowDimensions();
   const minimumHeight = Math.max(48, TYPOGRAPHY.button.lineHeight * fontScale + 20);
   if (NativeMenuButton) return <View testID={testID} style={[styles.button, style, { minHeight: minimumHeight }]}>
     <NativeMenuButton style={StyleSheet.absoluteFill} options={options} selected={value} menuTitle={title}
-      title={buttonTitle} symbol={symbol} prominent={role === "accent"}
+      title={buttonTitle} symbol={symbol} prominent={role === "accent"} actions={actions} destructiveOptions={destructiveOptions}
       buttonLabel={accessibilityLabel || buttonTitle || title || value} buttonHint={accessibilityHint} buttonDisabled={Boolean(disabled)}
       onSelect={({ nativeEvent }) => pick(nativeEvent.value)} />
   </View>;
   const choose = () => Platform.OS === "ios"
-    ? ActionSheetIOS.showActionSheetWithOptions({ title, options: [...options, "Cancel"], cancelButtonIndex: options.length },
+    ? ActionSheetIOS.showActionSheetWithOptions({ title, options: [...options, "Cancel"], cancelButtonIndex: options.length,
+      destructiveButtonIndex: options.findIndex(option => destructiveOptions.includes(option)) < 0 ? undefined : options.findIndex(option => destructiveOptions.includes(option)) },
       index => { if (index < options.length) pick(options[index]); })
-    : Alert.alert(title, undefined, [...options.map(option => ({ text: option, onPress: () => pick(option) })), { text: "Cancel", style: "cancel" }]);
+    : Alert.alert(title, undefined, [...options.map(option => ({ text: option, onPress: () => pick(option),
+      style: destructiveOptions.includes(option) ? "destructive" : "default" })), { text: "Cancel", style: "cancel" }]);
   const accent = role === "accent";
   return <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={accessibilityLabel || buttonTitle || title || value} accessibilityValue={{ text: value }}
     accessibilityHint={accessibilityHint || undefined}

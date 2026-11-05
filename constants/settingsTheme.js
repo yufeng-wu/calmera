@@ -10,7 +10,8 @@ export const SETTINGS = Object.freeze({
   surface: "#FFFFFF",
   edge: "#EDE3DA",
   hairline: "#EFE6DE",
-  pressed: "#F8F1EB",
+  // A row's touch highlight: plainly visible on white, then fades out on release.
+  pressed: "#EFE3D8",
   chevron: "#C4B5AA",
   gutter: 20,
   sectionGap: 24,
@@ -36,5 +37,5 @@ export const TINTS = Object.freeze({
 export const SETTINGS_MOTION = Object.freeze({
   pop: { damping: 14, stiffness: 320, mass: 0.6 },
   popFrom: 0.6,
-  fade: 180,
+  fade: 180, release: 260,
 });

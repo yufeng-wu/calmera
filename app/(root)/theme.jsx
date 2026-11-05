@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { FormHeader, GlassButton, FormScreen, FormScrollView, formStyles } from "@/components/GlassForm";
-import { settingsStyles } from "@/components/SettingsSection";
+import { settingsStyles, usePressHighlight } from "@/components/SettingsSection";
 import ThemeCanvas from "@/components/ThemeCanvas";
 import { APPEARANCE_THEMES } from "@/constants/appearance.mjs";
 import { SETTINGS, SETTINGS_MOTION } from "@/constants/settingsTheme";
@@ -58,11 +58,13 @@ function ThemeOption({ item, selected, wide, disabled, onPress }) {
       : reduceMotion ? 1 : withSpring(1, SETTINGS_MOTION.pop);
   }, [selected, reduceMotion, shown]);
   const ring = useAnimatedStyle(() => ({ opacity: Math.min(1, shown.value) }));
+  const { pressProps, highlight } = usePressHighlight(styles.highlight);
   const badge = useAnimatedStyle(() => ({ opacity: Math.min(1, shown.value),
     transform: [{ scale: SETTINGS_MOTION.popFrom + (1 - SETTINGS_MOTION.popFrom) * shown.value }] }));
   return <Pressable accessibilityRole="radio" accessibilityLabel={`${item.name}. ${item.description}.`}
-    accessibilityState={{ checked: selected, disabled }} disabled={disabled} onPress={onPress}
-    style={({ pressed }) => [styles.option, { width: wide ? "100%" : "48%" }, pressed && styles.pressed]}>
+    accessibilityState={{ checked: selected, disabled }} disabled={disabled} onPress={onPress} {...pressProps}
+    style={[styles.option, { width: wide ? "100%" : "48%" }]}>
+    {highlight}
     <View style={styles.swatch} pointerEvents="none">
       <ThemeCanvas variant={item.id} motionEnabled={false} />
       <Animated.View style={[styles.badge, badge]}><Ionicons name="checkmark" size={14} color={SETTINGS.surface} /></Animated.View>
@@ -79,7 +81,7 @@ const styles = StyleSheet.create({
   grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 14 },
   option: { padding: 8, paddingBottom: 12, gap: 10, borderRadius: 22, backgroundColor: SETTINGS.surface,
     borderWidth: 0.5, borderColor: SETTINGS.edge },
-  pressed: { backgroundColor: SETTINGS.pressed },
+  highlight: { borderRadius: 22 },
   // Selection sits on top of the edge, so choosing never shifts the layout.
   ring: { ...StyleSheet.absoluteFillObject, margin: -0.5, borderRadius: 22, borderWidth: 2, borderColor: SETTINGS.accent },
   swatch: { height: 96, borderRadius: 15, overflow: "hidden", borderWidth: 0.5, borderColor: SETTINGS.hairline },
