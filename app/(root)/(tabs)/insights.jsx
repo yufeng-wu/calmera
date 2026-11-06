@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import * as Haptics from "expo-haptics";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useRouter } from "expo-router";
 import MaskedView from "@react-native-masked-view/masked-view";
@@ -11,6 +13,7 @@ import DayTimeline from "@/components/insights/DayTimeline";
 import Heatmap, { WeekDots } from "@/components/insights/Heatmap";
 import InsightCard from "@/components/insights/InsightCard";
 import { ChartKey, FoodLine, MEAL_LABELS, NUTRIENTS, PERIODS, PairBar, SplitTable, nutrientScale, nutrientSummary, periodName, plural } from "@/components/insights/InsightDetails";
+import { MealBar, MealKey, describeShares } from "@/components/insights/MealShares";
 import PeriodTabs from "@/components/insights/PeriodTabs";
 import TrendChart from "@/components/insights/TrendChart";
 import { SURFACES } from "@/constants/surfaces";
@@ -22,14 +25,14 @@ import { useInsights } from "@/hooks/useInsights";
 import { formatNumber, formatRange, percentOfGoal } from "@/lib/insights/stats.mjs";
 
 const dayLetter = (key) => new Date(`${key}T12:00:00`).toLocaleDateString("en-US", { weekday: "narrow" });
+const weekdayName = (key) => new Date(`${key}T12:00:00`).toLocaleDateString("en-US", { weekday: "long" });
 const TOP_FOODS = 3;
 const TOP_PRODUCE = 6;
 const TYPICAL_TEXT = 132;
-const SHARE_NAME = 58;
-const SHARE_DOT = 28;
-const SHARE_DOT_MIN = 5;
-const SHARE_DOT_NONE = 4;
-const SHARE_DOT_LABEL = 20;
+const SHARE_NAME = 62;
+const SWIPE_DISTANCE = 50;
+const SWIPE_SPEED = 500;
+const SWIPE_TAP_GUARD = 150;
 
 export default function InsightsScreen() {
   const { fontScale } = useWindowDimensions();
@@ -41,9 +44,28 @@ export default function InsightsScreen() {
   // read as a short history.
   const showData = loaded && !empty;
   const hidesCards = showData && (!stats.rhythm || !stats.shares || (stats.span > 7 && (!stats.difference || !stats.split)));
-  const open = (card) => () => router.push({ pathname: "/insights/[card]", params: { card, period } });
+  // Cards are tappable all over, so a swipe across one has to not count as a tap.
+  const swiping = useRef(false);
+  const open = (card) => () => { if (!swiping.current) router.push({ pathname: "/insights/[card]", params: { card, period } }); };
+  // The year's calendar scrolls sideways on its own, so a swipe that starts there isn't for us.
+  const startedOnCalendar = useRef(false);
+  // Swiping left moves to the longer period and right to the shorter one, stopping at the ends.
+  const swipe = Gesture.Pan().runOnJS(true).activeOffsetX([-20, 20]).failOffsetY([-14, 14])
+    .onStart(() => { swiping.current = true; })
+    .onEnd(({ translationX, velocityX }) => {
+      if (startedOnCalendar.current) return;
+      if (Math.abs(translationX) < SWIPE_DISTANCE && Math.abs(velocityX) < SWIPE_SPEED) return;
+      const next = PERIODS[PERIODS.findIndex(({ id }) => id === period) + (translationX < 0 ? 1 : -1)];
+      if (!next) return;
+      Haptics.selectionAsync().catch(() => {});
+      setPeriod(next.id);
+    })
+    .onFinalize(() => {
+      startedOnCalendar.current = false;
+      setTimeout(() => { swiping.current = false; }, SWIPE_TAP_GUARD);
+    });
 
-  return <View style={formStyles.screen}>
+  return <GestureDetector gesture={swipe}><View style={formStyles.screen}>
     <PeriodTabs key={fontScale} items={PERIODS} value={period} onChange={setPeriod} />
     <MaskedView style={styles.scrollMask} maskElement={<LinearGradient colors={["transparent", "black"]} locations={[0, 0.02]} style={styles.mask} />}>
       <FoodwrapRefreshScrollView onRefresh={refresh} contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 32 }]}
@@ -52,20 +74,20 @@ export default function InsightsScreen() {
           : !showData && !loaded ? <LoadingCards />
             : !showData ? <FirstRun onLog={() => router.navigate("/dashboard")} />
               : <Animated.View key={period} entering={FadeIn.duration(180)} style={styles.cards}>
-                <Text style={styles.range}>{`Last ${PERIODS.find(({ id }) => id === period).name} · ${formatRange(stats.keys)}`}</Text>
-                {refreshFailed && <Pressable accessibilityRole="button" onPress={() => refresh().catch(() => {})} hitSlop={{ top: 12, bottom: 12 }}><Text style={styles.staleNote}>{"Couldn't refresh. Tap to try again."}</Text></Pressable>}
+                <Text style={styles.range}>{`Past ${PERIODS.find(({ id }) => id === period).name} · ${formatRange(stats.keys)}`}</Text>
+                {refreshFailed && <Pressable accessibilityRole="button" onPress={() => refresh().catch(() => {})} hitSlop={{ top: 13, bottom: 13 }}><Text style={styles.staleNote}>{"Couldn't refresh. Tap to try again."}</Text></Pressable>}
                 {!stats.daysLogged ? <FormCard style={styles.emptyCard}>
-                  <Text style={styles.message}>{`No meals to show for the last ${PERIODS.find(({ id }) => id === period).name}.`}</Text>
+                  <Text style={styles.message}>{`No meals to show for the past ${PERIODS.find(({ id }) => id === period).name}.`}</Text>
                   {period !== "year" && <Pressable accessibilityRole="button" onPress={() => setPeriod(period === "week" ? "month" : "year")} hitSlop={12}>
                     <Text style={styles.link}>{`See ${period === "week" ? "month" : "year"}`}</Text>
                   </Pressable>}
                 </FormCard>
                   : <>
-                    <DaysCard stats={stats} />
+                    <DaysCard stats={stats} onCalendarTouch={() => { startedOnCalendar.current = true; }} />
                     <TypicalCard stats={stats} goals={goals} onPress={open("typical")} />
                     {stats.foods.length > 0 && <FoodsCard foods={stats.foods} onPress={open("foods")} />}
                     {stats.produce && <ProduceCard produce={stats.produce} onPress={open("produce")} />}
-                    {stats.rhythm && <RhythmCard rhythm={stats.rhythm} onPress={open("rhythm")} />}
+                    {stats.rhythm && <RhythmCard rhythm={stats.rhythm} span={stats.span} onPress={open("rhythm")} />}
                     {stats.shares && <SharesCard shares={stats.shares} onPress={open("shares")} />}
                     {stats.difference && <DifferenceCard difference={stats.difference} onPress={open("difference")} />}
                     {stats.split && <SplitCard split={stats.split} onPress={open("split")} />}
@@ -74,7 +96,7 @@ export default function InsightsScreen() {
               </Animated.View>}
       </FoodwrapRefreshScrollView>
     </MaskedView>
-  </View>;
+  </View></GestureDetector>;
 }
 
 function RetryCard({ onRetry }) {
@@ -99,19 +121,24 @@ function FirstRun({ onLog }) {
   </FormCard>;
 }
 
-function DaysCard({ stats }) {
+function DaysCard({ stats, onCalendarTouch }) {
+  const { fontScale } = useWindowDimensions();
   const { span, keys, loggedDays, started, todayKey, daysLogged } = stats;
   const label = plural(daysLogged, "day");
+  const which = span === 7 ? ` ${keys.filter((_, index) => loggedDays[index]).map(weekdayName).join(", ")}.` : "";
   if (span > 30) {
     return <InsightCard title="Days logged">
       <View style={styles.days} accessible accessibilityLabel={`${label} logged`}>
         <Text style={styles.metric}>{label}</Text>
-        <Heatmap keys={keys} logged={loggedDays} started={started} todayKey={todayKey} />
+        <View onTouchStart={onCalendarTouch}>
+          <Heatmap keys={keys} logged={loggedDays} started={started} todayKey={todayKey} />
+        </View>
       </View>
     </InsightCard>;
   }
   return <FormCard style={styles.daysCard}>
-    <View style={styles.daysBeside} accessible accessibilityLabel={`${label} logged`}>
+    <View style={[styles.daysBeside, fontScale > 1.3 && styles.daysStacked]} accessible accessibilityRole="header"
+      accessibilityLabel={`Days logged: ${label}.${which}`}>
       <View style={styles.daysSummary}>
         <Text accessibilityRole="header" style={styles.cardTitle}>Days logged</Text>
         <Text style={styles.metric}>{label}</Text>
@@ -132,7 +159,7 @@ function TypicalCard({ stats, goals, onPress }) {
   const stacked = fontScale > 1.3;
   const noTypical = NUTRIENTS.every(([field]) => stats.metrics[field].typical == null);
   const scale = nutrientScale(stats, goals);
-  return <InsightCard title={`Past ${periodName(stats.span)} average`} onPress={onPress} answer={noTypical ? "Appears after 3 days with 2+ meals." : null}>
+  return <InsightCard title={`Past ${periodName(stats.span)} average`} onPress={onPress} answer={noTypical ? "Appears after three days with two or more meals, not counting today." : null}>
     <ChartKey compact stats={stats} goals={goals} />
     <View>
       {NUTRIENTS.map(([field, title, unit, goalField], index) => {
@@ -145,12 +172,12 @@ function TypicalCard({ stats, goals, onPress }) {
         return <View key={field} style={[styles.typicalRow, index > 0 && styles.divider, stacked && styles.typicalStacked]}>
           <View style={stacked ? null : { width: TYPICAL_TEXT * fontScale }}>
             <Text style={styles.footnote}>{title}</Text>
-            <Text numberOfLines={1} style={styles.metric}>
+            <Text numberOfLines={stacked ? undefined : 1} style={styles.metric}>
               {percent != null ? `${percent}%` : formatNumber(typical)}
               {percent == null && <Text style={styles.unit}> {unit}</Text>}
               {percent != null && <Text style={styles.footnote}> of goal</Text>}
             </Text>
-            {!!detail && <Text numberOfLines={1} style={styles.footnote}>{detail}</Text>}
+            {!!detail && <Text numberOfLines={stacked ? undefined : 1} style={styles.footnote}>{detail}</Text>}
           </View>
           <View style={stacked ? null : styles.typicalChart}>
             <TrendChart compact color={NUTRIENT_COLORS[field]} height={66} points={metric.chart} goal={goal} top={goal ? goal * scale : undefined}
@@ -163,9 +190,9 @@ function TypicalCard({ stats, goals, onPress }) {
 }
 
 function FoodsCard({ foods, onPress }) {
-  return <InsightCard title="Your foods" onPress={onPress}>
+  return <InsightCard title="Leaderboard" onPress={onPress}>
     <View>
-      {foods.slice(0, TOP_FOODS).map((food, index) => <FoodLine key={food.id} compact name={food.name} value={`${food.count}×`} divider={index > 0} />)}
+      {foods.slice(0, TOP_FOODS).map((food, index) => <FoodLine key={food.id} compact name={food.name} icon={food.icon} value={`${food.count}×`} divider={index > 0} />)}
     </View>
   </InsightCard>;
 }
@@ -187,45 +214,23 @@ function ProduceCard({ produce, onPress }) {
   </InsightCard>;
 }
 
-function RhythmCard({ rhythm, onPress }) {
-  const { fontScale } = useWindowDimensions();
-  return <InsightCard title="When you eat" onPress={onPress}>
-    <DayTimeline meals={rhythm.meals} compact={fontScale <= 1.3} />
+function RhythmCard({ rhythm, span, onPress }) {
+  return <InsightCard title="When you eat" onPress={onPress} footnote="Each dot is one meal or snack. The line is the average.">
+    <DayTimeline rhythm={rhythm} span={span} />
   </InsightCard>;
 }
 
-// A dot for each nutrient at each meal, its area showing the share. Only the biggest in
-// each row carries its number, so the pattern reads first. The exact table is one tap away.
+// One bar per nutrient, sliced by meal. The exact percents and amounts are one tap away.
 function SharesCard({ shares, onPress }) {
   const { fontScale } = useWindowDimensions();
-  const stacked = fontScale > 1.3;
-  const nameColumn = { width: SHARE_NAME * fontScale };
   const { meals } = shares;
-  const top = Math.max(...meals.flatMap((row) => NUTRIENTS.map(([field]) => row[field] ?? 0)), 1);
-  return <InsightCard title="How much at each meal" onPress={onPress} footnote="Each row adds up to 100%.">
-    <View>
-      <View style={styles.shareRow}>
-        {!stacked && <View style={nameColumn} />}
-        {meals.map((row) => <Text key={row.meal} numberOfLines={1} maxFontSizeMultiplier={1.1} style={styles.shareHeading}>{MEAL_LABELS[row.meal]}</Text>)}
-      </View>
-      {NUTRIENTS.map(([field, title]) => {
-        const largest = Math.max(...meals.map((row) => row[field] ?? 0));
-        return <View key={field} style={stacked ? null : styles.shareRow}>
-          <Text numberOfLines={1} style={[styles.shareTitle, !stacked && nameColumn]}>{title}</Text>
-          <View style={styles.shareDots}>
-            {meals.map((row) => {
-              const share = row[field] ?? 0;
-              const size = share > 0 ? Math.max(SHARE_DOT_MIN, SHARE_DOT * Math.sqrt(share / top)) : SHARE_DOT_NONE;
-              const biggest = share > 0 && share === largest;
-              return <View key={row.meal} style={styles.shareCell}>
-                <View style={[styles.shareDot, { width: size, height: size, borderRadius: size / 2 }, share > 0 && styles.shareDotFilled, biggest && styles.shareDotBiggest]}>
-                  {biggest && size >= SHARE_DOT_LABEL && <Text maxFontSizeMultiplier={1} style={styles.shareDotValue}>{share}</Text>}
-                </View>
-              </View>;
-            })}
-          </View>
-        </View>;
-      })}
+  return <InsightCard title="What each meal adds" onPress={onPress} footnote="Each bar is 100% of that nutrient.">
+    <MealKey meals={meals} />
+    <View style={styles.shareRows}>
+      {NUTRIENTS.map(([field, title]) => <View key={field} accessible accessibilityLabel={describeShares(title, meals, field)} style={styles.shareRow}>
+        <Text numberOfLines={1} style={[styles.shareName, { width: SHARE_NAME * fontScale }]}>{title}</Text>
+        <MealBar meals={meals} field={field} />
+      </View>)}
     </View>
   </InsightCard>;
 }
@@ -271,6 +276,7 @@ const styles = StyleSheet.create({
   daysCard: { padding: 18 },
   days: { gap: 8 },
   daysBeside: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  daysStacked: { flexDirection: "column", alignItems: "flex-start" },
   daysSummary: { flex: 1, gap: 4 },
   dayRow: { flexDirection: "row", gap: 5 },
   dayCell: { alignItems: "center", gap: 2 },
@@ -284,13 +290,7 @@ const styles = StyleSheet.create({
   typicalChart: { flex: 1 },
   produceIcons: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   produceIcon: { fontSize: 24, lineHeight: 30 },
-  shareRow: { flexDirection: "row", alignItems: "center" },
-  shareTitle: { ...TYPOGRAPHY.body, color: COLORS.text },
-  shareHeading: { ...TYPOGRAPHY.caption, flex: 1, color: COLORS.textLight, textAlign: "center" },
-  shareCell: { flex: 1, height: SHARE_DOT + 4, alignItems: "center", justifyContent: "center" },
-  shareDot: { alignItems: "center", justifyContent: "center", backgroundColor: COLORS.track },
-  shareDotFilled: { backgroundColor: COLORS.soft },
-  shareDotBiggest: { backgroundColor: COLORS.primary },
-  shareDots: { flex: 1, flexDirection: "row" },
-  shareDotValue: { ...TYPOGRAPHY.captionMedium, color: COLORS.white, fontVariant: ["tabular-nums"] },
+  shareRows: { gap: 12 },
+  shareRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  shareName: { ...TYPOGRAPHY.body, color: COLORS.text },
 });

@@ -7,6 +7,8 @@ import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 
 const FULL_HEIGHT = 112;
 const LABEL_WIDTH = 48;
+// One-letter labels need less room, but still need some.
+const LETTER_SPACING = 14;
 // Bars that are still partial are a paler step of the same color.
 const PARTIAL_OPACITY = 0.4;
 // Axis labels sit under fixed bars, so they can only grow so far.
@@ -24,9 +26,10 @@ function layout(width, count) {
 
 // Bars for one nutrient, with a dashed line at the goal. Days without a log are a small
 // dot, so gaps read as gaps rather than zeros. The full chart adds a solid line at the
-// average. Touch a bar, or drag across, to read it. A compact chart is just the bars and the goal. It has no labels, and touches go
-// to the card around it.
-export default function TrendChart({ points: bars, goal, top: ceiling, typical, selected, onSelect, accessibilityLabel, compact, height = FULL_HEIGHT, color = COLORS.primary }) {
+// average. Touch a bar, or drag across, to read it; with VoiceOver, swipe up or down. Days
+// before someone's first log are left blank. A compact chart is just the bars and the goal.
+// It has no labels, and touches go to the card around it.
+export default function TrendChart({ points: bars, goal, top: ceiling, typical, selected, onSelect, accessibilityLabel, describe, compact, height = FULL_HEIGHT, color = COLORS.primary }) {
   const [width, setWidth] = useState(0);
   const latest = useRef(null);
   latest.current = { bars, width, selected, onSelect };
@@ -69,14 +72,34 @@ export default function TrendChart({ points: bars, goal, top: ceiling, typical, 
     if (selected != null) return selected === index ? color : COLORS.track;
     return color;
   };
+  // Dates are wider than the bars they sit under, so on a narrow chart some are skipped.
+  let lastDate = -Infinity;
+  const shownLabel = (point, index) => {
+    if (!point.label) return false;
+    if (center(index) - lastDate < (point.label.length === 1 ? LETTER_SPACING : LABEL_WIDTH)) return false;
+    lastDate = center(index);
+    return true;
+  };
   const touch = compact ? { pointerEvents: "none" } : { onTouchStart: (event) => { startX.current = event.nativeEvent.locationX; }, ...responder.panHandlers };
+  // VoiceOver steps through the bars that have a value.
+  const readable = compact ? {} : {
+    accessibilityRole: "adjustable",
+    accessibilityValue: { text: selected != null && describe ? describe(bars[selected]) : "Swipe up or down to read each day." },
+    accessibilityActions: [{ name: "increment" }, { name: "decrement" }],
+    onAccessibilityAction: ({ nativeEvent: { actionName } }) => {
+      const step = actionName === "increment" ? 1 : -1;
+      const from = selected ?? (step > 0 ? -1 : bars.length);
+      for (let index = from + step; index >= 0 && index < bars.length; index += step) if (bars[index].value != null) { onSelect(index); return; }
+    },
+  };
   return <View>
-    <View accessible accessibilityRole="image" accessibilityLabel={accessibilityLabel} style={{ height }}
+    <View accessible accessibilityRole="image" accessibilityLabel={accessibilityLabel} {...readable} style={{ height }}
       onLayout={(event) => setWidth(event.nativeEvent.layout.width)} {...touch}>
       {width > 0 && <Svg width={width} height={height}>
         {goal ? <Line x1={0} x2={width} y1={y(goal)} y2={y(goal)} stroke={COLORS.textLight} strokeOpacity={0.55} strokeWidth={1} strokeDasharray="3 4" /> : null}
         {bars.map((point, index) => {
           const x = center(index) - bar / 2;
+          if (point.value == null && point.before) return null;
           if (point.value == null) return <Circle key={point.key} cx={center(index)} cy={floor - 1.5} r={Math.min(1.5, bar / 2)} fill={COLORS.track} />;
           const barHeight = Math.max(3, floor - y(point.value));
           return <Rect key={point.key} x={x} y={floor - barHeight} width={bar} height={barHeight} rx={Math.min(bar, barHeight) / 2} fill={fillFor(point, index)} fillOpacity={selected == null && point.partial ? PARTIAL_OPACITY : 1} />;
@@ -85,7 +108,7 @@ export default function TrendChart({ points: bars, goal, top: ceiling, typical, 
       </Svg>}
     </View>
     {width > 0 && !compact && <View style={styles.labels}>
-      {bars.map((point, index) => point.label && <Text key={point.key} numberOfLines={1} maxFontSizeMultiplier={AXIS_TEXT} style={[styles.label, { left: center(index) - LABEL_WIDTH / 2 }, selected === index && styles.labelSelected]}>{point.label}</Text>)}
+      {bars.map((point, index) => shownLabel(point, index) && <Text key={point.key} numberOfLines={1} maxFontSizeMultiplier={AXIS_TEXT} style={[styles.label, { left: center(index) - LABEL_WIDTH / 2 }, selected === index && styles.labelSelected]}>{point.label}</Text>)}
     </View>}
   </View>;
 }

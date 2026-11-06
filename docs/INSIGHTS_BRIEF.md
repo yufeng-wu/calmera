@@ -23,10 +23,10 @@ These sources are mostly secondary and small-sample; none was a controlled study
 | --- | --- | --- |
 | Days logged | Have I been logging? | Always |
 | Past 7 days average | What does a normal day look like? | Chart always. Average after 3 days with 2+ meals |
-| Your foods | What do I eat most, and what gives me protein? | Any food logged |
+| Leaderboard | What do I eat most, and which foods give me the most calories, protein, carbs and fat? | Any food logged |
 | Veg and fruit | What kinds have I had? | A checked food in the period |
-| When you eat | What time do I usually have each meal? | A meal logged on 3+ days |
-| How much at each meal | How do calories, protein, carbs and fat split across meals? | 3 days with 2+ meals |
+| When you eat | When do I usually have each meal, and when do I snack? Every meal is a dot on one clock, with a line at the average; snacks get an average for each regular snack time | A meal logged on 3+ days |
+| What each meal adds | How do calories, protein, carbs and fat split across meals? Percents and amounts per day are on the detail page | 3 days with 2+ meals |
 | On days with X g of protein or more | What's different on days with more protein? | Month and Year, with 3+ days on each side |
 | Weekdays and weekends | Are they different? | Month and Year, with 5+ weekdays and 3+ weekend days |
 
@@ -36,7 +36,7 @@ Left out on purpose: AI commentary, scored reports, weight, Apple Health, and co
 
 ## Known limits
 
-- A meal's time is usually when it was logged, unless edited. "When you eat" says so and rounds times to the nearest quarter hour.
+- A meal's time is usually when it was logged, unless edited. "When you eat" says so and rounds times to the nearest quarter hour. A meal's time is its first food that day; when two meals start within 20 minutes, the day was logged in one go and only the later time counts. Snack foods within 45 minutes are one snack. Snack times are grouped by smoothing them over the day and splitting at clear dips; a group needs three days and a fifth of all snacks to get its own average.
 - Food name merging is deliberately cautious. "White Rice" and "Steamed White Rice" merge; "Fried Rice" and "Rice" stay apart. Rewordings like "Rice with chicken" won't merge.
 - Veg and fruit tags come from the AI at logging, on the person's own ChatGPT plan, and the Insights page itself does no AI work. Foods logged earlier or typed by hand have no tags (`ingredients` is null, meaning unchecked rather than none). Renaming a food clears its tags.
 - Android gets the export as text in the share sheet rather than as a file, since the app has no Android file-sharing module.
