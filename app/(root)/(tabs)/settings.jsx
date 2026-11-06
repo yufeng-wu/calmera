@@ -66,9 +66,9 @@ export default function SettingsScreen({ calmeraPreview = false }) {
     router.push(path);
   };
   const handleLogout = () => {
-    Alert.alert("Sign out", "Are you sure you want to sign out?", [
+    Alert.alert("Sign out?", undefined, [
       { text: "Cancel", style: "cancel" },
-      { text: "Sign out", style: "destructive", onPress: async () => {
+      { text: "Sign Out", style: "destructive", onPress: async () => {
         if (calmeraPreview) { setPreviewMessage("Sign out confirmed. Preview only."); return; }
         await signOut();
       } },
@@ -162,7 +162,7 @@ function GoalsCard({ goals, failed, large, onPress }) {
   const spoken = unset ? "Not set" : values.map(({ label, value, spoken: unit }) => `${label} ${value === null ? "not set" : `${formatNumber(value)} ${unit}`}`).join(", ");
   const { pressProps, highlight } = usePressHighlight();
   return <Pressable accessibilityRole="button" accessibilityLabel="Daily goals" accessibilityValue={{ text: spoken }}
-    accessibilityHint="Opens your daily goals" onPress={onPress} {...pressProps} style={styles.goals}>
+    accessibilityHint="Opens the goals editor" onPress={onPress} {...pressProps} style={styles.goals}>
     {highlight}
     <View style={styles.goalGrid}>
       {values.map(({ key, label, unit, color, value }) => <View key={key} style={[styles.goal, large && styles.goalLarge]}>
@@ -176,7 +176,7 @@ function GoalsCard({ goals, failed, large, onPress }) {
       </View>)}
     </View>
     <Ionicons name="chevron-forward" size={16} color={SETTINGS.chevron} />
-    {(unset || failed) && <Text style={styles.goalNote}>{failed ? "Couldn't load your goals. Tap to open them." : "Set your daily goals."}</Text>}
+    {(unset || failed) && <Text style={styles.goalNote}>{failed ? "Couldn’t load your goals. Tap to try again." : "Set your daily goals."}</Text>}
   </Pressable>;
 }
 

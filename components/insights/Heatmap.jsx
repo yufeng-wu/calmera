@@ -14,8 +14,9 @@ const LABEL_WIDTH = 12 + 6;
 // Labels locked to the grid can only grow so far before they collide.
 const GRID_TEXT = 1.2;
 
-// Fill for a day, or nothing for days before the first log, which weren't missed.
-const fillFor = (day) => day?.started ? { backgroundColor: day.logged ? COLORS.primary : COLORS.track } : null;
+// Filled on logged days, gray on missed ones, and an empty outline before you started,
+// so every period always shows all its days.
+const fillFor = (day) => !day ? null : day.started ? { backgroundColor: day.logged ? COLORS.primary : COLORS.track } : styles.notStarted;
 
 // A small calendar of dots, one row per week with Sunday first, so weekends stay in
 // the same place.
@@ -25,7 +26,7 @@ export function WeekDots({ keys, logged, started, todayKey }) {
     <View style={styles.dotRow}>
       {["S", "M", "T", "W", "T", "F", "S"].map((letter, index) => <Text key={index} maxFontSizeMultiplier={GRID_TEXT} style={styles.dotHeader}>{letter}</Text>)}
     </View>
-    {weeks.filter((week) => week.days.some((day) => day?.started)).map((week) => <View key={week.days.find(Boolean).key} style={styles.dotRow}>
+    {weeks.map((week) => <View key={week.days.find(Boolean).key} style={styles.dotRow}>
       {week.days.map((day, position) => <View key={position} style={[styles.dot, fillFor(day), day?.key === todayKey && styles.today]} />)}
     </View>)}
   </View>;
@@ -78,6 +79,7 @@ const styles = StyleSheet.create({
   weeks: { flexDirection: "row", gap: GAP },
   week: { gap: GAP },
   cell: { width: SIZE, height: SIZE, borderRadius: 4 },
+  notStarted: { borderWidth: 1, borderColor: COLORS.track },
   today: { borderWidth: 1.5, borderColor: COLORS.text },
   weekdays: { gap: GAP, marginTop: 20, width: 12 },
   weekday: { height: SIZE, lineHeight: SIZE, fontSize: 10, color: COLORS.textLight, textAlign: "center" },

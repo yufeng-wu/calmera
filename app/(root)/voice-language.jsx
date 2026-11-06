@@ -130,14 +130,13 @@ export default function VoiceLanguage({ calmeraPreview = false, calmeraPreviewSt
       {loadError ? <SettingsSection label="Language">
         <View style={styles.problem}>
           <Text style={formStyles.sectionTitle}>Couldn’t confirm your voice language</Text>
-          <Text style={formStyles.caption}>Try again to check your saved voice language.</Text>
           <GlassButton title="Try again" symbol="arrow.clockwise" onPress={retryLoad} />
         </View>
       </SettingsSection>
         // While the saved choice loads, the rows keep their place without a check, so nothing jumps.
         // The note stays put while a choice saves; the check already shows it took.
         : <SettingsSection label="Language" footnote={calmeraPreview ? "Preview only · nothing is saved."
-          : "Calmera listens in this language when you log by voice. Changes save automatically."}>
+          : "Used when you log by voice."}>
           {VOICE_LANGUAGES.map((item, index) => <SettingsRow key={item.value} title={item.label}
             selected={!loading && language === item.value} divider={index > 0} accessibilityRole="radio"
             disabled={saving || loading} onPress={() => { if (item.value !== language) Haptics.selectionAsync().catch(() => {}); selectLanguage(item.value); }} />)}

@@ -1,44 +1,50 @@
-import { SafeScreenTopContext } from "@/components/SafeScreen";
-import { TYPOGRAPHY } from "@/constants/typography";
-import React, { useContext, useRef, useState } from "react";
-import { AccessibilityInfo, Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { AccessibilityInfo, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import Animated, { FadeIn, LayoutAnimationConfig } from "react-native-reanimated";
 import { Picker } from "@react-native-picker/picker";
 import Constants from "expo-constants";
+import * as Haptics from "expo-haptics";
 import { useNavigation, StackActions } from "@react-navigation/native";
 import { useAuth } from "@clerk/clerk-expo";
-import { FORM_COLORS as COLORS } from "@/constants/formTheme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { FormHeader, GlassButton, FormScreen, FormScrollView, formStyles } from "@/components/GlassForm";
+import SettingsRow from "@/components/SettingsRow";
+import { SettingsSection, settingsStyles } from "@/components/SettingsSection";
 import { USERS_API_URL } from "@/constants/api";
+import { NUTRIENT_COLORS } from "@/constants/colors";
+import { SETTINGS, SETTINGS_MOTION } from "@/constants/settingsTheme";
+import { TYPOGRAPHY } from "@/constants/typography";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
-import { FormCard, FormHeader, GlassButton, FormScreen, FormScrollView, formStyles } from "@/components/GlassForm";
-import GlassSurface from "@/components/GlassSurface";
 import usePageExit from "@/hooks/usePageExit";
 import useFormTaskScope from "@/hooks/useFormTaskScope";
 import { saveGoalProfile, goalSaveErrorMessage } from "@/lib/goalProfile.mjs";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { surveyBmr, surveyGoals, surveyPickerCommit, surveyInputSignature } from "@/lib/goalsSurvey.mjs";
+import { surveyBmr, surveyGoals, surveyPickerCommit } from "@/lib/goalsSurvey.mjs";
+import { formatNumber } from "@/lib/insights/stats.mjs";
 
 const sexOptions = [
-  { label: "Female", value: "female" }, { label: "Male", value: "male" },
-  { label: "Prefer not to say", value: "na" },
-];
-const goalOptions = [
-  { label: "Lose", value: "lose" }, { label: "Maintain", value: "maintain" }, { label: "Gain", value: "gain" },
+  { label: "Female", value: "female" }, { label: "Male", value: "male" }, { label: "Not saying", value: "na" },
 ];
 const workActivityOptions = [
-  { label: "Sedentary", value: "sedentary", desc: "Desk job, mostly sitting", example: "e.g. Office worker, programmer, driver" },
-  { label: "Light", value: "light", desc: "Mostly standing, light movement", example: "e.g. Teacher, cashier, retail" },
-  { label: "Moderate", value: "moderate", desc: "On feet, walking often", example: "e.g. Nurse, waiter, delivery" },
-  { label: "Active", value: "active", desc: "Physically demanding work", example: "e.g. Construction, mover, athlete" },
+  { value: "sedentary", title: "Mostly sitting", subtitle: "Desk work, driving" },
+  { value: "light", title: "Mostly standing", subtitle: "Teaching, retail" },
+  { value: "moderate", title: "Mostly walking", subtitle: "Nursing, serving, delivery" },
+  { value: "active", title: "Heavy lifting", subtitle: "Construction, moving" },
 ];
 const exerciseActivityOptions = [
   { label: "0", value: "sedentary" }, { label: "1–2", value: "light" },
   { label: "3–4", value: "moderate" }, { label: "5–6", value: "high" }, { label: "7+", value: "very_high" },
 ];
-const goalHelper = {
-  lose: "Aim for fat loss through a slight calorie deficit",
-  maintain: "Keep current weight and body composition",
-  gain: "Build muscle or increase body mass with a surplus",
-};
+const goalOptions = [
+  { value: "lose", title: "Lose weight", subtitle: "Eat about 250 kcal less than you burn" },
+  { value: "maintain", title: "Stay the same", subtitle: "Eat about what you burn" },
+  { value: "gain", title: "Build muscle", subtitle: "Eat about 250 kcal more than you burn" },
+];
+const RESULTS = [
+  { key: "calorieGoal", label: "Calories", unit: "", color: NUTRIENT_COLORS.calories },
+  { key: "proteinGoal", label: "Protein", unit: "g", color: NUTRIENT_COLORS.protein },
+  { key: "carbsGoal", label: "Carbs", unit: "g", color: NUTRIENT_COLORS.carbs },
+  { key: "fatGoal", label: "Fat", unit: "g", color: NUTRIENT_COLORS.fat },
+];
 const ageItems = Array.from({ length: 86 }, (_, i) => i + 15);
 const weightKgIntItems = Array.from({ length: 171 }, (_, i) => 30 + i);
 const weightLbsIntItems = Array.from({ length: 285 }, (_, i) => 66 + i);
@@ -47,39 +53,28 @@ const bodyFatItems = Array.from({ length: 46 }, (_, i) => 5 + i);
 const heightFtItems = Array.from({ length: 5 }, (_, i) => 4 + i);
 const heightInItems = Array.from({ length: 12 }, (_, i) => i);
 const decimalItems = Array.from({ length: 10 }, (_, i) => i);
-const toLbs = (kg) => Math.round(kg * 2.20462);
+// Pounds keep their tenth, like kilograms, so a picked 154.6 lb stays 154.6.
+const toLbs = (kg) => Math.round(kg * 2.20462 * 10) / 10;
 const toKg = (lbs) => lbs / 2.20462;
 const cmToFeetIn = (cm) => {
   const totalInches = cm / 2.54;
   return { ft: Math.floor(totalInches / 12), in: Math.round(totalInches % 12) };
 };
 const feetInToCm = (ft, inch) => (ft * 12 + (inch || 0)) * 2.54;
+const tick = () => Haptics.selectionAsync().catch(() => {});
 
-function SurveyChoices({ label, options, selectedValue, onValueChange, compact = false, columns, shortLabels = false, disabled = false }) {
-  const { fontScale } = useWindowDimensions();
-  const minimumWidth = shortLabels ? 44 * Math.max(1, fontScale) : Math.min(160, 64 * Math.max(1, fontScale));
-  return <View style={[styles.choices, compact && styles.unitChoices]}>
-    {options.map(({ label: text, value }) => <Pressable key={value}
-      accessibilityRole="radio" accessibilityLabel={`${label}, ${text}`}
-      accessibilityState={{ checked: selectedValue === value, disabled }} disabled={disabled} onPress={() => onValueChange(value)}
-      style={({ pressed }) => [styles.choice, compact && styles.unitChoice,
-        !compact && { minWidth: minimumWidth, flexBasis: minimumWidth },
-        columns === 2 && { flexBasis: fontScale >= 1.5 ? "100%" : "45%" },
-        selectedValue === value && styles.choiceSelected, pressed && styles.choicePressed]}>
-      {selectedValue === value && <GlassSurface style={StyleSheet.absoluteFill} />}
-      <Text style={[styles.choiceText, selectedValue === value && styles.choiceTextSelected]}>{text}</Text>
-    </Pressable>)}
-  </View>;
-}
-
-function SurveyField({ label, value, onPress, children, disabled = false }) {
-  return <View style={styles.field}>
-    <Text style={styles.label}>{label}</Text>
-    <View style={styles.fieldControls}>
-      <GlassButton title={value} onPress={onPress} disabled={disabled} accessibilityLabel={`${label}, ${value}. Choose value.`}
-        style={styles.valueButton} />
-      {children}
-    </View>
+// A row of short choices on a pale track; the chosen one sits on a white pill.
+function Segmented({ label, options, value, onChange, disabled = false }) {
+  return <View style={styles.segmented} accessibilityRole="radiogroup" accessibilityLabel={label}>
+    {options.map(option => {
+      const selected = option.value === value;
+      return <Pressable key={option.value} accessibilityRole="radio" accessibilityLabel={`${label}, ${option.label}`}
+        accessibilityState={{ checked: selected, disabled }} disabled={disabled}
+        onPress={() => { if (!selected) { tick(); onChange(option.value); } }}
+        style={({ pressed }) => [styles.segment, selected && styles.segmentSelected, pressed && !selected && styles.segmentPressed]}>
+        <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>{option.label}</Text>
+      </Pressable>;
+    })}
   </View>;
 }
 
@@ -89,7 +84,7 @@ function SurveyWheel({ label, value, onChange, items, disabled = false }) {
     <Picker accessibilityLabel={label} accessibilityState={{ disabled }} enabled={!disabled}
       selectedValue={value} onValueChange={value => { if (!disabled) onChange(value); }}
       itemStyle={styles.pickerItem} style={styles.wheel}>
-      {items.map(item => <Picker.Item key={item} label={String(item)} value={item} color={COLORS.text} />)}
+      {items.map(item => <Picker.Item key={item} label={String(item)} value={item} color={SETTINGS.ink} />)}
     </Picker>
   </View>;
 }
@@ -112,7 +107,8 @@ function SurveyPickerSheet({ visible, title, onDone, onClose, onClear, children,
         <View style={styles.sheetHandle} />
         {largeText && <Text accessibilityRole="header" style={[styles.sheetTitle, styles.sheetTitleLarge]}>{title}</Text>}
         <View style={[styles.sheetHeader, largeText && styles.sheetActionsLarge]}>
-          {onClear && <GlassButton title="Clear" onPress={onClear} disabled={disabled} style={actionStyle} />}
+          {onClear ? <GlassButton title="Clear" onPress={onClear} disabled={disabled} style={actionStyle} />
+            : !largeText && <View style={actionStyle} />}
           {!largeText && <Text accessibilityRole="header" style={styles.sheetTitle}>{title}</Text>}
           <GlassButton title="Done" onPress={onDone} disabled={disabled} style={actionStyle} />
         </View>
@@ -122,6 +118,26 @@ function SurveyPickerSheet({ visible, title, onDone, onClose, onClear, children,
       </View>
     </View>
   </Modal>;
+}
+
+// The suggested goals in Today's ring colors; dashes until every question is answered.
+function SuggestedGoals({ goals, large }) {
+  const spoken = goals ? RESULTS.map(({ key, label, unit }) => `${label} ${formatNumber(goals[key])} ${unit === "g" ? "grams" : "kilocalories"}`).join(", ")
+    : "Not ready yet";
+  return <View style={styles.results} accessible accessibilityLabel={`Suggested daily goals. ${spoken}.`}>
+    <LayoutAnimationConfig skipEntering>
+      {RESULTS.map(({ key, label, unit, color }) => <View key={key} style={[styles.result, large && styles.resultLarge]}>
+        <View style={styles.resultLabelRow}>
+          <View style={[styles.resultDot, { backgroundColor: color }]} />
+          <Text numberOfLines={1} style={styles.resultLabel}>{label}</Text>
+        </View>
+        <Animated.Text key={`${key}-${goals?.[key] ?? "none"}`} entering={goals ? FadeIn.duration(SETTINGS_MOTION.fade) : undefined}
+          numberOfLines={1} style={styles.resultValue}>
+          {goals ? formatNumber(goals[key]) : "–"}{goals && !!unit && <Text style={styles.resultUnit}>{` ${unit}`}</Text>}
+        </Animated.Text>
+      </View>)}
+    </LayoutAnimationConfig>
+  </View>;
 }
 
 export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStage = "form" }) {
@@ -158,64 +174,38 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
   });
   const [workActivity, setWorkActivity] = useState(seeded ? "moderate" : null);
   const [exerciseActivity, setExerciseActivity] = useState(seeded ? "moderate" : null);
-  const inputSignature = surveyInputSignature({ weightKg, heightCm, age, sex, bodyFat, workActivity, exerciseActivity, goal });
-  const [recommendationResult, setRecommendationResult] = useState(() => seeded
-    ? { signature: inputSignature, goals: surveyGoals({ weightKg, heightCm, age, sex, bodyFat, workActivity, exerciseActivity, goal }) } : null);
-  const recommendation = recommendationResult?.signature === inputSignature ? recommendationResult.goals : null;
+  // The suggestion follows the answers as they change, so there's nothing to press first.
+  const answers = [age, heightCm, weightKg, sex, workActivity, exerciseActivity, goal];
+  const remaining = answers.filter(value => value === null).length;
+  const recommendation = remaining ? null : surveyGoals({ weightKg, heightCm, age, sex, bodyFat, workActivity, exerciseActivity, goal });
   const [picker, setPicker] = useState({ field: null, visible: false });
   const [pendingAge, setPendingAge] = useState(25);
   // Ref guards also reject accessibility/queued actions before disabled props render.
   const changeInput = setter => value => { if (!savingRef.current) setter(value); };
+  const choose = (setter, value, current) => { if (savingRef.current || value === current) return; tick(); setter(value); };
   const closePicker = () => { if (!savingRef.current) setPicker({ field: null, visible: false }); };
   const openPicker = field => {
     if (savingRef.current) return;
     if (field === "age") setPendingAge(age ?? 25);
     setPicker({ field, visible: true });
   };
-  const safeTopInset = useContext(SafeScreenTopContext);
-  const [headerHeight, setHeaderHeight] = useState(Math.max(64, 40 * fontScale + 20) + safeTopInset);
   const [reduceMotion, setReduceMotion] = useState(true);
-  const recommendationY = useRef(null);
-  const pendingReveal = useRef(seeded && !disclosureFixture);
-  React.useEffect(() => {
+  useEffect(() => {
     let active = true;
     AccessibilityInfo.isReduceMotionEnabled().then(value => { if (active) setReduceMotion(value); });
     const listener = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion);
     return () => { active = false; listener.remove(); };
   }, []);
-  const revealRecommendation = y => {
-    if (!pendingReveal.current || y == null) return;
-    pendingReveal.current = false;
-    const overlap = Platform.OS === "ios" && Number.parseInt(String(Platform.Version), 10) >= 26 ? headerHeight : 0;
-    scrollViewRef.current?.scrollTo({ y: Math.max(0, y - overlap - 12), animated: !reduceMotion });
-  };
+  // When the last answer completes the suggestion, bring it and its button into view.
+  const ready = Boolean(recommendation);
+  const wasReady = useRef(ready && !(seeded && !disclosureFixture));
+  useEffect(() => {
+    if (ready && !wasReady.current) requestAnimationFrame(() => scrollViewRef.current?.scrollToEnd({ animated: !reduceMotion }));
+    wasReady.current = ready;
+  }, [ready, reduceMotion]);
   const { ft: currentFt, in: currentIn } = cmToFeetIn(heightCm ?? 175);
   const setHeightFromFt = ft => { if (!savingRef.current) setHeightCm(feetInToCm(ft, currentIn)); };
   const setHeightFromIn = inch => { if (!savingRef.current) setHeightCm(feetInToCm(currentFt, inch)); };
-
-  const handleSubmit = () => {
-    if (savingRef.current) return;
-    if (
-      !age ||
-      !weightKg ||
-      !heightCm ||
-      !sex ||
-      !workActivity ||
-      !exerciseActivity ||
-      !goal
-    ) {
-      return Alert.alert(
-        "Missing Info",
-        "Please complete all the required fields."
-      );
-    }
-
-    pendingReveal.current = true;
-    setRecommendationResult({ signature: inputSignature, goals: surveyGoals({
-      weightKg, heightCm, age, sex, bodyFat, workActivity, exerciseActivity, goal,
-    }) });
-    if (recommendation && recommendationY.current != null) requestAnimationFrame(() => revealRecommendation(recommendationY.current));
-  };
 
   const handleSaveMacros = async () => {
     if (!recommendation || savingRef.current || !scope.isActive()) return;
@@ -261,11 +251,10 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
       if (saveFixture) {
         Alert.alert("Preview only", "Synthetic save complete. No goals were saved.");
       } else {
-        Alert.alert("Success", "Macro goals updated successfully.", [{ text: "OK", onPress: () => {
-          if (!current()) return;
-          if (navigation.canGoBack()) navigation.dispatch(StackActions.popToTop());
-          else goBack();
-        } }]);
+        // Settings shows the new goals as soon as this closes, so a tap of success is enough.
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        if (navigation.canGoBack()) navigation.dispatch(StackActions.popToTop());
+        else goBack();
       }
     } catch (error) {
       if (error.mayHaveSaved) refreshAfterWrite();
@@ -278,100 +267,60 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
       }
     }
   };
-  const displayAge = age !== null ? `${Number(age)} yrs` : "Required";
+  const displayAge = age !== null ? `${Number(age)}` : "Choose";
   const displayWeight = weightKg !== null
-    ? `${weightUnit === "kg" ? Number(weightKg).toFixed(1) : Number(toLbs(weightKg)).toFixed(1)} ${weightUnit}` : "Required";
+    ? `${weightUnit === "kg" ? Number(weightKg).toFixed(1) : Number(toLbs(weightKg)).toFixed(1)} ${weightUnit === "kg" ? "kg" : "lb"}` : "Choose";
   const displayHeight = heightCm !== null
-    ? heightUnit === "cm" ? `${Number(heightCm).toFixed(1)} cm` : `${currentFt} ft ${Math.round(currentIn)} in` : "Required";
+    ? heightUnit === "cm" ? `${Number(heightCm).toFixed(1)} cm` : `${currentFt} ft ${Math.round(currentIn)} in` : "Choose";
   const weightDisplayNumber = weightKg === null ? weightUnit === "kg" ? 70 : 154
     : weightUnit === "kg" ? weightKg : toLbs(weightKg);
   const decimalOf = value => Math.round((value * 10) % 10);
   const changeWeight = value => { if (!savingRef.current) setWeightKg(weightUnit === "kg" ? value : toKg(value)); };
-  const fieldName = { age: "Age", weight: `Weight (${weightUnit})`, height: heightUnit === "cm" ? "Height (cm)" : "Height",
-    bodyFat: "Body fat %" }[picker.field];
-  const workSelection = workActivityOptions.find(option => option.value === workActivity);
-  const sexAssumption = sex === "na" && bodyFat === null
-    ? "Sex wasn’t specified, so this estimate uses the female equation." : null;
+  const fieldName = { age: "Age", weight: "Weight", height: "Height", bodyFat: "Body fat" }[picker.field];
+  const sexAssumption = sex === "na" && bodyFat === null ? "With “Not saying”, the estimate uses the female formula. Add body fat to avoid it." : null;
+  const method = recommendation && `Based on the ${bodyFat !== null ? "Katch–McArdle" : "Mifflin–St Jeor"} equation: about ${formatNumber(Math.round(surveyBmr({ weightKg, heightCm, age, sex, bodyFat })))} kcal burned at rest, adjusted for your activity and goal. Not medical advice.`;
 
-  return <FormScreen style={formStyles.screen} onHeaderHeightChange={setHeaderHeight}>
-    <FormHeader title="Goal Survey" onBack={goBack} backDisabled={loading} />
-    <FormScrollView key={`survey-text-${fontScale}`} ref={scrollViewRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"
+  return <FormScreen style={formStyles.screen}>
+    <FormHeader title="Suggest goals" onBack={goBack} backDisabled={loading} />
+    <FormScrollView key={`survey-text-${fontScale}`} ref={scrollViewRef} contentContainerStyle={settingsStyles.content} keyboardShouldPersistTaps="handled"
       pointerEvents={loading ? "none" : "auto"}>
-      {calmeraPreview && <Text style={formStyles.caption}>Synthetic preview · nothing is saved</Text>}
-      <View style={styles.intro}>
-        <Text accessibilityRole="header" style={styles.introTitle}>A starting point for your goals</Text>
-        <Text style={styles.supporting}>Tell us a little about yourself. Review your recommendation before saving it.</Text>
-      </View>
-      <FormCard>
-        <Text accessibilityRole="header" style={styles.sectionTitle}>About you</Text>
-        <SurveyField disabled={loading} label="Age" value={displayAge} onPress={() => openPicker("age")} />
-        <SurveyField disabled={loading} label="Weight" value={displayWeight} onPress={() => openPicker("weight")}>
-          <SurveyChoices disabled={loading} label="Weight unit" compact options={[{ label: "kg", value: "kg" }, { label: "lbs", value: "lbs" }]}
-            selectedValue={weightUnit} onValueChange={changeInput(setWeightUnit)} />
-        </SurveyField>
-        <SurveyField disabled={loading} label="Height" value={displayHeight} onPress={() => openPicker("height")}>
-          <SurveyChoices disabled={loading} label="Height unit" compact options={[{ label: "cm", value: "cm" }, { label: "ft/in", value: "ft" }]}
-            selectedValue={heightUnit} onValueChange={changeInput(setHeightUnit)} />
-        </SurveyField>
-        <SurveyField disabled={loading} label="Body fat (optional)" value={bodyFat === null ? "Optional" : `${bodyFat} %`} onPress={() => openPicker("bodyFat")} />
-        <View style={styles.question}>
-          <Text style={styles.label}>Sex</Text>
-          <SurveyChoices disabled={loading} label="Sex" options={sexOptions} selectedValue={sex} onValueChange={changeInput(setSex)} />
-          {sexAssumption && <Text style={styles.caption}>{sexAssumption}</Text>}
+      {calmeraPreview && <Text style={settingsStyles.footnote}>Synthetic preview · nothing is saved</Text>}
+      <Text style={settingsStyles.lead}>Answer a few questions for starting goals. Change them anytime.</Text>
+      <SettingsSection label="About you" footnote={sexAssumption}>
+        <SettingsRow title="Age" value={displayAge} onPress={() => openPicker("age")} disabled={loading} />
+        <SettingsRow title="Height" value={displayHeight} divider onPress={() => openPicker("height")} disabled={loading} />
+        <SettingsRow title="Weight" value={displayWeight} divider onPress={() => openPicker("weight")} disabled={loading} />
+        <SettingsRow title="Body fat" value={bodyFat === null ? "Optional" : `${bodyFat}%`} divider onPress={() => openPicker("bodyFat")} disabled={loading} />
+        <View style={styles.segmentRow}>
+          <View style={styles.inlineDivider} />
+          <Text style={styles.segmentTitle}>Sex</Text>
+          <Segmented label="Sex" options={sexOptions} value={sex} disabled={loading} onChange={value => choose(setSex, value, sex)} />
         </View>
-      </FormCard>
-      <FormCard>
-        <Text accessibilityRole="header" style={styles.sectionTitle}>Your activity</Text>
-        <View style={styles.question}>
-          <Text style={styles.label}>How active are you at your job?</Text>
-          <SurveyChoices disabled={loading} label="Work activity" columns={2} options={workActivityOptions} selectedValue={workActivity} onValueChange={changeInput(setWorkActivity)} />
-          {!!workSelection && <View style={styles.helperGroup}>
-            <Text style={styles.supporting}>{workSelection.desc}</Text>
-            <Text style={styles.caption}>{workSelection.example}</Text>
-          </View>}
+      </SettingsSection>
+      <SettingsSection label="At work">
+        {workActivityOptions.map((option, index) => <SettingsRow key={option.value} title={option.title} subtitle={option.subtitle}
+          accessibilityRole="radio" selected={workActivity === option.value} divider={index > 0} disabled={loading}
+          onPress={() => choose(setWorkActivity, option.value, workActivity)} />)}
+      </SettingsSection>
+      <SettingsSection label="Workouts a week">
+        <View style={styles.segmentCard}>
+          <Segmented label="Workouts a week" options={exerciseActivityOptions} value={exerciseActivity} disabled={loading}
+            onChange={value => choose(setExerciseActivity, value, exerciseActivity)} />
         </View>
-        <View style={styles.question}>
-          <Text style={styles.label}>How often do you exercise each week?</Text>
-          <SurveyChoices disabled={loading} label="Exercise sessions per week" shortLabels options={exerciseActivityOptions} selectedValue={exerciseActivity} onValueChange={changeInput(setExerciseActivity)} />
-        </View>
-      </FormCard>
-      <FormCard>
-        <Text accessibilityRole="header" style={styles.sectionTitle}>Your goal</Text>
-        <SurveyChoices disabled={loading} label="Goal" options={goalOptions} selectedValue={goal} onValueChange={changeInput(setGoal)} />
-        {!!goal && <Text style={styles.supporting}>{goalHelper[goal]}</Text>}
-      </FormCard>
-      <GlassButton title="Get recommendation" symbol="sparkles" role="accent" onPress={handleSubmit} disabled={loading} />
-      {recommendationResult && !recommendation && <Text accessibilityLiveRegion="polite" style={styles.caption}>Your details changed. Get a new recommendation to continue.</Text>}
-      {recommendation && <View collapsable={false} onLayout={({ nativeEvent }) => {
-        recommendationY.current = nativeEvent.layout.y;
-        revealRecommendation(nativeEvent.layout.y);
-      }}><FormCard>
-        <Text accessibilityRole="header" style={styles.sectionTitle}>Recommended macros</Text>
-        <Text style={styles.caption}>Daily estimates · adjust anytime</Text>
-        <View style={styles.resultRows}>
-          {[
-            ["Calories", recommendation.calorieGoal, "kcal"], ["Protein", recommendation.proteinGoal, "g"],
-            ["Carbs", recommendation.carbsGoal, "g"], ["Fat", recommendation.fatGoal, "g"],
-          ].map(([label, value, unit]) => <View key={label} style={styles.resultRow}>
-            <Text style={styles.resultLabel}>{label}</Text>
-            <Text style={styles.resultValue}>{value} <Text style={styles.resultUnit}>{unit}</Text></Text>
-          </View>)}
-        </View>
-        {saveFixture && <Text accessibilityLiveRegion="polite" style={styles.caption}>
-          Synthetic save attempts: {fixtureTrace.attempts} · PUT requests: {fixtureTrace.puts}
-        </Text>}
-        {sexAssumption && <Text style={styles.caption}>{sexAssumption}</Text>}
-        <GlassButton title="Use these goals" symbol="checkmark" role="accent" onPress={handleSaveMacros} loading={loading} disabled={loading} />
-        <View style={styles.methodGroup}>
-          <Text style={styles.caption}>
-            Estimated calories at rest (BMR): {Math.round(surveyBmr({ weightKg, heightCm, age, sex, bodyFat }))} kcal/day.{" "}
-            Calculated with the {bodyFat !== null ? "Katch–McArdle" : "Mifflin–St Jeor"} formula.
-          </Text>
-          <Text style={styles.caption}>Estimated daily energy use (TDEE), including activity: {recommendation.calorieGoal + (goal === "lose" ? 500 : goal === "gain" ? -250 : 0)} kcal/day.</Text>
-          <Text style={styles.caption}>For your selected goal, this target {goal === "lose" ? "subtracts 500 kcal/day" : goal === "gain" ? "adds 250 kcal/day" : "matches estimated maintenance calories"}.</Text>
-          <Text style={styles.caption}>These are estimates. For personal guidance, consult a qualified health professional.</Text>
-        </View>
-      </FormCard></View>}
+      </SettingsSection>
+      <SettingsSection label="Your aim">
+        {goalOptions.map((option, index) => <SettingsRow key={option.value} title={option.title} subtitle={option.subtitle}
+          accessibilityRole="radio" selected={goal === option.value} divider={index > 0} disabled={loading}
+          onPress={() => choose(setGoal, option.value, goal)} />)}
+      </SettingsSection>
+      <SettingsSection label="Suggested daily goals" footnote={recommendation ? method
+        : `Answer ${remaining} more ${remaining === 1 ? "question" : "questions"} to see your goals.`}>
+        <SuggestedGoals goals={recommendation} large={fontScale > 1.3} />
+      </SettingsSection>
+      {saveFixture && <Text accessibilityLiveRegion="polite" style={settingsStyles.footnote}>
+        Synthetic save attempts: {fixtureTrace.attempts} · PUT requests: {fixtureTrace.puts}
+      </Text>}
+      <GlassButton title="Use these goals" symbol="checkmark" role="accent" onPress={handleSaveMacros} loading={loading} disabled={loading || !recommendation} />
     </FormScrollView>
     <SurveyPickerSheet disabled={loading} visible={picker.visible} title={fieldName} onClose={closePicker}
       onDone={() => {
@@ -386,9 +335,13 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
         closePicker();
       }}
       onClear={picker.field === "bodyFat" ? () => { if (savingRef.current) return; setBodyFat(null); closePicker(); } : undefined}>
-      {picker.field === "age" && <SurveyWheel disabled={loading} label="Age" value={pendingAge} onChange={changeInput(setPendingAge)} items={ageItems} />}
+      {picker.field === "weight" && <Segmented label="Weight unit" options={[{ label: "kg", value: "kg" }, { label: "lb", value: "lbs" }]}
+        value={weightUnit} disabled={loading} onChange={changeInput(setWeightUnit)} />}
+      {picker.field === "height" && <Segmented label="Height unit" options={[{ label: "cm", value: "cm" }, { label: "ft / in", value: "ft" }]}
+        value={heightUnit} disabled={loading} onChange={changeInput(setHeightUnit)} />}
+      {picker.field === "age" && <SurveyWheel disabled={loading} label="Years" value={pendingAge} onChange={changeInput(setPendingAge)} items={ageItems} />}
       {picker.field === "weight" && <View style={styles.wheelRow}>
-        <SurveyWheel disabled={loading} label={weightUnit} value={Math.floor(weightDisplayNumber)}
+        <SurveyWheel disabled={loading} label={weightUnit === "kg" ? "kg" : "lb"} value={Math.floor(weightDisplayNumber)}
           onChange={value => changeWeight(Number(`${value}.${decimalOf(weightDisplayNumber)}`))}
           items={weightUnit === "kg" ? weightKgIntItems : weightLbsIntItems} />
         <Text style={styles.decimalPoint}>.</Text>
@@ -418,48 +371,38 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 20, paddingTop: 12, paddingBottom: 48, gap: 18 },
-  intro: { gap: 8, paddingHorizontal: 2, paddingBottom: 4 },
-  introTitle: { ...TYPOGRAPHY.pageTitle, color: COLORS.text},
-  sectionTitle: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text},
-  label: { ...TYPOGRAPHY.bodyMedium, color: COLORS.text},
-  field: { gap: 8 },
-  fieldControls: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 10 },
-  valueButton: { flexGrow: 1, minWidth: 120 },
-  question: { gap: 8 },
-  choices: { flexDirection: "row", flexWrap: "wrap", gap: 6, padding: 4,
-    borderRadius: 24, backgroundColor: "#F7F2EC" },
-  choice: { flexGrow: 1, flexBasis: 0, minHeight: 44, paddingVertical: 12, paddingHorizontal: 12,
-    borderRadius: 22, alignItems: "center", justifyContent: "center" },
-  choiceSelected: { backgroundColor: "#FFFFFF" },
-  choicePressed: { backgroundColor: "#ECE2D9" },
-  choiceText: { ...TYPOGRAPHY.bodyMedium, color: COLORS.textLight, textAlign: "center"},
-  choiceTextSelected: { color: COLORS.primary, fontWeight: "600" },
-  unitChoices: { flexGrow: 0, flexShrink: 1, flexBasis: "auto" },
-  unitChoice: { flexGrow: 0, flexBasis: "auto", minWidth: 44 },
-  supporting: { ...TYPOGRAPHY.body, color: COLORS.textLight,},
-  caption: { ...TYPOGRAPHY.caption, color: COLORS.textLight,},
-  helperGroup: { gap: 4, paddingHorizontal: 4 },
-  resultRows: { gap: 0 },
-  resultRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: 8,
-    paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#EFE7DF" },
-  resultLabel: { ...TYPOGRAPHY.body, color: COLORS.text, flexShrink: 1},
-  resultValue: { ...TYPOGRAPHY.value, color: COLORS.primary, fontVariant: ["tabular-nums"]},
-  resultUnit: { ...TYPOGRAPHY.caption, color: COLORS.textLight,},
-  methodGroup: { gap: 12, paddingTop: 6 },
+  segmentRow: { gap: 10, paddingHorizontal: SETTINGS.rowPadding, paddingTop: 14, paddingBottom: 14 },
+  inlineDivider: { position: "absolute", top: 0, left: SETTINGS.rowPadding, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: SETTINGS.hairline },
+  segmentTitle: { ...TYPOGRAPHY.bodyMedium, color: SETTINGS.ink },
+  segmentCard: { padding: 8 },
+  segmented: { flexDirection: "row", flexWrap: "wrap", gap: 4, padding: 4, borderRadius: 22, backgroundColor: "#F4EDE6" },
+  segment: { flexGrow: 1, flexBasis: 0, minWidth: 44, minHeight: 40, paddingVertical: 9, paddingHorizontal: 8,
+    borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  segmentSelected: { backgroundColor: SETTINGS.surface, borderWidth: 0.5, borderColor: SETTINGS.edge },
+  segmentPressed: { backgroundColor: "#EADFD5" },
+  segmentText: { ...TYPOGRAPHY.bodyMedium, color: SETTINGS.inkSoft, textAlign: "center" },
+  segmentTextSelected: { color: SETTINGS.ink, fontWeight: "600" },
+  results: { flexDirection: "row", flexWrap: "wrap", rowGap: 14, paddingVertical: 16, paddingHorizontal: SETTINGS.rowPadding },
+  result: { width: "25%", gap: 3, paddingRight: 6 },
+  resultLarge: { width: "50%" },
+  resultLabelRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  resultDot: { width: 7, height: 7, borderRadius: 3.5 },
+  resultLabel: { ...TYPOGRAPHY.caption, color: SETTINGS.inkSoft, flexShrink: 1 },
+  resultValue: { ...TYPOGRAPHY.value, color: SETTINGS.ink, fontVariant: ["tabular-nums"] },
+  resultUnit: { ...TYPOGRAPHY.caption, color: SETTINGS.inkSoft },
   sheetBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(35,26,21,0.28)" },
-  sheet: { backgroundColor: COLORS.card, borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 20, gap: 14 },
+  sheet: { backgroundColor: SETTINGS.surface, borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 20, gap: 14 },
   sheetHandle: { height: 5, width: 36, alignSelf: "center", backgroundColor: "#CFC4BA", borderRadius: 3 },
   sheetHeader: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 12 },
-  sheetTitle: { ...TYPOGRAPHY.pageTitle, flex: 1, minWidth: 80, color: COLORS.text},
+  sheetTitle: { ...TYPOGRAPHY.sectionTitle, flex: 1, minWidth: 80, color: SETTINGS.ink, textAlign: "center" },
   sheetSmallAction: { minWidth: 64 },
   sheetTitleLarge: { flex: 0, width: "100%" },
   sheetActionsLarge: { justifyContent: "flex-end" },
-  sheetContent: { flexGrow: 1 },
+  sheetContent: { flexGrow: 1, gap: 8 },
   wheelRow: { flexDirection: "row", alignItems: "center" },
   wheelColumn: { flex: 1, minWidth: 0 },
-  wheelLabel: { ...TYPOGRAPHY.bodyMedium, color: COLORS.textLight, textAlign: "center"},
+  wheelLabel: { ...TYPOGRAPHY.caption, color: SETTINGS.inkSoft, textAlign: "center" },
   wheel: { width: "100%", height: 216 },
-  pickerItem: { height: 216, fontSize: 22, color: COLORS.text },
-  decimalPoint: { ...TYPOGRAPHY.code, color: COLORS.text, paddingTop: 20},
+  pickerItem: { height: 216, fontSize: 22, color: SETTINGS.ink },
+  decimalPoint: { ...TYPOGRAPHY.code, color: SETTINGS.ink, paddingTop: 20 },
 });

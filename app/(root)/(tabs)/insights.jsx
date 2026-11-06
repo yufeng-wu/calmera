@@ -75,9 +75,9 @@ export default function InsightsScreen() {
             : !showData ? <FirstRun onLog={() => router.navigate("/dashboard")} />
               : <Animated.View key={period} entering={FadeIn.duration(180)} style={styles.cards}>
                 <Text style={styles.range}>{`Past ${PERIODS.find(({ id }) => id === period).name} · ${formatRange(stats.keys)}`}</Text>
-                {refreshFailed && <Pressable accessibilityRole="button" onPress={() => refresh().catch(() => {})} hitSlop={{ top: 13, bottom: 13 }}><Text style={styles.staleNote}>{"Couldn't refresh. Tap to try again."}</Text></Pressable>}
+                {refreshFailed && <Pressable accessibilityRole="button" onPress={() => refresh().catch(() => {})} hitSlop={{ top: 13, bottom: 13 }}><Text style={styles.staleNote}>{"Couldn’t refresh. Tap to try again."}</Text></Pressable>}
                 {!stats.daysLogged ? <FormCard style={styles.emptyCard}>
-                  <Text style={styles.message}>{`No meals to show for the past ${PERIODS.find(({ id }) => id === period).name}.`}</Text>
+                  <Text style={styles.message}>{`No meals logged in the past ${PERIODS.find(({ id }) => id === period).name}.`}</Text>
                   {period !== "year" && <Pressable accessibilityRole="button" onPress={() => setPeriod(period === "week" ? "month" : "year")} hitSlop={12}>
                     <Text style={styles.link}>{`See ${period === "week" ? "month" : "year"}`}</Text>
                   </Pressable>}
@@ -91,7 +91,7 @@ export default function InsightsScreen() {
                     {stats.shares && <SharesCard shares={stats.shares} onPress={open("shares")} />}
                     {stats.difference && <DifferenceCard difference={stats.difference} onPress={open("difference")} />}
                     {stats.split && <SplitCard split={stats.split} onPress={open("split")} />}
-                    {hidesCards && <Text style={styles.moreNote}>More shows up here as you log.</Text>}
+                    {hidesCards && <Text style={styles.moreNote}>More cards appear as you log.</Text>}
                   </>}
               </Animated.View>}
       </FoodwrapRefreshScrollView>
@@ -101,7 +101,7 @@ export default function InsightsScreen() {
 
 function RetryCard({ onRetry }) {
   return <FormCard style={styles.emptyCard}>
-    <Text style={styles.message}>{"Couldn't load your meals."}</Text>
+    <Text style={styles.message}>{"Couldn’t load your meals."}</Text>
     <GlassButton title="Try again" onPress={onRetry} style={styles.emptyAction} />
   </FormCard>;
 }
@@ -207,7 +207,7 @@ function ProduceCard({ produce, onPress }) {
     const icon = iconFor({ foodName: item.name });
     if (icon.id !== "meal" && !icons.has(icon.emoji)) icons.set(icon.emoji, item.name);
   }
-  return <InsightCard title="Veg and fruit" onPress={onPress} answer={counts.length ? counts.join(" · ") : "None in the foods checked."}>
+  return <InsightCard title="Veggies and fruit" onPress={onPress} answer={counts.length ? counts.join(" · ") : "None spotted yet."}>
     {icons.size > 0 && <View style={styles.produceIcons}>
       {[...icons.keys()].slice(0, TOP_PRODUCE).map((emoji) => <Text key={emoji} style={styles.produceIcon}>{emoji}</Text>)}
     </View>}
@@ -239,7 +239,7 @@ function DifferenceCard({ difference, onPress }) {
   const { widest, meals } = difference;
   const top = Math.max(...meals.flatMap((meal) => [meal.higher, meal.lower]), 1);
   return <InsightCard title="Higher-protein days" onPress={onPress}
-    answer={widest ? `${MEAL_LABELS[widest.meal]}: ${formatNumber(widest.higher)} g on these days, ${formatNumber(widest.lower)} g on others.` : "No meal stands out."}>
+    answer={widest ? `${MEAL_LABELS[widest.meal]}: ${formatNumber(widest.higher)} g protein on these days, ${formatNumber(widest.lower)} g on others.` : "No meal stands out."}>
     {!!widest && <View>
       <PairBar value={widest.higher} top={top} color={COLORS.primary} />
       <PairBar value={widest.lower} top={top} color={COLORS.soft} />
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
   dayRow: { flexDirection: "row", gap: 5 },
   dayCell: { alignItems: "center", gap: 2 },
   dayDot: { width: 22, height: 22, borderRadius: 11, backgroundColor: COLORS.track },
-  dayNotStarted: { backgroundColor: "transparent" },
+  dayNotStarted: { backgroundColor: "transparent", borderWidth: 1.5, borderColor: COLORS.track },
   dayLogged: { backgroundColor: COLORS.primary },
   dayToday: { borderWidth: 2, borderColor: COLORS.text },
   dayLabel: { ...TYPOGRAPHY.caption, color: COLORS.textLight },

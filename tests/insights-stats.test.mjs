@@ -119,6 +119,14 @@ test("heatmap weeks start on Sunday, pad both ends and label months", () => {
   assert.equal(sliver[1].month, "Sep");
 });
 
+test("days count from the join day, or the first log if that's earlier", () => {
+  const days = { [key(1)]: { entries: fullDay(1000) } };
+  assert.deepEqual(periodStats(days, { today: TODAY, joined: key(4) }).started, [false, false, true, true, true, true, true]);
+  assert.deepEqual(periodStats(days, { today: TODAY, joined: `${key(4)}T00:00:00.000Z` }).started, [false, false, true, true, true, true, true]);
+  assert.deepEqual(periodStats(days, { today: TODAY, joined: "not a date" }).started, [false, false, false, false, false, true, true]);
+  assert.deepEqual(periodStats({ [key(5)]: { entries: fullDay(1000) } }, { today: TODAY, joined: key(2) }).started, [false, true, true, true, true, true, true]);
+});
+
 test("days before the first log are not started, and today always is", () => {
   const stats = periodStats({ [key(2)]: { entries: [entry("Rice", "Lunch", 500)] }, [key(40)]: { entries: [] } }, { today: TODAY });
   assert.deepEqual(stats.started, [false, false, false, false, true, true, true]);
@@ -279,7 +287,14 @@ test("higher-protein days compare at the goal when both sides have three days", 
   assert.equal(difference.widest.meal, "Breakfast");
   assert.equal(difference.widest.higher, 30);
   assert.equal(difference.widest.lower, 5);
-  assert.deepEqual(difference.foods, [{ name: "Greek Yogurt", higher: 4, lower: 0 }]);
+  assert.deepEqual(difference.foods.map(({ name, higher, lower }) => ({ name, higher, lower })), [{ name: "Greek Yogurt", higher: 4, lower: 0 }]);
+});
+
+test("each listed food keeps its meals' ids, oldest first, so it can show their chosen icon", () => {
+  const days = dayRange(1, 3, (ago) => [{ ...entry(ago === 2 ? "oat latte" : "Oat Latte", "Breakfast", 100), id: 10 - ago }, entry("Toast", "Lunch", 100)]);
+  const stats = periodStats(days, { today: TODAY });
+  assert.deepEqual(stats.foods.find((food) => food.name === "Oat Latte").entryIds, ["7", "8", "9"]);
+  assert.deepEqual(stats.foods.find((food) => food.name === "Toast").entryIds, []);
 });
 
 test("higher-protein days fall back to top and bottom halves without a usable goal", () => {

@@ -60,8 +60,8 @@ export function ChartKey({ stats, goals, compact }) {
 // The full version of each card on the Insights page, shown when someone taps into it.
 export function TrendDetail({ stats, goals }) {
   const hasPartial = NUTRIENTS.some(([field]) => stats.metrics[field].chart.some((item) => item.partial && item.value != null));
-  const footnote = [stats.span > 30 ? "Each bar is a month's daily average. Pale bars are partial months."
-    : hasPartial ? "The pale bar is today, which is still going. Today and days with one meal don't count toward the average." : null,
+  const footnote = [stats.span > 30 ? "Each bar is a month’s daily average. Pale bars are partial months."
+    : hasPartial ? "The pale bar is today, which is still going. Today and days with one meal don’t count toward the average." : null,
   "Touch a bar to read it."].filter(Boolean).join(" ");
   const noTypical = NUTRIENTS.every(([field]) => stats.metrics[field].typical == null);
   const scale = nutrientScale(stats, goals);
@@ -188,17 +188,17 @@ export function DifferenceDetail({ difference }) {
   const higherName = goal ? `${formatNumber(goal)} g or more` : "Higher days", lowerName = goal ? `Under ${formatNumber(goal)} g` : "Other days";
   const top = Math.max(...meals.flatMap((meal) => [meal.higher, meal.lower]), 1);
   const shown = meals.filter((meal) => meal.higher >= 1 || meal.lower >= 1);
-  const days = `From ${plural(higherDays + lowerDays, "day")} with two or more meals. A pattern, not a cause.`;
+  const days = `From ${plural(higherDays + lowerDays, "day")} with 2 or more meals. A pattern, not a cause.`;
   return <InsightCard title={goal ? `On days with ${formatNumber(goal)} g of protein or more` : "On your higher-protein days"}
-    answer={widest ? <>Biggest difference: {MEAL_LABELS[widest.meal].toLowerCase()}, with <Strong>{formatNumber(widest.higher)} g</Strong> of protein against <Strong>{formatNumber(widest.lower)} g</Strong>.</> : null}
+    answer={widest ? <>Biggest difference: {MEAL_LABELS[widest.meal].toLowerCase()}, with <Strong>{formatNumber(widest.higher)} g</Strong> of protein versus <Strong>{formatNumber(widest.lower)} g</Strong>.</> : null}
     footnote={goal ? days : `Higher days are the half with the most protein. ${days}`}>
     <View style={styles.key}>
-      <KeyItem color={COLORS.primary} label={`${higherName} (${higherDays})`} />
-      <KeyItem color={COLORS.soft} label={`${lowerName} (${lowerDays})`} />
+      <KeyItem color={COLORS.primary} label={`${higherName} · ${plural(higherDays, "day")}`} />
+      <KeyItem color={COLORS.soft} label={`${lowerName} · ${plural(lowerDays, "day")}`} />
     </View>
     <View style={styles.pairs}>
       {shown.map((meal) => <View key={meal.meal} style={[styles.pair, fontScale > 1.3 && styles.pairStacked]} accessible
-        accessibilityLabel={`${MEAL_LABELS[meal.meal]}: ${formatNumber(meal.higher)} grams on days with ${higherName}, ${formatNumber(meal.lower)} grams on days with ${lowerName}`}>
+        accessibilityLabel={`${MEAL_LABELS[meal.meal]}: ${formatNumber(meal.higher)} grams of protein on higher-protein days, ${formatNumber(meal.lower)} grams on other days`}>
         <Text style={[styles.pairName, fontScale > 1.3 && styles.pairNameStacked]}>{MEAL_LABELS[meal.meal]}</Text>
         <View style={styles.pairBars}>
           <PairBar value={meal.higher} top={top} color={COLORS.primary} />
@@ -208,7 +208,7 @@ export function DifferenceDetail({ difference }) {
     </View>
     {foods.length > 0 && <View style={styles.diffFoods}>
       <Text style={styles.diffHeading}>More often on these days</Text>
-      {foods.map((food) => <FoodLine key={food.name} name={food.name} detail={`${food.higher} of ${higherDays} days, against ${food.lower} of ${lowerDays}`} />)}
+      {foods.map((food) => <FoodLine key={food.name} name={food.name} entryIds={food.entryIds} detail={`${food.higher} of ${higherDays} days, versus ${food.lower} of ${lowerDays}`} />)}
     </View>}
   </InsightCard>;
 }
@@ -225,10 +225,10 @@ const KeyItem = ({ color, label }) => <View style={styles.keyItem}>
   <Text style={styles.footnote}>{label}</Text>
 </View>;
 
-export function FoodLine({ name, icon, value, detail, isNew, divider, compact }) {
+export function FoodLine({ name, icon, entryIds, value, detail, isNew, divider, compact }) {
   const { iconFor } = useFoodIcons();
   return <View style={[styles.food, compact && styles.foodCompact, divider && styles.divider]} accessible accessibilityLabel={[name, value, detail, isNew && "new"].filter(Boolean).join(", ")}>
-    <Text style={styles.foodIcon}>{iconFor(icon ?? { foodName: name }).emoji}</Text>
+    <Text style={styles.foodIcon}>{iconFor(icon ?? { foodName: name, entryIds }).emoji}</Text>
     <View style={styles.foodCopy}>
       <Text numberOfLines={compact ? 1 : 2} style={styles.foodName}>{name}</Text>
       {!!detail && <Text style={styles.footnote}>{detail}</Text>}
@@ -256,9 +256,9 @@ export function FoodsDetail({ stats }) {
 export function ProduceDetail({ produce }) {
   const { vegetables, fruits, unchecked } = produce;
   const kinds = (count, word) => `${formatNumber(count)} ${count === 1 ? "kind" : "kinds"} of ${word}`;
-  const note = unchecked ? `Only foods logged by voice, text or photo are checked. ${plural(unchecked, "food")} here ${unchecked === 1 ? "wasn't" : "weren't"}.` : null;
+  const note = unchecked ? `Only foods logged by voice, text or photo are checked, so ${plural(unchecked, "food")} ${unchecked === 1 ? "was" : "were"} skipped.` : null;
   return <InsightCard footnote={note}
-    answer={vegetables.length || fruits.length ? `${kinds(vegetables.length, "vegetable")} and ${kinds(fruits.length, "fruit")}.` : "No vegetables or fruit in the foods checked."}>
+    answer={vegetables.length || fruits.length ? `${kinds(vegetables.length, "vegetable")} and ${kinds(fruits.length, "fruit")}.` : "No vegetables or fruit spotted yet."}>
     <ProduceGroup title="Vegetables" items={vegetables} />
     <ProduceGroup title="Fruits" items={fruits} />
   </InsightCard>;

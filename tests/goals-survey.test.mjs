@@ -65,3 +65,9 @@ test("unspecified sex uses the existing female estimate only without body fat", 
     assert.deepEqual(surveyGoals({ ...bodyFatInput, sex }), surveyGoals(bodyFatInput));
   }
 });
+
+test("losing and gaining sit 250 kcal either side of maintenance", () => {
+  const maintain = surveyGoals({ ...canonical, goal: "maintain" }).calorieGoal;
+  assert.equal(surveyGoals({ ...canonical, goal: "lose" }).calorieGoal, maintain - 250);
+  assert.equal(surveyGoals({ ...canonical, goal: "gain" }).calorieGoal, maintain + 250);
+});

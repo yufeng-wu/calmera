@@ -267,7 +267,7 @@ export default function UpdateGoals() {
         keyboardShouldPersistTaps="handled"
       >
         <Text style={settingsStyles.lead}>Slide to set what you aim for each day. Today’s rings fill toward these.</Text>
-        <SettingsSection label="Daily targets" cardStyle={styles.goalCard}>
+        <SettingsSection label="Your goals" cardStyle={styles.goalCard}>
           {isFetching ? (
             <View style={styles.loading} accessibilityLiveRegion="polite">
               <ActivityIndicator color={COLORS.primary} />
@@ -277,7 +277,7 @@ export default function UpdateGoals() {
             <View style={styles.errorFeedback} accessibilityLiveRegion="polite">
               <Text style={[styles.helpTitle, styles.centeredText]}>Couldn’t load your goals</Text>
               <Text style={[styles.description, styles.centeredText]}>{loadError === "timeout"
-                ? "The request took too long. Please try again."
+                ? "That took too long. Try again."
                 : "Check your connection and try again."}</Text>
               <GlassButton title="Try again" symbol="arrow.clockwise"
                 onPress={() => setLoadAttempt(value => value + 1)} style={{ alignSelf: "stretch" }} />
@@ -307,7 +307,7 @@ export default function UpdateGoals() {
           </Text>
         )}
         <SettingsSection label="Not sure?">
-          <SettingsRow title="Suggest my goals" subtitle="A 1-minute survey for calories and macros" icon="sparkles" tint="leaf"
+          <SettingsRow title="Suggest goals" subtitle="A 1-minute survey for calories and macros" icon="sparkles" tint="leaf"
             disabled={loading || isFetching} accessibilityHint="Opens the goals survey"
             onPress={() => {
               if (isFixture) {
