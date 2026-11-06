@@ -7,7 +7,7 @@ import CitrusBuddy, { BUDDY_SIZE } from "@/components/CitrusBuddy";
 import OpenAILogo from "@/components/OpenAILogo";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
-import { stageCopy, stageIndex } from "@/lib/voice/voiceLog.mjs";
+import { VOICE_STEPS, stageCopy, voiceStep } from "@/lib/voice/voiceLog.mjs";
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const RING = 136;
@@ -15,7 +15,6 @@ const STROKE = 5;
 const RADIUS = (RING - STROKE) / 2 - 4;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 const TANGERINE = "#E87524";
-const STEPS = ["Send", "Read", "Estimate", "Review"];
 const EASE = Easing.bezier(0.2, 0.8, 0.2, 1);
 
 // While ChatGPT works, the orange waits inside its rind, drawn as one travelling arc (Orbit).
@@ -53,7 +52,7 @@ export default function VoiceThinking({ stage, model, transcript, done }) {
 
   const current = done ? "completed" : stage;
   const copy = stageCopy(current, model);
-  const step = done ? STEPS.length : Math.min(STEPS.length - 1, Math.max(0, stageIndex(current) - (current === "receiving" ? 1 : 0)));
+  const step = voiceStep(current, done);
   return <View style={styles.wrap} accessibilityLiveRegion="polite" accessibilityLabel={`${copy.title}. ${copy.detail}`}>
     <View style={styles.chip}>
       <OpenAILogo />
@@ -78,11 +77,11 @@ export default function VoiceThinking({ stage, model, transcript, done }) {
       <Text style={styles.detail}>{copy.detail}</Text>
     </Animated.View>
     <View style={styles.steps} accessible={false}>
-      {STEPS.map((label, index) => <View key={label} style={styles.step}>
+      {VOICE_STEPS.map((label, index) => <View key={label} style={styles.step}>
         <View style={[styles.track, index < step && styles.trackDone]}>
           {index === step && !done && <Animated.View entering={reducedMotion ? undefined : FadeIn.duration(200)} style={styles.trackActive} />}
         </View>
-        <Text style={[styles.stepLabel, index <= step && styles.stepLabelOn]}>{label}</Text>
+        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={[styles.stepLabel, index <= step && styles.stepLabelOn]}>{label}</Text>
       </View>)}
     </View>
     {!!transcript && <Text style={styles.quote} numberOfLines={2}>“{transcript}”</Text>}
@@ -99,7 +98,7 @@ const styles = StyleSheet.create({
   copy: { alignItems: "center", gap: 2, minHeight: 46 },
   title: { ...TYPOGRAPHY.sectionTitle, fontSize: 18, lineHeight: 24, color: COLORS.text, textAlign: "center" },
   detail: { ...TYPOGRAPHY.caption, color: COLORS.textLight, textAlign: "center" },
-  steps: { flexDirection: "row", gap: 8, alignSelf: "stretch", maxWidth: 300, width: "100%" },
+  steps: { flexDirection: "row", gap: 8, alignSelf: "stretch" },
   step: { flex: 1, gap: 6, alignItems: "center" },
   track: { height: 4, borderRadius: 2, alignSelf: "stretch", backgroundColor: "#EADBCF", overflow: "hidden" },
   trackDone: { backgroundColor: TANGERINE },
