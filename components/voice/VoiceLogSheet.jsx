@@ -24,7 +24,7 @@ import { mealTimePreferences } from "@/lib/mealTimeSettings";
 import { mealForLocalTime } from "@/lib/mealTimes.mjs";
 import { createMealReview, reviewTotals, saveMealReview, updateReviewFood } from "@/lib/mealReview.mjs";
 import { getLocalTimeWithOffset } from "@/lib/utils";
-import { formatElapsed, modelLabel, voiceHint } from "@/lib/voice/voiceLog.mjs";
+import { formatElapsed, modelLabel, voiceHint, VOICE_LIMIT_MS } from "@/lib/voice/voiceLog.mjs";
 
 const INSET = 8;
 const RADIUS = 40;
@@ -40,12 +40,12 @@ let hintSeed = Math.floor(Math.random() * 100);
 
 const NOTICES = {
   "no-speech": "Didn’t catch anything. Tap Resume and try again.",
-  limit: "Paused at one minute. Send it, or resume to add more.",
+  limit: "That’s the one-minute limit. Send it, or tap the words to edit.",
   "no-food": "No food in that. Try naming what you ate.",
   empty: "Say what you ate first.",
-  "not-allowed": "Microphone or speech recognition access is off.",
-  "language-not-supported": "On-device speech isn’t available for your voice language.",
-  "service-not-allowed": "On-device speech isn’t available for your voice language.",
+  "not-allowed": "Microphone or Speech Recognition is off for calmera.",
+  "language-not-supported": "Voice logging isn’t available in your voice language on this phone. Try another in Settings.",
+  "service-not-allowed": "Voice logging isn’t available in your voice language on this phone. Try another in Settings.",
 };
 
 // The voice log: a Liquid Glass sheet over Today. It listens as soon as it opens, shows the words
@@ -129,7 +129,7 @@ function VoiceSheet({ language, onClose, onSaved }) {
     const unsaved = phase === "review" ? Boolean(review?.entries.length) : phase === "listen" && hasWords;
     if (!unsaved) { dismiss(); return; }
     Alert.alert(phase === "review" ? "Discard this meal?" : "Discard what you said?", "Nothing has been saved.", [
-      { text: "Keep it", style: "cancel" },
+      { text: "Keep Editing", style: "cancel" },
       { text: "Discard", style: "destructive", onPress: dismiss },
     ]);
   }, [dismiss, hasWords, phase, review, saving]);
@@ -155,7 +155,8 @@ function VoiceSheet({ language, onClose, onSaved }) {
 
   // Recognizer errors arrive as codes; show them as a line above the buttons.
   useEffect(() => { if (speech.error) setNotice(speech.error); }, [speech.error]);
-  const noticeText = notice ? NOTICES[notice] || "Listening stopped. Tap Resume to keep going." : null;
+  // At the limit with every word deleted there's nothing to send; the prompt says to close instead.
+  const noticeText = !notice || (notice === "limit" && !hasWords) ? null : NOTICES[notice] || "Listening stopped. Tap Resume to keep going.";
 
   const send = async () => {
     if (operation.current || closing.current) return;
@@ -244,8 +245,8 @@ function VoiceSheet({ language, onClose, onSaved }) {
       } else if (/meal_save/.test(message)) {
         const reason = error?.reason || message;
         if (/sign_in|refresh|401|development_build/.test(reason)) inferenceError({ message: reason }, router);
-        else Alert.alert("Couldn’t save meal", error?.timedOut ? "Saving took too long. Your review is still here. Please try again."
-          : "Your meal was not saved. Your review is still here. Please try again.");
+        else Alert.alert("Couldn’t save meal", error?.timedOut ? "Saving took too long. Your meal is still here. Try again."
+          : "Your meal is still here. Try again.");
       } else inferenceError(error, router);
     } finally {
       if (operation.current === controller) operation.current = null;
@@ -293,7 +294,7 @@ function VoiceSheet({ language, onClose, onSaved }) {
                 returnKeyType="done" submitBehavior="blurAndSubmit" style={[styles.words, styles.wordsInput]} />
                 : hasWords ? <Text style={styles.words} accessibilityLiveRegion="polite">{speech.text}</Text>
                   : <View style={styles.empty}>
-                    <Text style={styles.prompt}>{listening ? "Tell me what you ate" : "Tap Resume to keep talking"}</Text>
+                    <Text style={styles.prompt}>{listening ? "Tell me what you ate" : speech.elapsed >= VOICE_LIMIT_MS ? "Close to start a new voice log" : "Tap Resume to keep talking"}</Text>
                     <Text style={styles.hint}>{hint}</Text>
                   </View>}
             </ScrollView>
@@ -302,14 +303,15 @@ function VoiceSheet({ language, onClose, onSaved }) {
               {noticeText ? <Animated.Text entering={reducedMotion ? undefined : FadeIn.duration(200)} style={styles.notice} numberOfLines={2}>{noticeText}</Animated.Text>
                 : paused && hasWords ? <Text style={styles.tip}>Tap the words to fix anything</Text> : null}
               {notice === "not-allowed" && <Pressable onPress={() => Linking.openURL("app-settings:").catch(() => {})} hitSlop={8} accessibilityRole="button">
-                <Text style={styles.link}>Settings</Text></Pressable>}
+                <Text style={styles.link}>Open Settings</Text></Pressable>}
             </View>
             <View style={styles.controls}>
               <GlassButton title={listening ? "Pause" : "Resume"} symbol={listening ? "pause.fill" : "mic.fill"}
-                onPress={listening ? speech.pause : listen} disabled={speech.status === "stopping" || !speech.available}
+                onPress={listening ? speech.pause : listen}
+                disabled={speech.status === "stopping" || !speech.available || (!listening && speech.elapsed >= VOICE_LIMIT_MS)}
                 accessibilityLabel={listening ? "Pause listening" : "Resume listening"} style={styles.secondary} />
               <GlassButton title="Send" symbol="arrow.up" role="accent" onPress={send}
-                disabled={!hasWords || speech.status === "stopping"} accessibilityLabel="Send to estimate" style={styles.primary} />
+                disabled={!hasWords || speech.status === "stopping"} accessibilityLabel="Send to ChatGPT" style={styles.primary} />
             </View>
           </View>}
 
@@ -326,7 +328,7 @@ function VoiceSheet({ language, onClose, onSaved }) {
 
           {phase === "saved" && saved && <View style={[styles.fill, styles.savedWrap, { paddingBottom: contentBottom }]} accessibilityLiveRegion="polite">
             <CitrusBuddy mood="happy" cheerSignal={1} />
-            <Text style={styles.savedTitle}>Saved to {saved.mealType}</Text>
+            <Text style={styles.savedTitle}>{saved.mealType} logged</Text>
             <Text style={styles.savedDetail}>{saved.count} {saved.count === 1 ? "food" : "foods"} · {Math.round(saved.calories)} kcal</Text>
           </View>}
         </View>

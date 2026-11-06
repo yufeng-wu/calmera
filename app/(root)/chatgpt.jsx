@@ -106,8 +106,8 @@ function ChatGPTSettingsForm({ userId, calmeraPreview = false, calmeraPreviewSta
     } catch (error) {
       if (!task.isCurrent() || (kind === "connect" && isAuthorizationCancelled(error))) return;
       if (kind === "check") setConnection(previous => ({ ...previous, state: connectionIssue(error).kind, issue: connectionIssue(error) }));
-      else if (kind === "model") setNotice("Your model choice couldn’t be saved. Please try again.");
-      else if (kind === "disconnect") setNotice("We couldn’t disconnect ChatGPT. Please try again when your connection is available.");
+      else if (kind === "model") setNotice("Couldn’t save your model. Try again.");
+      else if (kind === "disconnect") setNotice("Couldn’t disconnect ChatGPT. Check your connection and try again.");
       else {
         const account = await client.account?.().catch(() => null);
         if (!task.isCurrent()) return;
@@ -132,22 +132,22 @@ function ChatGPTSettingsForm({ userId, calmeraPreview = false, calmeraPreviewSta
   }), result => {
     if (!result) return;
     setConnection(result);
-    if (result.welcomed === false) Alert.alert("You’re using your ChatGPT plan", "Eligible AI requests use your ChatGPT plan. Manage your limits in ChatGPT settings.", [
-      { text: "Got it", onPress: () => client.markWelcomed?.().catch(() => {}) },
+    if (result.welcomed === false) Alert.alert("You’re using your ChatGPT plan", "Meal estimates count toward it. Set limits anytime in ChatGPT settings.", [
+      { text: "OK", onPress: () => client.markWelcomed?.().catch(() => {}) },
     ], { cancelable: false });
   });
   const signIn = () => {
     if (action || checking.current || presentation.current) return;
     if (connection.account?.hasRegistration) chooseAction("Continue with ChatGPT", [
-      { title: connection.account.email ? `Continue as ${connection.account.email}` : "Continue with saved account", onPress: () => connect(false) },
-      { title: "Use another account", onPress: () => connect(true) },
+      { title: connection.account.email ? `Continue as ${connection.account.email}` : "Continue with Saved Account", onPress: () => connect(false) },
+      { title: "Use Another Account", onPress: () => connect(true) },
     ]);
     else connect(false);
   };
   // The "•••" menu opens from its button, as Mail's and Photos' do.
   const manageAccount = choice => {
     if (action || !connection.account || !scope.isActive()) return;
-    if (choice === "Change account") connect(true);
+    if (choice === "Change Account") connect(true);
     else if (choice === "Disconnect") runOperation("disconnect", () => client.disconnect(), () => { setConnection(emptyConnection()); setView("connection"); });
   };
   const selectModel = slug => {
@@ -157,7 +157,7 @@ function ChatGPTSettingsForm({ userId, calmeraPreview = false, calmeraPreviewSta
       setView("connection");
     });
   };
-  const manageUsage = () => { if (!calmeraPreview) Linking.openURL("https://chatgpt.com/settings/usage").catch(() => setNotice("ChatGPT settings couldn’t open. Please try again.")); };
+  const manageUsage = () => { if (!calmeraPreview) Linking.openURL("https://chatgpt.com/settings/usage").catch(() => setNotice("Couldn’t open ChatGPT settings. Try again.")); };
 
   const preferredModel = connection.choices.find(item => item.slug === connection.preferred);
   const issue = available ? connection.issue : connectionIssue(new Error("development_build_required"));
@@ -178,11 +178,11 @@ function ChatGPTSettingsForm({ userId, calmeraPreview = false, calmeraPreviewSta
     <FormScrollView key={`chatgpt-${view}-${fontScale}`} contentContainerStyle={settingsStyles.content} showsVerticalScrollIndicator={false}>
       {view === "models" ? <>
         <SettingsSection footnote={connection.detailsError ? <View style={styles.modelFeedback}>
-          <Text style={settingsStyles.footnote}>{issue?.message || "Available models couldn’t be loaded. Your default hasn’t changed."}</Text>
+          <Text style={settingsStyles.footnote}>{issue?.message || "Couldn’t load models. Your choice hasn’t changed."}</Text>
           {issue?.action === "retry" && <GlassButton title="Try again" symbol="arrow.clockwise" onPress={retry} disabled={pending} />}
-        </View> : connection.preferred && !preferredModel ? "Your saved model isn’t available for this account. Automatic selection is being used."
-          : "Calmera uses this model for its AI requests."}>
-          <SettingsRow title="Automatic" subtitle="Calmera chooses an available model." accessibilityRole="radio"
+        </View> : connection.preferred && !preferredModel ? "Your saved model isn’t available for this account, so Automatic is in use."
+          : "Used to estimate your meals."}>
+          <SettingsRow title="Automatic" subtitle="Picked for you." accessibilityRole="radio"
             selected={automaticSelected} onPress={() => selectModel(null)} disabled={pending} />
           {savedChoiceUnconfirmed && <SettingsRow title={connection.preferred} subtitle="Saved default" divider accessibilityRole="radio"
             selected onPress={() => selectModel(connection.preferred)} disabled={pending} />}
@@ -199,7 +199,7 @@ function ChatGPTSettingsForm({ userId, calmeraPreview = false, calmeraPreviewSta
               {email ? <Text style={styles.detail} numberOfLines={1}>{email}</Text> : !pending && <Text style={styles.detail}>{linked ? "Connected on this phone" : "Use your ChatGPT plan in calmera."}</Text>}
             </View>
             {pending ? <ActivityIndicator color={COLORS.primary} accessible={false} /> : connection.account && <MenuButton actions symbol="ellipsis"
-              title={connection.account.email || "ChatGPT account"} options={["Change account", "Disconnect"]} destructiveOptions={["Disconnect"]}
+              title={connection.account.email || "ChatGPT account"} options={["Change Account", "Disconnect"]} destructiveOptions={["Disconnect"]}
               accessibilityLabel="Manage ChatGPT account" onChange={manageAccount} disabled={Boolean(action)} style={styles.accountMenu} />}
           </View>
           {(canSignIn || canRetry) && <View style={styles.signInAction}>
@@ -216,7 +216,7 @@ function ChatGPTSettingsForm({ userId, calmeraPreview = false, calmeraPreviewSta
       {notice && <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text>}
       <View style={styles.privacy}>
         <Ionicons name="lock-closed-outline" size={14} color={COLORS.textLight} accessible={false} />
-        <Text style={styles.privacyText}>Only the food details you submit go to OpenAI. Your ChatGPT credentials stay on this phone.</Text>
+        <Text style={styles.privacyText}>Only what you log goes to OpenAI. Your ChatGPT sign-in stays on this phone.</Text>
       </View>
     </FormScrollView>
   </FormScreen>;

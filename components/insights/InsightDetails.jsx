@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Svg, { Line } from "react-native-svg";
 import DayTimeline from "@/components/insights/DayTimeline";
 import InsightCard, { Chips, Strong } from "@/components/insights/InsightCard";
+import { MealBar, MealKey, describeShares } from "@/components/insights/MealShares";
 import TrendChart from "@/components/insights/TrendChart";
 import { SURFACES } from "@/constants/surfaces";
 import { TYPOGRAPHY } from "@/constants/typography";
@@ -12,13 +13,13 @@ import { useFoodIcons } from "@/context/FoodIconsContext";
 import { formatNearClock, formatNumber, goalScale, percentOfGoal } from "@/lib/insights/stats.mjs";
 
 export const PERIODS = [
-  { id: "week", label: "Week", name: "7 days", accessibilityLabel: "Week, last 7 days" },
-  { id: "month", label: "Month", name: "30 days", accessibilityLabel: "Month, last 30 days" },
-  { id: "year", label: "Year", name: "12 months", accessibilityLabel: "Year, last 12 months" },
+  { id: "week", label: "Week", name: "7 days", accessibilityLabel: "Week, past 7 days" },
+  { id: "month", label: "Month", name: "30 days", accessibilityLabel: "Month, past 30 days" },
+  { id: "year", label: "Year", name: "12 months", accessibilityLabel: "Year, past 12 months" },
 ];
 export const NUTRIENTS = [["calories", "Calories", "kcal", "calorieGoal"], ["protein", "Protein", "g", "proteinGoal"], ["carbs", "Carbs", "g", "carbsGoal"], ["fat", "Fat", "g", "fatGoal"]];
 export const MEAL_LABELS = { Breakfast: "Breakfast", Lunch: "Lunch", Dinner: "Dinner", Snack: "Snacks" };
-const FOOD_VIEWS = [["count", "Most eaten"], ["protein", "Protein"], ["calories", "Calories"]];
+const FOOD_VIEWS = [["count", "Most eaten"], ["calories", "Calories"], ["protein", "Protein"], ["carbs", "Carbs"], ["fat", "Fat"]];
 export const plural = (count, word) => `${formatNumber(count)} ${word}${count === 1 ? "" : "s"}`;
 
 export const periodName = (span) => span > 30 ? "12 months" : `${span} days`;
@@ -42,8 +43,10 @@ export function nutrientScale(stats, goals) {
 export function ChartKey({ stats, goals, compact }) {
   const metrics = NUTRIENTS.map(([field]) => stats.metrics[field]);
   const hasGoal = NUTRIENTS.some(([, , , goalField]) => Number(goals[goalField]) > 0);
+  const hasTypical = metrics.some((metric) => metric.typical != null);
+  if (!hasGoal && (compact || !hasTypical)) return null;
   return <View style={styles.key}>
-    {!compact && metrics.some((metric) => metric.typical != null) && <View style={styles.keyItem}>
+    {!compact && hasTypical && <View style={styles.keyItem}>
       <Svg width={14} height={2}><Line x1={0} x2={14} y1={1} y2={1} stroke={COLORS.text} strokeWidth={1.5} /></Svg>
       <Text style={styles.footnote}>Average</Text>
     </View>}
@@ -57,11 +60,12 @@ export function ChartKey({ stats, goals, compact }) {
 // The full version of each card on the Insights page, shown when someone taps into it.
 export function TrendDetail({ stats, goals }) {
   const hasPartial = NUTRIENTS.some(([field]) => stats.metrics[field].chart.some((item) => item.partial && item.value != null));
-  const footnote = stats.span > 30 ? "Each bar is a month's daily average. Pale bars are partial months."
-    : hasPartial ? "Pale bars are today and days with one meal. They don't count toward the average." : null;
+  const footnote = [stats.span > 30 ? "Each bar is a month’s daily average. Pale bars are partial months."
+    : hasPartial ? "The pale bar is today, which is still going. Today and days with one meal don’t count toward the average." : null,
+  "Touch a bar to read it."].filter(Boolean).join(" ");
   const noTypical = NUTRIENTS.every(([field]) => stats.metrics[field].typical == null);
   const scale = nutrientScale(stats, goals);
-  return <InsightCard footnote={footnote} answer={noTypical ? "Your average day appears after three days with two or more meals." : null}>
+  return <InsightCard footnote={footnote} answer={noTypical ? "Your average day appears after three days with two or more meals, not counting today." : null}>
     <ChartKey stats={stats} goals={goals} />
     {NUTRIENTS.map(([field, title, unit, goalField], index) => <NutrientSection key={field} color={NUTRIENT_COLORS[field]} title={title} unit={unit} span={stats.span} scale={scale}
       metric={stats.metrics[field]} goal={Number(goals[goalField]) || null} divider={index > 0} />)}
@@ -120,44 +124,61 @@ function PeriodSide({ color, heading, unit, points, average, goal, top, change, 
         </>}
     </View>
     <TrendChart color={color} points={points} goal={goal} top={top} typical={average}
-      selected={selected} onSelect={setSelected} accessibilityLabel={accessibilityLabel} />
+      selected={selected} onSelect={setSelected} accessibilityLabel={accessibilityLabel}
+      describe={(point) => `${point.title}: ${formatNumber(point.value)} ${unit}${goal ? `, ${percentOfGoal(point.value, goal)}% of goal` : ""}`} />
   </View>;
 }
 
-export function RhythmDetail({ rhythm }) {
-  return <InsightCard footnote="The dot is your usual time. Half your days fall inside the band. Times are when you logged, unless edited.">
-    <DayTimeline meals={rhythm.meals} />
+// What the timing chart shows, in words, under the bigger chart.
+function mealNotes(meal) {
+  if (meal.clusters) {
+    const habits = meal.clusters.map(({ average, count, days }) => `Around ${formatNearClock(average)}: ${plural(count, "snack")} on ${plural(days, "day")}.`);
+    const other = meal.events.length - meal.clusters.reduce((all, { count }) => all + count, 0);
+    if (!habits.length) return [`No regular time yet. ${plural(meal.events.length, "snack")} on ${plural(meal.days, "day")}.`];
+    return other ? [...habits, `Other times: ${plural(other, "snack")}.`] : habits;
+  }
+  const [low, high] = [formatNearClock(meal.low), formatNearClock(meal.high)];
+  return [`Average ${formatNearClock(meal.average)}. ${low === high ? `Most days at about ${low}.` : `Half your days are between ${low} and ${high}.`}`,
+    `From ${plural(meal.days, "day")}.`];
+}
+
+export function RhythmDetail({ rhythm, span }) {
+  return <InsightCard footnote="Each dot is one meal or snack, and the line is its average. Foods logged within 45 minutes count as one snack. Times are when you logged, unless edited.">
+    <DayTimeline rhythm={rhythm} span={span} detail />
+    <View style={styles.rhythmNotes}>
+      {rhythm.meals.map((meal) => <View key={meal.meal} style={styles.rhythmNote}>
+        <Text accessibilityRole="header" style={styles.nutrientName}>{MEAL_LABELS[meal.meal]}</Text>
+        {mealNotes(meal).map((line) => <Text key={line} style={styles.answer}>{line}</Text>)}
+      </View>)}
+      {rhythm.tooFew.map(({ meal, days }) => <Text key={meal} style={styles.answer}>
+        {`${MEAL_LABELS[meal]}: logged on ${plural(days, "day")}, too few for an average.`}
+      </Text>)}
+    </View>
   </InsightCard>;
 }
 
-// Each nutrient is one row, and its bar always runs the full width, so it's clear that
-// the row is the whole. Segments are in the same order as the columns above them.
+// The overview's bars, bigger, with each meal's percent and its amount on an average day.
 export function SharesDetail({ shares }) {
   const { fontScale } = useWindowDimensions();
-  const stacked = fontScale > 1.15;
-  const nameColumn = { width: 58 * fontScale };
+  const stacked = fontScale > 1.3;
   const { meals, days } = shares;
-  return <InsightCard answer="Each row adds up to 100%." footnote={`From ${plural(days, "day")} with two or more meals.`}>
-    <View style={styles.shareTable}>
-      <View style={styles.shareRow}>
-        {!stacked && <View style={nameColumn} />}
-        <View style={styles.shareColumns}>
-          {meals.map((row) => <Text key={row.meal} numberOfLines={1} maxFontSizeMultiplier={1.3} style={styles.shareHeading}>{MEAL_LABELS[row.meal]}</Text>)}
-        </View>
-      </View>
-      {NUTRIENTS.map(([field, title]) => <View key={field} style={[styles.shareRow, stacked && styles.shareRowStacked]} accessible
-        accessibilityLabel={`${title}: ${meals.filter((row) => row[field] != null).map((row) => `${row[field]}% at ${MEAL_LABELS[row.meal].toLowerCase()}`).join(", ")}`}>
-        <Text style={[styles.shareTitle, !stacked && nameColumn]}>{title}</Text>
-        <View style={styles.shareBody}>
-          <View style={styles.shareColumns}>
-            {meals.map((row) => <Text key={row.meal} numberOfLines={1} maxFontSizeMultiplier={1.3} style={styles.shareValue}>{row[field] == null ? "–" : `${row[field]}%`}</Text>)}
-          </View>
-          <View style={[styles.shareBar, !meals.some((row) => row[field] > 0) && styles.shareBarEmpty]}>
-            {meals.map((row) => row[field] > 0 && <View key={row.meal} style={[styles.shareSegment, { flex: row[field] }]} />)}
-          </View>
-        </View>
-      </View>)}
-    </View>
+  return <InsightCard footnote={`Each bar is 100% of that nutrient. Amounts are per day, from ${plural(days, "day")} with two or more meals.`}>
+    <MealKey meals={meals} />
+    {NUTRIENTS.map(([field, title, unit], index) => <View key={field} accessible accessibilityLabel={describeShares(title, meals, field)}
+      style={[styles.shareSection, index > 0 && styles.nutrientDivider]}>
+      <Text style={styles.nutrientName}>{title}</Text>
+      <View style={styles.shareBarRow}><MealBar meals={meals} field={field} height={12} /></View>
+      {stacked ? meals.map((row) => <View key={row.meal} style={styles.shareLine}>
+        <Text style={styles.answer}>{MEAL_LABELS[row.meal]}</Text>
+        <Text style={styles.shareValue}>{row[field] == null ? "–" : `${row[field]}%`}<Text style={styles.shareHeading}>{`  ${formatNumber(row.amounts[field])} ${unit}`}</Text></Text>
+      </View>) : <View style={styles.shareColumns}>
+        {meals.map((row) => <View key={row.meal} style={styles.shareColumn}>
+          <Text style={styles.shareHeading}>{MEAL_LABELS[row.meal]}</Text>
+          <Text style={styles.shareValue}>{row[field] == null ? "–" : `${row[field]}%`}</Text>
+          <Text style={styles.shareHeading}>{`${formatNumber(row.amounts[field])} ${unit}`}</Text>
+        </View>)}
+      </View>}
+    </View>)}
   </InsightCard>;
 }
 
@@ -167,13 +188,17 @@ export function DifferenceDetail({ difference }) {
   const higherName = goal ? `${formatNumber(goal)} g or more` : "Higher days", lowerName = goal ? `Under ${formatNumber(goal)} g` : "Other days";
   const top = Math.max(...meals.flatMap((meal) => [meal.higher, meal.lower]), 1);
   const shown = meals.filter((meal) => meal.higher >= 1 || meal.lower >= 1);
-  const days = `From ${plural(higherDays + lowerDays, "day")} with two or more meals. A pattern, not a cause.`;
+  const days = `From ${plural(higherDays + lowerDays, "day")} with 2 or more meals. A pattern, not a cause.`;
   return <InsightCard title={goal ? `On days with ${formatNumber(goal)} g of protein or more` : "On your higher-protein days"}
-    answer={widest ? <>Biggest difference: {MEAL_LABELS[widest.meal].toLowerCase()}, with <Strong>{formatNumber(widest.higher)} g</Strong> of protein against <Strong>{formatNumber(widest.lower)} g</Strong>.</> : null}
+    answer={widest ? <>Biggest difference: {MEAL_LABELS[widest.meal].toLowerCase()}, with <Strong>{formatNumber(widest.higher)} g</Strong> of protein versus <Strong>{formatNumber(widest.lower)} g</Strong>.</> : null}
     footnote={goal ? days : `Higher days are the half with the most protein. ${days}`}>
+    <View style={styles.key}>
+      <KeyItem color={COLORS.primary} label={`${higherName} · ${plural(higherDays, "day")}`} />
+      <KeyItem color={COLORS.soft} label={`${lowerName} · ${plural(lowerDays, "day")}`} />
+    </View>
     <View style={styles.pairs}>
       {shown.map((meal) => <View key={meal.meal} style={[styles.pair, fontScale > 1.3 && styles.pairStacked]} accessible
-        accessibilityLabel={`${MEAL_LABELS[meal.meal]}: ${formatNumber(meal.higher)} grams on days with ${higherName}, ${formatNumber(meal.lower)} grams on days with ${lowerName}`}>
+        accessibilityLabel={`${MEAL_LABELS[meal.meal]}: ${formatNumber(meal.higher)} grams of protein on higher-protein days, ${formatNumber(meal.lower)} grams on other days`}>
         <Text style={[styles.pairName, fontScale > 1.3 && styles.pairNameStacked]}>{MEAL_LABELS[meal.meal]}</Text>
         <View style={styles.pairBars}>
           <PairBar value={meal.higher} top={top} color={COLORS.primary} />
@@ -181,13 +206,9 @@ export function DifferenceDetail({ difference }) {
         </View>
       </View>)}
     </View>
-    <View style={styles.key}>
-      <KeyItem color={COLORS.primary} label={`${higherName} (${higherDays})`} />
-      <KeyItem color={COLORS.soft} label={`${lowerName} (${lowerDays})`} />
-    </View>
     {foods.length > 0 && <View style={styles.diffFoods}>
       <Text style={styles.diffHeading}>More often on these days</Text>
-      {foods.map((food) => <FoodLine key={food.name} name={food.name} detail={`${food.higher} of ${higherDays} days, against ${food.lower} of ${lowerDays}`} />)}
+      {foods.map((food) => <FoodLine key={food.name} name={food.name} entryIds={food.entryIds} detail={`${food.higher} of ${higherDays} days, versus ${food.lower} of ${lowerDays}`} />)}
     </View>}
   </InsightCard>;
 }
@@ -204,12 +225,12 @@ const KeyItem = ({ color, label }) => <View style={styles.keyItem}>
   <Text style={styles.footnote}>{label}</Text>
 </View>;
 
-export function FoodLine({ name, value, detail, isNew, divider, compact }) {
+export function FoodLine({ name, icon, entryIds, value, detail, isNew, divider, compact }) {
   const { iconFor } = useFoodIcons();
   return <View style={[styles.food, compact && styles.foodCompact, divider && styles.divider]} accessible accessibilityLabel={[name, value, detail, isNew && "new"].filter(Boolean).join(", ")}>
-    <Text style={styles.foodIcon}>{iconFor({ foodName: name }).emoji}</Text>
+    <Text style={styles.foodIcon}>{iconFor(icon ?? { foodName: name, entryIds }).emoji}</Text>
     <View style={styles.foodCopy}>
-      <Text numberOfLines={compact ? 1 : undefined} style={styles.foodName}>{name}</Text>
+      <Text numberOfLines={compact ? 1 : 2} style={styles.foodName}>{name}</Text>
       {!!detail && <Text style={styles.footnote}>{detail}</Text>}
     </View>
     {isNew && <Text style={styles.newBadge}>New</Text>}
@@ -220,22 +241,24 @@ export function FoodLine({ name, value, detail, isNew, divider, compact }) {
 export function FoodsDetail({ stats }) {
   const [view, setView] = useState("count");
   const foods = stats.foodsBy[view];
-  const value = (food) => view === "count" ? `${food.count}×` : `${Math.round(food[view] / stats.foodTotals[view] * 100)}%`;
-  const note = view === "count" ? null : `Share of your ${view === "protein" ? "protein" : "calories"} in this period.`;
+  const unit = view === "calories" ? "kcal" : "g";
+  const value = (food) => view === "count" ? `${food.count}×` : `${formatNumber(food[view])} ${unit}`;
+  const name = FOOD_VIEWS.find(([id]) => id === view)[1].toLowerCase();
+  const note = view === "count" ? null : `Total ${name} from each food in this period.`;
   return <InsightCard footnote={note}>
     <Chips label="Sort foods" items={FOOD_VIEWS} value={view} onChange={setView} />
     {foods.length ? <View>
-      {foods.map((food, index) => <FoodLine key={food.id} name={food.name} value={value(food)} isNew={food.isNew} divider={index > 0} />)}
-    </View> : <Text style={styles.answer}>No {view} logged in this period.</Text>}
+      {foods.map((food, index) => <FoodLine key={food.id} name={food.name} icon={food.icon} value={value(food)} isNew={food.isNew} divider={index > 0} />)}
+    </View> : <Text style={styles.answer}>No {view === "count" ? "foods" : name} logged in this period.</Text>}
   </InsightCard>;
 }
 
 export function ProduceDetail({ produce }) {
   const { vegetables, fruits, unchecked } = produce;
   const kinds = (count, word) => `${formatNumber(count)} ${count === 1 ? "kind" : "kinds"} of ${word}`;
-  const note = unchecked ? `Only foods logged by voice, text or photo are checked. ${plural(unchecked, "food")} here ${unchecked === 1 ? "wasn't" : "weren't"}.` : null;
+  const note = unchecked ? `Only foods logged by voice, text or photo are checked, so ${plural(unchecked, "food")} ${unchecked === 1 ? "was" : "were"} skipped.` : null;
   return <InsightCard footnote={note}
-    answer={vegetables.length || fruits.length ? `${kinds(vegetables.length, "vegetable")} and ${kinds(fruits.length, "fruit")}.` : "No vegetables or fruit in the foods checked."}>
+    answer={vegetables.length || fruits.length ? `${kinds(vegetables.length, "vegetable")} and ${kinds(fruits.length, "fruit")}.` : "No vegetables or fruit spotted yet."}>
     <ProduceGroup title="Vegetables" items={vegetables} />
     <ProduceGroup title="Fruits" items={fruits} />
   </InsightCard>;
@@ -249,7 +272,7 @@ function ProduceGroup({ title, items }) {
     <View style={styles.produceItems}>
       {items.map((item) => <View key={item.id} style={styles.produceItem} accessible accessibilityLabel={`${item.name}, ${plural(item.count, "time")}`}>
         <Text style={styles.produceIcon}>{iconFor({ foodName: item.name }).emoji}</Text>
-        <Text style={styles.foodName}>{item.name}</Text>
+        <Text style={[styles.foodName, styles.produceName]}>{item.name}</Text>
         <Text style={styles.footnote}>{item.count}×</Text>
       </View>)}
     </View>
@@ -258,12 +281,23 @@ function ProduceGroup({ title, items }) {
 
 // Weekdays against weekends. The page shows only the rows named in `only`.
 export function SplitTable({ split, only }) {
+  const { fontScale } = useWindowDimensions();
   const rows = [
     ["Calories", "kcal", (side) => formatNumber(side.calories)],
     ["Protein", "g", (side) => formatNumber(side.protein)],
     ["First meal time", "", (side) => formatNearClock(side.firstMeal)],
     ["Dinner time", "", (side) => formatNearClock(side.dinner)],
   ].filter(([title, , read]) => (!only || only.includes(title)) && (read(split.weekday) !== "–" || read(split.weekend) !== "–"));
+  if (fontScale > 1.3) {
+    return <View>
+      {rows.map(([title, unit, read], index) => <View key={title} style={[styles.compareStacked, index > 0 && styles.divider]} accessible
+        accessibilityLabel={`${title}: ${read(split.weekday)} ${unit} on weekdays, ${read(split.weekend)} ${unit} on weekends`}>
+        <Text style={styles.compareName}>{title}</Text>
+        <Text style={styles.compareStackedValue}>Weekdays: {read(split.weekday)} {unit}</Text>
+        <Text style={styles.compareStackedValue}>Weekends: {read(split.weekend)} {unit}</Text>
+      </View>)}
+    </View>;
+  }
   return <View>
     <View style={styles.compareHead}>
       <View style={styles.compareLabel} />
@@ -294,6 +328,8 @@ const styles = StyleSheet.create({
   nutrientDivider: { marginTop: 6, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: SURFACES.separator },
   nutrientName: { ...TYPOGRAPHY.bodyMedium, color: COLORS.textLight },
   headline: { gap: 2 },
+  rhythmNotes: { gap: 12, paddingTop: 4 },
+  rhythmNote: { gap: 2 },
   sides: { flexDirection: "row", gap: 12 },
   sidesStacked: { flexDirection: "column-reverse", gap: 16 },
   side: { flex: 1, minWidth: 0, gap: 10, justifyContent: "space-between" },
@@ -322,19 +358,16 @@ const styles = StyleSheet.create({
   foodValue: { ...TYPOGRAPHY.bodyMedium, color: COLORS.text, fontVariant: ["tabular-nums"] },
   produceGroup: { gap: 8, marginTop: 4 },
   produceItems: { flexDirection: "row", flexWrap: "wrap", columnGap: 16, rowGap: 8 },
-  produceItem: { flexDirection: "row", alignItems: "center", gap: 5 },
+  produceItem: { flexDirection: "row", alignItems: "center", gap: 5, maxWidth: "100%" },
+  produceName: { flexShrink: 1 },
   produceIcon: { fontSize: 18, lineHeight: 24 },
-  shareTable: { gap: 12 },
-  shareRow: { flexDirection: "row", gap: 8 },
-  shareRowStacked: { flexDirection: "column", alignItems: "stretch", gap: 4 },
-  shareTitle: { ...TYPOGRAPHY.body, color: COLORS.text },
-  shareBody: { flex: 1, gap: 4 },
-  shareColumns: { flex: 1, flexDirection: "row" },
-  shareHeading: { ...TYPOGRAPHY.caption, flex: 1, color: COLORS.textLight },
-  shareValue: { ...TYPOGRAPHY.bodyMedium, flex: 1, color: COLORS.text, fontVariant: ["tabular-nums"] },
-  shareBar: { flexDirection: "row", gap: 2, height: 6, borderRadius: 3, overflow: "hidden" },
-  shareBarEmpty: { backgroundColor: COLORS.track },
-  shareSegment: { backgroundColor: COLORS.soft },
+  shareSection: { gap: 8 },
+  shareBarRow: { flexDirection: "row" },
+  shareColumns: { flexDirection: "row", gap: 6 },
+  shareColumn: { flex: 1, minWidth: 0 },
+  shareLine: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", columnGap: 8 },
+  shareHeading: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
+  shareValue: { ...TYPOGRAPHY.bodyMedium, color: COLORS.text, fontVariant: ["tabular-nums"] },
   compareHead: { flexDirection: "row", paddingBottom: 8 },
   compareRow: { flexDirection: "row", alignItems: "center", paddingVertical: 12 },
   compareLabel: { flex: 1 },
@@ -342,4 +375,6 @@ const styles = StyleSheet.create({
   compareTitle: { ...TYPOGRAPHY.caption, flex: 1, color: COLORS.textLight, textAlign: "right" },
   compareValue: { ...TYPOGRAPHY.bodyMedium, flex: 1, color: COLORS.text, textAlign: "right", fontVariant: ["tabular-nums"] },
   compareUnit: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
+  compareStacked: { gap: 2, paddingVertical: 12 },
+  compareStackedValue: { ...TYPOGRAPHY.bodyMedium, color: COLORS.text, fontVariant: ["tabular-nums"] },
 });

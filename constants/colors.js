@@ -82,3 +82,12 @@ export const NUTRIENT_COLORS = {
   carbs: RAINBOW_COLORS[2],
   fat: RAINBOW_COLORS[3],
 };
+
+// Meals are the sky through the day: morning sun, midday sky, dusk, and mint for snacks.
+// Each sits apart from the nutrient colors, so a hue still means one thing on a screen.
+export const MEAL_COLORS = {
+  Breakfast: "#F5C04A",
+  Lunch: "#6CC3D5",
+  Dinner: "#6F69AC",
+  Snack: "#93C9A0",
+};

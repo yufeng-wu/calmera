@@ -24,8 +24,10 @@ export function FoodIconsProvider({ owner, children }) {
     const value = await preferences.save(owner, patch);
     if (active.current && currentOwner.current === owner) setState({ owner, choices: value });
   };
-  // A chosen icon (in the draft or saved for this record) wins over name matching.
-  const iconFor = entry => foodIconById(entry.iconId || choices[String(entry.id)])
+  // A chosen icon (in the draft or saved for this record) wins over name matching. A food
+  // that stands for many meals (entryIds, oldest first) uses the latest one's chosen icon.
+  const chosenAmong = ids => [...(ids || [])].reverse().map(id => choices[String(id)]).find(Boolean);
+  const iconFor = entry => foodIconById(entry.iconId || choices[String(entry.id)] || chosenAmong(entry.entryIds))
     || getFoodIcon(entry.foodName ?? entry.food_name);
   return <FoodIconsContext.Provider value={{ iconFor, rememberIcons }}>{children}</FoodIconsContext.Provider>;
 }

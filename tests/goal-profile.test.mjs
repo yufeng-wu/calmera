@@ -74,7 +74,7 @@ test("a stalled save token times out without late PUT or a false saved-state cla
   const error = await failureOf(saveGoalProfile({ ...saveOptions, timeoutMs: 10, getToken: () => token.promise,
     fetchImpl: () => { calls++; } }), "goals_request_timeout");
   assert.equal(error.dispatched, false); assert.equal(error.mayHaveSaved, false); assert.equal(error.timedOut, true);
-  assert.match(goalSaveErrorMessage(error), /try again/);
+  assert.match(goalSaveErrorMessage(error), /try again/i);
   assert.doesNotMatch(goalSaveErrorMessage(error), /Check Today/);
   token.resolve("late synthetic-token"); await nextTurn(); assert.equal(calls, 0);
 });
@@ -86,7 +86,7 @@ test("an uncancellable PUT times out as uncertain and a late success cannot publ
   } }).then(() => { confirmed++; });
   const error = await failureOf(pending, "goals_request_timeout");
   assert.equal(error.dispatched, true); assert.equal(error.mayHaveSaved, true); assert.equal(receivedSignal.aborted, true);
-  assert.equal(goalSaveErrorMessage(error), "We couldn’t confirm whether your goals were saved. Your changes are still here. Check Today before saving again.");
+  assert.equal(goalSaveErrorMessage(error), "Your goals may have saved. Check Today before trying again.");
   response.resolve({ ok: true, json: () => assert.fail("PUT must not parse a response") });
   await nextTurn(); assert.equal(confirmed, 0); assert.equal(calls, 1);
 });

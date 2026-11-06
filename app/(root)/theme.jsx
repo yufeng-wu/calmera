@@ -18,7 +18,7 @@ export default function ThemeSettings({ calmeraPreview = false }) {
   const router = useRouter();
   const leave = usePageExit("/settings");
   const { fontScale } = useWindowDimensions();
-  const { themeId, theme, selectTheme, ready, saving, error, reload, review } = useTheme();
+  const { themeId, selectTheme, ready, saving, error, reload, review } = useTheme();
   const back = () => calmeraPreview
     ? router.replace({ pathname: "/ui-gallery", params: { page: "settings" } }) : leave();
   const choose = id => {
@@ -37,9 +37,9 @@ export default function ThemeSettings({ calmeraPreview = false }) {
       </View>
       <View style={styles.notes}>
         <Text accessibilityLiveRegion="polite" style={[settingsStyles.footnote, error && styles.problem]}>
-          {!ready ? "Loading your theme…" : saving ? "Saving…" : error === "save" ? "Couldn’t save this theme. Please try again."
-            : error === "load" ? "Couldn’t load your saved theme. You can choose a theme or retry."
-              : `${theme.name} · saved on this device`}
+          {!ready ? "Loading your theme…" : saving ? "Saving…" : error === "save" ? "Couldn’t save this theme. Try again."
+            : error === "load" ? "Couldn’t load your saved theme. Try again, or pick one."
+              : "Saved on this phone."}
         </Text>
         {!!error && <GlassButton title="Try again" symbol="arrow.clockwise" onPress={() => error === "load" ? reload() : selectTheme(themeId).catch(() => {})} />}
         <Text style={settingsStyles.footnote}>Glow and Aura move gently. They stay still when Reduce Motion is on.</Text>

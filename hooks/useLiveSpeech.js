@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AppState } from "react-native";
 import { speechEngine } from "@/lib/voice/speechEngine";
 import { joinTranscript, levelFromVolume, VOICE_LIMIT_MS } from "@/lib/voice/voiceLog.mjs";
 
@@ -122,6 +123,13 @@ export default function useLiveSpeech({ language, onLevel }) {
     committedRef.current = text;
     setCommitted(text);
   }, []);
+
+  // Leaving the app (home screen, app switcher, a call) pauses listening, so the mic is never
+  // on behind the user's back. The words stay, and Resume picks up where they left off.
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", state => { if (state !== "active") pause(); });
+    return () => subscription.remove();
+  }, [pause]);
 
   // Listening pauses itself at the limit.
   useEffect(() => {

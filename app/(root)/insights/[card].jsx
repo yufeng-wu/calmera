@@ -11,10 +11,10 @@ import { formatRange } from "@/lib/insights/stats.mjs";
 
 const CARDS = {
   typical: ["Average", (stats, goals) => <TrendDetail stats={stats} goals={goals} />],
-  foods: ["Your foods", (stats) => stats.foods.length > 0 && <FoodsDetail stats={stats} />],
-  produce: ["Veg and fruit", (stats) => stats.produce && <ProduceDetail produce={stats.produce} />],
-  rhythm: ["When you eat", (stats) => stats.rhythm && <RhythmDetail rhythm={stats.rhythm} />],
-  shares: ["How much at each meal", (stats) => stats.shares && <SharesDetail shares={stats.shares} />],
+  foods: ["Leaderboard", (stats) => stats.foods.length > 0 && <FoodsDetail stats={stats} />],
+  produce: ["Veggies and fruit", (stats) => stats.produce && <ProduceDetail produce={stats.produce} />],
+  rhythm: ["When you eat", (stats) => stats.rhythm && <RhythmDetail rhythm={stats.rhythm} span={stats.span} />],
+  shares: ["What each meal adds", (stats) => stats.shares && <SharesDetail shares={stats.shares} />],
   difference: ["Higher-protein days", (stats) => stats.difference && <DifferenceDetail difference={stats.difference} />],
   split: ["Weekdays and weekends", (stats) => stats.split && <SplitDetail split={stats.split} />],
 };
@@ -27,9 +27,9 @@ export default function InsightDetail() {
   const { stats, goals } = useInsights(period.id);
   const [title, render] = CARDS[card] ?? ["Insights", () => null];
   return <FormScreen>
-    <FormHeader title={card === "typical" ? `Past ${period.name} average` : title} onBack={leave} />
+    <FormHeader title={card === "typical" ? "Average day" : title} onBack={leave} />
     <FormScrollView contentContainerStyle={[formStyles.content, styles.content]} showsVerticalScrollIndicator={false}>
-      <Text style={styles.range}>{`Last ${period.name} · ${formatRange(stats.keys)}`}</Text>
+      <Text style={styles.range}>{`Past ${period.name} · ${formatRange(stats.keys)}`}</Text>
       {render(stats, goals) || <InsightCard answer="Nothing to show for this period." />}
     </FormScrollView>
   </FormScreen>;

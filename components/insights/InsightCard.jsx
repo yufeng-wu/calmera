@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { FormCard } from "@/components/GlassForm";
@@ -26,7 +26,9 @@ export const Strong = ({ children }) => <Text style={styles.strong}>{children}</
 
 // Small choices that change what one card shows.
 export function Chips({ items, value, onChange, label }) {
-  return <View accessibilityRole="radiogroup" accessibilityLabel={label} style={styles.chips}>
+  // Scrolls sideways when the chips are wider than the card.
+  return <ScrollView horizontal showsHorizontalScrollIndicator={false} accessibilityRole="radiogroup" accessibilityLabel={label}
+    style={styles.chipScroller} contentContainerStyle={styles.chips}>
     {items.map(([id, text]) => {
       const selected = id === value;
       return <Pressable key={id} accessibilityRole="radio" accessibilityState={{ checked: selected }} hitSlop={{ top: 8, bottom: 8 }}
@@ -35,7 +37,7 @@ export function Chips({ items, value, onChange, label }) {
         <Text numberOfLines={1} style={[styles.chipText, selected && styles.chipTextSelected]}>{text}</Text>
       </Pressable>;
     })}
-  </View>;
+  </ScrollView>;
 }
 
 const styles = StyleSheet.create({
@@ -46,7 +48,8 @@ const styles = StyleSheet.create({
   answer: { ...TYPOGRAPHY.body, color: COLORS.text },
   strong: { ...TYPOGRAPHY.button, color: COLORS.text },
   footnote: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  chipScroller: { flexGrow: 0, marginHorizontal: -18 },
+  chips: { flexDirection: "row", gap: 6, paddingHorizontal: 18 },
   chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: COLORS.track },
   chipSelected: { backgroundColor: COLORS.primary },
   chipText: { ...TYPOGRAPHY.captionMedium, color: COLORS.text },

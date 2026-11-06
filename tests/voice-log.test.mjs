@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ensureVoicePermission, formatElapsed, joinTranscript, levelFromVolume, modelLabel, stageCopy, stageIndex, voiceHint, VOICE_HINTS } from "../lib/voice/voiceLog.mjs";
+import { ensureVoicePermission, formatElapsed, joinTranscript, levelFromVolume, modelLabel, stageCopy, stageIndex, voiceHint, voiceStep, VOICE_HINTS, VOICE_STEPS } from "../lib/voice/voiceLog.mjs";
 
 const engine = (current, asked) => {
   const calls = [];
@@ -58,7 +58,8 @@ test("Elapsed time reads as minutes and seconds", () => {
 
 test("Stages name the model and keep their order", () => {
   assert.equal(stageCopy("sending", "Luna").title, "Sending to Luna");
-  assert.equal(stageCopy("analyzing", "Luna").title, "Luna is estimating");
+  assert.equal(stageCopy("received", "Luna").detail, "Luna is picking out each food you said");
+  assert.equal(stageCopy("analyzing", "Luna").title, "Estimating calories");
   assert.equal(stageCopy("unknown").title, "Sending to ChatGPT");
   assert.ok(stageIndex("received") < stageIndex("analyzing"));
   assert.equal(stageIndex("nonsense"), 0);
@@ -75,4 +76,12 @@ test("Hints cycle through the examples", () => {
   assert.equal(voiceHint(0), VOICE_HINTS[0]);
   assert.equal(voiceHint(VOICE_HINTS.length + 1), VOICE_HINTS[1]);
   assert.equal(voiceHint(-3), VOICE_HINTS[3]);
+});
+
+test("Each stage lights the matching step, and only the finish lights Ready", () => {
+  assert.deepEqual(VOICE_STEPS, ["Send", "Estimate", "Review", "Ready"]);
+  assert.deepEqual(["sending", "received", "analyzing", "receiving"].map(stage => voiceStep(stage)), [0, 1, 2, 2]);
+  assert.equal(voiceStep("completed"), VOICE_STEPS.length);
+  assert.equal(voiceStep("analyzing", true), VOICE_STEPS.length);
+  assert.equal(voiceStep("nonsense"), 0);
 });
