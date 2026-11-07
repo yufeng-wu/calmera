@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { AccessibilityInfo, Alert, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Animated, { FadeIn, LayoutAnimationConfig } from "react-native-reanimated";
 import { Picker } from "@react-native-picker/picker";
 import Constants from "expo-constants";
@@ -8,7 +8,9 @@ import { useNavigation, StackActions } from "@react-navigation/native";
 import { useAuth } from "@clerk/clerk-expo";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FormHeader, GlassButton, FormScreen, FormScrollView, formStyles } from "@/components/GlassForm";
+import SegmentedControl from "@/components/SegmentedControl";
 import SettingsRow from "@/components/SettingsRow";
+import SheetModal from "@/components/SheetModal";
 import { SettingsSection, settingsStyles } from "@/components/SettingsSection";
 import { USERS_API_URL } from "@/constants/api";
 import { NUTRIENT_COLORS } from "@/constants/colors";
@@ -18,11 +20,11 @@ import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import usePageExit from "@/hooks/usePageExit";
 import useFormTaskScope from "@/hooks/useFormTaskScope";
 import { saveGoalProfile, goalSaveErrorMessage } from "@/lib/goalProfile.mjs";
-import { surveyBmr, surveyGoals, surveyPickerCommit } from "@/lib/goalsSurvey.mjs";
+import { ADULT_AGE, DEFICIT, surveyGoals, surveyPickerCommit } from "@/lib/goalsSurvey.mjs";
 import { formatNumber } from "@/lib/insights/stats.mjs";
 
 const sexOptions = [
-  { label: "Female", value: "female" }, { label: "Male", value: "male" }, { label: "Not saying", value: "na" },
+  { label: "Female", value: "female" }, { label: "Male", value: "male" }, { label: "Prefer not to say", value: "na" },
 ];
 const workActivityOptions = [
   { value: "sedentary", title: "Mostly sitting", subtitle: "Desk work, driving" },
@@ -35,9 +37,9 @@ const exerciseActivityOptions = [
   { label: "3–4", value: "moderate" }, { label: "5–6", value: "high" }, { label: "7+", value: "very_high" },
 ];
 const goalOptions = [
-  { value: "lose", title: "Lose weight", subtitle: "Eat about 250 kcal less than you burn" },
-  { value: "maintain", title: "Stay the same", subtitle: "Eat about what you burn" },
-  { value: "gain", title: "Build muscle", subtitle: "Eat about 250 kcal more than you burn" },
+  { value: "lose", title: "Lose weight", subtitle: `About ${DEFICIT} kcal under what you burn` },
+  { value: "maintain", title: "Stay the same", subtitle: "About what you burn" },
+  { value: "gain", title: "Build muscle", subtitle: "About 10% over what you burn" },
 ];
 const RESULTS = [
   { key: "calorieGoal", label: "Calories", unit: "", color: NUTRIENT_COLORS.calories },
@@ -45,11 +47,12 @@ const RESULTS = [
   { key: "carbsGoal", label: "Carbs", unit: "g", color: NUTRIENT_COLORS.carbs },
   { key: "fatGoal", label: "Fat", unit: "g", color: NUTRIENT_COLORS.fat },
 ];
+const DISCLAIMER_LEAD = "A starting point only, not dietary or medical advice.";
+const DISCLAIMER = " Calmera isn’t a medical service; talk to a doctor or registered dietitian before changing how you eat.";
 const ageItems = Array.from({ length: 86 }, (_, i) => i + 15);
 const weightKgIntItems = Array.from({ length: 171 }, (_, i) => 30 + i);
 const weightLbsIntItems = Array.from({ length: 285 }, (_, i) => 66 + i);
 const heightCmIntItems = Array.from({ length: 131 }, (_, i) => 120 + i);
-const bodyFatItems = Array.from({ length: 46 }, (_, i) => 5 + i);
 const heightFtItems = Array.from({ length: 5 }, (_, i) => 4 + i);
 const heightInItems = Array.from({ length: 12 }, (_, i) => i);
 const decimalItems = Array.from({ length: 10 }, (_, i) => i);
@@ -63,19 +66,25 @@ const cmToFeetIn = (cm) => {
 const feetInToCm = (ft, inch) => (ft * 12 + (inch || 0)) * 2.54;
 const tick = () => Haptics.selectionAsync().catch(() => {});
 
-// A row of short choices on a pale track; the chosen one sits on a white pill.
-function Segmented({ label, options, value, onChange, disabled = false }) {
-  return <View style={styles.segmented} accessibilityRole="radiogroup" accessibilityLabel={label}>
-    {options.map(option => {
-      const selected = option.value === value;
-      return <Pressable key={option.value} accessibilityRole="radio" accessibilityLabel={`${label}, ${option.label}`}
-        accessibilityState={{ checked: selected, disabled }} disabled={disabled}
-        onPress={() => { if (!selected) { tick(); onChange(option.value); } }}
-        style={({ pressed }) => [styles.segment, selected && styles.segmentSelected, pressed && !selected && styles.segmentPressed]}>
-        <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>{option.label}</Text>
-      </Pressable>;
-    })}
-  </View>;
+// The footnote under the numbers: one sentence with the equation, the figures
+// and the aim rule that applied. Plain statements, no advice.
+function describeMethod({ details, sex }) {
+  const { bmr, activityFactor, tdee, aim, reason, change, atFloor, floor } = details;
+  let tail = ".";
+  if (reason === "minor") tail = `, kept at that level under ${ADULT_AGE}.`;
+  else if (reason === "underweight") tail = ", kept at that level with a BMI under the healthy range.";
+  else if (reason === "at-minimum") tail = `, already at the ${formatNumber(floor)} kcal adult minimum.`;
+  else if (aim === "lose" && atFloor) tail = `, cut to the ${formatNumber(floor)} kcal adult minimum${sex === "na" ? " for men" : ""}.`;
+  else if (aim === "lose") tail = `, minus ${formatNumber(-change)} kcal to lose weight.`;
+  else if (aim === "gain") tail = `, plus ${formatNumber(change)} kcal to build muscle.`;
+  return `Suggested based on Mifflin–St Jeor: about ${formatNumber(bmr)} kcal at rest × ${activityFactor} for activity ≈ ${formatNumber(tdee)} kcal a day${tail}`;
+}
+
+// One row of labelled choices on the native segmented control (Liquid Glass on iOS 26).
+function Segmented({ label, options, value, onChange, disabled = false, fitContent = false }) {
+  const current = options.find(option => option.value === value)?.label ?? "";
+  return <SegmentedControl options={options.map(option => option.label)} value={current} disabled={disabled} accessibilityLabel={label} fitContent={fitContent}
+    onChange={picked => { const option = options.find(candidate => candidate.label === picked); if (option) onChange(option.value); }} />;
 }
 
 function SurveyWheel({ label, value, onChange, items, disabled = false }) {
@@ -89,42 +98,41 @@ function SurveyWheel({ label, value, onChange, items, disabled = false }) {
   </View>;
 }
 
-function SurveyPickerSheet({ visible, title, onDone, onClose, onClear, children, disabled = false }) {
+// The wheel pickers live in the shared sheet, so only the sheet travels while
+// the dimmed backdrop fades. Done commits, then the sheet slides away.
+function SurveyPickerSheet({ visible, title, onDone, onClose, children, disabled = false }) {
+  const sheetRef = useRef(null);
   const insets = useSafeAreaInsets();
   const { height, fontScale } = useWindowDimensions();
   const largeText = fontScale > 1.4;
   const actionScale = Math.max(1, fontScale);
-  // These two short labels need text-sized space, not the shared multi-line
-  // action height. Keep native fonts/materials and let the row wrap if needed.
+  // The Done label needs text-sized space, not the shared multi-line action
+  // height. Keep native fonts/materials and let the row wrap if needed.
   const actionWidth = Math.ceil(Math.max(64, 24 + 40 * actionScale) / 4) * 4;
   const actionHeight = Math.ceil(Math.max(48, 20 + 22 * actionScale) / 4) * 4;
   const actionStyle = [styles.sheetSmallAction, { width: actionWidth, height: actionHeight, maxWidth: "100%" }];
   if (!visible) return null;
-  return <Modal visible transparent animationType="slide" presentationStyle="overFullScreen" onRequestClose={onClose}>
-    <View style={styles.sheetBackdrop}>
-      <Pressable accessibilityLabel="Close picker" accessibilityRole="button" disabled={disabled} accessibilityState={{ disabled }} style={StyleSheet.absoluteFill} onPress={onClose} />
-      <View accessibilityViewIsModal style={[styles.sheet, { paddingBottom: Math.max(20, insets.bottom), maxHeight: height * 0.85 }]}>
-        <View style={styles.sheetHandle} />
-        {largeText && <Text accessibilityRole="header" style={[styles.sheetTitle, styles.sheetTitleLarge]}>{title}</Text>}
-        <View style={[styles.sheetHeader, largeText && styles.sheetActionsLarge]}>
-          {onClear ? <GlassButton title="Clear" onPress={onClear} disabled={disabled} style={actionStyle} />
-            : !largeText && <View style={actionStyle} />}
-          {!largeText && <Text accessibilityRole="header" style={styles.sheetTitle}>{title}</Text>}
-          <GlassButton title="Done" onPress={onDone} disabled={disabled} style={actionStyle} />
-        </View>
-        <ScrollView bounces={false} contentContainerStyle={styles.sheetContent}>
-          {children}
-        </ScrollView>
-      </View>
+  const header = <View style={styles.sheetTop}>
+    {largeText && <Text accessibilityRole="header" style={[styles.sheetTitle, styles.sheetTitleLarge]}>{title}</Text>}
+    <View style={[styles.sheetHeader, largeText && styles.sheetActionsLarge]}>
+      {!largeText && <View style={actionStyle} />}
+      {!largeText && <Text accessibilityRole="header" style={styles.sheetTitle}>{title}</Text>}
+      <GlassButton title="Done" onPress={() => sheetRef.current?.close(onDone)} disabled={disabled} style={actionStyle} />
     </View>
-  </Modal>;
+  </View>;
+  return <SheetModal ref={sheetRef} onClose={onClose} dismissLabel="Close picker" header={header}
+    style={[styles.sheet, { paddingBottom: Math.max(20, insets.bottom), maxHeight: height * 0.85 }]}>
+    <ScrollView bounces={false} contentContainerStyle={styles.sheetContent}>
+      {children}
+    </ScrollView>
+  </SheetModal>;
 }
 
 // The suggested goals in Today's ring colors; dashes until every question is answered.
 function SuggestedGoals({ goals, large }) {
   const spoken = goals ? RESULTS.map(({ key, label, unit }) => `${label} ${formatNumber(goals[key])} ${unit === "g" ? "grams" : "kilocalories"}`).join(", ")
     : "Not ready yet";
-  return <View style={styles.results} accessible accessibilityLabel={`Suggested daily goals. ${spoken}.`}>
+  return <View style={styles.results} accessible accessibilityLabel={`A reasonable starting point. ${spoken}.`}>
     <LayoutAnimationConfig skipEntering>
       {RESULTS.map(({ key, label, unit, color }) => <View key={key} style={[styles.result, large && styles.resultLarge]}>
         <View style={styles.resultLabelRow}>
@@ -155,11 +163,10 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
   const scrollViewRef = useRef(null);
   const saveFixture = calmeraPreview && ["save-token-timeout", "save-response-timeout", "save-error"].includes(calmeraPreviewStage);
   const disclosureFixture = calmeraPreview && Constants.expoConfig?.extra?.calmeraFullAppTest === true
-    && ["recommendation-unspecified", "recommendation-body-fat"].includes(calmeraPreviewStage);
+    && ["recommendation-unspecified", "recommendation-minor"].includes(calmeraPreviewStage);
   const seeded = calmeraPreview && (calmeraPreviewStage === "recommendation" || saveFixture || disclosureFixture);
-  const [age, setAge] = useState(seeded ? 30 : null);
+  const [age, setAge] = useState(seeded ? calmeraPreviewStage === "recommendation-minor" ? 16 : 30 : null);
   const [sex, setSex] = useState(seeded ? disclosureFixture ? "na" : "female" : null);
-  const [bodyFat, setBodyFat] = useState(disclosureFixture && calmeraPreviewStage === "recommendation-body-fat" ? 20 : null);
   const [weightKg, setWeightKg] = useState(seeded ? 70 : null);
   const [weightUnit, setWeightUnit] = useState("kg");
   const [heightCm, setHeightCm] = useState(seeded ? 175 : null);
@@ -177,7 +184,7 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
   // The suggestion follows the answers as they change, so there's nothing to press first.
   const answers = [age, heightCm, weightKg, sex, workActivity, exerciseActivity, goal];
   const remaining = answers.filter(value => value === null).length;
-  const recommendation = remaining ? null : surveyGoals({ weightKg, heightCm, age, sex, bodyFat, workActivity, exerciseActivity, goal });
+  const recommendation = remaining ? null : surveyGoals({ weightKg, heightCm, age, sex, workActivity, exerciseActivity, goal });
   const [picker, setPicker] = useState({ field: null, visible: false });
   const [pendingAge, setPendingAge] = useState(25);
   // Ref guards also reject accessibility/queued actions before disabled props render.
@@ -276,25 +283,27 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
     : weightUnit === "kg" ? weightKg : toLbs(weightKg);
   const decimalOf = value => Math.round((value * 10) % 10);
   const changeWeight = value => { if (!savingRef.current) setWeightKg(weightUnit === "kg" ? value : toKg(value)); };
-  const fieldName = { age: "Age", weight: "Weight", height: "Height", bodyFat: "Body fat" }[picker.field];
-  const sexAssumption = sex === "na" && bodyFat === null ? "With “Not saying”, the estimate uses the female formula. Add body fat to avoid it." : null;
-  const method = recommendation && `Based on the ${bodyFat !== null ? "Katch–McArdle" : "Mifflin–St Jeor"} equation: about ${formatNumber(Math.round(surveyBmr({ weightKg, heightCm, age, sex, bodyFat })))} kcal burned at rest, adjusted for your activity and goal. Not medical advice.`;
+  const fieldName = { age: "Age", weight: "Weight", height: "Height" }[picker.field];
+  const sexAssumption = sex === "na" ? "With “Prefer not to say”, the estimate uses the midpoint of the female and male equations and the higher calorie minimum." : null;
+  const minor = age !== null && age < ADULT_AGE;
+  const aimNote = minor ? `Under ${ADULT_AGE}, we only suggest what you need to stay the same. Changing weight is something to plan with a doctor or dietitian.` : null;
+  const resultsNote = recommendation ? describeMethod({ details: recommendation.details, sex })
+    : `Answer ${remaining} more ${remaining === 1 ? "question" : "questions"} to see your goals.`;
 
   return <FormScreen style={formStyles.screen}>
     <FormHeader title="Suggest goals" onBack={goBack} backDisabled={loading} />
     <FormScrollView key={`survey-text-${fontScale}`} ref={scrollViewRef} contentContainerStyle={settingsStyles.content} keyboardShouldPersistTaps="handled"
       pointerEvents={loading ? "none" : "auto"}>
       {calmeraPreview && <Text style={settingsStyles.footnote}>Synthetic preview · nothing is saved</Text>}
-      <Text style={settingsStyles.lead}>Answer a few questions for starting goals. Change them anytime.</Text>
+      <Text style={settingsStyles.lead}>Answer a few questions for a starting point. Change the numbers anytime.</Text>
       <SettingsSection label="About you" footnote={sexAssumption}>
         <SettingsRow title="Age" value={displayAge} onPress={() => openPicker("age")} disabled={loading} />
         <SettingsRow title="Height" value={displayHeight} divider onPress={() => openPicker("height")} disabled={loading} />
         <SettingsRow title="Weight" value={displayWeight} divider onPress={() => openPicker("weight")} disabled={loading} />
-        <SettingsRow title="Body fat" value={bodyFat === null ? "Optional" : `${bodyFat}%`} divider onPress={() => openPicker("bodyFat")} disabled={loading} />
         <View style={styles.segmentRow}>
           <View style={styles.inlineDivider} />
           <Text style={styles.segmentTitle}>Sex</Text>
-          <Segmented label="Sex" options={sexOptions} value={sex} disabled={loading} onChange={value => choose(setSex, value, sex)} />
+          <Segmented label="Sex" options={sexOptions} value={sex} disabled={loading} fitContent onChange={value => choose(setSex, value, sex)} />
         </View>
       </SettingsSection>
       <SettingsSection label="At work">
@@ -308,33 +317,31 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
             onChange={value => choose(setExerciseActivity, value, exerciseActivity)} />
         </View>
       </SettingsSection>
-      <SettingsSection label="Your aim">
+      <SettingsSection label="Your aim" footnote={aimNote}>
         {goalOptions.map((option, index) => <SettingsRow key={option.value} title={option.title} subtitle={option.subtitle}
           accessibilityRole="radio" selected={goal === option.value} divider={index > 0} disabled={loading}
           onPress={() => choose(setGoal, option.value, goal)} />)}
       </SettingsSection>
-      <SettingsSection label="Suggested daily goals" footnote={recommendation ? method
-        : `Answer ${remaining} more ${remaining === 1 ? "question" : "questions"} to see your goals.`}>
+      <SettingsSection label="A reasonable starting point" footnote={resultsNote}>
         <SuggestedGoals goals={recommendation} large={fontScale > 1.3} />
       </SettingsSection>
       {saveFixture && <Text accessibilityLiveRegion="polite" style={settingsStyles.footnote}>
         Synthetic save attempts: {fixtureTrace.attempts} · PUT requests: {fixtureTrace.puts}
       </Text>}
       <GlassButton title="Use these goals" symbol="checkmark" role="accent" onPress={handleSaveMacros} loading={loading} disabled={loading || !recommendation} />
+      <Text style={settingsStyles.footnote}><Text style={styles.disclaimerLead}>{DISCLAIMER_LEAD}</Text>{DISCLAIMER}</Text>
     </FormScrollView>
     <SurveyPickerSheet disabled={loading} visible={picker.visible} title={fieldName} onClose={closePicker}
       onDone={() => {
         if (savingRef.current) return;
         const committed = surveyPickerCommit(picker.field, {
-          pendingAge, weightKg, weightUnit, heightCm, heightUnit, bodyFat, feet: currentFt, inches: currentIn,
+          pendingAge, weightKg, weightUnit, heightCm, heightUnit, feet: currentFt, inches: currentIn,
         });
         if (committed.age !== undefined) setAge(committed.age);
         if (committed.weightKg !== undefined) setWeightKg(committed.weightKg);
         if (committed.heightCm !== undefined) setHeightCm(committed.heightCm);
-        if (committed.bodyFat !== undefined) setBodyFat(committed.bodyFat);
         closePicker();
-      }}
-      onClear={picker.field === "bodyFat" ? () => { if (savingRef.current) return; setBodyFat(null); closePicker(); } : undefined}>
+      }}>
       {picker.field === "weight" && <Segmented label="Weight unit" options={[{ label: "kg", value: "kg" }, { label: "lb", value: "lbs" }]}
         value={weightUnit} disabled={loading} onChange={changeInput(setWeightUnit)} />}
       {picker.field === "height" && <Segmented label="Height unit" options={[{ label: "cm", value: "cm" }, { label: "ft / in", value: "ft" }]}
@@ -359,13 +366,6 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
         <SurveyWheel disabled={loading} label="Feet" value={currentFt} onChange={value => setHeightFromFt(Number(value))} items={heightFtItems} />
         <SurveyWheel disabled={loading} label="Inches" value={Math.round(currentIn)} onChange={value => setHeightFromIn(Number(value))} items={heightInItems} />
       </View>}
-      {picker.field === "bodyFat" && <View style={styles.wheelRow}>
-        <SurveyWheel disabled={loading} label="Percent" value={Math.floor(bodyFat ?? 20)}
-          onChange={changeInput(value => setBodyFat(Number(`${value}.${decimalOf(bodyFat ?? 20)}`)))} items={bodyFatItems} />
-        <Text style={styles.decimalPoint}>.</Text>
-        <SurveyWheel disabled={loading} label="Tenths" value={decimalOf(bodyFat ?? 20)}
-          onChange={changeInput(value => setBodyFat(Number(`${Math.floor(bodyFat ?? 20)}.${value}`)))} items={decimalItems} />
-      </View>}
     </SurveyPickerSheet>
   </FormScreen>;
 }
@@ -374,14 +374,7 @@ const styles = StyleSheet.create({
   segmentRow: { gap: 10, paddingHorizontal: SETTINGS.rowPadding, paddingTop: 14, paddingBottom: 14 },
   inlineDivider: { position: "absolute", top: 0, left: SETTINGS.rowPadding, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: SETTINGS.hairline },
   segmentTitle: { ...TYPOGRAPHY.bodyMedium, color: SETTINGS.ink },
-  segmentCard: { padding: 8 },
-  segmented: { flexDirection: "row", flexWrap: "wrap", gap: 4, padding: 4, borderRadius: 22, backgroundColor: "#F4EDE6" },
-  segment: { flexGrow: 1, flexBasis: 0, minWidth: 44, minHeight: 40, paddingVertical: 9, paddingHorizontal: 8,
-    borderRadius: 18, alignItems: "center", justifyContent: "center" },
-  segmentSelected: { backgroundColor: SETTINGS.surface, borderWidth: 0.5, borderColor: SETTINGS.edge },
-  segmentPressed: { backgroundColor: "#EADFD5" },
-  segmentText: { ...TYPOGRAPHY.bodyMedium, color: SETTINGS.inkSoft, textAlign: "center" },
-  segmentTextSelected: { color: SETTINGS.ink, fontWeight: "600" },
+  segmentCard: { padding: 10 },
   results: { flexDirection: "row", flexWrap: "wrap", rowGap: 14, paddingVertical: 16, paddingHorizontal: SETTINGS.rowPadding },
   result: { width: "25%", gap: 3, paddingRight: 6 },
   resultLarge: { width: "50%" },
@@ -390,15 +383,15 @@ const styles = StyleSheet.create({
   resultLabel: { ...TYPOGRAPHY.caption, color: SETTINGS.inkSoft, flexShrink: 1 },
   resultValue: { ...TYPOGRAPHY.value, color: SETTINGS.ink, fontVariant: ["tabular-nums"] },
   resultUnit: { ...TYPOGRAPHY.caption, color: SETTINGS.inkSoft },
-  sheetBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(35,26,21,0.28)" },
-  sheet: { backgroundColor: SETTINGS.surface, borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 20, gap: 14 },
-  sheetHandle: { height: 5, width: 36, alignSelf: "center", backgroundColor: "#CFC4BA", borderRadius: 3 },
+  disclaimerLead: { ...TYPOGRAPHY.captionMedium, fontWeight: "600", color: SETTINGS.ink },
+  sheet: { backgroundColor: SETTINGS.surface, paddingHorizontal: 20, paddingBottom: 20 },
+  sheetTop: { paddingTop: 10, paddingBottom: 14 },
   sheetHeader: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 12 },
   sheetTitle: { ...TYPOGRAPHY.sectionTitle, flex: 1, minWidth: 80, color: SETTINGS.ink, textAlign: "center" },
   sheetSmallAction: { minWidth: 64 },
   sheetTitleLarge: { flex: 0, width: "100%" },
   sheetActionsLarge: { justifyContent: "flex-end" },
-  sheetContent: { flexGrow: 1, gap: 8 },
+  sheetContent: { flexGrow: 1, gap: 8, paddingTop: 2 },
   wheelRow: { flexDirection: "row", alignItems: "center" },
   wheelColumn: { flex: 1, minWidth: 0 },
   wheelLabel: { ...TYPOGRAPHY.caption, color: SETTINGS.inkSoft, textAlign: "center" },
