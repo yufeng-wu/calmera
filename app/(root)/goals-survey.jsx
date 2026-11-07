@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Alert, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { AccessibilityInfo, Alert, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Animated, { FadeIn, LayoutAnimationConfig } from "react-native-reanimated";
 import { Picker } from "@react-native-picker/picker";
 import Constants from "expo-constants";
@@ -8,6 +8,7 @@ import { useNavigation, StackActions } from "@react-navigation/native";
 import { useAuth } from "@clerk/clerk-expo";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FormHeader, GlassButton, FormScreen, FormScrollView, formStyles } from "@/components/GlassForm";
+import SegmentedControl from "@/components/SegmentedControl";
 import SettingsRow from "@/components/SettingsRow";
 import SheetModal from "@/components/SheetModal";
 import { SettingsSection, settingsStyles } from "@/components/SettingsSection";
@@ -79,19 +80,11 @@ function describeMethod({ details, sex }) {
   return `Suggested based on Mifflin–St Jeor: about ${formatNumber(bmr)} kcal at rest × ${activityFactor} for activity ≈ ${formatNumber(tdee)} kcal a day${tail}`;
 }
 
-// A row of short choices on a pale track; the chosen one sits on a white pill.
-function Segmented({ label, options, value, onChange, disabled = false }) {
-  return <View style={styles.segmented} accessibilityRole="radiogroup" accessibilityLabel={label}>
-    {options.map(option => {
-      const selected = option.value === value;
-      return <Pressable key={option.value} accessibilityRole="radio" accessibilityLabel={`${label}, ${option.label}`}
-        accessibilityState={{ checked: selected, disabled }} disabled={disabled}
-        onPress={() => { if (!selected) { tick(); onChange(option.value); } }}
-        style={({ pressed }) => [styles.segment, selected && styles.segmentSelected, pressed && !selected && styles.segmentPressed]}>
-        <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>{option.label}</Text>
-      </Pressable>;
-    })}
-  </View>;
+// One row of labelled choices on the native segmented control (Liquid Glass on iOS 26).
+function Segmented({ label, options, value, onChange, disabled = false, fitContent = false }) {
+  const current = options.find(option => option.value === value)?.label ?? "";
+  return <SegmentedControl options={options.map(option => option.label)} value={current} disabled={disabled} accessibilityLabel={label} fitContent={fitContent}
+    onChange={picked => { const option = options.find(candidate => candidate.label === picked); if (option) onChange(option.value); }} />;
 }
 
 function SurveyWheel({ label, value, onChange, items, disabled = false }) {
@@ -310,7 +303,7 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
         <View style={styles.segmentRow}>
           <View style={styles.inlineDivider} />
           <Text style={styles.segmentTitle}>Sex</Text>
-          <Segmented label="Sex" options={sexOptions} value={sex} disabled={loading} onChange={value => choose(setSex, value, sex)} />
+          <Segmented label="Sex" options={sexOptions} value={sex} disabled={loading} fitContent onChange={value => choose(setSex, value, sex)} />
         </View>
       </SettingsSection>
       <SettingsSection label="At work">
@@ -381,14 +374,7 @@ const styles = StyleSheet.create({
   segmentRow: { gap: 10, paddingHorizontal: SETTINGS.rowPadding, paddingTop: 14, paddingBottom: 14 },
   inlineDivider: { position: "absolute", top: 0, left: SETTINGS.rowPadding, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: SETTINGS.hairline },
   segmentTitle: { ...TYPOGRAPHY.bodyMedium, color: SETTINGS.ink },
-  segmentCard: { padding: 8 },
-  segmented: { flexDirection: "row", flexWrap: "wrap", gap: 4, padding: 4, borderRadius: 22, backgroundColor: "#F4EDE6" },
-  segment: { flexGrow: 1, flexBasis: "auto", minWidth: 44, minHeight: 40, paddingVertical: 9, paddingHorizontal: 8,
-    borderRadius: 18, alignItems: "center", justifyContent: "center" },
-  segmentSelected: { backgroundColor: SETTINGS.surface, borderWidth: 0.5, borderColor: SETTINGS.edge },
-  segmentPressed: { backgroundColor: "#EADFD5" },
-  segmentText: { ...TYPOGRAPHY.bodyMedium, color: SETTINGS.inkSoft, textAlign: "center" },
-  segmentTextSelected: { color: SETTINGS.ink, fontWeight: "600" },
+  segmentCard: { padding: 10 },
   results: { flexDirection: "row", flexWrap: "wrap", rowGap: 14, paddingVertical: 16, paddingHorizontal: SETTINGS.rowPadding },
   result: { width: "25%", gap: 3, paddingRight: 6 },
   resultLarge: { width: "50%" },

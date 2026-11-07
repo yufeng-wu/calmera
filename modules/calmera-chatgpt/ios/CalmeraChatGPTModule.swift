@@ -72,6 +72,7 @@ public final class CalmeraChatGPTModule: Module {
       Prop("selected") { (view: CalmeraSegmentedView, value: String) in view.selected = value }
       Prop("controlLabel") { (view: CalmeraSegmentedView, value: String) in view.controlLabel = value }
       Prop("controlDisabled") { (view: CalmeraSegmentedView, value: Bool) in view.controlDisabled = value }
+      Prop("fitContent") { (view: CalmeraSegmentedView, value: Bool) in view.fitContent = value }
       OnViewDidUpdateProps { (view: CalmeraSegmentedView) in view.updateControl() }
     }
     View(CalmeraGoalSliderView.self) {
@@ -1740,6 +1741,8 @@ final class CalmeraSegmentedView: ExpoView {
   var selected = ""
   var controlLabel = ""
   var controlDisabled = false
+  // Segments sized to their titles, for a row where one label is much longer.
+  var fitContent = false
   private let control = UISegmentedControl()
   private var shownKey = ""
   private let ink = UIColor(red: 74/255, green: 52/255, blue: 40/255, alpha: 1)
@@ -1765,6 +1768,7 @@ final class CalmeraSegmentedView: ExpoView {
     }
     if control.selectedSegmentIndex != index { control.selectedSegmentIndex = index }
     control.isEnabled = !controlDisabled
+    control.apportionsSegmentWidthsByContent = fitContent
     control.accessibilityLabel = controlLabel
     applyContent()
     setNeedsLayout()
