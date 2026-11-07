@@ -104,7 +104,10 @@ export default function TrendChart({ points: bars, goal, top: ceiling, typical, 
           const barHeight = Math.max(3, floor - y(point.value));
           return <Rect key={point.key} x={x} y={floor - barHeight} width={bar} height={barHeight} rx={Math.min(bar, barHeight) / 2} fill={fillFor(point, index)} fillOpacity={selected == null && point.partial ? PARTIAL_OPACITY : 1} />;
         })}
-        {!compact && typical != null && <Line x1={center(0) - bar / 2} x2={center(bars.length - 1) + bar / 2} y1={y(typical)} y2={y(typical)} stroke={COLORS.text} strokeWidth={1.5} strokeLinecap="round" />}
+        {!compact && typical != null && <>
+          <Line x1={center(0) - bar / 2} x2={center(bars.length - 1) + bar / 2} y1={y(typical)} y2={y(typical)} stroke={COLORS.white} strokeWidth={3.5} strokeLinecap="round" />
+          <Line x1={center(0) - bar / 2} x2={center(bars.length - 1) + bar / 2} y1={y(typical)} y2={y(typical)} stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+        </>}
       </Svg>}
     </View>
     {width > 0 && !compact && <View style={styles.labels}>

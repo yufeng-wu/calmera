@@ -23,7 +23,7 @@ These sources are mostly secondary and small-sample; none was a controlled study
 | --- | --- | --- |
 | Days logged | Have I been logging? | Always |
 | Past 7 days average | What does a normal day look like? | Chart always. Average after 3 days with 2+ meals |
-| Leaderboard | What do I eat most, and which foods give me the most calories, protein, carbs and fat? | Any food logged |
+| Top foods | What do I eat most, and which foods give me the most calories, protein, carbs and fat? | Any food logged |
 | Veg and fruit | What kinds have I had? | A checked food in the period |
 | When you eat | When do I usually have each meal, and when do I snack? Every meal is a dot on one clock, with a line at the average; snacks get an average for each regular snack time | A meal logged on 3+ days |
 | What each meal adds | How do calories, protein, carbs and fat split across meals? Percents and amounts per day are on the detail page | 3 days with 2+ meals |

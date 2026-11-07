@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated, { FadeIn, runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import * as Haptics from "expo-haptics";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -12,7 +12,7 @@ import FoodwrapRefreshScrollView from "@/components/FoodwrapRefreshScrollView";
 import DayTimeline from "@/components/insights/DayTimeline";
 import Heatmap, { WeekDots } from "@/components/insights/Heatmap";
 import InsightCard from "@/components/insights/InsightCard";
-import { ChartKey, FoodLine, MEAL_LABELS, NUTRIENTS, PERIODS, PairBar, SplitTable, nutrientScale, nutrientSummary, periodName, plural } from "@/components/insights/InsightDetails";
+import { ChartKey, NUTRIENTS, PERIODS, SplitTable, nutrientScale, nutrientSummary, periodName, plural } from "@/components/insights/InsightDetails";
 import { MealBar, MealKey, describeShares } from "@/components/insights/MealShares";
 import PeriodTabs from "@/components/insights/PeriodTabs";
 import TrendChart from "@/components/insights/TrendChart";
@@ -22,81 +22,144 @@ import { TYPOGRAPHY } from "@/constants/typography";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { useFoodIcons } from "@/context/FoodIconsContext";
 import { useInsights } from "@/hooks/useInsights";
+import { useMotionPreference } from "@/hooks/useMotionPreference";
 import { formatNumber, formatRange, percentOfGoal } from "@/lib/insights/stats.mjs";
 
 const dayLetter = (key) => new Date(`${key}T12:00:00`).toLocaleDateString("en-US", { weekday: "narrow" });
 const weekdayName = (key) => new Date(`${key}T12:00:00`).toLocaleDateString("en-US", { weekday: "long" });
-const TOP_FOODS = 3;
 const TOP_PRODUCE = 6;
 const TYPICAL_TEXT = 132;
 const SHARE_NAME = 62;
 const SWIPE_DISTANCE = 50;
 const SWIPE_SPEED = 500;
 const SWIPE_TAP_GUARD = 150;
+// Both cards travel together on one spring, with no overshoot past the next card.
+const SLIDE = { damping: 28, stiffness: 260, mass: 0.8, overshootClamping: true };
 
 export default function InsightsScreen() {
-  const { fontScale } = useWindowDimensions();
+  const { fontScale, width } = useWindowDimensions();
+  const { reduceMotion } = useMotionPreference();
   const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const [period, setPeriod] = useState("week");
-  const { stats, goals, empty, loaded, error, refreshFailed, retryError, refresh } = useInsights(period);
+  const { stats, statsOf, goals, empty, loaded, error, refreshFailed, retryError, refresh } = useInsights(period);
   // Until history loads, the store holds only the days already opened, which would
   // read as a short history.
   const showData = loaded && !empty;
-  const hidesCards = showData && (!stats.rhythm || !stats.shares || (stats.span > 7 && (!stats.difference || !stats.split)));
   // Cards are tappable all over, so a swipe across one has to not count as a tap.
   const swiping = useRef(false);
   const open = (card) => () => { if (!swiping.current) router.push({ pathname: "/insights/[card]", params: { card, period } }); };
   // The year's calendar scrolls sideways on its own, so a swipe that starts there isn't for us.
-  const startedOnCalendar = useRef(false);
-  // Swiping left moves to the longer period and right to the shorter one, stopping at the ends.
-  const swipe = Gesture.Pan().runOnJS(true).activeOffsetX([-20, 20]).failOffsetY([-14, 14])
-    .onStart(() => { swiping.current = true; })
+  const onCalendar = useSharedValue(false);
+  // The periods sit side by side like cards along one strip, and `page` is where the
+  // strip is: 0 on the week, 1 on the month, 2 on the year. Each card is drawn at its own
+  // place along the strip, so the neighbour the finger pulls towards rides in, and the
+  // handover at the end changes nothing on screen: the card that arrived simply stays.
+  const page = useSharedValue(0);
+  const sliding = useSharedValue(false);
+  const previewDirection = useSharedValue(0);
+  const index = PERIODS.findIndex(({ id }) => id === period);
+  const [neighbour, setNeighbour] = useState(null); // the period beside this one while swiping
+  const preview = (direction) => {
+    const next = PERIODS[index + direction];
+    previewDirection.value = next ? direction : 0;
+    setNeighbour(next ? next.id : null);
+  };
+  const settle = () => { previewDirection.value = 0; setNeighbour(null); };
+  const arrive = (next) => {
+    setPeriod(next);
+    settle();
+    sliding.value = false;
+  };
+  const slideTo = (next, direction) => {
+    if (!next || next === period || sliding.value) return;
+    Haptics.selectionAsync().catch(() => {});
+    sliding.value = true;
+    if (reduceMotion) { page.value = index + direction; return arrive(next); }
+    if (neighbour !== next) preview(direction);
+    page.value = withSpring(index + direction, SLIDE, (finished) => { if (finished) runOnJS(arrive)(next); });
+  };
+  const choosePeriod = (next) => slideTo(next, PERIODS.findIndex(({ id }) => id === next) > index ? 1 : -1);
+  const markSwiping = () => { swiping.current = true; };
+  const unmarkSwiping = () => { setTimeout(() => { swiping.current = false; }, SWIPE_TAP_GUARD); };
+  const swipe = Gesture.Pan().activeOffsetX([-20, 20]).failOffsetY([-14, 14])
+    .onStart(() => { runOnJS(markSwiping)(); })
+    .onUpdate(({ translationX }) => {
+      if (sliding.value || onCalendar.value) return;
+      const direction = translationX < 0 ? 1 : -1;
+      if (direction !== previewDirection.value) runOnJS(preview)(direction);
+      // Past the last period the cards only give a little, like the end of a scroll.
+      page.value = index - translationX / (PERIODS[index + direction] ? width : 3 * width);
+    })
     .onEnd(({ translationX, velocityX }) => {
-      if (startedOnCalendar.current) return;
-      if (Math.abs(translationX) < SWIPE_DISTANCE && Math.abs(velocityX) < SWIPE_SPEED) return;
-      const next = PERIODS[PERIODS.findIndex(({ id }) => id === period) + (translationX < 0 ? 1 : -1)];
-      if (!next) return;
-      Haptics.selectionAsync().catch(() => {});
-      setPeriod(next.id);
+      if (sliding.value || onCalendar.value) return;
+      const direction = translationX < 0 ? 1 : -1;
+      const next = PERIODS[index + direction]?.id;
+      const committed = Math.abs(translationX) >= SWIPE_DISTANCE || Math.abs(velocityX) >= SWIPE_SPEED;
+      if (next && committed) runOnJS(slideTo)(next, direction);
+      else page.value = withSpring(index, SLIDE, (finished) => { if (finished) runOnJS(settle)(); });
     })
     .onFinalize(() => {
-      startedOnCalendar.current = false;
-      setTimeout(() => { swiping.current = false; }, SWIPE_TAP_GUARD);
+      onCalendar.value = false;
+      runOnJS(unmarkSwiping)();
     });
 
   return <GestureDetector gesture={swipe}><View style={formStyles.screen}>
-    <PeriodTabs key={fontScale} items={PERIODS} value={period} onChange={setPeriod} />
+    <PeriodTabs key={fontScale} items={PERIODS} value={period} onChange={choosePeriod} />
     <MaskedView style={styles.scrollMask} maskElement={<LinearGradient colors={["transparent", "black"]} locations={[0, 0.02]} style={styles.mask} />}>
       <FoodwrapRefreshScrollView onRefresh={refresh} contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 32 }]}
         scrollIndicatorInsets={{ bottom: tabBarHeight }} showsVerticalScrollIndicator={false}>
         {!showData && error ? <RetryCard onRetry={retryError} />
           : !showData && !loaded ? <LoadingCards />
             : !showData ? <FirstRun onLog={() => router.navigate("/dashboard")} />
-              : <Animated.View key={period} entering={FadeIn.duration(180)} style={styles.cards}>
-                <Text style={styles.range}>{`Past ${PERIODS.find(({ id }) => id === period).name} · ${formatRange(stats.keys)}`}</Text>
-                {refreshFailed && <Pressable accessibilityRole="button" onPress={() => refresh().catch(() => {})} hitSlop={{ top: 13, bottom: 13 }}><Text style={styles.staleNote}>{"Couldn’t refresh. Tap to try again."}</Text></Pressable>}
-                {!stats.daysLogged ? <FormCard style={styles.emptyCard}>
-                  <Text style={styles.message}>{`No meals logged in the past ${PERIODS.find(({ id }) => id === period).name}.`}</Text>
-                  {period !== "year" && <Pressable accessibilityRole="button" onPress={() => setPeriod(period === "week" ? "month" : "year")} hitSlop={12}>
-                    <Text style={styles.link}>{`See ${period === "week" ? "month" : "year"}`}</Text>
-                  </Pressable>}
-                </FormCard>
-                  : <>
-                    <DaysCard stats={stats} onCalendarTouch={() => { startedOnCalendar.current = true; }} />
-                    <TypicalCard stats={stats} goals={goals} onPress={open("typical")} />
-                    {stats.foods.length > 0 && <FoodsCard foods={stats.foods} onPress={open("foods")} />}
-                    {stats.produce && <ProduceCard produce={stats.produce} onPress={open("produce")} />}
-                    {stats.rhythm && <RhythmCard rhythm={stats.rhythm} span={stats.span} onPress={open("rhythm")} />}
-                    {stats.shares && <SharesCard shares={stats.shares} onPress={open("shares")} />}
-                    {stats.difference && <DifferenceCard difference={stats.difference} onPress={open("difference")} />}
-                    {stats.split && <SplitCard split={stats.split} onPress={open("split")} />}
-                    {hidesCards && <Text style={styles.moreNote}>More cards appear as you log.</Text>}
-                  </>}
-              </Animated.View>}
+              : <View>
+                {[period, neighbour].filter(Boolean).map((id) => <PeriodSlot key={id} position={PERIODS.findIndex((item) => item.id === id)}
+                  page={page} width={width} beside={id !== period} reduceMotion={reduceMotion}>
+                  {id === period
+                    ? <PeriodCards period={id} stats={stats} goals={goals} open={open} refreshFailed={refreshFailed} refresh={refresh}
+                      onCalendarTouch={() => { onCalendar.value = true; }} onSeeLonger={(next) => slideTo(next, 1)} />
+                    : <PeriodCards period={id} stats={statsOf(id)} goals={goals} open={() => () => {}} />}
+                </PeriodSlot>)}
+              </View>}
       </FoodwrapRefreshScrollView>
     </MaskedView>
   </View></GestureDetector>;
+}
+
+// One period's place along the strip of cards. The one beside the current period is drawn
+// over it, one screen away, and can't be tapped.
+function PeriodSlot({ position, page, width, beside, reduceMotion, children }) {
+  const motion = useAnimatedStyle(() => ({ transform: [{ translateX: (position - page.value) * width }] }));
+  return <Animated.View pointerEvents={beside ? "none" : "auto"} entering={reduceMotion && !beside ? FadeIn.duration(180) : undefined}
+    style={[styles.cards, beside && styles.neighbour, motion]}>
+    {children}
+  </Animated.View>;
+}
+
+// Everything under the tabs for one period: the date range, then the cards.
+function PeriodCards({ period, stats, goals, open, refreshFailed = false, refresh, onCalendarTouch, onSeeLonger }) {
+  const name = PERIODS.find(({ id }) => id === period).name;
+  const hidesCards = !stats.rhythm || !stats.shares || (stats.span > 7 && !stats.split);
+  return <>
+    <Text style={styles.range}>{`Past ${name} · ${formatRange(stats.keys)}`}</Text>
+    {refreshFailed && <Pressable accessibilityRole="button" onPress={() => refresh().catch(() => {})} hitSlop={{ top: 13, bottom: 13 }}><Text style={styles.staleNote}>{"Couldn’t refresh. Tap to try again."}</Text></Pressable>}
+    {!stats.daysLogged ? <FormCard style={styles.emptyCard}>
+      <Text style={styles.message}>{`No meals logged in the past ${name}.`}</Text>
+      {period !== "year" && onSeeLonger && <Pressable accessibilityRole="button" onPress={() => onSeeLonger(period === "week" ? "month" : "year")} hitSlop={12}>
+        <Text style={styles.link}>{`See ${period === "week" ? "month" : "year"}`}</Text>
+      </Pressable>}
+    </FormCard>
+      : <>
+        <DaysCard stats={stats} onCalendarTouch={onCalendarTouch} />
+        <TypicalCard stats={stats} goals={goals} onPress={open("typical")} />
+        {stats.foods.length > 0 && <FoodsCard foodsBy={stats.foodsBy} onPress={open("foods")} />}
+        {stats.produce && <ProduceCard produce={stats.produce} onPress={open("produce")} />}
+        {stats.rhythm && <RhythmCard rhythm={stats.rhythm} span={stats.span} onPress={open("rhythm")} />}
+        {stats.shares && <SharesCard shares={stats.shares} onPress={open("shares")} />}
+        {stats.split && <SplitCard split={stats.split} onPress={open("split")} />}
+        {hidesCards && <Text style={styles.moreNote}>More cards appear as you log.</Text>}
+      </>}
+  </>;
 }
 
 function RetryCard({ onRetry }) {
@@ -127,14 +190,15 @@ function DaysCard({ stats, onCalendarTouch }) {
   const label = plural(daysLogged, "day");
   const which = span === 7 ? ` ${keys.filter((_, index) => loggedDays[index]).map(weekdayName).join(", ")}.` : "";
   if (span > 30) {
-    return <InsightCard title="Days logged">
-      <View style={styles.days} accessible accessibilityLabel={`${label} logged`}>
+    return <FormCard style={[styles.daysCard, styles.days]}>
+      <View style={[styles.daysHeader, fontScale > 1.3 && styles.daysStacked]} accessible accessibilityRole="header" accessibilityLabel={`Days logged: ${label}.`}>
+        <Text style={styles.cardTitle}>Days logged</Text>
         <Text style={styles.metric}>{label}</Text>
-        <View onTouchStart={onCalendarTouch}>
-          <Heatmap keys={keys} logged={loggedDays} started={started} todayKey={todayKey} />
-        </View>
       </View>
-    </InsightCard>;
+      <View onTouchStart={onCalendarTouch}>
+        <Heatmap keys={keys} logged={loggedDays} started={started} todayKey={todayKey} />
+      </View>
+    </FormCard>;
   }
   return <FormCard style={styles.daysCard}>
     <View style={[styles.daysBeside, fontScale > 1.3 && styles.daysStacked]} accessible accessibilityRole="header"
@@ -189,10 +253,22 @@ function TypicalCard({ stats, goals, onPress }) {
   </InsightCard>;
 }
 
-function FoodsCard({ foods, onPress }) {
-  return <InsightCard title="Leaderboard" onPress={onPress}>
+// The food that gave the most of each nutrient over the period, every log of it added up.
+function FoodsCard({ foodsBy, onPress }) {
+  const { iconFor } = useFoodIcons();
+  const rows = NUTRIENTS.map(([field, title, unit]) => [field, title, unit, foodsBy[field][0]]).filter(([, , , food]) => food);
+  return <InsightCard title="Top foods" onPress={onPress}>
     <View>
-      {foods.slice(0, TOP_FOODS).map((food, index) => <FoodLine key={food.id} compact name={food.name} icon={food.icon} value={`${food.count}×`} divider={index > 0} />)}
+      {rows.map(([field, title, unit, food], index) => <View key={field} accessible style={[styles.topFood, index > 0 && styles.topFoodDivider]}
+        accessibilityLabel={`Most ${title.toLowerCase()}: ${food.name}, ${formatNumber(food[field])} ${unit === "g" ? "grams" : "kilocalories"}.`}>
+        <View style={styles.topFoodNutrient}>
+          <View style={[styles.topFoodDot, { backgroundColor: NUTRIENT_COLORS[field] }]} />
+          <Text numberOfLines={1} style={styles.topFoodLabel}>{title}</Text>
+        </View>
+        <Text style={styles.topFoodIcon}>{iconFor(food.icon).emoji}</Text>
+        <Text numberOfLines={1} style={styles.topFoodName}>{food.name}</Text>
+        <Text style={styles.topFoodValue}>{`${formatNumber(food[field])} ${unit}`}</Text>
+      </View>)}
     </View>
   </InsightCard>;
 }
@@ -215,7 +291,7 @@ function ProduceCard({ produce, onPress }) {
 }
 
 function RhythmCard({ rhythm, span, onPress }) {
-  return <InsightCard title="When you eat" onPress={onPress} footnote="Each dot is one meal or snack. The line is the average.">
+  return <InsightCard title="When you eat" onPress={onPress}>
     <DayTimeline rhythm={rhythm} span={span} />
   </InsightCard>;
 }
@@ -235,18 +311,6 @@ function SharesCard({ shares, onPress }) {
   </InsightCard>;
 }
 
-function DifferenceCard({ difference, onPress }) {
-  const { widest, meals } = difference;
-  const top = Math.max(...meals.flatMap((meal) => [meal.higher, meal.lower]), 1);
-  return <InsightCard title="Higher-protein days" onPress={onPress}
-    answer={widest ? `${MEAL_LABELS[widest.meal]}: ${formatNumber(widest.higher)} g protein on these days, ${formatNumber(widest.lower)} g on others.` : "No meal stands out."}>
-    {!!widest && <View>
-      <PairBar value={widest.higher} top={top} color={COLORS.primary} />
-      <PairBar value={widest.lower} top={top} color={COLORS.soft} />
-    </View>}
-  </InsightCard>;
-}
-
 function SplitCard({ split, onPress }) {
   return <InsightCard title="Weekdays and weekends" onPress={onPress}>
     <SplitTable split={split} only={["Calories", "Dinner time"]} />
@@ -258,7 +322,16 @@ const styles = StyleSheet.create({
   mask: { flex: 1 },
   content: { paddingHorizontal: 20, paddingTop: 6, gap: 14 },
   cards: { gap: 14 },
+  neighbour: { position: "absolute", top: 0, left: 0, right: 0 },
   range: { ...TYPOGRAPHY.caption, color: COLORS.textLight, textAlign: "center" },
+  topFood: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 7 },
+  topFoodDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: COLORS.track },
+  topFoodNutrient: { flexDirection: "row", alignItems: "center", gap: 6, width: 76 },
+  topFoodDot: { width: 7, height: 7, borderRadius: 3.5 },
+  topFoodLabel: { ...TYPOGRAPHY.caption, flexShrink: 1, color: COLORS.textLight },
+  topFoodIcon: { fontSize: 20, lineHeight: 26 },
+  topFoodName: { ...TYPOGRAPHY.body, flex: 1, color: COLORS.text },
+  topFoodValue: { ...TYPOGRAPHY.bodyMedium, color: COLORS.text, fontVariant: ["tabular-nums"] },
   staleNote: { ...TYPOGRAPHY.caption, color: COLORS.primary, textAlign: "center" },
   moreNote: { ...TYPOGRAPHY.caption, color: COLORS.textLight, textAlign: "center" },
   skeleton: { borderRadius: 24, backgroundColor: COLORS.track, opacity: 0.45 },
@@ -278,6 +351,7 @@ const styles = StyleSheet.create({
   daysBeside: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   daysStacked: { flexDirection: "column", alignItems: "flex-start" },
   daysSummary: { flex: 1, gap: 4 },
+  daysHeader: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 12 },
   dayRow: { flexDirection: "row", gap: 5 },
   dayCell: { alignItems: "center", gap: 2 },
   dayDot: { width: 22, height: 22, borderRadius: 11, backgroundColor: COLORS.track },

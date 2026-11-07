@@ -162,7 +162,8 @@ test("foods merge under the most used spelling, rank by count and each nutrient,
   assert.deepEqual(macros.foodsBy.carbs.map((food) => [food.name, food.carbs]), [["Pasta", 90], ["Nuts", 6]]);
   assert.deepEqual(macros.foodsBy.fat.map((food) => [food.name, food.fat]), [["Nuts", 18], ["Pasta", 12]]);
   const week = periodStats(dayRange(1, 6, (ago) => Array.from({ length: 25 }, (_, index) => entry(`Food ${index}`, "Lunch", ago))), { today: TODAY });
-  assert.equal(week.foods.length, 20);
+  assert.equal(week.foods.length, 25);
+  assert.equal(periodStats(dayRange(1, 1, () => Array.from({ length: 120 }, (_, index) => entry(`Food ${index}`, "Lunch", 1))), { today: TODAY }).foods.length, 100);
   assert.equal(week.foods[0].isNew, false);
   const year = periodStats({ ...dayRange(1, 40, () => fullDay(500)), ...dayRange(366, 410, () => [entry("Soup", "Lunch", 100), entry("Bread", "Snack", 100)]) }, { span: 365, today: TODAY });
   assert.equal(year.foods.find((food) => food.name === "Eggs").isNew, true);
@@ -172,8 +173,9 @@ test("rhythm gives each meal's usual time, once it has three days", () => {
   const days = dayRange(1, 5, (ago) => [entry("Eggs", "Breakfast", 200, 0, `0${7 + ago % 3}:00`), entry("Toast", "Breakfast", 100, 0, "11:00"), entry("Rice", "Dinner", 700, 0, "19:00")]);
   days[key(6)] = { entries: [entry("Chips", "Snack", 100, 0, "15:00"), entry("Soup", "Lunch", 100, 0, "12:00")] };
   const { rhythm } = periodStats(days, { today: TODAY });
-  assert.deepEqual(rhythm.meals.map((meal) => meal.meal), ["Breakfast", "Dinner"]);
-  assert.deepEqual(rhythm.tooFew, [{ meal: "Lunch", days: 1 }, { meal: "Snack", days: 1 }]);
+  assert.deepEqual(rhythm.meals.map((meal) => meal.meal), ["Breakfast", "Dinner", "Snack"]); // Snacks show from the first one.
+  assert.deepEqual(rhythm.tooFew, [{ meal: "Lunch", days: 1 }]);
+  assert.equal(rhythm.meals[2].average, undefined);
   const breakfast = rhythm.meals[0];
   assert.equal(breakfast.days, 5);
   assert.equal(breakfast.events.length, 5);
@@ -183,33 +185,23 @@ test("rhythm gives each meal's usual time, once it has three days", () => {
   assert.equal(periodStats({ [key(1)]: { entries: fullDay(100) } }, { today: TODAY }).rhythm, null);
 });
 
-test("foods logged together count as one snack, and snacks split into habits", () => {
+test("every snack is its own point, and snacks have no average", () => {
   const days = dayRange(1, 6, (ago) => [entry("Eggs", "Breakfast", 100, 0, "08:00"), entry("Nuts", "Snack", 100, 0, `10:${20 + ago}`),
     entry("Chips", "Snack", 100, 0, "15:30"), entry("Apple", "Snack", 100, 0, "15:50"), ...(ago % 2 ? [] : [entry("Tea", "Snack", 0, 0, "16:40")])]);
   days[key(7)] = { entries: [entry("Eggs", "Breakfast", 100, 0, "08:00"), entry("Cake", "Snack", 100, 0, "01:10")] };
   const { rhythm } = periodStats(days, { span: 30, today: TODAY });
   const snack = rhythm.meals.find((meal) => meal.meal === "Snack");
-  assert.equal(snack.events.length, 6 + 6 + 3 + 1); // 15:30 and 15:50 are one snack; 16:40 is its own.
+  assert.equal(snack.events.length, 6 + 6 + 6 + 3 + 1); // Chips and Apple twenty minutes apart are two snacks.
   assert.equal(snack.days, 7);
-  assert.deepEqual(snack.clusters.map((cluster) => cluster.average), [10 * 60 + 23.5, 15.5 * 60]);
-  assert.deepEqual(snack.clusters.map((cluster) => cluster.days), [6, 6]);
-  assert.equal(rhythm.end, 26 * 60); // The 1 AM snack widens the axis but isn't a habit.
-});
-
-test("snack habits stay apart over a year of logging", () => {
-  const wobble = (ago, spread) => Math.round(Math.sin(ago * 2.3) * spread);
-  const at = (minutes) => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
-  const days = dayRange(1, 300, (ago) => [entry("Nuts", "Snack", 100, 0, at(10.5 * 60 + wobble(ago, 35))), entry("Chips", "Snack", 100, 0, at(15.5 * 60 + wobble(ago + 1, 45)))]);
-  const clusters = periodStats(days, { span: 365, today: TODAY }).rhythm.meals[0].clusters;
-  assert.equal(clusters.length, 2);
-  assert.ok(Math.abs(clusters[0].average - 10.5 * 60) <= 10 && Math.abs(clusters[1].average - 15.5 * 60) <= 10);
+  assert.equal(snack.average, undefined);
+  assert.equal(rhythm.end, 26 * 60); // The 1 AM snack widens the axis.
 });
 
 test("an early breakfast stays early, while a late snack counts as after midnight", () => {
   const days = dayRange(1, 6, () => [entry("Toast", "Breakfast", 100, 0, "04:40"), entry("Soup", "Lunch", 100, 0, "12:00"), entry("Cake", "Snack", 100, 0, "01:00")]);
   const { rhythm } = periodStats(days, { span: 30, today: TODAY });
   assert.equal(rhythm.meals.find((meal) => meal.meal === "Breakfast").average, 4 * 60 + 40);
-  assert.equal(rhythm.meals.find((meal) => meal.meal === "Snack").average, 25 * 60);
+  assert.ok(rhythm.meals.find((meal) => meal.meal === "Snack").events.every(({ time }) => time === 25 * 60));
   assert.deepEqual([rhythm.start, rhythm.end], [4 * 60, 25 * 60]);
 });
 
@@ -276,49 +268,11 @@ test("veg and fruit stay hidden until a food has been checked", () => {
   assert.deepEqual([none.vegetables, none.fruits, none.unchecked], [[], [], 0]);
 });
 
-test("higher-protein days compare at the goal when both sides have three days", () => {
-  const days = dayRange(1, 8, (ago) => ago <= 4
-    ? [entry("Greek Yogurt", "Breakfast", 200, 30), entry("Rice", "Dinner", 500, 75)]
-    : [entry("Toast", "Breakfast", 200, 5), entry("Rice", "Dinner", 500, 70)]);
-  const { difference } = periodStats(days, { span: 30, today: TODAY, goals: { proteinGoal: 100 } });
-  assert.equal(difference.goal, 100);
-  assert.equal(difference.higherDays, 4);
-  assert.equal(difference.lowerDays, 4);
-  assert.equal(difference.widest.meal, "Breakfast");
-  assert.equal(difference.widest.higher, 30);
-  assert.equal(difference.widest.lower, 5);
-  assert.deepEqual(difference.foods.map(({ name, higher, lower }) => ({ name, higher, lower })), [{ name: "Greek Yogurt", higher: 4, lower: 0 }]);
-});
-
 test("each listed food keeps its meals' ids, oldest first, so it can show their chosen icon", () => {
   const days = dayRange(1, 3, (ago) => [{ ...entry(ago === 2 ? "oat latte" : "Oat Latte", "Breakfast", 100), id: 10 - ago }, entry("Toast", "Lunch", 100)]);
   const stats = periodStats(days, { today: TODAY });
   assert.deepEqual(stats.foods.find((food) => food.name === "Oat Latte").entryIds, ["7", "8", "9"]);
   assert.deepEqual(stats.foods.find((food) => food.name === "Toast").entryIds, []);
-});
-
-test("higher-protein days fall back to top and bottom halves without a usable goal", () => {
-  const days = dayRange(1, 6, (ago) => [entry("Eggs", "Breakfast", 200, ago * 10), entry("Rice", "Dinner", 500, 10)]);
-  const noGoal = periodStats(days, { span: 30, today: TODAY }).difference;
-  assert.equal(noGoal.goal, null);
-  assert.equal(noGoal.higherDays, 3);
-  assert.equal(noGoal.widest.meal, "Breakfast");
-  assert.equal(periodStats(days, { span: 30, today: TODAY, goals: { proteinGoal: 500 } }).difference.goal, null); // Goal never reached.
-  assert.equal(periodStats(dayRange(1, 5, () => fullDay(500, 40)), { span: 30, today: TODAY }).difference, null); // Too few days.
-  assert.equal(periodStats(days, { today: TODAY }).difference, null); // A week is too short.
-  assert.equal(periodStats(dayRange(1, 6, () => fullDay(500)), { span: 30, today: TODAY }).difference, null); // No protein at all.
-});
-
-test("tied protein days have no higher half", () => {
-  const days = dayRange(1, 6, (ago) => [entry(ago <= 3 ? "Oats" : "Toast", "Breakfast", 200, 20), entry("Rice", "Dinner", 500, 20 + (ago === 1 ? 0.5 : 0))]);
-  assert.equal(periodStats(days, { span: 30, today: TODAY }).difference, null);
-});
-
-test("similar meals and evenly spread foods aren't called out", () => {
-  const days = dayRange(1, 6, (ago) => { const extra = ago <= 3 ? 4 : 0; return [entry("Eggs", "Breakfast", 200, 20 + extra), entry("Rice", "Dinner", 500, 20 + extra)]; });
-  const { difference } = periodStats(days, { span: 30, today: TODAY });
-  assert.equal(difference.widest, null);
-  assert.deepEqual(difference.foods, []);
 });
 
 test("weekdays vs weekends appears only over longer periods with enough complete days", () => {
@@ -337,10 +291,8 @@ test("usual times don't break across midnight", () => {
   const snacks = ["23:30", "23:45", "00:15", "00:30"];
   const days = dayRange(1, 4, (ago) => [entry("Toast", "Breakfast", 100, 0, "08:00"), entry("Chips", "Snack", 100, 0, snacks[ago - 1])]);
   const snack = periodStats(days, { today: TODAY }).rhythm.meals.find((meal) => meal.meal === "Snack");
-  assert.equal(snack.average, 24 * 60);
-  assert.deepEqual(snack.clusters.map((cluster) => cluster.average), [24 * 60]);
-  assert.ok(snack.low >= 23.5 * 60 && snack.high <= 24.5 * 60 && snack.low < snack.high);
-  assert.match(formatClock(snack.average), /^12:00/);
+  assert.deepEqual(snack.events.map(({ time }) => time).sort((a, b) => a - b), [23.5 * 60, 23.75 * 60, 24.25 * 60, 24.5 * 60]);
+  assert.match(formatClock(24 * 60), /^12:00/);
   assert.match(formatClock(24 * 60 + 15), /^12:15/);
   const stats = periodStats(dayRange(1, 14, (ago) => { const weekend = [0, 6].includes(new Date(`${key(ago)}T12:00:00`).getDay());
     return [entry("Eggs", "Breakfast", 100, 0, "08:00"), weekend ? entry("Chips", "Snack", 100, 0, "00:20") : entry("Rice", "Dinner", 100, 0, "19:00")]; }), { span: 30, today: TODAY });
@@ -350,7 +302,7 @@ test("usual times don't break across midnight", () => {
 test("today doesn't count toward usual times, and a missing time isn't midnight", () => {
   const days = dayRange(1, 2, () => [entry("Chips", "Snack", 100, 0, "15:00")]);
   days[key(0)] = { entries: [entry("Chips", "Snack", 100, 0, "09:00")] };
-  assert.equal(periodStats(days, { today: TODAY }).rhythm, null);
+  assert.equal(periodStats(days, { today: TODAY }).rhythm, null); // Two days of snacks alone make no chart.
   const blank = dayRange(1, 3, () => [{ ...entry("Soup", "Lunch", 100, 0, null) }]);
   assert.equal(periodStats(blank, { today: TODAY }).rhythm, null);
 });
