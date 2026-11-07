@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useNutritionData } from "@/hooks/useNutritionData";
 import { hasAnyLog, periodStats } from "@/lib/insights/stats.mjs";
 
@@ -25,6 +25,8 @@ export function useInsights(period) {
   const { dataByDate, goals, profile, dateKey, snapshot, historyPending, error, refreshFailed, retryError, refresh } = useNutritionData(new Date(), true);
   const joined = profile?.createdAtLocalDate ?? null;
   const stats = useMemo(() => statsFor(dataByDate, goals, dateKey, period, joined), [dataByDate, dateKey, goals, period, joined]);
+  // The page shows the neighbouring period beside this one while a swipe is in progress.
+  const statsOf = useCallback((other) => statsFor(dataByDate, goals, dateKey, other, joined), [dataByDate, dateKey, goals, joined]);
   const empty = useMemo(() => !hasAnyLog(dataByDate), [dataByDate]);
-  return { stats, goals, empty, loaded: Boolean(snapshot.historyLoaded), historyPending, error, refreshFailed, retryError, refresh };
+  return { stats, statsOf, goals, empty, loaded: Boolean(snapshot.historyLoaded), historyPending, error, refreshFailed, retryError, refresh };
 }

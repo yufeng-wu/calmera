@@ -2,7 +2,7 @@ import { StyleSheet, Text } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { FormHeader, FormScreen, FormScrollView, formStyles } from "@/components/GlassForm";
 import InsightCard from "@/components/insights/InsightCard";
-import { DifferenceDetail, FoodsDetail, PERIODS, ProduceDetail, RhythmDetail, SharesDetail, SplitDetail, TrendDetail } from "@/components/insights/InsightDetails";
+import { FoodsDetail, PERIODS, ProduceDetail, RhythmDetail, SharesDetail, SplitDetail, TrendDetail } from "@/components/insights/InsightDetails";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { useInsights } from "@/hooks/useInsights";
@@ -11,11 +11,10 @@ import { formatRange } from "@/lib/insights/stats.mjs";
 
 const CARDS = {
   typical: ["Average", (stats, goals) => <TrendDetail stats={stats} goals={goals} />],
-  foods: ["Leaderboard", (stats) => stats.foods.length > 0 && <FoodsDetail stats={stats} />],
+  foods: ["Top foods", (stats) => stats.foods.length > 0 && <FoodsDetail stats={stats} />],
   produce: ["Veggies and fruit", (stats) => stats.produce && <ProduceDetail produce={stats.produce} />],
   rhythm: ["When you eat", (stats) => stats.rhythm && <RhythmDetail rhythm={stats.rhythm} span={stats.span} />],
   shares: ["What each meal adds", (stats) => stats.shares && <SharesDetail shares={stats.shares} />],
-  difference: ["Higher-protein days", (stats) => stats.difference && <DifferenceDetail difference={stats.difference} />],
   split: ["Weekdays and weekends", (stats) => stats.split && <SplitDetail split={stats.split} />],
 };
 
@@ -29,7 +28,7 @@ export default function InsightDetail() {
   return <FormScreen>
     <FormHeader title={card === "typical" ? "Average day" : title} onBack={leave} />
     <FormScrollView contentContainerStyle={[formStyles.content, styles.content]} showsVerticalScrollIndicator={false}>
-      <Text style={styles.range}>{`Past ${period.name} · ${formatRange(stats.keys)}`}</Text>
+      {card !== "typical" && <Text style={styles.range}>{`Past ${period.name} · ${formatRange(stats.keys)}`}</Text>}
       {render(stats, goals) || <InsightCard answer="Nothing to show for this period." />}
     </FormScrollView>
   </FormScreen>;
