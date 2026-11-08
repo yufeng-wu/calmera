@@ -17,6 +17,8 @@ import VoiceLanguage from "@/app/(root)/voice-language";
 import MealTimes from "@/app/(root)/meal-times";
 import ThemeSettings from "@/app/(root)/theme";
 import Survey from "@/app/(root)/goals-survey";
+import Account from "@/app/(root)/account";
+import DeleteAccount from "@/app/(root)/delete-account";
 import EditMeal from "@/app/(root)/edit/[id]";
 import EditSession from "@/app/(root)/session-log-edit/[id]";
 import Guide from "@/app/(root)/calmera-guide";
@@ -91,6 +93,14 @@ const screens = [
   { id: "recommendation-save-token", title: "Survey save token timeout", Component: Survey, stage: "save-token-timeout" },
   { id: "recommendation-save-response", title: "Survey save response timeout", Component: Survey, stage: "save-response-timeout" },
   { id: "recommendation-save-error", title: "Survey save rejection", Component: Survey, stage: "save-error" },
+  { id: "account", title: "Account", Component: Account },
+  { id: "delete-account", title: "Delete account", Component: DeleteAccount },
+  { id: "delete-account-deleting", title: "Delete account in progress", Component: DeleteAccount, stage: "delete-account-deleting" },
+  { id: "delete-account-partial", title: "Delete account half finished", Component: DeleteAccount, stage: "delete-account-partial" },
+  { id: "delete-account-unknown", title: "Delete account unconfirmed", Component: DeleteAccount, stage: "delete-account-unknown" },
+  { id: "delete-account-offline", title: "Delete account offline", Component: DeleteAccount, stage: "delete-account-offline" },
+  { id: "delete-account-unavailable", title: "Delete account unavailable", Component: DeleteAccount, stage: "delete-account-unavailable" },
+  { id: "delete-account-done", title: "Account deleted", Component: DeleteAccount, stage: "delete-account-done" },
   { id: "edit-meal", title: "Edit meal", Component: EditMeal },
   { id: "edit-save-navigation-error", title: "Meal saved navigation recovery", Component: EditMeal, state: "saved-navigation-error" },
   { id: "edit-meal-load-token", title: "Meal load token timeout", Component: EditMeal, state: "load-token-timeout" },

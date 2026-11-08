@@ -21,7 +21,7 @@ import useProfile from "@/hooks/useProfile";
 import useWarmSettingsRoutes from "@/hooks/useWarmSettingsRoutes";
 import { getVoiceLanguage } from "@/lib/chatgpt/nutrition";
 import { createPlanClient, isChatGPTAvailable } from "@/lib/chatgpt/planClient";
-import { parseLocalDate } from "@/lib/calendarMonths.mjs";
+import { joinedDate } from "@/lib/accountProfile.mjs";
 import { formatNumber } from "@/lib/insights/stats.mjs";
 import { VOICE_LANGUAGES } from "@/lib/voiceLanguagePreferences.mjs";
 
@@ -37,9 +37,6 @@ const goalNumber = (value) => {
   const number = value === null || value === undefined || value === "" ? NaN : Number(value);
   return Number.isFinite(number) && number > 0 ? number : null;
 };
-// The server sends the join day as a full timestamp ("2025-10-12T00:00:00.000Z"); only its
-// date part is the day you joined.
-const joinedDate = (value) => parseLocalDate(value)?.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) ?? null;
 
 // Who you are, your goals, how you log, and the app itself, in that order.
 export default function SettingsScreen({ calmeraPreview = false }) {
@@ -59,7 +56,7 @@ export default function SettingsScreen({ calmeraPreview = false }) {
   const [previewMessage, setPreviewMessage] = useState("");
   const openPage = (path, label) => {
     if (calmeraPreview) {
-      if (["/voice-language", "/meal-times", "/theme"].includes(path)) router.push({ pathname: "/ui-gallery", params: { page: path.slice(1) } });
+      if (["/voice-language", "/meal-times", "/theme", "/account"].includes(path)) router.push({ pathname: "/ui-gallery", params: { page: path.slice(1) } });
       else setPreviewMessage(`${label} selected. Preview only.`);
       return;
     }
@@ -84,7 +81,7 @@ export default function SettingsScreen({ calmeraPreview = false }) {
       scrollIndicatorInsets={{ bottom: tabBarHeight }} showsVerticalScrollIndicator={false}>
       {/* What is already loaded on the first visit just shows; only what arrives later fades in. */}
       <LayoutAnimationConfig skipEntering>
-      <AccountCard email={email} joined={joined} large={fontScale > 1.3} />
+      <AccountCard email={email} joined={joined} large={fontScale > 1.3} onPress={() => openPage("/account", "Account")} />
 
       <SettingsSection label="Daily goals">
         <GoalsCard goals={goals} failed={!calmeraPreview && profile.failed} large={fontScale > 1.3}
@@ -143,16 +140,21 @@ function useLoggingStatus(userId, preview) {
   return status;
 }
 
-function AccountCard({ email, joined, large }) {
+// Who's signed in. Tapping it opens the Account page, which is where deleting it lives.
+function AccountCard({ email, joined, large, onPress }) {
   const initial = (email || "?").trim().charAt(0).toUpperCase();
-  return <View accessible accessibilityLabel={[email ? `Signed in as ${email}` : "Signed in", joined && `Joined ${joined}`].filter(Boolean).join(". ")}
-    style={[settingsStyles.card, styles.account]}>
+  const { pressProps, highlight } = usePressHighlight();
+  return <Pressable accessibilityRole="button" accessibilityHint="Opens your account"
+    accessibilityLabel={[email ? `Signed in as ${email}` : "Signed in", joined && `Joined ${joined}`].filter(Boolean).join(". ")}
+    onPress={onPress} {...pressProps} style={[settingsStyles.card, styles.account]}>
+    {highlight}
     <View style={styles.avatar}><Text allowFontScaling={false} style={styles.initial}>{initial}</Text></View>
     <View style={styles.accountCopy}>
       <Text numberOfLines={large ? undefined : 1} ellipsizeMode="middle" style={styles.email}>{email || "Signed in"}</Text>
       {!!joined && <Animated.Text entering={FadeIn.duration(SETTINGS_MOTION.fade)} style={styles.joined}>Joined {joined}</Animated.Text>}
     </View>
-  </View>;
+    <Ionicons name="chevron-forward" size={16} color={SETTINGS.chevron} />
+  </Pressable>;
 }
 
 // The four targets in Today's ring colors. Values that load late fade in where "–" stood.
