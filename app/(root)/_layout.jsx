@@ -8,6 +8,7 @@ import { Redirect, usePathname } from "expo-router";
 import { Stack } from "expo-router/stack";
 import AccountProfileGate, { AccountLoadingScreen } from "@/components/AccountProfileGate";
 import FoodwrapStartupGate from "@/components/FoodwrapStartupGate";
+import PrivacyConsentGate from "@/components/PrivacyConsentGate";
 import { COLORS } from "@/constants/colors";
 import { FoodIconsProvider } from "@/context/FoodIconsContext";
 import { EntriesRefreshProvider } from "@/context/EntriesRefreshContext";
@@ -27,7 +28,9 @@ export default function Layout() {
     return <Redirect href={"/sign-in"} />;
   }
 
+  // Consent comes first: no account setup, meals or AI until the person has agreed.
   return (
+    <PrivacyConsentGate key={user.id} disabled={review}>
     <AccountProfileGate key={user.id} topInset={topInset} disabled={review}>
     <FoodIconsProvider key={user.id} owner={user.id}>
     <EntriesRefreshProvider>
@@ -35,7 +38,7 @@ export default function Layout() {
       <Stack screenLayout={renderNavigationScene} screenOptions={{ headerShown: false, animation: "simple_push", contentStyle: { backgroundColor: COLORS.background, paddingTop: topInset } }}>
         {/* Forms own their inset so native material can span the status area.
             Other screens keep their inset locally without resizing this stack. */}
-        {["update-goals", "create", "photo-log", "chatgpt", "voice-language", "meal-times", "theme", "export-data", "account", "delete-account", "insights/[card]", "goals-survey", "edit/[id]", "session-log-edit/[id]", "calmera-guide", "calmera-welcome", "update-scale-type", "camera", "camera-loading"].map((name) => (
+        {["update-goals", "create", "photo-log", "chatgpt", "voice-language", "meal-times", "theme", "export-data", "account", "delete-account", "privacy", "insights/[card]", "goals-survey", "edit/[id]", "session-log-edit/[id]", "calmera-guide", "calmera-welcome", "update-scale-type", "camera", "camera-loading"].map((name) => (
           <Stack.Screen key={name} name={name} options={{
             presentation: "card", gestureEnabled: true,
             contentStyle: { backgroundColor: COLORS.background, paddingTop:
@@ -50,5 +53,6 @@ export default function Layout() {
     </EntriesRefreshProvider>
     </FoodIconsProvider>
     </AccountProfileGate>
+    </PrivacyConsentGate>
   );
 }

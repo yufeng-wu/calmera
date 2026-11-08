@@ -54,15 +54,15 @@
       <true/>
     </dict>
     <key>NSCameraUsageDescription</key>
-    <string>Allow calmera to use the camera to capture meal photos and read scale displays.</string>
+    <string>calmera uses the camera when you take a photo of a meal.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Allow calmera to use the microphone for voice logging.</string>
+    <string>calmera uses the microphone when you log a meal by voice.</string>
     <key>NSPhotoLibraryAddUsageDescription</key>
     <string>Allow calmera to save captured photos to your photo library.</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>Allow calmera to access your photo library to load/import meal photos.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
-    <string>This app uses speech recognition to process your voice logs, but your audio data is not stored on our servers.</string>
+    <string>calmera turns what you say into text on this iPhone to log your meal. Your recording isn’t saved or sent anywhere.</string>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>

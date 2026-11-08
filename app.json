@@ -11,10 +11,10 @@
       "buildNumber": "8",
       "supportsTablet": true,
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Allow calmera to use the microphone for voice logging.",
-        "NSSpeechRecognitionUsageDescription": "This app uses speech recognition to process your voice logs, but your audio data is not stored on our servers.",
+        "NSMicrophoneUsageDescription": "calmera uses the microphone when you log a meal by voice.",
+        "NSSpeechRecognitionUsageDescription": "calmera turns what you say into text on this iPhone to log your meal. Your recording isn’t saved or sent anywhere.",
         "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "Allow calmera to use the camera to capture meal photos and read scale displays.",
+        "NSCameraUsageDescription": "calmera uses the camera when you take a photo of a meal.",
         "NSPhotoLibraryUsageDescription": "Allow calmera to access your photo library to load/import meal photos.",
         "NSPhotoLibraryAddUsageDescription": "Allow calmera to save captured photos to your photo library."
       },
