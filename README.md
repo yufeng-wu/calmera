@@ -31,6 +31,7 @@ The estimated total leads with calories, followed by protein, carbs and fat in g
 Save opens a menu of meal types (Breakfast, Lunch, Dinner, Snack); choosing one validates every food and saves the reviewed meal under that type. Confirmed or uncertain saves cannot be repeated automatically. Each food shows an Apple emoji matched from its name, using dish and cuisine synonyms in English, Chinese and Korean; dishes without their own emoji use the nearest one (kimchi 🥬, bibimbap 🍚). The food icon picker groups icons by category and searches names and aliases. Icon choices are nonsecret, per-account, per-record display preferences stored on this device; the food-record API is unchanged.
 
 Setup and verification:
+- [Cloud version (`cloud-v1`), saved before the move to phone-only storage](docs/CLOUD_VERSION.md)
 - [MVP architecture](docs/CHATGPT_MVP.md)
 - [Setup checklist](docs/SETUP_CHECKLIST.md)
 - [Phone build instructions](docs/PHONE_TEST.md)
