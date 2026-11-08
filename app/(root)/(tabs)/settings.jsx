@@ -56,7 +56,7 @@ export default function SettingsScreen({ calmeraPreview = false }) {
   const [previewMessage, setPreviewMessage] = useState("");
   const openPage = (path, label) => {
     if (calmeraPreview) {
-      if (["/voice-language", "/meal-times", "/theme", "/account"].includes(path)) router.push({ pathname: "/ui-gallery", params: { page: path.slice(1) } });
+      if (["/voice-language", "/meal-times", "/theme", "/account", "/privacy"].includes(path)) router.push({ pathname: "/ui-gallery", params: { page: path.slice(1) } });
       else setPreviewMessage(`${label} selected. Preview only.`);
       return;
     }
@@ -103,6 +103,8 @@ export default function SettingsScreen({ calmeraPreview = false }) {
           onPress={() => openPage("/theme", "Theme")} />
         <SettingsRow title="Export your data" icon="share" tint="tangerine" divider
           onPress={() => openPage("/export-data", "Export your data")} />
+        <SettingsRow title="Privacy Policy" icon="shield-checkmark" tint="leaf" divider
+          onPress={() => openPage("/privacy", "Privacy Policy")} />
       </SettingsSection>
 
       <SettingsSection>

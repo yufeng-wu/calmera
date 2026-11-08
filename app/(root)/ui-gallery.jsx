@@ -19,6 +19,8 @@ import ThemeSettings from "@/app/(root)/theme";
 import Survey from "@/app/(root)/goals-survey";
 import Account from "@/app/(root)/account";
 import DeleteAccount from "@/app/(root)/delete-account";
+import Privacy from "@/app/(root)/privacy";
+import PrivacyConsentGate from "@/components/PrivacyConsentGate";
 import EditMeal from "@/app/(root)/edit/[id]";
 import EditSession from "@/app/(root)/session-log-edit/[id]";
 import Guide from "@/app/(root)/calmera-guide";
@@ -101,6 +103,11 @@ const screens = [
   { id: "delete-account-offline", title: "Delete account offline", Component: DeleteAccount, stage: "delete-account-offline" },
   { id: "delete-account-unavailable", title: "Delete account unavailable", Component: DeleteAccount, stage: "delete-account-unavailable" },
   { id: "delete-account-done", title: "Account deleted", Component: DeleteAccount, stage: "delete-account-done" },
+  { id: "privacy-consent", title: "Privacy and AI consent", Component: PrivacyConsentGate },
+  { id: "privacy-consent-updated", title: "Updated policy consent", Component: PrivacyConsentGate, state: "updated" },
+  { id: "privacy-consent-error", title: "Consent not saved", Component: PrivacyConsentGate, state: "error" },
+  { id: "privacy", title: "Privacy Policy", Component: Privacy, stage: "privacy" },
+  { id: "privacy-health-data", title: "Health Data Policy", Component: Privacy, stage: "health-data" },
   { id: "edit-meal", title: "Edit meal", Component: EditMeal },
   { id: "edit-save-navigation-error", title: "Meal saved navigation recovery", Component: EditMeal, state: "saved-navigation-error" },
   { id: "edit-meal-load-token", title: "Meal load token timeout", Component: EditMeal, state: "load-token-timeout" },

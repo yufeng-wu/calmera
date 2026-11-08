@@ -10,6 +10,7 @@ const pages = [
   () => import("@/app/(root)/chatgpt"),
   () => import("@/app/(root)/export-data"),
   () => import("@/app/(root)/account"),
+  () => import("@/app/(root)/privacy"),
 ];
 const warmed = new Set();
 
