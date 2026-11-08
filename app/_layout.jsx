@@ -9,6 +9,7 @@ import { ThemeProvider, useTheme } from "@/context/ThemeContext";
 import ThemeCanvas from "@/components/ThemeCanvas";
 import { BASE_CANVAS_COLOR } from "@/constants/appearance.mjs";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import AccountDeletionResume from "@/components/AccountDeletionResume";
 
 function ThemedApp({ fullBleedHeader }) {
   const { themeId } = useTheme();
@@ -37,6 +38,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: BASE_CANVAS_COLOR }}>
       <ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>
+        <AccountDeletionResume />
         <ThemeProvider review={review}><ThemedApp fullBleedHeader={fullBleedHeader} /></ThemeProvider>
       </ClerkProvider>
     </GestureHandlerRootView>

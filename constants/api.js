@@ -8,6 +8,9 @@ export const FOOD_ENTRIES_API_URL = `${API_BASE_URL}/food-entries`;
 // Endpoint for user-related requests
 export const USERS_API_URL = `${API_BASE_URL}/users`;
 
+// Deletes the signed-in account and everything in it
+export const DELETE_ACCOUNT_API_URL = `${USERS_API_URL}/delete-account`;
+
 // Endpoint to estimate nutrition macros using AI
 export const ESTIMATE_MACROS_API_URL = `${API_BASE_URL}/food-entries/estimate`;
 

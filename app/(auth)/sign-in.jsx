@@ -1,7 +1,8 @@
 import { useSignIn } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
 import { Text, View } from "react-native";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ACCOUNT_NOTICES, accountNotice } from "@/lib/accountNotice.mjs";
 import { styles } from "@/assets/styles/auth.styles";
 import { FormCard, GlassButton } from "@/components/GlassForm";
 import { AuthField, AuthLink, AuthNotice, AuthScreen, isAuthEmail } from "@/components/AuthForm";
@@ -16,6 +17,9 @@ export default function Page({ calmeraPreview = false } = {}) {
   const [error, setError] = useState("");
   const [fieldError, setFieldError] = useState("");
   const [info, setInfo] = useState("");
+  // Set once by an account deletion, which signs out just before or after this mounts.
+  const [notice, setNotice] = useState(() => ACCOUNT_NOTICES[accountNotice.take()] ?? "");
+  useEffect(() => accountNotice.subscribe(() => setNotice(ACCOUNT_NOTICES[accountNotice.take()] ?? "")), []);
   const [busy, setBusy] = useState(false);
 
   const clearFieldError = (field) => {
@@ -37,6 +41,7 @@ export default function Page({ calmeraPreview = false } = {}) {
     setError("");
     setFieldError("");
     setInfo("");
+    setNotice("");
     if (!isAuthEmail(emailAddress)) { setFieldError("email"); return setError("Enter a valid email address."); }
     if (!password) { setFieldError("password"); return setError("Enter your password."); }
     if (calmeraPreview) return setInfo("Preview sign-in complete. No authentication request was sent.");
@@ -68,7 +73,7 @@ export default function Page({ calmeraPreview = false } = {}) {
     </View>}>
     <FormCard style={styles.form}>
       <AuthNotice error>{error}</AuthNotice>
-      <AuthNotice>{info}</AuthNotice>
+      <AuthNotice>{info || notice}</AuthNotice>
       <AuthField calmeraPreview={calmeraPreview} label="Email" value={emailAddress} onChangeText={(value) => { setEmailAddress(value); clearFieldError("email"); }}
         autoCapitalize="none" keyboardType="email-address" textContentType="emailAddress"
         autoComplete="email" placeholder="you@example.com" editable={!busy} error={fieldError === "email"}

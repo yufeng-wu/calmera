@@ -9,6 +9,7 @@ const pages = [
   () => import("@/app/(root)/meal-times"),
   () => import("@/app/(root)/chatgpt"),
   () => import("@/app/(root)/export-data"),
+  () => import("@/app/(root)/account"),
 ];
 const warmed = new Set();
 
