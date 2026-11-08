@@ -7,7 +7,7 @@ import SettingsRow from "@/components/SettingsRow";
 import { SettingsSection, settingsStyles } from "@/components/SettingsSection";
 import { profileGoals, useNutritionData } from "@/hooks/useNutritionData";
 import usePageExit from "@/hooks/usePageExit";
-import { EXPORT_RANGES, exportFileName, exportJson, exportKeys, exportSummary, wellFormed } from "@/lib/dataExport.mjs";
+import { EXPORT_RANGES, exportFileName, exportJson, exportKeys, exportSummary, isExportFile, wellFormed } from "@/lib/dataExport.mjs";
 import { formatNumber } from "@/lib/insights/stats.mjs";
 
 // Short on purpose: how many foods, and for all history, since when.
@@ -51,7 +51,7 @@ export default function ExportData() {
         // The share sheet doesn't always report back after an action cancels, so
         // clear files from any earlier export and don't wait on it to free the screen.
         const earlier = await RNFS.readDir(RNFS.CachesDirectoryPath);
-        await Promise.all(earlier.filter(({ name }) => name.startsWith("calmera-")).map(({ path: old }) => RNFS.unlink(old).catch(() => {})));
+        await Promise.all(earlier.filter(({ name }) => isExportFile(name)).map(({ path: old }) => RNFS.unlink(old).catch(() => {})));
         path = `${RNFS.CachesDirectoryPath}/${exportFileName(dateKey)}`;
         await RNFS.writeFile(path, content, "utf8");
         setExporting(false);

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
-import { useAuth } from "@clerk/clerk-expo";
+import { LOCAL_OWNER } from "@/lib/owner.mjs";
 import { useRouter } from "expo-router";
 import { FormScreen, FormScrollView, FormHeader, FormCard, GlassButton, formStyles } from "@/components/GlassForm";
 import MealTimePicker from "@/components/MealTimePicker";
@@ -16,7 +16,7 @@ import usePageExit from "@/hooks/usePageExit";
 
 const previewValues = new Map();
 export default function MealTimes({ calmeraPreview = false, calmeraPreviewState = "ready" }) {
-  const { userId } = useAuth();
+  const userId = LOCAL_OWNER;
   const router = useRouter();
   const leave = usePageExit("/settings");
   const focused = useIsFocused();

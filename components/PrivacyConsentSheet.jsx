@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { Modal, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { AuthLink } from "@/components/AuthForm";
 import FoodwrapWordmark from "@/components/FoodwrapWordmark";
 import { FormHeader, FormScreen, FormScrollView, GlassButton } from "@/components/GlassForm";
 import OpenAILogo from "@/components/OpenAILogo";
@@ -20,7 +19,7 @@ const SENT = [["create", COPY.ai.items[0]], ["image", COPY.ai.items[1]], ["mic",
 
 // Shown once to everyone before calmera opens, and again after a material policy change:
 // what we keep, what goes to OpenAI, the full policy, and one explicit choice.
-export default function PrivacyConsentSheet({ updated = false, saving = false, error = "", onAgree, onDecline, preview = false }) {
+export default function PrivacyConsentSheet({ updated = false, saving = false, error = "", notice = "", onAgree, onDecline, preview = false }) {
   const { bottom } = useSafeAreaInsets();
   const [policy, setPolicy] = useState(null);
   return <FormScreen>
@@ -55,7 +54,11 @@ export default function PrivacyConsentSheet({ updated = false, saving = false, e
       </Text>
       <GlassButton title={COPY.agree} role="accent" onPress={onAgree} loading={saving} disabled={saving} style={styles.agree} />
       {!!error && <Text accessibilityLiveRegion="assertive" style={[settingsStyles.problem, styles.centered]}>{error}</Text>}
-      <AuthLink onPress={onDecline} disabled={saving} style={styles.decline}>{COPY.decline}</AuthLink>
+      {!!notice && <Text accessibilityLiveRegion="polite" style={[styles.agreement, styles.notice]}>{notice}</Text>}
+      <Pressable onPress={onDecline} disabled={saving} accessibilityRole="button" accessibilityState={{ disabled: saving }}
+        style={styles.decline}>
+        <Text style={styles.declineText}>{COPY.decline}</Text>
+      </Pressable>
     </View>
     <Modal visible={Boolean(policy)} presentationStyle="pageSheet" animationType="slide" onRequestClose={() => setPolicy(null)}>
       {/* A page sheet starts below the status bar, so it needs no top inset of its own. */}
@@ -102,5 +105,7 @@ const styles = StyleSheet.create({
   policyLink: { ...TYPOGRAPHY.captionMedium, color: SETTINGS.accent, textDecorationLine: "underline" },
   agree: { width: "100%", minHeight: 52 },
   centered: { textAlign: "center" },
-  decline: { alignSelf: "center" },
+  notice: { color: SETTINGS.ink },
+  decline: { alignSelf: "center", minHeight: 44, justifyContent: "center", paddingVertical: 10, paddingHorizontal: 4 },
+  declineText: { ...TYPOGRAPHY.button, color: SETTINGS.accent },
 });

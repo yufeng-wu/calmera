@@ -9,12 +9,12 @@ test("backend dates parse as local wall-clock days", () => {
   assert.equal(parseLocalDate("not a date"), null);
 });
 
-test("months run from the signup month through the current month across years", () => {
+test("months run from the start month through the current month across years", () => {
   const months = listMonths(new Date(2025, 10, 20), new Date(2026, 1, 3));
   assert.deepEqual(months.map(item => item.key), ["2025-11", "2025-12", "2026-01", "2026-02"]);
 });
 
-test("meals older than signup widen the calendar, and no data falls back to today", () => {
+test("meals older than the start date widen the calendar, and no data falls back to today", () => {
   const today = new Date(2026, 9, 31);
   assert.equal(calendarStart(new Date(2026, 8, 1), ["2026-06-02"], today).getMonth(), 5);
   assert.equal(calendarStart(new Date(2026, 8, 1), ["2026-10-02"], today).getMonth(), 8);
@@ -86,7 +86,7 @@ test("a trimmed month shows only the weeks from its first day", () => {
   assert.equal(monthRowCount(2026, 10, new Date(2026, 10, 25), 15), 2);
 });
 
-test("the row count matches the cells for every signup day", () => {
+test("the row count matches the cells for every start day", () => {
   const today = new Date(2026, 10, 3);
   for (let day = 1; day <= 31; day++) {
     const [{ year, month, firstDay }] = listMonths(new Date(2026, 9, day), today);
@@ -97,12 +97,12 @@ test("the row count matches the cells for every signup day", () => {
   }
 });
 
-test("only days from signup through today are selectable", () => {
+test("only days from the start date through today are selectable", () => {
   const today = new Date(2026, 9, 31, 9);
-  const signup = new Date(2026, 8, 15);
-  assert.equal(isDaySelectable(new Date(2026, 9, 31, 23), signup, today), true);
-  assert.equal(isDaySelectable(new Date(2026, 10, 1), signup, today), false);
-  assert.equal(isDaySelectable(new Date(2026, 8, 15), signup, today), true);
-  assert.equal(isDaySelectable(new Date(2026, 8, 14), signup, today), false);
+  const start = new Date(2026, 8, 15);
+  assert.equal(isDaySelectable(new Date(2026, 9, 31, 23), start, today), true);
+  assert.equal(isDaySelectable(new Date(2026, 10, 1), start, today), false);
+  assert.equal(isDaySelectable(new Date(2026, 8, 15), start, today), true);
+  assert.equal(isDaySelectable(new Date(2026, 8, 14), start, today), false);
   assert.equal(isDaySelectable(new Date(2020, 0, 1), null, today), true);
 });

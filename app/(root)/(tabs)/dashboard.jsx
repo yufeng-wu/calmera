@@ -1,4 +1,3 @@
-import { useUser } from "@clerk/clerk-expo";
 import {
   Text,
   Pressable,
@@ -33,6 +32,7 @@ import VoiceLogSheet from "@/components/voice/VoiceLogSheet";
 import DayDrop, { dayDropLift, useDayDropMotion } from "@/components/DayDrop";
 import { parseLocalDate } from "@/lib/calendarMonths.mjs";
 import { localDateKey } from "@/lib/nutritionStore.mjs";
+import { LOCAL_OWNER } from "@/lib/owner.mjs";
 
 const AnimatedMealGroupContainer = AnimatedRe.createAnimatedComponent(View);
 
@@ -60,7 +60,6 @@ const MealGroup = memo(function MealGroup({ title, entries, onDelete, springs })
 
 export default function SummaryScreen() {
   const isFocused = useIsFocused();
-  const { user } = useUser();
   const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
   const floatingBarInset = Platform.OS === "ios" ? tabBarHeight : 0;
@@ -78,13 +77,12 @@ export default function SummaryScreen() {
   const selectedDate = useMemo(() => pickedDate ?? new Date(), [pickedDate, todayKey]); // eslint-disable-line react-hooks/exhaustive-deps -- todayKey rolls today over at midnight.
   const isToday = localDateKey(selectedDate) === todayKey;
 
-  // user.id comes from Clerk
   const { dateKey, entries, summary, goals, hasData, error: dataError, profileError, refreshFailed, goalsLoading, retryError, retrying, isSessionActive, loadData, deleteEntry, addEntries,
     profile, dataByDate, historyLoading, historyError, historyPending, retryHistory, loadCalendar } =
     useDailyNutrition(selectedDate);
   // Today's card waits for its goals, so it never rewrites its own numbers when they land a moment later.
   const summaryReady = hasData && !(isToday && goalsLoading);
-  const signUpDate = useMemo(() => profile?.createdAtLocalDate ? parseLocalDate(profile.createdAtLocalDate) : null,
+  const startDate = useMemo(() => profile?.createdAtLocalDate ? parseLocalDate(profile.createdAtLocalDate) : null,
     [profile?.createdAtLocalDate]);
 
   const stageHost = useRef(null);
@@ -142,7 +140,7 @@ export default function SummaryScreen() {
   const scrollRef = useRef(null);
   const scrollToTop = useCallback(() => scrollRef.current?.scrollTo({ y: 0, animated: true }), []);
   useFocusEffect(useCallback(() => () => closeMenu(), [closeMenu]));
-  const prepareMeal = () => { void preloadNutritionModels(user?.id); };
+  const prepareMeal = () => { void preloadNutritionModels(LOCAL_OWNER); };
   const toggleAddMenu = () => {
     if (!fabExpanded) prepareMeal();
     setFabExpanded((value) => !value);
@@ -162,7 +160,7 @@ export default function SummaryScreen() {
     prepareMeal();
     setFabExpanded(false);
     try {
-      if (!await createPlanClient(user.id).connected()) {
+      if (!await createPlanClient(LOCAL_OWNER).connected()) {
         inferenceError(new Error("chatgpt_sign_in_required"), router);
         return;
       }
@@ -179,7 +177,7 @@ export default function SummaryScreen() {
         ]);
         return;
       }
-      const language = await getVoiceLanguage(user.id, { isActive: isSessionActive }).catch(() => undefined);
+      const language = await getVoiceLanguage(LOCAL_OWNER, { isActive: isSessionActive }).catch(() => undefined);
       if (!isSessionActive()) return;
       setVoice({ language, key: Date.now() });
     } catch (error) {
@@ -211,7 +209,7 @@ export default function SummaryScreen() {
   const mood = !entries.length ? (isToday ? "awake" : "asleep")
     : buddyMood({ calories: Number(summary.calories ?? summary.dailyTotals?.calories ?? 0), goal: dayGoals.calorieGoal, loggedMeals: Object.keys(groupedEntries) });
   const emptyGreeting = entries.length ? null : isToday
-    ? emptyTodayGreeting(new Date().getHours(), Boolean(signUpDate) && localDateKey(signUpDate) === dateKey, seed)
+    ? emptyTodayGreeting(new Date().getHours(), Boolean(startDate) && localDateKey(startDate) === dateKey, seed)
     : { title: "No meals logged", text: "Nothing was logged on this day." };
 
   return (
@@ -228,7 +226,7 @@ export default function SummaryScreen() {
         <View style={[styles.headerContainer, { paddingTop: 8, zIndex: 1 }]}>
           <FoodwrapWordmark style={{ marginBottom: 4 }} />
           <DayDrop motion={calendarMotion} selectedDate={selectedDate} isToday={isToday} onSelectDate={selectDate} onToday={goToToday} onOpen={loadCalendar} onClose={scrollToTop}
-            dataByDate={dataByDate} calorieGoal={goals.calorieGoal} signUpDate={signUpDate} historyLoading={historyLoading}
+            dataByDate={dataByDate} calorieGoal={goals.calorieGoal} startDate={startDate} historyLoading={historyLoading}
             historyError={historyError} historyPending={historyPending} onRetryHistory={retryHistory} />
         </View>
 

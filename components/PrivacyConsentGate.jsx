@@ -1,48 +1,39 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { Text, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useClerk, useUser } from "@clerk/clerk-expo";
-import { AccountLoadingScreen } from "@/components/AccountProfileGate";
-import { AuthScreen } from "@/components/AuthForm";
+import AppLoadingScreen from "@/components/AppLoadingScreen";
 import PrivacyConsentSheet from "@/components/PrivacyConsentSheet";
+import { settingsStyles } from "@/components/SettingsSection";
 import { CONSENT_COPY } from "@/lib/privacyPolicy.mjs";
-import { cacheConsent, consentStatus, readLocalConsent, readRemoteConsent, saveConsent, syncConsent } from "@/lib/privacyConsent.mjs";
+import { consentStatus, readConsent, saveConsent } from "@/lib/privacyConsent.mjs";
+import { LOCAL_OWNER } from "@/lib/owner.mjs";
 
 const PREVIEW_PHASES = { updated: "updated" };
 
 // Nothing in calmera opens, and nothing reaches OpenAI, until the person has agreed to the
-// current Privacy Policy. Declining signs out. The phone's copy makes the check instant.
+// current Privacy Policy. The agreement is saved on this iPhone, so the check is instant.
 export default function PrivacyConsentGate({ children, disabled = false, calmeraPreview = false, calmeraPreviewState }) {
-  const { user } = useUser();
-  const { signOut } = useClerk();
-  const userId = user?.id;
-  const userRef = useRef(user);
-  userRef.current = user;
   const [phase, setPhase] = useState(() => disabled ? "accepted"
     : calmeraPreview ? PREVIEW_PHASES[calmeraPreviewState] || "needed" : "checking");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(calmeraPreview && calmeraPreviewState === "error" ? CONSENT_COPY.saveFailed : "");
+  const [declined, setDeclined] = useState(false);
 
   useEffect(() => {
-    if (disabled || calmeraPreview || !userId) return;
+    if (disabled || calmeraPreview) return;
     let live = true;
-    readLocalConsent(AsyncStorage, userId).then((local) => {
-      if (!live) return;
-      const current = userRef.current;
-      const result = consentStatus({ local, remote: readRemoteConsent(current?.unsafeMetadata) });
-      setPhase(result.status);
-      if (result.needsCache) cacheConsent(AsyncStorage, userId, result.record);
-      if (result.needsSync && current) syncConsent(current, result.record);
-    });
+    readConsent(AsyncStorage, LOCAL_OWNER).then((record) => { if (live) setPhase(consentStatus(record)); });
     return () => { live = false; };
-  }, [disabled, calmeraPreview, userId]);
+  }, [disabled, calmeraPreview]);
 
   const agree = async () => {
     if (saving) return;
     setSaving(true);
     setError("");
+    setDeclined(false);
     try {
       if (calmeraPreview) await new Promise((resolve) => setTimeout(resolve, 900));
-      else await saveConsent({ storage: AsyncStorage, user: userRef.current, userId });
+      else await saveConsent({ storage: AsyncStorage, owner: LOCAL_OWNER });
       setPhase("accepted");
     } catch {
       setError(CONSENT_COPY.saveFailed);
@@ -50,13 +41,13 @@ export default function PrivacyConsentGate({ children, disabled = false, calmera
       setSaving(false);
     }
   };
-  const decline = () => {
-    if (calmeraPreview) { setError("Preview only. Nobody was signed out."); return; }
-    signOut().catch(() => setError("We couldn’t sign you out. Please try again."));
-  };
+  // There's no account to leave, so declining explains what agreeing is for and waits.
+  const decline = () => { setError(""); setDeclined(true); };
 
-  if (phase === "accepted") return children ?? <AuthScreen title="You’re all set" subtitle="Synthetic review. Nothing was saved." />;
-  if (phase === "checking") return <AccountLoadingScreen />;
+  if (phase === "accepted") return children ?? <View style={{ flex: 1, justifyContent: "center", padding: 24 }}>
+    <Text style={[settingsStyles.lead, { textAlign: "center" }]}>You’re all set. Synthetic review; nothing was saved.</Text>
+  </View>;
+  if (phase === "checking") return <AppLoadingScreen />;
   return <PrivacyConsentSheet updated={phase === "updated"} saving={saving} error={error}
-    onAgree={agree} onDecline={decline} preview={calmeraPreview} />;
+    notice={declined ? CONSENT_COPY.declined : ""} onAgree={agree} onDecline={decline} preview={calmeraPreview} />;
 }

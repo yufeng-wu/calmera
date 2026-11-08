@@ -72,7 +72,7 @@ const DayCell = memo(function DayCell({ date, selected, isToday, disabled, statu
   </TouchableOpacity>;
 });
 
-const MonthPage = memo(function MonthPage({ year, month, firstDay, width, selectedKey, todayKey, signUpDate, dataByDate, calorieGoal, historyAvailable, onSelect }) {
+const MonthPage = memo(function MonthPage({ year, month, firstDay, width, selectedKey, todayKey, startDate, dataByDate, calorieGoal, historyAvailable, onSelect }) {
   const cells = useMemo(() => monthCells(year, month, parseLocalDate(todayKey), firstDay), [year, month, firstDay, todayKey]);
   // Snapped down to whole pixels: seven rounded-up percentages can overflow and wrap a row.
   const cellWidth = Math.floor(width / 7 * PixelRatio.get()) / PixelRatio.get();
@@ -86,7 +86,7 @@ const MonthPage = memo(function MonthPage({ year, month, firstDay, width, select
         const key = localDateKey(date);
         const day = dataByDate[key];
         return <DayCell key={key} date={date} selected={key === selectedKey} isToday={key === todayKey}
-          disabled={!isDaySelectable(date, signUpDate)} width={cellWidth} onSelect={onSelect}
+          disabled={!isDaySelectable(date, startDate)} width={cellWidth} onSelect={onSelect}
           statusText={calendarDayStatus(day, calorieGoal, { historyAvailable }).text} logged={day?.entries?.length > 0} />;
       })}
     </View>
@@ -95,7 +95,7 @@ const MonthPage = memo(function MonthPage({ year, month, firstDay, width, select
 
 // Today's date header. Tapping it opens the calendar: one continuous scroll of months, oldest at the top.
 // Memoized: a page update that doesn't touch the calendar leaves it alone.
-export default memo(function DayDrop({ motion, selectedDate, isToday, onSelectDate, onToday, onOpen, onClose, dataByDate, calorieGoal, signUpDate,
+export default memo(function DayDrop({ motion, selectedDate, isToday, onSelectDate, onToday, onOpen, onClose, dataByDate, calorieGoal, startDate,
   historyLoading = false, historyError = null, historyPending = false, onRetryHistory }) {
   const { fontScale } = useWindowDimensions();
   const [open, setOpen] = useState(false);
@@ -112,14 +112,14 @@ export default memo(function DayDrop({ motion, selectedDate, isToday, onSelectDa
 
   const dateKeys = useMemo(() => Object.keys(dataByDate), [dataByDate]);
   // Inverted, so the list starts on this month and older months arriving later can't move what's on screen.
-  const months = useMemo(() => listMonths(calendarStart(signUpDate, dateKeys, new Date()), new Date()).reverse(),
+  const months = useMemo(() => listMonths(calendarStart(startDate, dateKeys, new Date()), new Date()).reverse(),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- todayKey rolls the list over at midnight.
-    [signUpDate, dateKeys, todayKey]);
+    [startDate, dateKeys, todayKey]);
   const offsets = useMemo(() => {
     let total = BOTTOM_FADE;
     return months.map((month) => { const offset = total; total += monthHeight(month); return offset; });
   }, [months]);
-  // A new account's few days fit snugly: an inverted list would otherwise rest them at the bottom under a blank gap.
+  // A new start's few days fit snugly: an inverted list would otherwise rest them at the bottom under a blank gap.
   const viewportHeight = Math.min(VIEWPORT_HEIGHT, offsets.at(-1) + monthHeight(months.at(-1)));
   useEffect(() => { viewport.value = viewport.value ? withSpring(viewportHeight, SPRING) : viewportHeight; }, [viewport, viewportHeight]);
 
@@ -179,8 +179,8 @@ export default memo(function DayDrop({ motion, selectedDate, isToday, onSelectDa
   // Kept stable, so opening and closing the calendar doesn't redraw its months.
   const getItemLayout = useCallback((_, position) => ({ length: monthHeight(months[position]), offset: offsets[position], index: position }), [months, offsets]);
   const renderMonth = useCallback(({ item }) => <MonthPage year={item.year} month={item.month} firstDay={item.firstDay} width={pageWidth} selectedKey={selectedKey}
-    todayKey={todayKey} signUpDate={signUpDate} dataByDate={dataByDate} calorieGoal={calorieGoal}
-    historyAvailable={historyAvailable} onSelect={select} />, [pageWidth, selectedKey, todayKey, signUpDate, dataByDate, calorieGoal, historyAvailable, select]);
+    todayKey={todayKey} startDate={startDate} dataByDate={dataByDate} calorieGoal={calorieGoal}
+    historyAvailable={historyAvailable} onSelect={select} />, [pageWidth, selectedKey, todayKey, startDate, dataByDate, calorieGoal, historyAvailable, select]);
 
   return <View>
     <View style={styles.header}>

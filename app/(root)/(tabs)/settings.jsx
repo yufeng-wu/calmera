@@ -1,11 +1,10 @@
 import { useCallback, useContext, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Animated, { FadeIn, LayoutAnimationConfig } from "react-native-reanimated";
 import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
-import { useClerk, useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import MaskedView from "@react-native-masked-view/masked-view";
 import { LinearGradient } from "expo-linear-gradient";
@@ -14,15 +13,15 @@ import OpenAILogo from "@/components/OpenAILogo";
 import SettingsRow from "@/components/SettingsRow";
 import { SettingsSection, settingsStyles, usePressHighlight } from "@/components/SettingsSection";
 import { NUTRIENT_COLORS } from "@/constants/colors";
-import { SETTINGS, SETTINGS_MOTION, TINTS } from "@/constants/settingsTheme";
+import { SETTINGS, SETTINGS_MOTION } from "@/constants/settingsTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { useTheme } from "@/context/ThemeContext";
 import useProfile from "@/hooks/useProfile";
 import useWarmSettingsRoutes from "@/hooks/useWarmSettingsRoutes";
 import { getVoiceLanguage } from "@/lib/chatgpt/nutrition";
 import { createPlanClient, isChatGPTAvailable } from "@/lib/chatgpt/planClient";
-import { joinedDate } from "@/lib/accountProfile.mjs";
 import { formatNumber } from "@/lib/insights/stats.mjs";
+import { LOCAL_OWNER } from "@/lib/owner.mjs";
 import { VOICE_LANGUAGES } from "@/lib/voiceLanguagePreferences.mjs";
 
 const GOALS = [
@@ -31,14 +30,14 @@ const GOALS = [
   { key: "carbsGoal", label: "Carbs", unit: "g", spoken: "grams", color: NUTRIENT_COLORS.carbs },
   { key: "fatGoal", label: "Fat", unit: "g", spoken: "grams", color: NUTRIENT_COLORS.fat },
 ];
-const PREVIEW = { email: "you@example.com", joined: "2026-10-20", chatgpt: "Connected", language: "English",
+const PREVIEW = { chatgpt: "Connected", language: "English",
   goals: { calorieGoal: 1800, proteinGoal: 140, carbsGoal: 180, fatGoal: 60 } };
 const goalNumber = (value) => {
   const number = value === null || value === undefined || value === "" ? NaN : Number(value);
   return Number.isFinite(number) && number > 0 ? number : null;
 };
 
-// Who you are, your goals, how you log, and the app itself, in that order.
+// Your goals, how you log, the app itself, and erasing everything, in that order.
 export default function SettingsScreen({ calmeraPreview = false }) {
   const router = useRouter();
   useWarmSettingsRoutes();
@@ -46,30 +45,17 @@ export default function SettingsScreen({ calmeraPreview = false }) {
   const { fontScale } = useWindowDimensions();
   // The gallery preview shows this page outside the tabs, under its own bar of about the same height.
   const tabBarHeight = useContext(BottomTabBarHeightContext) || 96;
-  const { signOut } = useClerk();
-  const { user, isLoaded, isSignedIn } = useUser();
   const profile = useProfile();
-  const status = useLoggingStatus(calmeraPreview ? null : user?.id, calmeraPreview);
-  const email = calmeraPreview ? PREVIEW.email : isLoaded && isSignedIn ? user?.primaryEmailAddress?.emailAddress : null;
-  const joined = joinedDate(calmeraPreview ? PREVIEW.joined : profile.profile?.createdAtLocalDate);
+  const status = useLoggingStatus(calmeraPreview ? null : LOCAL_OWNER, calmeraPreview);
   const goals = calmeraPreview ? PREVIEW.goals : profile.goals;
   const [previewMessage, setPreviewMessage] = useState("");
   const openPage = (path, label) => {
     if (calmeraPreview) {
-      if (["/voice-language", "/meal-times", "/theme", "/account", "/privacy"].includes(path)) router.push({ pathname: "/ui-gallery", params: { page: path.slice(1) } });
+      if (["/voice-language", "/meal-times", "/theme", "/erase-data", "/privacy"].includes(path)) router.push({ pathname: "/ui-gallery", params: { page: path.slice(1) } });
       else setPreviewMessage(`${label} selected. Preview only.`);
       return;
     }
     router.push(path);
-  };
-  const handleLogout = () => {
-    Alert.alert("Sign out?", undefined, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Sign Out", style: "destructive", onPress: async () => {
-        if (calmeraPreview) { setPreviewMessage("Sign out confirmed. Preview only."); return; }
-        await signOut();
-      } },
-    ]);
   };
   return <View style={styles.screen}>
     <View key={`settings-header-${fontScale}`} style={[styles.header, { minHeight: Math.max(64, 40 * fontScale + 20) }]}>
@@ -81,8 +67,6 @@ export default function SettingsScreen({ calmeraPreview = false }) {
       scrollIndicatorInsets={{ bottom: tabBarHeight }} showsVerticalScrollIndicator={false}>
       {/* What is already loaded on the first visit just shows; only what arrives later fades in. */}
       <LayoutAnimationConfig skipEntering>
-      <AccountCard email={email} joined={joined} large={fontScale > 1.3} onPress={() => openPage("/account", "Account")} />
-
       <SettingsSection label="Daily goals">
         <GoalsCard goals={goals} failed={!calmeraPreview && profile.failed} large={fontScale > 1.3}
           onPress={() => openPage("/update-goals", "Daily goals")} />
@@ -107,8 +91,9 @@ export default function SettingsScreen({ calmeraPreview = false }) {
           onPress={() => openPage("/privacy", "Privacy Policy")} />
       </SettingsSection>
 
-      <SettingsSection>
-        <SettingsRow title="Sign out" destructive centered showAccessory={false} onPress={handleLogout} />
+      <SettingsSection footnote="Removes your meals, goals and settings from this iPhone.">
+        <SettingsRow title="Erase all data" destructive centered showAccessory={false}
+          onPress={() => openPage("/erase-data", "Erase all data")} />
       </SettingsSection>
 
       {!!previewMessage && <Text accessibilityLiveRegion="polite" style={settingsStyles.footnote}>{previewMessage}</Text>}
@@ -142,23 +127,6 @@ function useLoggingStatus(userId, preview) {
   return status;
 }
 
-// Who's signed in. Tapping it opens the Account page, which is where deleting it lives.
-function AccountCard({ email, joined, large, onPress }) {
-  const initial = (email || "?").trim().charAt(0).toUpperCase();
-  const { pressProps, highlight } = usePressHighlight();
-  return <Pressable accessibilityRole="button" accessibilityHint="Opens your account"
-    accessibilityLabel={[email ? `Signed in as ${email}` : "Signed in", joined && `Joined ${joined}`].filter(Boolean).join(". ")}
-    onPress={onPress} {...pressProps} style={[settingsStyles.card, styles.account]}>
-    {highlight}
-    <View style={styles.avatar}><Text allowFontScaling={false} style={styles.initial}>{initial}</Text></View>
-    <View style={styles.accountCopy}>
-      <Text numberOfLines={large ? undefined : 1} ellipsizeMode="middle" style={styles.email}>{email || "Signed in"}</Text>
-      {!!joined && <Animated.Text entering={FadeIn.duration(SETTINGS_MOTION.fade)} style={styles.joined}>Joined {joined}</Animated.Text>}
-    </View>
-    <Ionicons name="chevron-forward" size={16} color={SETTINGS.chevron} />
-  </Pressable>;
-}
-
 // The four targets in Today's ring colors. Values that load late fade in where "–" stood.
 function GoalsCard({ goals, failed, large, onPress }) {
   const values = GOALS.map((goal) => ({ ...goal, value: goalNumber(goals?.[goal.key]) }));
@@ -189,12 +157,6 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   header: { minHeight: 64, paddingHorizontal: 20, justifyContent: "center", alignItems: "center" },
   title: { ...TYPOGRAPHY.pageTitle, color: SETTINGS.ink },
-  account: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16 },
-  avatar: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: TINTS.tangerine.fill },
-  initial: { fontSize: 20, lineHeight: 24, fontWeight: "600", color: TINTS.tangerine.icon },
-  accountCopy: { flex: 1, gap: 2 },
-  email: { ...TYPOGRAPHY.sectionTitle, color: SETTINGS.ink },
-  joined: { ...TYPOGRAPHY.caption, color: SETTINGS.inkSoft },
   goals: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, paddingVertical: 16, paddingLeft: SETTINGS.rowPadding, paddingRight: 14 },
   goalGrid: { flex: 1, flexDirection: "row", flexWrap: "wrap", rowGap: 14 },
   goal: { width: "25%", gap: 3, paddingRight: 6 },

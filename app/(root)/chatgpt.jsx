@@ -1,9 +1,9 @@
 import { TYPOGRAPHY } from "@/constants/typography";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { ActionSheetIOS, ActivityIndicator, Alert, Linking, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { useAuth } from "@clerk/clerk-expo";
 import { useFocusEffect, usePreventRemove } from "@react-navigation/native";
 import useFormTaskScope from "@/hooks/useFormTaskScope";
+import { LOCAL_OWNER } from "@/lib/owner.mjs";
 import { createSettingsOperations } from "@/lib/chatgpt/settingsOperations.mjs";
 import { readChatGPTConnection } from "@/lib/chatgpt/connectionOutcome.mjs";
 import { connectionIssue, isAuthorizationCancelled } from "@/lib/chatgpt/connectionStatus.mjs";
@@ -31,8 +31,7 @@ function chooseAction(title, options) {
 }
 
 export default function ChatGPTSettings(props) {
-  const { userId } = useAuth();
-  return <ChatGPTSettingsForm key={props.calmeraPreview ? `preview-${props.calmeraPreviewState}` : userId || "signed-out"} userId={userId} {...props} />;
+  return <ChatGPTSettingsForm key={props.calmeraPreview ? `preview-${props.calmeraPreviewState}` : LOCAL_OWNER} userId={LOCAL_OWNER} {...props} />;
 }
 
 function ChatGPTSettingsForm({ userId, calmeraPreview = false, calmeraPreviewState = "connected" }) {

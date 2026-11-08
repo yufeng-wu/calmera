@@ -1,5 +1,7 @@
 # Calmera development setup checklist
 
+> This checklist describes the cloud version (tag `cloud-v1`). The phone-only app needs no Clerk keys, calmera API URL or Render service.
+
 Updated October 18, 2026 after deployment and full-app simulator verification.
 Detailed evidence: [FULL_APP_VERIFICATION.md](FULL_APP_VERIFICATION.md).
 

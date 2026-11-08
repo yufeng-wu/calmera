@@ -25,7 +25,7 @@ export default function usePageExit(fallback = "/dashboard") {
     if (exiting.current) return;
     exiting.current = true;
     try {
-      // Review screens must never pop into account-backed pages below them.
+      // Review screens must never pop into data-backed pages below them.
       if (fallback === "/ui-gallery") router.replace(fallback);
       else if (router.canGoBack()) router.back();
       else router.replace(fallback);

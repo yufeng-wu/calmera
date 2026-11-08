@@ -5,7 +5,7 @@ import { VOICE_LANGUAGES, createVoiceLanguagePreferences } from "@/lib/voiceLang
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { useAuth } from "@clerk/clerk-expo";
+import { LOCAL_OWNER } from "@/lib/owner.mjs";
 import { FormScreen, FormScrollView, FormHeader, GlassButton, formStyles } from "@/components/GlassForm";
 import SettingsRow from "@/components/SettingsRow";
 import { SettingsSection, settingsStyles } from "@/components/SettingsSection";
@@ -15,7 +15,7 @@ import { getVoiceLanguage, setVoiceLanguage } from "@/lib/chatgpt/nutrition";
 export default function VoiceLanguage({ calmeraPreview = false, calmeraPreviewState = "ready" }) {
   const router = useRouter();
   const leave = usePageExit("/settings");
-  const { userId } = useAuth();
+  const userId = LOCAL_OWNER;
   const { fontScale } = useWindowDimensions();
   const focused = useIsFocused();
   const errorPreview = calmeraPreview && ["load-error", "save-error"].includes(calmeraPreviewState);

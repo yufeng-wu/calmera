@@ -43,7 +43,6 @@ yarn-error.*
 ios/
 .git/
 .env*
-!.env.chatgpt.example
 *.ipa
 *.xcarchive
 credentials.json

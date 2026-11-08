@@ -122,8 +122,8 @@ test("retry without an error performs no request", async () => {
   });
 });
 
-test("the empty Today greets by the hour, and says hello on signup day", () => {
-  const title = (hour, signupDay) => emptyTodayGreeting(hour, signupDay).title;
+test("the empty Today greets by the hour, and says hello on the first day", () => {
+  const title = (hour, firstDay) => emptyTodayGreeting(hour, firstDay).title;
   assert.equal(title(4), "Late-night bite?");
   assert.equal(title(5), "Morning! What's for breakfast?");
   assert.equal(title(11), "Lunchtime! What looks good?");

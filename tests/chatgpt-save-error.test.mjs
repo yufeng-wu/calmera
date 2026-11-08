@@ -1,10 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { saveEstimatedEntries } from "../lib/chatgpt/entryPersistence.mjs";
 import { mealSaveErrorPresentation } from "../lib/chatgpt/saveErrorPresentation.mjs";
+import { createPhoneStore } from "../lib/store/phone.mjs";
+import { createMemoryStorage } from "../lib/store/memoryStorage.mjs";
 
 const meal = { foodName: "Synthetic banana", quantity: "1 banana", mealType: "Snack", calories: 105, protein: 1, carbs: 27, fat: 0 };
-const options = { createdAt: "2026-10-18T12:00:00-04:00", getToken: async () => "synthetic-token", url: "https://calmera.invalid/food-entries" };
+const createdAt = "2026-10-18T12:00:00-04:00";
 async function failureOf(promise) {
   let failure;
   await promise.catch(error => { failure = error; });
@@ -12,63 +13,21 @@ async function failureOf(promise) {
   return failure;
 }
 
-test("known HTTP rejection presents a failed save without claiming an uncertain write or retrying", async () => {
-  let calls = 0;
-  const error = await failureOf(saveEstimatedEntries([meal], { ...options, fetchImpl: async () => {
-    calls++;
-    return { ok: false, status: 400, json: async () => ({ error: "Synthetic validation failure" }) };
-  } }));
+test("a save the phone couldn't write presents a failed save, not a maybe-saved one", async () => {
+  const data = createPhoneStore({ storage: createMemoryStorage({}, { failWrites: true }) });
+  const error = await failureOf(data.createMeals([meal], { createdAt }));
   assert.equal(error.mayHaveSaved, false);
   const presentation = mealSaveErrorPresentation(error);
   assert.equal(presentation.kind, "failed");
   assert.equal(presentation.title, "Couldn’t save meal");
   assert.doesNotMatch(presentation.message, /Check your meals|may already/i);
-  assert.equal(calls, 1);
 });
 
-test("pre-dispatch timeout presents a known non-write and never reaches fetch", async () => {
-  let calls = 0;
-  const error = await failureOf(saveEstimatedEntries([meal], { ...options, timeoutMs: 10,
-    getToken: () => new Promise(() => {}), fetchImpl: async () => { calls++; } }));
-  assert.equal(error.dispatched, false);
-  assert.equal(error.timedOut, true);
-  const presentation = mealSaveErrorPresentation(error);
-  assert.equal(presentation.kind, "failed");
-  assert.match(presentation.message, /took too long/);
-  assert.equal(calls, 0);
-});
-
-test("server uncertainty presents Check your meals and never retries automatically", async () => {
-  let calls = 0;
-  const error = await failureOf(saveEstimatedEntries([meal], { ...options, fetchImpl: async () => {
-    calls++;
-    return { ok: false, status: 503, json: async () => null };
-  } }));
-  assert.equal(mealSaveErrorPresentation(error).kind, "uncertain");
-  assert.equal(mealSaveErrorPresentation(error).title, "Check your meals");
-  assert.equal(calls, 1);
-});
-
-test("a dropped POST response stays uncertain instead of suggesting a known non-write", async () => {
-  let calls = 0;
-  const error = await failureOf(saveEstimatedEntries([meal], { ...options, fetchImpl: async () => {
-    calls++;
-    throw Error("Synthetic dropped connection");
-  } }));
-  assert.equal(mealSaveErrorPresentation(error).kind, "uncertain");
-  assert.equal(calls, 1);
-});
-
-test("partial success followed by a known rejection still requires checking meals", async () => {
-  let calls = 0;
-  const error = await failureOf(saveEstimatedEntries([meal, meal], { ...options, fetchImpl: async () => {
-    calls++;
-    return calls === 1 ? { ok: true, json: async () => ({ id: 1 }) }
-      : { ok: false, status: 400, json: async () => null };
-  } }));
-  assert.equal(error.savedEntries.length, 1);
-  assert.equal(mealSaveErrorPresentation(error).kind, "uncertain");
-  assert.equal(calls, 2);
+test("a stale save that stopped before writing presents a failed save", async () => {
+  const data = createPhoneStore({ storage: createMemoryStorage() });
+  const error = await failureOf(data.createMeals([meal], { createdAt, isActive: () => false }));
+  assert.equal(error.cancelled, true);
+  assert.equal(mealSaveErrorPresentation(error).kind, "failed");
 });
 
 test("legacy meal-save errors without outcome metadata remain conservative", () => {
@@ -93,12 +52,8 @@ test("an explicitly undispatched legacy request can be described as a failed sav
   assert.equal(mealSaveErrorPresentation(Object.assign(Error("meal_save_failed"), { dispatched: false })).kind, "failed");
 });
 
-test("auth and usage errors remain available to the existing inferenceError branches", async () => {
+test("auth and usage errors remain available to the existing inferenceError branches", () => {
   for (const code of ["chatgpt_sign_in_required", "token_refresh_failed", "http_401", "plan_usage_unavailable", "http_429", "voice_unavailable"]) {
     assert.equal(mealSaveErrorPresentation(Error(code)), null);
   }
-  const error = await failureOf(saveEstimatedEntries([meal], { ...options, getToken: async () => null,
-    fetchImpl: () => assert.fail("missing auth cannot dispatch") }));
-  assert.equal(mealSaveErrorPresentation(error), null);
-  assert.match(error.message, /sign_in/);
 });

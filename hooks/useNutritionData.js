@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AppState } from "react-native";
-import { useAuth } from "@clerk/clerk-expo";
 import { useIsFocused } from "@react-navigation/native";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
-import { FOOD_ENTRIES_API_URL, USERS_API_URL } from "@/constants/api";
-import { localDateKey } from "@/lib/nutritionStore.mjs";
+import { dataLoader, localDateKey } from "@/lib/nutritionStore.mjs";
 import { nutritionViewState, retryNutritionError } from "@/lib/nutritionPresentation.mjs";
-import { readNutrition } from "@/lib/nutritionRequest.mjs";
 import { completeNutritionRefresh } from "@/lib/completeNutritionRefresh.mjs";
 import { removeStoredNutritionEntry } from "@/lib/nutritionDelete.mjs";
+import { LOCAL_OWNER } from "@/lib/owner.mjs";
+import { useDataStore } from "@/lib/store";
 
 // History is the whole meal log, so it waits until Today has landed and the page has settled.
 const HISTORY_DELAY_MS = 2000;
@@ -22,9 +21,8 @@ export function profileGoals(profile) {
 }
 
 export function useNutritionData(date = new Date(), history = false) {
-  const { userId, getToken, isLoaded } = useAuth();
-  const tokenRef = useRef(getToken);
-  tokenRef.current = getToken;
+  const userId = LOCAL_OWNER, isLoaded = true;
+  const data = useDataStore();
   const ownerRef = useRef(userId);
   ownerRef.current = userId;
   const { store, entriesRevision, goalsRevision, setShouldRefresh } = useRefreshSignal();
@@ -34,13 +32,7 @@ export function useNutritionData(date = new Date(), history = false) {
   const [pullFailed, setPullFailed] = useState(false);
   const dateKey = localDateKey(date);
   const isSessionActive = useCallback(() => ownerRef.current === userId && store.belongsTo(userId), [store, userId]);
-  const loader = useCallback(({ resource, date: day, signal }) => {
-    const url = resource === "profile" ? `${USERS_API_URL}/get-user`
-      : resource === "history" ? `${FOOD_ENTRIES_API_URL}/summaries`
-        : `${FOOD_ENTRIES_API_URL}/summary-by-date/${day}`;
-    return readNutrition({ getToken: () => tokenRef.current(), url, signal,
-      isActive: () => ownerRef.current === userId && store.belongsTo(userId) });
-  }, [store, userId]);
+  const loader = useMemo(() => dataLoader(data, isSessionActive), [data, isSessionActive]);
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "active") setWakeVersion((value) => value + 1);
@@ -69,12 +61,12 @@ export function useNutritionData(date = new Date(), history = false) {
   const refreshProfile = useCallback(() => store.loadProfile(loader, { force: true }), [store, loader]);
   const deleteEntry = useCallback((id) => removeStoredNutritionEntry({
     store, ownerKey: userId, dateKey, id,
-    getToken: () => tokenRef.current(), url: `${FOOD_ENTRIES_API_URL}/${id}`,
-    isActive: () => ownerRef.current === userId && store.belongsTo(userId),
+    deleteMeal: (options) => data.deleteMeal(id, options),
+    isActive: isSessionActive,
     onSettled: () => {
-      if (ownerRef.current === userId && store.belongsTo(userId)) setShouldRefresh(true);
+      if (isSessionActive()) setShouldRefresh(true);
     },
-  }), [store, dateKey, userId, setShouldRefresh]);
+  }), [store, data, dateKey, userId, isSessionActive, setShouldRefresh]);
   const goals = useMemo(() => profileGoals(snapshot.profile), [snapshot.profile]);
   const presentation = nutritionViewState(snapshot, dateKey, history);
   const retryError = useCallback(() => retryNutritionError(

@@ -4,7 +4,7 @@ import Animated, { Easing, FadeIn, interpolate, runOnJS, useAnimatedKeyboard, us
   withRepeat, withSequence, withSpring, withTiming, Extrapolation, cancelAnimation } from "react-native-reanimated";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAuth } from "@clerk/clerk-expo";
+import { LOCAL_OWNER } from "@/lib/owner.mjs";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,8 +17,8 @@ import VoiceThinking from "@/components/voice/VoiceThinking";
 import useLiveSpeech from "@/hooks/useLiveSpeech";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
-import { FOOD_ENTRIES_API_URL } from "@/constants/api";
 import { useFoodIcons } from "@/context/FoodIconsContext";
+import { useDataStore } from "@/lib/store";
 import { nutritionClient, estimateMacros, inferenceError } from "@/lib/chatgpt/nutrition";
 import { mealTimePreferences } from "@/lib/mealTimeSettings";
 import { mealForLocalTime } from "@/lib/mealTimes.mjs";
@@ -61,7 +61,8 @@ function VoiceSheet({ language, onClose, onSaved }) {
   const { top, bottom } = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
   const router = useRouter();
-  const { userId, getToken } = useAuth();
+  const userId = LOCAL_OWNER;
+  const data = useDataStore();
   const { rememberIcons } = useFoodIcons();
   const level = useSharedValue(0);
   const onLevel = useCallback(value => { level.value = withTiming(value, { duration: 70 }); }, [level]);
@@ -225,8 +226,8 @@ function VoiceSheet({ language, onClose, onSaved }) {
     setSaving(true);
     const meal = { ...draft, mealType };
     try {
-      const savedEntries = await saveMealReview(meal, userId, { url: FOOD_ENTRIES_API_URL, signal: controller.signal,
-        isActive: () => mounted.current, getToken: async () => getToken() });
+      const savedEntries = await saveMealReview(meal, userId, data, { signal: controller.signal,
+        isActive: () => mounted.current });
       rememberIcons(savedEntries, meal.entries).catch(() => {});
       onSaved?.(savedEntries);
       if (!mounted.current) return;
@@ -243,10 +244,7 @@ function VoiceSheet({ language, onClose, onSaved }) {
         inferenceError(error, router);
         if (mounted.current) dismiss();
       } else if (/meal_save/.test(message)) {
-        const reason = error?.reason || message;
-        if (/sign_in|refresh|401|development_build/.test(reason)) inferenceError({ message: reason }, router);
-        else Alert.alert("Couldn’t save meal", error?.timedOut ? "Saving took too long. Your meal is still here. Try again."
-          : "Your meal is still here. Try again.");
+        Alert.alert("Couldn’t save meal", "Your meal is still here. Try again.");
       } else inferenceError(error, router);
     } finally {
       if (operation.current === controller) operation.current = null;
