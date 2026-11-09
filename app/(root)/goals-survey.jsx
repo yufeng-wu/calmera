@@ -5,21 +5,22 @@ import { Picker } from "@react-native-picker/picker";
 import Constants from "expo-constants";
 import * as Haptics from "expo-haptics";
 import { useNavigation, StackActions } from "@react-navigation/native";
-import { useAuth } from "@clerk/clerk-expo";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FormHeader, GlassButton, FormScreen, FormScrollView, formStyles } from "@/components/GlassForm";
 import SegmentedControl from "@/components/SegmentedControl";
 import SettingsRow from "@/components/SettingsRow";
 import SheetModal from "@/components/SheetModal";
 import { SettingsSection, settingsStyles } from "@/components/SettingsSection";
-import { USERS_API_URL } from "@/constants/api";
 import { NUTRIENT_COLORS } from "@/constants/colors";
 import { SETTINGS, SETTINGS_MOTION } from "@/constants/settingsTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import usePageExit from "@/hooks/usePageExit";
 import useFormTaskScope from "@/hooks/useFormTaskScope";
-import { saveGoalProfile, goalSaveErrorMessage } from "@/lib/goalProfile.mjs";
+import { LOCAL_OWNER } from "@/lib/owner.mjs";
+import { useDataStore } from "@/lib/store";
+import { createMemoryStorage } from "@/lib/store/memoryStorage.mjs";
+import { createPhoneStore } from "@/lib/store/phone.mjs";
 import { ADULT_AGE, DEFICIT, surveyGoals, surveyPickerCommit } from "@/lib/goalsSurvey.mjs";
 import { formatNumber } from "@/lib/insights/stats.mjs";
 
@@ -151,17 +152,16 @@ function SuggestedGoals({ goals, large }) {
 export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStage = "form" }) {
   const navigation = useNavigation();
   const { fontScale } = useWindowDimensions();
-  const { getToken, userId } = useAuth();
-  const owner = calmeraPreview ? "calmera-ui-preview" : userId;
+  const data = useDataStore();
+  const owner = calmeraPreview ? "calmera-ui-preview" : LOCAL_OWNER;
   const ownerRef = useRef(owner);
   ownerRef.current = owner;
-  const tokenRef = useRef(getToken);
-  tokenRef.current = getToken;
   const savingRef = useRef(false);
   const goBack = usePageExit(calmeraPreview ? "/ui-gallery" : "/dashboard");
   const { store, setShouldRefresh, setShouldRefreshGoals } = useRefreshSignal();
   const scrollViewRef = useRef(null);
-  const saveFixture = calmeraPreview && ["save-token-timeout", "save-response-timeout", "save-error"].includes(calmeraPreviewStage);
+  // The private save check runs the real data module against synthetic storage whose first write fails.
+  const saveFixture = calmeraPreview && calmeraPreviewStage === "save-error";
   const disclosureFixture = calmeraPreview && Constants.expoConfig?.extra?.calmeraFullAppTest === true
     && ["recommendation-unspecified", "recommendation-minor"].includes(calmeraPreviewStage);
   const seeded = calmeraPreview && (calmeraPreviewStage === "recommendation" || saveFixture || disclosureFixture);
@@ -173,8 +173,8 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
   const [heightUnit, setHeightUnit] = useState("cm");
   const [goal, setGoal] = useState(seeded ? "maintain" : null);
   const [loading, setLoading] = useState(false);
-  const fixtureCalls = useRef({ attempts: 0, puts: 0 });
-  const [fixtureTrace, setFixtureTrace] = useState({ attempts: 0, puts: 0 });
+  const fixtureStore = useRef(null);
+  const [fixtureAttempts, setFixtureAttempts] = useState(0);
   const scope = useFormTaskScope(owner, () => {
     savingRef.current = false;
     setLoading(false);
@@ -226,33 +226,20 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
         setShouldRefreshGoals(true);
       }
     };
-    const body = {
+    const goals = {
       calorieGoal: recommendation.calorieGoal, proteinGoal: recommendation.proteinGoal,
       carbsGoal: recommendation.carbsGoal, fatGoal: recommendation.fatGoal,
-      localDate: new Date().toLocaleDateString("en-CA"),
     };
     savingRef.current = task;
     setLoading(true);
     try {
-      const options = { getToken: () => tokenRef.current(), url: `${USERS_API_URL}/update-user`,
-        body, signal: task.signal, isActive: current };
+      const options = { startDate: new Date().toLocaleDateString("en-CA"), signal: task.signal, isActive: current };
+      let target = data;
       if (saveFixture) {
-        // These private review cases use the real save helper with fake I/O only.
-        const attempt = ++fixtureCalls.current.attempts;
-        setFixtureTrace({ ...fixtureCalls.current });
-        options.url = "https://synthetic.invalid/goals";
-        options.timeoutMs = 4000;
-        options.getToken = () => calmeraPreviewStage === "save-token-timeout" && attempt === 1
-          ? new Promise(() => {}) : Promise.resolve("synthetic-token");
-        options.fetchImpl = async () => {
-          fixtureCalls.current.puts += 1;
-          if (current()) setFixtureTrace({ ...fixtureCalls.current });
-          if (calmeraPreviewStage === "save-response-timeout" && attempt === 1) return new Promise(() => {});
-          await new Promise(resolve => setTimeout(resolve, 300));
-          return { ok: calmeraPreviewStage !== "save-error" || attempt > 1, status: calmeraPreviewStage === "save-error" && attempt === 1 ? 400 : 200 };
-        };
+        setFixtureAttempts((value) => value + 1);
+        target = fixtureStore.current ??= createPhoneStore({ storage: createMemoryStorage({}, { failWrites: 1, delayMs: 300 }) });
       }
-      await saveGoalProfile(options);
+      await target.saveGoals(goals, options);
       refreshAfterWrite();
       if (!current()) return;
       if (saveFixture) {
@@ -263,9 +250,8 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
         if (navigation.canGoBack()) navigation.dispatch(StackActions.popToTop());
         else goBack();
       }
-    } catch (error) {
-      if (error.mayHaveSaved) refreshAfterWrite();
-      if (current()) Alert.alert(error.mayHaveSaved ? "Save not confirmed" : "Couldn’t save goals", goalSaveErrorMessage(error));
+    } catch {
+      if (current()) Alert.alert("Couldn’t save goals", "Try again in a moment.");
     } finally {
       task.finish();
       if (savingRef.current === task) {
@@ -326,7 +312,7 @@ export default function GoalsSurvey({ calmeraPreview = false, calmeraPreviewStag
         <SuggestedGoals goals={recommendation} large={fontScale > 1.3} />
       </SettingsSection>
       {saveFixture && <Text accessibilityLiveRegion="polite" style={settingsStyles.footnote}>
-        Synthetic save attempts: {fixtureTrace.attempts} · PUT requests: {fixtureTrace.puts}
+        Synthetic save attempts: {fixtureAttempts}
       </Text>}
       <GlassButton title="Use these goals" symbol="checkmark" role="accent" onPress={handleSaveMacros} loading={loading} disabled={loading || !recommendation} />
       <Text style={settingsStyles.footnote}><Text style={styles.disclaimerLead}>{DISCLAIMER_LEAD}</Text>{DISCLAIMER}</Text>

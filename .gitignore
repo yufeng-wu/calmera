@@ -10,7 +10,6 @@ coverage/
 # Local environment, credentials and signing material
 .env
 .env.*
-!.env.chatgpt.example
 credentials.json
 *.jks
 *.p8

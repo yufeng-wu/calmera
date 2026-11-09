@@ -25,7 +25,7 @@ iPhone ── sign-in ───────────────────�
 - Meals and goals are read from and saved to the server. The phone keeps a copy so the app opens quickly.
 - AI estimates never pass through the server. The phone calls OpenAI directly with the person's ChatGPT sign-in, with `store: false`. Voice is turned into text on the iPhone first.
 - Before anything else opens, people agree to the Privacy Policy and to sending meal text, photos and voice text to OpenAI ([PRIVACY.md](PRIVACY.md)).
-- Settings → Delete account removes the person's rows and closes their Clerk account ([ACCOUNT_DELETION.md](ACCOUNT_DELETION.md)).
+- Settings → Delete account removes the person's rows and closes their Clerk account ([ACCOUNT_DELETION.md at cloud-v1](https://github.com/yufeng-wu/cal_mobile/blob/cloud-v1/docs/ACCOUNT_DELETION.md)).
 
 ### What is stored where
 
@@ -103,17 +103,17 @@ Keep Render, Neon and Clerk running until two things are true: the phone-only ve
 
 ## Privacy text for this version
 
-At `cloud-v1`, `lib/privacyPolicy.mjs` (policy version 2026-11-08) describes this version. It names Clerk, Neon, Render and Upstash and describes data kept in an account. The phone-only version needs a new policy version; see [PRIVACY.md](PRIVACY.md).
+At `cloud-v1`, `lib/privacyPolicy.mjs` (policy version 2026-11-08) describes this version. It names Clerk, Neon, Render and Upstash and describes data kept in an account. The phone-only version has its own policy version; see [PRIVACY.md](PRIVACY.md).
 
 ## Next: keeping everything on the iPhone
 
 Plan as of November 8, 2026:
 
 1. **Save this version.** Done: this page and the `cloud-v1` tags.
-2. **One entry point.** Send every meal, goal and profile read and write through one module, still backed by the server. Nothing looks different.
-3. **Phone storage.** Replace the server behind that module with a database on the iPhone. There's no on/off switch; this tag is the way back.
-4. **No sign-in.** Remove Clerk sign-in and account setup. Delete account becomes "Erase all data". Connecting ChatGPT and agreeing to send data to OpenAI both stay.
-5. **Release.** Add Import for the export file, publish the updated Privacy Policy, then release.
+2. **One entry point.** Done: every meal, goal and profile read and write goes through `lib/store` (`useDataStore()`), whose methods are listed at the top of `lib/store/index.js`.
+3. **Phone storage.** Done: `lib/store/phone.mjs` keeps meals (one entry per day), goals with their start dates, and the profile in the iPhone's app storage under `calmera.data.v1.*`. The first launch starts the profile that day with the default goals. `tests/data-store.test.mjs` covers it with in-memory storage (`lib/store/memoryStorage.mjs`).
+4. **No sign-in.** Done: sign-in, sign-up, password reset, account setup, the Account page and Sign out are gone, and so are the server request helpers, `constants/api.js` and the unlinked scale camera, payment and voice-test screens. One local owner (`lib/owner.mjs`) replaces the signed-in user for settings and the ChatGPT sign-in. Settings → Erase all data (`app/(root)/erase-data.jsx`) removes everything calmera keeps on the iPhone and starts over from the privacy agreement, which is now kept only on the iPhone. The Privacy Policy describes phone-only storage (version 2026-11-09).
+5. **Release.** Add Import for the export file, set the Privacy Policy version and date to the publish date and publish it, then release. Unused packages (Clerk, Stripe, TensorFlow, expo-camera and others) can be removed with a native rebuild.
 
 Things to know:
 

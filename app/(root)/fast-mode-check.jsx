@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Redirect, useRouter } from "expo-router";
 import Constants from "expo-constants";
-import { useAuth } from "@clerk/clerk-expo";
+import { LOCAL_OWNER } from "@/lib/owner.mjs";
 import { FormHeader, GlassButton } from "@/components/GlassForm";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
@@ -13,7 +13,7 @@ import useFormTaskScope from "@/hooks/useFormTaskScope";
 // inference; no records, account details, credentials or response text shown.
 export default function FastModeCheck() {
   const enabled = Constants.expoConfig?.extra?.calmeraFullAppTest === true;
-  const { userId, isLoaded } = useAuth();
+  const userId = LOCAL_OWNER, isLoaded = true;
   const router = useRouter();
   const started = useRef(false);
   const scope = useFormTaskScope(userId);

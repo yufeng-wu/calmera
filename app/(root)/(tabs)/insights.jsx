@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Animated, { FadeIn, runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import * as Haptics from "expo-haptics";
@@ -8,7 +8,6 @@ import { useRouter } from "expo-router";
 import MaskedView from "@react-native-masked-view/masked-view";
 import { LinearGradient } from "expo-linear-gradient";
 import { FormCard, GlassButton, formStyles } from "@/components/GlassForm";
-import FoodwrapRefreshScrollView from "@/components/FoodwrapRefreshScrollView";
 import DayTimeline from "@/components/insights/DayTimeline";
 import Heatmap, { WeekDots } from "@/components/insights/Heatmap";
 import InsightCard from "@/components/insights/InsightCard";
@@ -42,7 +41,10 @@ export default function InsightsScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const [period, setPeriod] = useState("week");
-  const { stats, statsOf, goals, empty, loaded, error, refreshFailed, retryError, refresh } = useInsights(period);
+  // The period a tap or a finished swipe is sliding to. The tabs show it straight away,
+  // while the cards are still on their way.
+  const [chosen, setChosen] = useState(null);
+  const { stats, statsOf, goals, empty, loaded, error, retryError } = useInsights(period);
   // Until history loads, the store holds only the days already opened, which would
   // read as a short history.
   const showData = loaded && !empty;
@@ -58,16 +60,26 @@ export default function InsightsScreen() {
   const page = useSharedValue(0);
   const sliding = useSharedValue(false);
   const previewDirection = useSharedValue(0);
+  // Where the card beside the current one sits on the strip. A next-door period sits at
+  // its own place. One further along (week to year) is drawn right next to this card, so
+  // a tap slides one card's width, and the strip is renumbered in the frame it lands.
+  const besideAt = useSharedValue(1);
   const index = PERIODS.findIndex(({ id }) => id === period);
-  const [neighbour, setNeighbour] = useState(null); // the period beside this one while swiping
-  const preview = (direction) => {
-    const next = PERIODS[index + direction];
-    previewDirection.value = next ? direction : 0;
-    setNeighbour(next ? next.id : null);
+  const [neighbour, setNeighbour] = useState(null); // the period beside this one while sliding
+  // A slide waits for the card it brings in to be drawn, so it never slides in a blank.
+  const drawn = useRef(null);
+  const waiting = useRef(null);
+  const placeBeside = (id, direction) => {
+    previewDirection.value = id ? direction : 0;
+    if (id) besideAt.value = index + direction;
+    if (drawn.current !== id) drawn.current = null;
+    setNeighbour(id);
   };
-  const settle = () => { previewDirection.value = 0; setNeighbour(null); };
+  const preview = (direction) => placeBeside(PERIODS[index + direction]?.id ?? null, direction);
+  const settle = () => { previewDirection.value = 0; drawn.current = null; setNeighbour(null); };
   const arrive = (next) => {
     setPeriod(next);
+    setChosen(null);
     settle();
     sliding.value = false;
   };
@@ -75,9 +87,30 @@ export default function InsightsScreen() {
     if (!next || next === period || sliding.value) return;
     Haptics.selectionAsync().catch(() => {});
     sliding.value = true;
-    if (reduceMotion) { page.value = index + direction; return arrive(next); }
-    if (neighbour !== next) preview(direction);
-    page.value = withSpring(index + direction, SLIDE, (finished) => { if (finished) runOnJS(arrive)(next); });
+    setChosen(next);
+    const target = PERIODS.findIndex(({ id }) => id === next);
+    if (reduceMotion) { page.value = target; return arrive(next); }
+    const go = () => {
+      page.value = withSpring(index + direction, SLIDE, (finished) => {
+        "worklet";
+        if (!finished) return;
+        besideAt.value = target;
+        page.value = target;
+        runOnJS(arrive)(next);
+      });
+    };
+    if (neighbour === next && drawn.current === next) return go();
+    const slide = { next, go };
+    waiting.current = slide;
+    placeBeside(next, direction);
+    setTimeout(() => { if (waiting.current === slide) { waiting.current = null; go(); } }, 500);
+  };
+  const besideDrawn = (id) => {
+    drawn.current = id;
+    const slide = waiting.current;
+    if (slide?.next !== id) return;
+    waiting.current = null;
+    slide.go();
   };
   const choosePeriod = (next) => slideTo(next, PERIODS.findIndex(({ id }) => id === next) > index ? 1 : -1);
   const markSwiping = () => { swiping.current = true; };
@@ -87,7 +120,10 @@ export default function InsightsScreen() {
     .onUpdate(({ translationX }) => {
       if (sliding.value || onCalendar.value) return;
       const direction = translationX < 0 ? 1 : -1;
-      if (direction !== previewDirection.value) runOnJS(preview)(direction);
+      if (direction !== previewDirection.value) {
+        besideAt.value = index + direction;
+        runOnJS(preview)(direction);
+      }
       // Past the last period the cards only give a little, like the end of a scroll.
       page.value = index - translationX / (PERIODS[index + direction] ? width : 3 * width);
     })
@@ -105,44 +141,44 @@ export default function InsightsScreen() {
     });
 
   return <GestureDetector gesture={swipe}><View style={formStyles.screen}>
-    <PeriodTabs key={fontScale} items={PERIODS} value={period} onChange={choosePeriod} />
+    <PeriodTabs key={fontScale} items={PERIODS} value={chosen ?? period} onChange={choosePeriod} />
     <MaskedView style={styles.scrollMask} maskElement={<LinearGradient colors={["transparent", "black"]} locations={[0, 0.02]} style={styles.mask} />}>
-      <FoodwrapRefreshScrollView onRefresh={refresh} contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 32 }]}
+      <ScrollView alwaysBounceVertical contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 32 }]}
         scrollIndicatorInsets={{ bottom: tabBarHeight }} showsVerticalScrollIndicator={false}>
         {!showData && error ? <RetryCard onRetry={retryError} />
           : !showData && !loaded ? <LoadingCards />
             : !showData ? <FirstRun onLog={() => router.navigate("/dashboard")} />
               : <View>
                 {[period, neighbour].filter(Boolean).map((id) => <PeriodSlot key={id} position={PERIODS.findIndex((item) => item.id === id)}
-                  page={page} width={width} beside={id !== period} reduceMotion={reduceMotion}>
+                  besideAt={besideAt} page={page} width={width} beside={id !== period} reduceMotion={reduceMotion}
+                  onDrawn={id !== period ? () => besideDrawn(id) : undefined}>
                   {id === period
-                    ? <PeriodCards period={id} stats={stats} goals={goals} open={open} refreshFailed={refreshFailed} refresh={refresh}
+                    ? <PeriodCards period={id} stats={stats} goals={goals} open={open}
                       onCalendarTouch={() => { onCalendar.value = true; }} onSeeLonger={(next) => slideTo(next, 1)} />
                     : <PeriodCards period={id} stats={statsOf(id)} goals={goals} open={() => () => {}} />}
                 </PeriodSlot>)}
               </View>}
-      </FoodwrapRefreshScrollView>
+      </ScrollView>
     </MaskedView>
   </View></GestureDetector>;
 }
 
 // One period's place along the strip of cards. The one beside the current period is drawn
 // over it, one screen away, and can't be tapped.
-function PeriodSlot({ position, page, width, beside, reduceMotion, children }) {
-  const motion = useAnimatedStyle(() => ({ transform: [{ translateX: (position - page.value) * width }] }));
+function PeriodSlot({ position, besideAt, page, width, beside, reduceMotion, onDrawn, children }) {
+  const motion = useAnimatedStyle(() => ({ transform: [{ translateX: ((beside ? besideAt.value : position) - page.value) * width }] }));
   return <Animated.View pointerEvents={beside ? "none" : "auto"} entering={reduceMotion && !beside ? FadeIn.duration(180) : undefined}
-    style={[styles.cards, beside && styles.neighbour, motion]}>
+    onLayout={onDrawn} style={[styles.cards, beside && styles.neighbour, motion]}>
     {children}
   </Animated.View>;
 }
 
 // Everything under the tabs for one period: the date range, then the cards.
-function PeriodCards({ period, stats, goals, open, refreshFailed = false, refresh, onCalendarTouch, onSeeLonger }) {
+function PeriodCards({ period, stats, goals, open, onCalendarTouch, onSeeLonger }) {
   const name = PERIODS.find(({ id }) => id === period).name;
   const hidesCards = !stats.rhythm || !stats.shares || (stats.span > 7 && !stats.split);
   return <>
     <Text style={styles.range}>{`Past ${name} · ${formatRange(stats.keys)}`}</Text>
-    {refreshFailed && <Pressable accessibilityRole="button" onPress={() => refresh().catch(() => {})} hitSlop={{ top: 13, bottom: 13 }}><Text style={styles.staleNote}>{"Couldn’t refresh. Tap to try again."}</Text></Pressable>}
     {!stats.daysLogged ? <FormCard style={styles.emptyCard}>
       <Text style={styles.message}>{`No meals logged in the past ${name}.`}</Text>
       {period !== "year" && onSeeLonger && <Pressable accessibilityRole="button" onPress={() => onSeeLonger(period === "week" ? "month" : "year")} hitSlop={12}>
@@ -332,7 +368,6 @@ const styles = StyleSheet.create({
   topFoodIcon: { fontSize: 20, lineHeight: 26 },
   topFoodName: { ...TYPOGRAPHY.body, flex: 1, color: COLORS.text },
   topFoodValue: { ...TYPOGRAPHY.bodyMedium, color: COLORS.text, fontVariant: ["tabular-nums"] },
-  staleNote: { ...TYPOGRAPHY.caption, color: COLORS.primary, textAlign: "center" },
   moreNote: { ...TYPOGRAPHY.caption, color: COLORS.textLight, textAlign: "center" },
   skeleton: { borderRadius: 24, backgroundColor: COLORS.track, opacity: 0.45 },
   emptyCard: { gap: 10, alignItems: "center", paddingVertical: 28 },

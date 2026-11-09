@@ -2,16 +2,14 @@ import { estimateMacros, inferenceError } from "@/lib/chatgpt/nutrition";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Keyboard, Platform, StyleSheet, Text, useWindowDimensions } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { useAuth } from "@clerk/clerk-expo";
 import { useNavigation } from "@react-navigation/native";
 import useFormTaskScope from "@/hooks/useFormTaskScope";
-import { mealRequest } from "@/lib/mealRequest.mjs";
 import { editorNumber, mealEditorChanged, mealEditorValues, storedMealDateKey, storedMealForEditor } from "@/lib/mealEditorDraft.mjs";
-import { deleteNutritionEntry, removeStoredNutritionEntry } from "@/lib/nutritionDelete.mjs";
+import { removeStoredNutritionEntry } from "@/lib/nutritionDelete.mjs";
 import { validateMealNutrition } from "@/lib/mealNutritionValidation.mjs";
 import { createConfirmedMealSave } from "@/lib/confirmedMealSave.mjs";
-import { readNutrition } from "@/lib/nutritionRequest.mjs";
-import { FOOD_ENTRIES_API_URL } from "@/constants/api";
+import { LOCAL_OWNER } from "@/lib/owner.mjs";
+import { useDataStore } from "@/lib/store";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import MealEditorCard from "@/components/MealEditorCard";
@@ -33,25 +31,21 @@ const previewEstimate = calories => {
 
 export default function EditFoodEntry({ calmeraPreview = false, calmeraPreviewState = "ready" }) {
   const { id } = useLocalSearchParams();
-  const { getToken, userId } = useAuth();
+  const userId = LOCAL_OWNER;
   const entryId = Array.isArray(id) ? id[0] : id;
-  // A new route/account gets its own draft; an old draft can never flash while
-  // the next meal's request starts or become editable under another account.
+  // A new route gets its own draft; an old draft can never flash while the next meal loads.
   return <EditFoodEntryForm key={`${userId}:${entryId}:${calmeraPreview}:${calmeraPreviewState}`}
-    entryId={entryId} getToken={getToken} userId={userId}
+    entryId={entryId} userId={userId}
     calmeraPreview={calmeraPreview} calmeraPreviewState={calmeraPreviewState} />;
 }
 
-function EditFoodEntryForm({ entryId, getToken, userId, calmeraPreview, calmeraPreviewState }) {
+function EditFoodEntryForm({ entryId, userId, calmeraPreview, calmeraPreviewState }) {
   const router = useRouter();
   const navigation = useNavigation();
   const { fontScale } = useWindowDimensions();
-  const tokenRef = useRef(getToken);
-  tokenRef.current = getToken;
+  const data = useDataStore();
   const { store, setShouldRefresh } = useRefreshSignal();
-  const loadFixture = calmeraPreview && ["load-token-timeout", "load-json-timeout"].includes(calmeraPreviewState);
-  const [initialEntry] = useState(() => calmeraPreview
-    ? loadFixture ? null : previewEntry : storedMealForEditor(store, userId, entryId));
+  const [initialEntry] = useState(() => calmeraPreview ? previewEntry : storedMealForEditor(store, userId, entryId));
   const initialValues = mealEditorValues(initialEntry || {});
   const ownerRef = useRef(userId);
   ownerRef.current = userId;
@@ -94,8 +88,6 @@ function EditFoodEntryForm({ entryId, getToken, userId, calmeraPreview, calmeraP
   const sameEntry = () => ownerRef.current === userId && entryRef.current === entryId;
   const navigationFixture = calmeraPreview && calmeraPreviewState === "saved-navigation-error";
   const saveKey = calmeraPreview ? "calmera-editor-preview" : `${userId}:${entryId}`;
-  const loadCalls = useRef({ attempts: 0, requests: 0 });
-  const [loadTrace, setLoadTrace] = useState({ attempts: 0, requests: 0 });
   const goBack = usePageExit(calmeraPreview ? "/ui-gallery" : "/dashboard");
   const scope = useFormTaskScope(`${userId}:${entryId || "preview"}`, () => {
     savingRef.current = false; estimatingRef.current = false;
@@ -132,30 +124,13 @@ function EditFoodEntryForm({ entryId, getToken, userId, calmeraPreview, calmeraP
       setIsFetching(true);
       setLoadError("");
       try {
-        let data = previewEntry;
-        if (!calmeraPreview || loadFixture) {
-          if (!calmeraPreview && !entryId) throw new Error("invalid_meal_id");
-          const options = { getToken: () => tokenRef.current(), url: `${FOOD_ENTRIES_API_URL}/${entryId}`,
-            signal: controller.signal, timeoutMs: 15000, isActive: current };
-          if (loadFixture) {
-            // Same bounded reader; the private review never accesses auth/network.
-            const attempt = ++loadCalls.current.attempts;
-            setLoadTrace({ ...loadCalls.current });
-            options.url = "https://calmera.invalid/meals/synthetic-ui-entry";
-            options.timeoutMs = 4000;
-            options.getToken = () => calmeraPreviewState === "load-token-timeout" && attempt === 1
-              ? new Promise(() => {}) : Promise.resolve("synthetic-token");
-            options.fetchImpl = async () => {
-              loadCalls.current.requests += 1;
-              if (current()) setLoadTrace({ ...loadCalls.current });
-              return { ok: true, json: () => calmeraPreviewState === "load-json-timeout" && attempt === 1
-                ? new Promise(() => {}) : Promise.resolve({ ...previewEntry }) };
-            };
-          }
-          data = await readNutrition(options);
+        let meal = previewEntry;
+        if (!calmeraPreview) {
+          if (!entryId) throw new Error("invalid_meal_id");
+          meal = await data.readMeal(entryId, { signal: controller.signal, isActive: current });
         }
         if (!current() || (initialEntry && edited.current)) return;
-        const values = mealEditorValues(data);
+        const values = mealEditorValues(meal);
         setFoodName(values.foodName);
         setCalories(values.calories);
         setProtein(values.protein);
@@ -165,19 +140,16 @@ function EditFoodEntryForm({ entryId, getToken, userId, calmeraPreview, calmeraP
         setQuantity(values.quantity);
         setBaseline(values);
       } catch (error) {
-        if (current()) setLoadError(error.message === "nutrition_request_timeout"
-          ? "Loading took too long. Please try again."
-          : error.message === "invalid_meal_id" ? "Go back and choose a meal again."
-            : error.message === "nutrition_http_404" ? "This meal is no longer available. Go back and choose another meal."
-              : error.message === "calmera_sign_in_required" ? "Sign in again to load this meal."
-                : "Unable to load this food entry. Please try again.");
+        if (current()) setLoadError(error.message === "invalid_meal_id" ? "Go back and choose a meal again."
+          : error.message === "meal_not_found" ? "This meal is no longer available. Go back and choose another meal."
+            : "Unable to load this food entry. Please try again.");
       } finally {
         if (current()) setIsFetching(false);
       }
     };
     fetchEntry();
     return () => { active = false; controller.abort(); };
-  }, [entryId, userId, calmeraPreview, loadFixture, calmeraPreviewState, retry]);
+  }, [data, entryId, userId, calmeraPreview, retry]);
 
   const taskCurrent = task => task.isCurrent() && sameEntry();
   const refreshWrittenMeal = () => {
@@ -201,9 +173,8 @@ function EditFoodEntryForm({ entryId, getToken, userId, calmeraPreview, calmeraP
         persist: navigationFixture ? async () => {
           fixtureSaves.current += 1;
           if (taskCurrent(task)) setSimulatedSaves(fixtureSaves.current);
-        } : () => mealRequest({ getToken: () => tokenRef.current(), url: `${FOOD_ENTRIES_API_URL}/${entryId}`,
-          method: "PUT", signal: task.signal, isActive: () => taskCurrent(task),
-          body: { foodName, quantity, ...nutrition.values, mealType } })
+        } : () => data.updateMeal(entryId, { foodName, quantity, ...nutrition.values, mealType },
+          { signal: task.signal, isActive: () => taskCurrent(task) })
           // The icon is a device preference keyed by the saved meal's id.
           .then(async result => { if (iconId) await rememberIcons([{ id: entryId }], [{ iconId }]).catch(() => {}); return result; }),
         onConfirmed: refreshWrittenMeal,
@@ -218,10 +189,7 @@ function EditFoodEntryForm({ entryId, getToken, userId, calmeraPreview, calmeraP
       if (outcome.kind === "left") leavingAfterSave = true;
       else if (confirmedSave.current.hasConfirmed(saveKey) && sameEntry() && scope.isActive()) setConfirmedKey(saveKey);
     } catch (error) {
-      if (error.mayHaveSaved) refreshWrittenMeal();
-      if (taskCurrent(task)) Alert.alert("Couldn’t save changes", error.timedOut
-        ? error.mayHaveSaved ? "Saving took too long. Your changes are still here. Check your meals before trying again."
-          : "Saving took too long. Your changes are still here. Please try again." : error.message);
+      if (taskCurrent(task)) Alert.alert("Couldn’t save changes", error.message);
     } finally {
       task.finish();
       if (savingRef.current === task && !leavingAfterSave) {
@@ -274,21 +242,19 @@ function EditFoodEntryForm({ entryId, getToken, userId, calmeraPreview, calmeraP
     setIsDeleting(true);
     let left = false;
     try {
-      const request = { getToken: () => tokenRef.current(), url: `${FOOD_ENTRIES_API_URL}/${entryId}`,
-        signal: task.signal, isActive: () => taskCurrent(task) };
+      const request = { signal: task.signal, isActive: () => taskCurrent(task) };
+      const deleteMeal = (options) => data.deleteMeal(entryId, options);
       // Delete through the shared store, as Today does, so the row leaves at once.
       const dateKey = storedMealDateKey(store, userId, entryId);
       const removed = dateKey && await removeStoredNutritionEntry({ ...request, store, ownerKey: userId, dateKey, id: entryId,
-        onSettled: refreshWrittenMeal });
-      if (!removed) { await deleteNutritionEntry(request); refreshWrittenMeal(); }
+        deleteMeal, onSettled: refreshWrittenMeal });
+      if (!removed) { await deleteMeal(request); refreshWrittenMeal(); }
       if (!taskCurrent(task)) return;
       left = true;
       leaving.current = true;
       goBack();
-    } catch (error) {
-      if (error.mayHaveDeleted) refreshWrittenMeal();
-      if (taskCurrent(task)) Alert.alert("Couldn’t delete meal", error.timedOut
-        ? "Deleting took too long. Check your meals before trying again." : "Please try again.");
+    } catch {
+      if (taskCurrent(task)) Alert.alert("Couldn’t delete meal", "Please try again.");
     } finally {
       task.finish();
       if (savingRef.current === task) {
@@ -321,9 +287,6 @@ function EditFoodEntryForm({ entryId, getToken, userId, calmeraPreview, calmeraP
         <Text style={formStyles.caption}>Go back to continue.</Text>
         <GlassButton title="Go back" onPress={back} />
       </FormCard>}
-      {loadFixture && <Text accessibilityLiveRegion="polite" style={[formStyles.caption, { marginHorizontal: 20 }]}>
-        Synthetic meal loads: {loadTrace.attempts} · GET requests: {loadTrace.requests}
-      </Text>}
       {showLoadingCard ? <FormCard style={localStyles.statusCard}>
         <ActivityIndicator color={COLORS.primary} accessibilityLabel="Loading meal" />
         <Text style={formStyles.caption}>Loading your meal…</Text>

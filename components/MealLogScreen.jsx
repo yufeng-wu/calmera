@@ -1,7 +1,7 @@
 import { TYPOGRAPHY } from "@/constants/typography";
 import { useCallback, useId, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Image, InputAccessoryView, Keyboard, Linking, Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
-import { useAuth } from "@clerk/clerk-expo";
+import { LOCAL_OWNER } from "@/lib/owner.mjs";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useFocusEffect, useNavigation, usePreventRemove } from "@react-navigation/native";
 import Constants from "expo-constants";
@@ -12,21 +12,18 @@ import usePageExit from "@/hooks/usePageExit";
 import { FormScreen, FormScrollView, FormHeader, FormCard, GlassButton } from "@/components/GlassForm";
 import { phoneTestNutritionLabel } from "@/lib/chatgpt/phoneTestFixtures.mjs";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
-import { FOOD_ENTRIES_API_URL } from "@/constants/api";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
+import { useDataStore } from "@/lib/store";
 import { pickMealPhoto } from "@/lib/chatgpt/planClient";
 import { nutritionClient, inferenceError, estimateMacros } from "@/lib/chatgpt/nutrition";
 import MealReview from "@/components/MealReview";
 import { useFoodIcons } from "@/context/FoodIconsContext";
-import { mealTimePreferences } from "@/lib/mealTimeSettings";
-import { mealForLocalTime } from "@/lib/mealTimes.mjs";
 import { createMealReview, saveMealReview, updateReviewFood, MEAL_TYPES } from "@/lib/mealReview.mjs";
 import { createConfirmedMealSave } from "@/lib/confirmedMealSave.mjs";
 import { getLocalTimeWithOffset } from "@/lib/utils";
 
 export default function MealLogScreen(props) {
-  const { userId } = useAuth();
-  return <MealLogForm key={`${userId || "signed-out"}:${props.inputMode}`} {...props} />;
+  return <MealLogForm key={props.inputMode} {...props} />;
 }
 
 function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPreviewState = "empty" } = {}) {
@@ -43,7 +40,8 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
   const savedNavigationFixture = testBuild && calmeraPreview && calmeraPreviewState === "saved-navigation-error";
   const previewFixture = uiFixture && (savedNavigationFixture || calmeraFixture === "ui-photo-preview" || (calmeraPreview && ["selected", "review"].includes(calmeraPreviewState)));
   const exit = usePageExit(uiFixture ? "/ui-gallery" : "/dashboard");
-  const { userId, getToken } = useAuth();
+  const userId = LOCAL_OWNER;
+  const data = useDataStore();
   const { store, setShouldRefresh } = useRefreshSignal();
   const ownerRef = useRef(userId);
   ownerRef.current = userId;
@@ -213,10 +211,8 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
       } else {
         const { client, model } = await nutritionClient(userId);
         if (!isCurrent(ticket)) return;
-        const times = textMode ? await mealTimePreferences.load(userId, { signal: ticket.controller.signal, isActive: () => isCurrent(ticket) }) : null;
-        if (!isCurrent(ticket)) return;
         result = await client.estimate({ text: textMode ? selectedText : "", image: textMode ? undefined : selectedPhoto.dataURL,
-          defaultMealType: textMode ? mealForLocalTime(new Date(createdAt), times) : "Snack", model, signal: ticket.controller.signal,
+          model, signal: ticket.controller.signal,
           onProgress: stage => { if (isCurrent(ticket)) setProgress(stage); } });
       }
       if (!isCurrent(ticket)) return;
@@ -266,15 +262,9 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
             if (isCurrent(ticket)) setPreviewSaveCount(previewSaves.current);
             return draft.entries;
           }
-          savedEntries = await saveMealReview(draft, ticket.owner, { url: FOOD_ENTRIES_API_URL,
-            signal: ticket.controller.signal, isActive: () => isCurrent(ticket),
-            getToken: async () => {
-              if (!isCurrent(ticket)) throw new Error("meal_operation_cancelled");
-              const token = await getToken();
-              if (!isCurrent(ticket)) throw new Error("meal_operation_cancelled");
-              return token;
-            },
-          });
+          // The save checks the ticket again right before it writes, so a stale review never saves.
+          savedEntries = await saveMealReview(draft, ticket.owner, data,
+            { signal: ticket.controller.signal, isActive: () => isCurrent(ticket) });
         },
         // Confirmed writes invalidate only their current owner's cache, even
         // after blur. A failed refresh or exit cannot undo the confirmed save.
@@ -309,11 +299,7 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
         setUncertain(true);
         inferenceError(error, router);
       } else if (/meal_save/.test(message)) {
-        const reason = error?.reason || message;
-        if (/sign_in|refresh|401|development_build/.test(reason)) inferenceError({ message: reason }, router);
-        else Alert.alert("Couldn’t save meal", error?.timedOut
-          ? "Saving took too long. Your review is still here. Please try again."
-          : "Your meal was not saved. Your review is still here. Please try again.");
+        Alert.alert("Couldn’t save meal", "Your meal was not saved. Your review is still here. Please try again.");
       } else inferenceError(error, router);
     } finally { finishOperation(ticket); }
   }

@@ -22,11 +22,11 @@ function statsFor(dataByDate, goals, dateKey, period, joined) {
 // Turns logged history into the numbers for the week, month and year views. Only the
 // view on screen is worked out, since a year of meals isn't free on every change.
 export function useInsights(period) {
-  const { dataByDate, goals, profile, dateKey, snapshot, historyPending, error, refreshFailed, retryError, refresh } = useNutritionData(new Date(), true);
+  const { dataByDate, goals, profile, dateKey, snapshot, historyPending, error, retryError } = useNutritionData(new Date(), true);
   const joined = profile?.createdAtLocalDate ?? null;
   const stats = useMemo(() => statsFor(dataByDate, goals, dateKey, period, joined), [dataByDate, dateKey, goals, period, joined]);
   // The page shows the neighbouring period beside this one while a swipe is in progress.
   const statsOf = useCallback((other) => statsFor(dataByDate, goals, dateKey, other, joined), [dataByDate, dateKey, goals, joined]);
   const empty = useMemo(() => !hasAnyLog(dataByDate), [dataByDate]);
-  return { stats, statsOf, goals, empty, loaded: Boolean(snapshot.historyLoaded), historyPending, error, refreshFailed, retryError, refresh };
+  return { stats, statsOf, goals, empty, loaded: Boolean(snapshot.historyLoaded), historyPending, error, retryError };
 }

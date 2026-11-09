@@ -1,4 +1,3 @@
-import { useUser } from "@clerk/clerk-expo";
 import {
   Text,
   Pressable,
@@ -8,9 +7,10 @@ import {
   Alert,
   Linking,
   StyleSheet,
+  ScrollView,
 } from "react-native";
 import { memo, useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { useFocusEffect, useIsFocused } from "@react-navigation/native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useDailyNutrition } from "../../../hooks/useDailyNutrition";
 import NutritionSummarySkeleton from "@/components/NutritionSummarySkeleton";
@@ -20,7 +20,6 @@ import { NutritionSummaryCard } from "@/components/NutritionSummaryCard";
 import { FoodEntryItem, closeOpenMealActions } from "@/components/FoodEntryItem";
 import TodayScene, { TodayStageHost } from "@/components/TodayScene";
 import { buddyMood, daySeed, emptyTodayGreeting } from "@/lib/nutritionPresentation.mjs";
-import FoodwrapRefreshScrollView from "@/components/FoodwrapRefreshScrollView";
 import FoodwrapWordmark from "@/components/FoodwrapWordmark";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { createPlanClient, preloadNutritionModels } from "@/lib/chatgpt/planClient";
@@ -33,6 +32,7 @@ import VoiceLogSheet from "@/components/voice/VoiceLogSheet";
 import DayDrop, { dayDropLift, useDayDropMotion } from "@/components/DayDrop";
 import { parseLocalDate } from "@/lib/calendarMonths.mjs";
 import { localDateKey } from "@/lib/nutritionStore.mjs";
+import { LOCAL_OWNER } from "@/lib/owner.mjs";
 
 const AnimatedMealGroupContainer = AnimatedRe.createAnimatedComponent(View);
 
@@ -59,8 +59,6 @@ const MealGroup = memo(function MealGroup({ title, entries, onDelete, springs })
 });
 
 export default function SummaryScreen() {
-  const isFocused = useIsFocused();
-  const { user } = useUser();
   const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
   const floatingBarInset = Platform.OS === "ios" ? tabBarHeight : 0;
@@ -78,13 +76,12 @@ export default function SummaryScreen() {
   const selectedDate = useMemo(() => pickedDate ?? new Date(), [pickedDate, todayKey]); // eslint-disable-line react-hooks/exhaustive-deps -- todayKey rolls today over at midnight.
   const isToday = localDateKey(selectedDate) === todayKey;
 
-  // user.id comes from Clerk
-  const { dateKey, entries, summary, goals, hasData, error: dataError, profileError, refreshFailed, goalsLoading, retryError, retrying, isSessionActive, loadData, deleteEntry, addEntries,
+  const { dateKey, entries, summary, goals, hasData, error: dataError, profileError, goalsLoading, retryError, retrying, isSessionActive, deleteEntry, addEntries,
     profile, dataByDate, historyLoading, historyError, historyPending, retryHistory, loadCalendar } =
     useDailyNutrition(selectedDate);
   // Today's card waits for its goals, so it never rewrites its own numbers when they land a moment later.
   const summaryReady = hasData && !(isToday && goalsLoading);
-  const signUpDate = useMemo(() => profile?.createdAtLocalDate ? parseLocalDate(profile.createdAtLocalDate) : null,
+  const startDate = useMemo(() => profile?.createdAtLocalDate ? parseLocalDate(profile.createdAtLocalDate) : null,
     [profile?.createdAtLocalDate]);
 
   const stageHost = useRef(null);
@@ -142,7 +139,7 @@ export default function SummaryScreen() {
   const scrollRef = useRef(null);
   const scrollToTop = useCallback(() => scrollRef.current?.scrollTo({ y: 0, animated: true }), []);
   useFocusEffect(useCallback(() => () => closeMenu(), [closeMenu]));
-  const prepareMeal = () => { void preloadNutritionModels(user?.id); };
+  const prepareMeal = () => { void preloadNutritionModels(LOCAL_OWNER); };
   const toggleAddMenu = () => {
     if (!fabExpanded) prepareMeal();
     setFabExpanded((value) => !value);
@@ -162,7 +159,7 @@ export default function SummaryScreen() {
     prepareMeal();
     setFabExpanded(false);
     try {
-      if (!await createPlanClient(user.id).connected()) {
+      if (!await createPlanClient(LOCAL_OWNER).connected()) {
         inferenceError(new Error("chatgpt_sign_in_required"), router);
         return;
       }
@@ -179,7 +176,7 @@ export default function SummaryScreen() {
         ]);
         return;
       }
-      const language = await getVoiceLanguage(user.id, { isActive: isSessionActive }).catch(() => undefined);
+      const language = await getVoiceLanguage(LOCAL_OWNER, { isActive: isSessionActive }).catch(() => undefined);
       if (!isSessionActive()) return;
       setVoice({ language, key: Date.now() });
     } catch (error) {
@@ -211,7 +208,7 @@ export default function SummaryScreen() {
   const mood = !entries.length ? (isToday ? "awake" : "asleep")
     : buddyMood({ calories: Number(summary.calories ?? summary.dailyTotals?.calories ?? 0), goal: dayGoals.calorieGoal, loggedMeals: Object.keys(groupedEntries) });
   const emptyGreeting = entries.length ? null : isToday
-    ? emptyTodayGreeting(new Date().getHours(), Boolean(signUpDate) && localDateKey(signUpDate) === dateKey, seed)
+    ? emptyTodayGreeting(new Date().getHours(), Boolean(startDate) && localDateKey(startDate) === dateKey, seed)
     : { title: "No meals logged", text: "Nothing was logged on this day." };
 
   return (
@@ -219,7 +216,9 @@ export default function SummaryScreen() {
       {/* The hill and the seated orange, pinned behind the page (which sits above them at zIndex 1); the scene
           below sends what it shows. */}
       <TodayStageHost ref={stageHost} />
-      <FoodwrapRefreshScrollView scrollRef={scrollRef} active={isFocused} onRefresh={loadData} onScrollBeginDrag={closeOpenMealActions} directionalLockEnabled alwaysBounceHorizontal={false}
+      {/* Always vertical: without it a short day's page doesn't own vertical drags, and a meal row
+          swiped open snaps shut on release. */}
+      <ScrollView ref={scrollRef} onScrollBeginDrag={closeOpenMealActions} directionalLockEnabled alwaysBounceVertical alwaysBounceHorizontal={false}
         style={[styles.scrollView, { zIndex: 1 }]}
         contentContainerStyle={{ flexGrow: 1, paddingBottom: SCROLL_BOTTOM_PADDING }}
         scrollIndicatorInsets={{ bottom: floatingBarInset }}
@@ -228,7 +227,7 @@ export default function SummaryScreen() {
         <View style={[styles.headerContainer, { paddingTop: 8, zIndex: 1 }]}>
           <FoodwrapWordmark style={{ marginBottom: 4 }} />
           <DayDrop motion={calendarMotion} selectedDate={selectedDate} isToday={isToday} onSelectDate={selectDate} onToday={goToToday} onOpen={loadCalendar} onClose={scrollToTop}
-            dataByDate={dataByDate} calorieGoal={goals.calorieGoal} signUpDate={signUpDate} historyLoading={historyLoading}
+            dataByDate={dataByDate} calorieGoal={goals.calorieGoal} startDate={startDate} historyLoading={historyLoading}
             historyError={historyError} historyPending={historyPending} onRetryHistory={retryHistory} />
         </View>
 
@@ -238,18 +237,18 @@ export default function SummaryScreen() {
           {/* A past day without meals has no saved goal to measure against. */}
           {!summaryReady ? <NutritionSummarySkeleton loading={!dataError} />
             : (isToday || entries.length > 0) && <NutritionSummaryCard summary={summary} goals={isToday ? goals : summary.goals || goals} />}
-          {(dataError || profileError || refreshFailed) && <Pressable onPress={() => (dataError || profileError ? retryError() : loadData()).catch(() => {})} disabled={retrying}
+          {(dataError || profileError) && <Pressable onPress={() => retryError().catch(() => {})} disabled={retrying}
             accessibilityRole="button" accessibilityState={{ disabled: retrying, busy: retrying }} style={{ paddingVertical: 10 }}>
             <Text style={styles.macrosText} accessibilityLiveRegion="polite">{retrying ? "Retrying…"
               : dataError ? "Meals couldn’t load. Tap to retry."
-                : profileError ? "Your nutrition goals couldn’t load. Tap to retry." : "Couldn’t refresh. Tap to retry."}</Text>
+                : "Your nutrition goals couldn’t load. Tap to retry."}</Text>
           </Pressable>}
         </View>
 
         {/* Keyed by day so switching dates swaps meals without spring layout animations.
             Kept unflattened so the meal springs measure from here, not from the page the calendar moves. */}
         <View key={dateKey} collapsable={false} style={styles.sceneContainer}>
-          {hasData && <TodayScene stageHost={stageHost} hasMeals={entries.length > 0} isToday={isToday} printSeed={seed} greeting={emptyGreeting} bottomInset={SCROLL_BOTTOM_PADDING}
+          {hasData && <TodayScene stageHost={stageHost} hasMeals={entries.length > 0} isToday={isToday} greeting={emptyGreeting} bottomInset={SCROLL_BOTTOM_PADDING}
             mood={mood}>
             {mealOrder.map((meal) => (
               <MealGroup
@@ -263,7 +262,7 @@ export default function SummaryScreen() {
           </TodayScene>}
         </View>
         </AnimatedRe.View>
-      </FoodwrapRefreshScrollView>
+      </ScrollView>
 
       {/* Meals always log to today. Above the page, which sits above the pinned scene. */}
       {isToday && <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { zIndex: 3 }]}><AddMealMenu bottomInset={floatingBarInset} expanded={fabExpanded} onToggle={toggleAddMenu}

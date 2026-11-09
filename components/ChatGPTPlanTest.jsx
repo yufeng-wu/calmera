@@ -7,9 +7,8 @@ import { styles as createStyles } from "@/assets/styles/create.styles";
 import { cancelPendingAuthorization, checkDevelopmentCallback, createPlanClient, isChatGPTAvailable, pickMealPhoto } from "@/lib/chatgpt/planClient";
 import { friendlyError } from "@/lib/chatgpt/protocol.mjs";
 
-// Isolated inference probe: no Clerk session, backend import or meal-save action.
-// The regular app exposes it only through its development route. The dedicated
-// phone-test entry bundles it separately, without changing the main app's login.
+// Isolated inference probe: it never saves a meal. Only the dedicated phone-test
+// entry (phone-test-entry.jsx) bundles it; the regular app doesn't include it.
 export default function ChatGPTPlanTest({ onBack, standalone = false }) {
   const client = useMemo(() => createPlanClient(standalone ? "calmera_phone_probe" : "calmera_development_probe"), [standalone]);
   const [connected, setConnected] = useState(false);

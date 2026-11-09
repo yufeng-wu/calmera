@@ -257,13 +257,16 @@ function logFixture(inputMode = "text") {
   const requests = [], writes = [], alerts = [], errors = [];
   const service = { analyze: async () => [food], estimate: async () => ({ calories: 180, protein: 4, carbs: 39, fat: 1 }) };
   const navigation = { setOptions() {}, dispatch() {} };
+  // Saves go through the data module; this one only exists to be handed on.
+  const data = { createMeals: () => assert.fail("the screen saves through saveMealReview") };
   const Log = load(compiledLog, {
     react: runtime.react,
     "react-native": { ...Object.fromEntries(["ActivityIndicator", "Image", "InputAccessoryView", "Pressable", "Text", "TextInput", "View"].map(key => [key, key])),
       Alert: { alert: (...args) => alerts.push(args) }, Linking: {}, Platform: { OS: "ios" }, Keyboard: { dismiss() {} }, StyleSheet: { create: value => value },
       useWindowDimensions: () => ({ fontScale: 1, width: 402, height: 874 }) },
     "react-native-reanimated": reanimatedStub,
-    "@clerk/clerk-expo": { useAuth: () => ({ userId: owner, getToken: async () => "synthetic-token" }) },
+    // The screen reads the owner on every render; the getter lets a test change it.
+    "@/lib/owner.mjs": { get LOCAL_OWNER() { return owner; } },
     "expo-router": { useLocalSearchParams: () => ({}), useRouter: () => ({}) },
     "@react-navigation/native": { useNavigation: () => navigation, useFocusEffect: callback => { focus = callback; }, usePreventRemove() {} },
     "expo-constants": { expoConfig: { extra: {} } },
@@ -274,16 +277,15 @@ function logFixture(inputMode = "text") {
     "@/components/GlassForm": Object.fromEntries(["FormScreen", "FormScrollView", "FormHeader", "FormCard", "GlassButton"].map(key => [key, key])),
     "@/lib/chatgpt/phoneTestFixtures.mjs": { phoneTestNutritionLabel: "synthetic-photo" },
     "@/constants/formTheme": { FORM_COLORS: {} }, "@/constants/typography": { TYPOGRAPHY: {} },
-    "@/constants/api": { FOOD_ENTRIES_API_URL: "https://test.invalid/meals" },
+    "@/lib/store": { useDataStore: () => data },
     "@/context/EntriesRefreshContext": { useRefreshSignal: () => ({ store: { belongsTo: id => id === owner }, setShouldRefresh() {} }) },
     "@/lib/chatgpt/planClient": { pickMealPhoto: async () => ({ dataURL: "synthetic-photo" }) },
     "@/lib/chatgpt/nutrition": { nutritionClient: async () => ({ model: "synthetic", client: { estimate: options => { requests.push(options); return service.analyze(options); } } }),
       estimateMacros: (...args) => service.estimate(...args), inferenceError: error => errors.push(error) },
     "@/components/MealReview": "MealReview",
     "@/context/FoodIconsContext": { useFoodIcons: () => ({ rememberIcons: async () => {} }) },
-    "@/lib/mealTimeSettings": { mealTimePreferences: { load: async () => ({ Breakfast: 300, Lunch: 660, Dinner: 1020, Snack: 1320 }) } },
-    "@/lib/mealTimes.mjs": { mealForLocalTime: () => "Lunch" },
-    "@/lib/mealReview.mjs": { ...reviewModel, saveMealReview: async (draft, id, options) => { writes.push({ draft, id, options }); return draft.entries.map((entry, index) => ({ ...entry, id: index + 1 })); } },
+    "@/lib/mealReview.mjs": { ...reviewModel, saveMealReview: async (draft, id, store, options) => {
+      assert.equal(store, data); writes.push({ draft, id, options }); return draft.entries.map((entry, index) => ({ ...entry, id: index + 1 })); } },
     "@/lib/confirmedMealSave.mjs": { createConfirmedMealSave },
     "@/lib/utils": { getLocalTimeWithOffset: () => "2026-10-22T12:00:00-04:00" },
   });
@@ -306,7 +308,8 @@ test("a typed meal is analyzed as text, produces structured foods, and never sav
   tree = fixture.render(); await button(tree, "Analyze Meal").props.onPress();
   const request = fixture.requests[0];
   assert.equal(request.text, "Apple"); assert.equal(request.image, undefined);
-  assert.equal(request.defaultMealType, "Lunch");
+  // The meal is picked when saving, so analysis asks for no particular one.
+  assert.equal(request.defaultMealType, undefined);
   const review = fixture.render(); assert.equal(review.type, "MealReview");
   assert.equal(review.props.review.entries.length, 2);
   assert.equal(fixture.writes.length, 0);

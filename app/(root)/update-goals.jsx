@@ -15,20 +15,21 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import Constants from "expo-constants";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { USERS_API_URL } from "@/constants/api";
 import * as Haptics from "expo-haptics";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { NUTRIENT_COLORS } from "@/constants/colors";
 import { SETTINGS } from "@/constants/settingsTheme";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { profileGoals } from "@/hooks/useNutritionData";
-import { useAuth } from "@clerk/clerk-expo";
 import { FormScreen, FormScrollView, FormHeader, GlassButton } from "@/components/GlassForm";
 import GoalSliderRow from "@/components/GoalSliderRow";
 import SettingsRow from "@/components/SettingsRow";
 import { SettingsSection, settingsStyles } from "@/components/SettingsSection";
 import { goalAllowed, goalInputValue, goalSaveValue } from "@/lib/goalSlider.mjs";
-import { fetchGoalProfile, saveGoalProfile, goalSaveErrorMessage } from "@/lib/goalProfile.mjs";
+import { LOCAL_OWNER } from "@/lib/owner.mjs";
+import { useDataStore } from "@/lib/store";
+import { createMemoryStorage } from "@/lib/store/memoryStorage.mjs";
+import { createPhoneStore } from "@/lib/store/phone.mjs";
 import useFormTaskScope from "@/hooks/useFormTaskScope";
 import usePageExit from "@/hooks/usePageExit";
 
@@ -56,15 +57,12 @@ export default function UpdateGoals() {
     && ["ui-goals", "ui-goals-load", "ui-goals-error", "ui-goals-rounded", "ui-goals-unset", "ui-goals-save", "ui-goals-save-error", "ui-goals-slow"].includes(params.calmeraFixture);
   const fixtureMode = isFixture ? params.calmeraFixture : null;
   const { store, setShouldRefresh, setShouldRefreshGoals } = useRefreshSignal();
-  const { getToken, userId, isLoaded } = useAuth();
-  // Clerk Expo 2.12 returns a new getToken wrapper every render. It is a
-  // credential accessor, not a trigger to reload and overwrite the draft.
-  const tokenRef = useRef(getToken);
-  tokenRef.current = getToken;
+  const userId = LOCAL_OWNER, isLoaded = true;
+  const data = useDataStore();
   const ownerRef = useRef(userId);
   ownerRef.current = userId;
   // Settings already holds these goals, so the page opens with them at once. It reads
-  // the server only when they aren't loaded yet, or on Try again.
+  // the saved goals only when they aren't loaded yet, or on Try again.
   const [cached] = useState(() => {
     const { profile } = store.getSnapshot();
     return !isFixture && profile && userId && store.belongsTo(userId) ? { owner: userId, goals: goalInputs(profileGoals(profile)) } : null;
@@ -79,6 +77,9 @@ export default function UpdateGoals() {
   const [loadAttempt, setLoadAttempt] = useState(0);
   const loadCount = useRef(0);
   const saveCount = useRef(0);
+  // The save checks run the real data module against synthetic storage; the failure
+  // check's first write fails.
+  const fixtureStore = useRef(null);
   const savePending = useRef(null);
   const scope = useFormTaskScope(isFixture ? `calmera-goals-fixture:${fixtureMode}` : userId, () => {
     savePending.current = null;
@@ -143,10 +144,10 @@ export default function UpdateGoals() {
     setLoadError(false);
     const load = async () => {
       try {
-        let data;
+        let loaded;
         if (fixtureMode) {
           // Exercise the real loading lifecycle without token/network access.
-          data = await new Promise((resolve, reject) => {
+          loaded = await new Promise((resolve, reject) => {
             fixtureTimer = setTimeout(() => {
               if (fixtureMode === "ui-goals-error" && loadAttempt === 0) reject(new Error("synthetic_load_failure"));
               else resolve(fixtureMode === "ui-goals-rounded" ? { ...FRACTIONAL_FIXTURE_GOALS }
@@ -154,23 +155,22 @@ export default function UpdateGoals() {
             }, fixtureMode === "ui-goals-slow" ? 10000 : 200);
           });
         } else {
-          data = await fetchGoalProfile({ getToken: () => tokenRef.current(),
-            url: `${USERS_API_URL}/get-user`, signal: controller.signal,
+          loaded = await data.readGoals({ signal: controller.signal,
             isActive: () => active && ownerRef.current === userId });
         }
         if (active && (fixtureMode || ownerRef.current === userId)) {
-          setGoals(goalInputs(data));
-          setSaved(goalInputs(data));
+          setGoals(goalInputs(loaded));
+          setSaved(goalInputs(loaded));
         }
-      } catch (error) {
-        if (active && (fixtureMode || ownerRef.current === userId)) setLoadError(error.message === "goals_request_timeout" ? "timeout" : "failed");
+      } catch {
+        if (active && (fixtureMode || ownerRef.current === userId)) setLoadError(true);
       } finally {
         if (active && (fixtureMode || ownerRef.current === userId)) setIsFetching(false);
       }
     };
     load();
     return () => { active = false; controller.abort(); clearTimeout(fixtureTimer); };
-  }, [fixtureMode, userId, isLoaded, loadAttempt, cached]);
+  }, [data, fixtureMode, userId, isLoaded, loadAttempt, cached]);
 
   const handleChange = (field, value) => {
     const sanitized = goalInputValue(value);
@@ -206,26 +206,18 @@ export default function UpdateGoals() {
       }
     };
     try {
-      const body = {
+      const next = {
         calorieGoal: goalSaveValue(goals.calorieGoal),
         proteinGoal: goalSaveValue(goals.proteinGoal),
         carbsGoal: goalSaveValue(goals.carbsGoal),
         fatGoal: goalSaveValue(goals.fatGoal),
-        localDate: new Date().toLocaleDateString("en-CA"),
       };
-      const options = { getToken: () => tokenRef.current(), url: `${USERS_API_URL}/update-user`,
-        body, signal: task.signal, isActive: () => task.isCurrent() && (isFixture || currentOwner()) };
-      if (exerciseSave) {
-        options.url = "https://calmera.invalid/users/update-user";
-        options.getToken = async () => "synthetic-token";
-        options.fetchImpl = async () => {
-          const attempt = ++saveCount.current;
-          await new Promise(resolve => setTimeout(resolve, 300));
-          const rejected = fixtureMode === "ui-goals-save-error" && attempt === 1;
-          return { ok: !rejected, status: rejected ? 400 : 200 };
-        };
-      }
-      await saveGoalProfile(options);
+      const options = { startDate: new Date().toLocaleDateString("en-CA"),
+        signal: task.signal, isActive: () => task.isCurrent() && (isFixture || currentOwner()) };
+      if (exerciseSave) saveCount.current += 1;
+      const target = exerciseSave ? fixtureStore.current ??= createPhoneStore({ storage: createMemoryStorage({},
+        { failWrites: fixtureMode === "ui-goals-save-error" ? 1 : 0, delayMs: 100 }) }) : data;
+      await target.saveGoals(next, options);
       refreshSavedGoals();
       if (!task.isCurrent() || (!isFixture && !currentOwner())) return;
       // Settings and Today show the new numbers as soon as this page closes, so a tap of
@@ -233,11 +225,8 @@ export default function UpdateGoals() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       leaving.current = true;
       leaveEditor();
-    } catch (error) {
-      if (error.mayHaveSaved) refreshSavedGoals();
-      if (task.isCurrent() && (isFixture || currentOwner())) {
-        Alert.alert(error.mayHaveSaved ? "Save not confirmed" : "Couldn’t save goals", goalSaveErrorMessage(error));
-      }
+    } catch {
+      if (task.isCurrent() && (isFixture || currentOwner())) Alert.alert("Couldn’t save goals", "Try again in a moment.");
     } finally {
       task.finish();
       if (savePending.current === task) {
@@ -276,9 +265,7 @@ export default function UpdateGoals() {
           ) : loadError ? (
             <View style={styles.errorFeedback} accessibilityLiveRegion="polite">
               <Text style={[styles.helpTitle, styles.centeredText]}>Couldn’t load your goals</Text>
-              <Text style={[styles.description, styles.centeredText]}>{loadError === "timeout"
-                ? "That took too long. Try again."
-                : "Check your connection and try again."}</Text>
+              <Text style={[styles.description, styles.centeredText]}>Try again in a moment.</Text>
               <GlassButton title="Try again" symbol="arrow.clockwise"
                 onPress={() => setLoadAttempt(value => value + 1)} style={{ alignSelf: "stretch" }} />
             </View>
@@ -303,7 +290,7 @@ export default function UpdateGoals() {
         )}
         {fixtureSaved && (
           <Text style={styles.fixtureStatus} accessibilityLiveRegion="polite">
-            Test goals updated locally. Your account was not changed.
+            Test goals updated locally. Your saved goals were not changed.
           </Text>
         )}
         <SettingsSection label="Not sure?">

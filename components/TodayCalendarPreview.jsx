@@ -40,7 +40,7 @@ export default function TodayCalendarPreview({ calmeraPreviewState = "ready" }) 
   const [failed, setFailed] = useState(calmeraPreviewState === "history-error");
   const [pending, setPending] = useState(false);
   const today = useMemo(() => new Date(), []);
-  const signUpDate = useMemo(() => new Date(today.getFullYear(), today.getMonth() - 2, 1), [today]);
+  const startDate = useMemo(() => new Date(today.getFullYear(), today.getMonth() - 2, 1), [today]);
   const loading = calmeraPreviewState === "cold-loading";
   const dataByDate = useMemo(() => loading || failed ? {} : syntheticDays(today), [loading, failed, today]);
   const selectedDate = pickedDate ?? today;
@@ -56,7 +56,7 @@ export default function TodayCalendarPreview({ calmeraPreviewState = "ready" }) 
     <View style={[styles.headerContainer, { paddingTop: 12 }]}>
       <FoodwrapWordmark style={{ marginBottom: 16 }} />
       <DayDrop selectedDate={selectedDate} isToday={isToday} onSelectDate={setPickedDate} onToday={() => setPickedDate(null)}
-        dataByDate={dataByDate} calorieGoal={CURRENT_GOALS.calorieGoal} signUpDate={signUpDate} historyLoading={loading}
+        dataByDate={dataByDate} calorieGoal={CURRENT_GOALS.calorieGoal} startDate={startDate} historyLoading={loading}
         historyError={failed ? "Synthetic failure" : null} historyPending={pending} onRetryHistory={retry} />
     </View>
     <View style={styles.headerContainer}>

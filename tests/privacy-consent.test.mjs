@@ -1,42 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ownsKey } from "../lib/accountDeletion.mjs";
-import {
-  CONSENT_METADATA_KEY, cacheConsent, consentRecord, consentStatus, consentStorageKey, coversVersion,
-  readLocalConsent, readRemoteConsent, saveConsent, syncConsent,
-} from "../lib/privacyConsent.mjs";
+import { ownsKey } from "../lib/eraseData.mjs";
+import { consentRecord, consentStatus, consentStorageKey, coversVersion, readConsent, saveConsent } from "../lib/privacyConsent.mjs";
 import {
   CONSENT_COPY, HEALTH_DATA_POLICY, PRIVACY_DOCS, PRIVACY_POLICY, PRIVACY_POLICY_VERSION, placeholdersRemaining,
 } from "../lib/privacyPolicy.mjs";
 import { escapeHTML, renderPolicyPage } from "../scripts/build-privacy-site.mjs";
+import { createMemoryStorage } from "../lib/store/memoryStorage.mjs";
 
 const NOW = new Date("2026-11-08T15:00:00.000Z");
-const memoryStorage = (seed = {}, { failWrites = false } = {}) => {
-  const data = new Map(Object.entries(seed));
-  return {
-    data,
-    getItem: async (key) => data.has(key) ? data.get(key) : null,
-    setItem: async (key, value) => { if (failWrites) throw new Error("disk_full"); data.set(key, value); },
-  };
-};
-const clerkUser = (unsafeMetadata = {}, { fail = false, hang = false } = {}) => {
-  const user = {
-    unsafeMetadata, updates: [],
-    update: async (params) => {
-      user.updates.push(params);
-      if (hang) return new Promise(() => {});
-      if (fail) throw new Error("offline");
-      user.unsafeMetadata = params.unsafeMetadata;
-      return user;
-    },
-  };
-  return user;
-};
 const older = { version: "2025-01-01", acceptedAt: "2025-01-01T00:00:00.000Z", ai: "openai" };
 
 test("a record names the current version, the time and OpenAI", () => {
   assert.deepEqual(consentRecord(NOW), { version: PRIVACY_POLICY_VERSION, acceptedAt: NOW.toISOString(), ai: "openai" });
   assert.match(PRIVACY_POLICY_VERSION, /^\d{4}-\d{2}-\d{2}$/);
+  assert.ok(PRIVACY_POLICY_VERSION > "2026-11-08", "the phone-only policy asks everyone again");
 });
 
 test("only a record for this version or later opens the app", () => {
@@ -48,72 +26,32 @@ test("only a record for this version or later opens the app", () => {
   }
 });
 
-test("status: nothing anywhere asks for a first agreement", () => {
-  assert.deepEqual(consentStatus({ local: null, remote: null }), { status: "needed", record: null, needsSync: false, needsCache: false });
+test("status: nothing asks for a first agreement, an older one asks again as an update", () => {
+  assert.equal(consentStatus(null), "needed");
+  assert.equal(consentStatus(older), "updated");
+  assert.equal(consentStatus(consentRecord(NOW)), "accepted");
 });
 
-test("status: an older agreement asks again as an update", () => {
-  assert.equal(consentStatus({ local: older, remote: null }).status, "updated");
-  assert.equal(consentStatus({ local: null, remote: older }).status, "updated");
+test("the agreement is saved on this iPhone and read back", async () => {
+  const storage = createMemoryStorage();
+  assert.deepEqual(await saveConsent({ storage, owner: "local", now: NOW }), consentRecord(NOW));
+  assert.deepEqual(JSON.parse(storage.data.get(consentStorageKey("local"))), consentRecord(NOW));
+  assert.deepEqual(await readConsent(storage, "local"), consentRecord(NOW));
 });
 
-test("status: the phone's copy opens at once and catches Clerk up", () => {
-  const local = consentRecord(NOW);
-  assert.deepEqual(consentStatus({ local, remote: null }), { status: "accepted", record: local, needsSync: true, needsCache: false });
-  assert.equal(consentStatus({ local, remote: local }).needsSync, false);
+test("reading tolerates missing, broken and unreadable values", async () => {
+  assert.equal(await readConsent(createMemoryStorage({ [consentStorageKey("local")]: "{not json" }), "local"), null);
+  assert.equal(await readConsent(createMemoryStorage(), "local"), null);
+  assert.equal(await readConsent({ getItem: async () => { throw new Error("locked"); } }, "local"), null);
 });
 
-test("status: Clerk's copy opens a new phone and is cached there", () => {
-  const remote = consentRecord(NOW);
-  assert.deepEqual(consentStatus({ local: older, remote }), { status: "accepted", record: remote, needsSync: false, needsCache: true });
+test("an agreement that can't be saved is an error, so the sheet stays open", async () => {
+  await assert.rejects(saveConsent({ storage: createMemoryStorage({}, { failWrites: true }), owner: "local", now: NOW }));
 });
 
-test("reading tolerates missing, broken and foreign values", async () => {
-  assert.equal(readRemoteConsent(undefined), null);
-  assert.equal(readRemoteConsent({ [CONSENT_METADATA_KEY]: "yes" }), null);
-  assert.deepEqual(readRemoteConsent({ [CONSENT_METADATA_KEY]: older }), older);
-  const storage = memoryStorage({ [consentStorageKey("user_a")]: "{not json" });
-  assert.equal(await readLocalConsent(storage, "user_a"), null);
-  assert.equal(await readLocalConsent(memoryStorage(), "user_a"), null);
-  assert.equal(await readLocalConsent({ getItem: async () => { throw new Error("locked"); } }, "user_a"), null);
-});
-
-test("saving writes the phone first, then Clerk, keeping other metadata", async () => {
-  const storage = memoryStorage();
-  const user = clerkUser({ theme: "grove" });
-  const result = await saveConsent({ storage, user, userId: "user_a", now: NOW });
-  assert.deepEqual(result, { record: consentRecord(NOW), cached: true, synced: true });
-  assert.deepEqual(JSON.parse(storage.data.get(consentStorageKey("user_a"))), consentRecord(NOW));
-  assert.deepEqual(user.unsafeMetadata, { theme: "grove", [CONSENT_METADATA_KEY]: consentRecord(NOW) });
-});
-
-test("saving offline still opens the app; the next launch syncs", async () => {
-  const storage = memoryStorage();
-  const user = clerkUser({}, { fail: true });
-  const result = await saveConsent({ storage, user, userId: "user_a", now: NOW });
-  assert.equal(result.cached, true);
-  assert.equal(result.synced, false);
-  const local = await readLocalConsent(storage, "user_a");
-  assert.equal(consentStatus({ local, remote: readRemoteConsent(user.unsafeMetadata) }).needsSync, true);
-});
-
-test("a stalled Clerk update gives up instead of holding the button", async () => {
-  const started = Date.now();
-  assert.equal(await syncConsent(clerkUser({}, { hang: true }), consentRecord(NOW), 30), false);
-  assert.ok(Date.now() - started < 1000);
-});
-
-test("saving fails only when neither copy can be written", async () => {
-  await assert.rejects(saveConsent({ storage: memoryStorage({}, { failWrites: true }), user: clerkUser({}, { fail: true }), userId: "user_a", now: NOW }),
-    /consent_not_saved/);
-  const onlyClerk = await saveConsent({ storage: memoryStorage({}, { failWrites: true }), user: clerkUser(), userId: "user_a", now: NOW });
-  assert.equal(onlyClerk.synced, true);
-  assert.equal(await cacheConsent(memoryStorage({}, { failWrites: true }), "user_a", consentRecord(NOW)), false);
-});
-
-test("deleting an account also forgets its consent on the phone", () => {
-  assert.equal(ownsKey(consentStorageKey("user_a"), "user_a"), true);
-  assert.equal(ownsKey(consentStorageKey("user_ab"), "user_a"), false);
+test("erasing all data also forgets the agreement", () => {
+  assert.equal(ownsKey(consentStorageKey("local"), "local"), true);
+  assert.equal(ownsKey(consentStorageKey("localx"), "local"), false);
 });
 
 const allText = (doc) => [...doc.intro, ...doc.sections.flatMap((s) => [{ type: "p", text: s.heading }, ...s.blocks])]
@@ -124,9 +62,23 @@ test("the policy names OpenAI and each kind of data it receives", () => {
   for (const phrase of ["OpenAI", "text you type", "Photos you choose", "what you say", "Voice recordings", "ChatGPT account"]) {
     assert.match(text, new RegExp(phrase), phrase);
   }
-  for (const provider of ["Clerk", "Neon", "Render", "Upstash"]) assert.match(text, new RegExp(provider));
   assert.match(text, /don’t sell/);
-  assert.match(text, /Delete account/);
+});
+
+test("the policy describes data kept on the iPhone, with no account or calmera servers", () => {
+  for (const doc of Object.values(PRIVACY_DOCS)) {
+    const text = allText(doc);
+    for (const gone of ["Clerk", "Neon", "Render", "Upstash", "Delete account", "sign in on", "your email", "our servers", "our database"]) {
+      assert.doesNotMatch(text, new RegExp(gone, "i"), `${doc.id}: ${gone}`);
+    }
+  }
+  const text = allText(PRIVACY_POLICY);
+  assert.match(text, /on your iPhone/);
+  assert.match(text, /no calmera account/);
+  assert.match(text, /Erase all data/);
+  assert.match(text, /iCloud Backup/);
+  assert.match(CONSENT_COPY.data.text, /stay on this iPhone/);
+  assert.doesNotMatch(JSON.stringify(CONSENT_COPY), /Sign Out|sign in|connection/i);
 });
 
 test("the consent sheet names OpenAI, the three kinds of data and the choice", () => {

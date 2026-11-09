@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AppState } from "react-native";
-import { useAuth } from "@clerk/clerk-expo";
 import { useIsFocused } from "@react-navigation/native";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
-import { FOOD_ENTRIES_API_URL, USERS_API_URL } from "@/constants/api";
-import { localDateKey } from "@/lib/nutritionStore.mjs";
+import { dataLoader, localDateKey } from "@/lib/nutritionStore.mjs";
 import { nutritionViewState, retryNutritionError } from "@/lib/nutritionPresentation.mjs";
-import { readNutrition } from "@/lib/nutritionRequest.mjs";
 import { completeNutritionRefresh } from "@/lib/completeNutritionRefresh.mjs";
 import { removeStoredNutritionEntry } from "@/lib/nutritionDelete.mjs";
+import { LOCAL_OWNER } from "@/lib/owner.mjs";
+import { useDataStore } from "@/lib/store";
 
 // History is the whole meal log, so it waits until Today has landed and the page has settled.
 const HISTORY_DELAY_MS = 2000;
@@ -22,25 +21,17 @@ export function profileGoals(profile) {
 }
 
 export function useNutritionData(date = new Date(), history = false) {
-  const { userId, getToken, isLoaded } = useAuth();
-  const tokenRef = useRef(getToken);
-  tokenRef.current = getToken;
+  const userId = LOCAL_OWNER, isLoaded = true;
+  const data = useDataStore();
   const ownerRef = useRef(userId);
   ownerRef.current = userId;
   const { store, entriesRevision, goalsRevision, setShouldRefresh } = useRefreshSignal();
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
   const focused = useIsFocused();
   const [wakeVersion, setWakeVersion] = useState(0);
-  const [pullFailed, setPullFailed] = useState(false);
   const dateKey = localDateKey(date);
   const isSessionActive = useCallback(() => ownerRef.current === userId && store.belongsTo(userId), [store, userId]);
-  const loader = useCallback(({ resource, date: day, signal }) => {
-    const url = resource === "profile" ? `${USERS_API_URL}/get-user`
-      : resource === "history" ? `${FOOD_ENTRIES_API_URL}/summaries`
-        : `${FOOD_ENTRIES_API_URL}/summary-by-date/${day}`;
-    return readNutrition({ getToken: () => tokenRef.current(), url, signal,
-      isActive: () => ownerRef.current === userId && store.belongsTo(userId) });
-  }, [store, userId]);
+  const loader = useMemo(() => dataLoader(data, isSessionActive), [data, isSessionActive]);
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "active") setWakeVersion((value) => value + 1);
@@ -60,29 +51,26 @@ export function useNutritionData(date = new Date(), history = false) {
     }).catch(() => {});
     return () => { active = false; clearTimeout(prefetch); };
   }, [store, loader, focused, isLoaded, userId, dateKey, history, entriesRevision, goalsRevision, wakeVersion]);
+  // Reads the screen's meals and goals again; the retry for a read that failed.
   const refresh = useCallback(() => {
-    setPullFailed(false);
     const data = history ? store.loadHistory(loader, { force: true }) : store.loadDay(dateKey, loader, { force: true });
-    return completeNutritionRefresh([data, store.loadProfile(loader, { force: true })])
-      .catch((error) => { setPullFailed(true); throw error; });
+    return completeNutritionRefresh([data, store.loadProfile(loader, { force: true })]);
   }, [store, loader, history, dateKey]);
   const refreshProfile = useCallback(() => store.loadProfile(loader, { force: true }), [store, loader]);
   const deleteEntry = useCallback((id) => removeStoredNutritionEntry({
     store, ownerKey: userId, dateKey, id,
-    getToken: () => tokenRef.current(), url: `${FOOD_ENTRIES_API_URL}/${id}`,
-    isActive: () => ownerRef.current === userId && store.belongsTo(userId),
+    deleteMeal: (options) => data.deleteMeal(id, options),
+    isActive: isSessionActive,
     onSettled: () => {
-      if (ownerRef.current === userId && store.belongsTo(userId)) setShouldRefresh(true);
+      if (isSessionActive()) setShouldRefresh(true);
     },
-  }), [store, dateKey, userId, setShouldRefresh]);
+  }), [store, data, dateKey, userId, isSessionActive, setShouldRefresh]);
   const goals = useMemo(() => profileGoals(snapshot.profile), [snapshot.profile]);
   const presentation = nutritionViewState(snapshot, dateKey, history);
   const retryError = useCallback(() => retryNutritionError(
     { error: presentation.error, profileError: presentation.profileError }, { refresh, refreshProfile }),
   [presentation.error, presentation.profileError, refresh, refreshProfile]);
-  // A pull is the one refresh someone asked for, so its failure shows over loaded data until a read succeeds.
-  const refreshFailed = pullFailed && Boolean(snapshot.errors[history ? "history" : `day:${dateKey}`] || snapshot.errors.profile);
-  return { store, dateKey, ...presentation, refreshFailed, goals, profile: snapshot.profile, dataByDate: snapshot.days,
+  return { store, dateKey, ...presentation, goals, profile: snapshot.profile, dataByDate: snapshot.days,
     historyPending: Boolean(snapshot.pending.history), profilePending: Boolean(snapshot.pending.profile),
     refresh, refreshProfile, retryError, deleteEntry, isSessionActive, snapshot, loader };
 }

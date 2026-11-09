@@ -1,24 +1,23 @@
 import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
-import { useAuth } from "@clerk/clerk-expo";
 import { useFocusEffect } from "@react-navigation/native";
-import { USERS_API_URL } from "@/constants/api";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { profileGoals } from "@/hooks/useNutritionData";
-import { readNutrition } from "@/lib/nutritionRequest.mjs";
+import { dataLoader } from "@/lib/nutritionStore.mjs";
+import { LOCAL_OWNER } from "@/lib/owner.mjs";
+import { useDataStore } from "@/lib/store";
 
-// The signed-in profile and goals from the shared store, read again on focus once the
+// The profile and goals from the shared store, read again on focus once the
 // store's copy is stale or a goals save has invalidated it (coming back from that page
 // is a focus). Nothing else is loaded.
 export default function useProfile() {
-  const { userId, getToken, isLoaded } = useAuth();
-  const tokenRef = useRef(getToken);
-  tokenRef.current = getToken;
+  const userId = LOCAL_OWNER, isLoaded = true;
+  const data = useDataStore();
   const ownerRef = useRef(userId);
   ownerRef.current = userId;
   const { store } = useRefreshSignal();
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
-  const loader = useCallback(({ signal }) => readNutrition({ getToken: () => tokenRef.current(), url: `${USERS_API_URL}/get-user`, signal,
-    isActive: () => ownerRef.current === userId && store.belongsTo(userId) }), [store, userId]);
+  const loader = useMemo(() => dataLoader(data, () => ownerRef.current === userId && store.belongsTo(userId)),
+    [data, store, userId]);
   useFocusEffect(useCallback(() => {
     if (!isLoaded || !userId || !store.belongsTo(userId)) return;
     store.loadProfile(loader).catch(() => {});

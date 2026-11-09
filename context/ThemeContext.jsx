@@ -1,15 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useAuth } from "@clerk/clerk-expo";
 import { DEFAULT_THEME_ID, isThemeId, themeForId } from "@/constants/appearance.mjs";
+import { useAppReset } from "@/context/AppResetContext";
 import { createThemePreferences } from "@/lib/themePreferences.mjs";
+import { LOCAL_OWNER } from "@/lib/owner.mjs";
 
 const preferences = createThemePreferences(AsyncStorage);
 const ThemeContext = createContext(null);
 
 export function ThemeProvider({ children, review = false }) {
-  const { userId, isLoaded } = useAuth();
-  const key = review ? "calmera.theme.review.v1" : isLoaded ? `calmera.theme.v1:${userId || "guest"}` : null;
+  // Erase all data clears the saved theme, so a reset reads it again.
+  const { epoch } = useAppReset();
+  const key = review ? "calmera.theme.review.v1" : `calmera.theme.v1:${LOCAL_OWNER}`;
   const [state, setState] = useState({ key: null, id: DEFAULT_THEME_ID, ready: false, saving: false, error: null });
   const [retry, setRetry] = useState(0);
   const generation = useRef(0);
@@ -23,7 +25,7 @@ export function ThemeProvider({ children, review = false }) {
       if (generation.current === ticket) setState({ key, id: DEFAULT_THEME_ID, ready: true, saving: false, error: "load" });
     });
     return () => { if (generation.current === ticket) generation.current += 1; };
-  }, [key, retry]);
+  }, [key, retry, epoch]);
   const selectTheme = useCallback(async id => {
     if (!key || !isThemeId(id)) throw new Error("invalid_theme");
     const ticket = generation.current;

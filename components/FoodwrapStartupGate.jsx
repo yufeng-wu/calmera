@@ -1,22 +1,19 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { useAuth } from "@clerk/clerk-expo";
-import { AccountLoadingScreen } from "@/components/AccountProfileGate";
-import { todayCache, useRefreshSignal } from "@/context/EntriesRefreshContext";
-import { FOOD_ENTRIES_API_URL, USERS_API_URL } from "@/constants/api";
-import { localDateKey } from "@/lib/nutritionStore.mjs";
-import { readNutrition } from "@/lib/nutritionRequest.mjs";
+import AppLoadingScreen from "@/components/AppLoadingScreen";
+import { useRefreshSignal } from "@/context/EntriesRefreshContext";
+import { dataLoader, localDateKey } from "@/lib/nutritionStore.mjs";
+import { LOCAL_OWNER } from "@/lib/owner.mjs";
+import { useDataStore } from "@/lib/store";
 
-// With nothing saved, Today gets this long to arrive, so a good connection opens on full numbers.
+// Today lives on this iPhone, so it's usually ready long before this gives up waiting.
 const READY_WAIT_MS = 1000;
 
-// Holds launch only until there is something real to show: a saved Today, a fresh one, or the wait above.
+// Holds launch only until there is something real to show: Today and the goals, or the wait above.
 // Returning to the app never waits, because the data already in memory is still good to show.
-export default function FoodwrapStartupGate({ children, disabled = false, topInset = 0 }) {
-  const { userId, getToken } = useAuth();
+export default function FoodwrapStartupGate({ children, disabled = false }) {
   const { store } = useRefreshSignal();
-  const token = useRef(getToken);
-  token.current = getToken;
+  const data = useDataStore();
   const [preparing, setPreparing] = useState(!disabled);
 
   useEffect(() => {
@@ -24,24 +21,11 @@ export default function FoodwrapStartupGate({ children, disabled = false, topIns
     let mounted = true;
     const reveal = () => { if (mounted) setPreparing(false); };
     const timer = setTimeout(reveal, READY_WAIT_MS);
-    const loader = ({ resource, date, signal }) => readNutrition({
-      getToken: () => token.current(), signal,
-      url: resource === "profile" ? `${USERS_API_URL}/get-user`
-        : `${FOOD_ENTRIES_API_URL}/summary-by-date/${date}`,
-      isActive: () => store.belongsTo(userId),
-    });
-    if (userId && store.belongsTo(userId)) {
-      const today = localDateKey();
-      // Errors live in the store and are shown by the real page with Retry.
-      Promise.allSettled([store.loadProfile(loader), store.loadDay(today, loader)]).finally(reveal);
-      todayCache.read(userId, today).then((saved) => {
-        if (!saved) return;
-        store.hydrate(saved);
-        if (saved.day && saved.profile) reveal();
-      });
-    }
+    const loader = dataLoader(data, () => store.belongsTo(LOCAL_OWNER));
+    // Errors live in the store and are shown by the real page with Retry.
+    Promise.allSettled([store.loadProfile(loader), store.loadDay(localDateKey(), loader)]).finally(reveal);
     return () => { mounted = false; clearTimeout(timer); };
-  }, [store, userId, disabled]);
+  }, [store, data, disabled]);
 
   return <View style={styles.container}>
     <View style={[styles.container, preparing && styles.hidden]}
@@ -51,7 +35,7 @@ export default function FoodwrapStartupGate({ children, disabled = false, topIns
       {children}
     </View>
     {preparing && <View style={StyleSheet.absoluteFill}>
-      <AccountLoadingScreen topInset={topInset} />
+      <AppLoadingScreen />
     </View>}
   </View>;
 }
