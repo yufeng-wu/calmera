@@ -3,7 +3,7 @@ import { PixelRatio, StyleSheet, useWindowDimensions, View } from "react-native"
 import Animated, { interpolateColor, useAnimatedProps, useAnimatedStyle } from "react-native-reanimated";
 import Svg, { Defs, Ellipse, LinearGradient, Path, RadialGradient, Stop } from "react-native-svg";
 import { skyAt, skyFade } from "@/lib/skyClock.mjs";
-import FoodDots from "./FoodDots";
+import PawTrail from "./PawTrail";
 import SkyLayer, { drawnWhen, SkyWash } from "./SkyLayer";
 
 const AnimatedEllipse = Animated.createAnimatedComponent(Ellipse);
@@ -160,8 +160,8 @@ export default memo(function HillScene({ clock, height, seat, ground, foods = 0,
       <AnimatedEllipse animatedProps={shadow} cx={shadowX} cy={shadowY} ry={5} transform={shadowTransform} fill="url(#seatShadow)" />
       <AnimatedEllipse animatedProps={nightShadow} cx={shadowX} cy={shadowY} ry={5} transform={shadowTransform} fill="url(#seatShadowNight)" />
     </Svg>}
-    {/* A day's own trail: a new day starts its dots afresh rather than growing in the difference. */}
-    {seat && foods > 0 && <FoodDots key={seed} count={foods} seat={seat} seed={seed} active={active} arriving={arriving} />}
+    {/* A day's own trail: a new day starts its prints afresh rather than pressing in the difference. */}
+    {seat && foods > 0 && <PawTrail key={seed} count={foods} seat={seat} seed={seed} active={active} arriving={arriving} />}
   </>;
 });
 
