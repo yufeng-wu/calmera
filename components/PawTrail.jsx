@@ -69,88 +69,91 @@ export default memo(function PawTrail({ count, seat, seed, active, arriving, pok
   const shown = useRef(reducedMotion ? count : 0);
   const traced = useRef(reducedMotion);
   const landing = useRef(arriving && !reducedMotion);
-  const values = useRef(Array.from({ length: MOST_PRINTS }, () => ({
-    land: new Animated.Value(reducedMotion ? 1 : 0), toes: new Animated.Value(reducedMotion ? 1 : 0), wave: new Animated.Value(0),
-  }))).current;
-  const styleFor = useMemo(() => values.map(({ land, toes, wave }) => ({
-    opacity: Animated.multiply(land.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 1, 1] }), wave.interpolate({ inputRange: [0, 1], outputRange: [1, WAVE.glow] })),
-    waveScale: wave.interpolate({ inputRange: [0, 1], outputRange: [1, WAVE.scale] }),
-    landScale: land.interpolate({ inputRange: [0, LAND.settle, 1], outputRange: [LAND.from, LAND.press, 1] }),
-    landShift: land.interpolate({ inputRange: [0, LAND.settle, 1], outputRange: [LAND.shift, 0, 0] }),
-    toeOpacity: toes.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 1, 1] }),
-    toeScale: toes.interpolate({ inputRange: [0, 0.7, 1], outputRange: [TOES.from, TOES.splay, 1] }),
-  })), [values]);
-
-  const showAll = () => values.forEach(({ land, toes, wave }) => { land.setValue(1); toes.setValue(1); wave.setValue(0); });
+  // Each food's print keeps its own animated values for the day, by its place in the day (`slot`), so a new food's
+  // print is born hidden and an older one keeps showing as it moves down the trail. A value set outside an
+  // animation can reach the screen late, so nothing here is set after birth: every change is an animation.
+  const values = useRef(new Map()).current;
+  const valueFor = (slot) => {
+    let value = values.get(slot);
+    if (value) return value;
+    const visible = reducedMotion || slot < shown.current;
+    const land = new Animated.Value(visible ? 1 : 0);
+    const toes = new Animated.Value(visible ? 1 : 0);
+    const wave = new Animated.Value(0);
+    value = {
+      land, toes, wave,
+      opacity: Animated.multiply(land.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 1, 1] }), wave.interpolate({ inputRange: [0, 1], outputRange: [1, WAVE.glow] })),
+      waveScale: wave.interpolate({ inputRange: [0, 1], outputRange: [1, WAVE.scale] }),
+      landScale: land.interpolate({ inputRange: [0, LAND.settle, 1], outputRange: [LAND.from, LAND.press, 1] }),
+      landShift: land.interpolate({ inputRange: [0, LAND.settle, 1], outputRange: [LAND.shift, 0, 0] }),
+      toeOpacity: toes.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 1, 1] }),
+      toeScale: toes.interpolate({ inputRange: [0, 0.7, 1], outputRange: [TOES.from, TOES.splay, 1] }),
+    };
+    values.set(slot, value);
+    return value;
+  };
+  const slotOf = (k) => count - 1 - k;
   // Print k steps in: pad, then toes.
   const stepIn = (k, delay) => {
-    values[k].land.setValue(0);
-    values[k].toes.setValue(0);
-    return Animated.parallel([timing(values[k].land, 1, LAND.duration, delay), timing(values[k].toes, 1, TOES.duration, delay + TOES.after)]);
+    const { land, toes } = valueFor(slotOf(k));
+    return Animated.parallel([timing(land, 1, LAND.duration, delay), timing(toes, 1, TOES.duration, delay + TOES.after)]);
   };
   // Prints from `oldest` up to `newest` come in one after another, oldest first.
   const trot = (oldest, newest, delay) => Animated.parallel(Array.from({ length: oldest - newest + 1 }, (_, i) => stepIn(oldest - i, delay + i * BETWEEN)));
   // The visitor passes up the trail: the prints from `oldest` to `newest` brighten in turn.
-  const pass = (oldest, newest, delay) => Animated.parallel(Array.from({ length: Math.max(0, oldest - newest + 1) }, (_, i) => Animated.sequence([
-    timing(values[oldest - i].wave, 1, WAVE.up, delay + i * WAVE.between), timing(values[oldest - i].wave, 0, WAVE.down, 0, Easing.inOut(Easing.quad)),
-  ])));
+  const pass = (oldest, newest, delay) => Animated.parallel(Array.from({ length: Math.max(0, oldest - newest + 1) }, (_, i) => {
+    const { wave } = valueFor(slotOf(oldest - i));
+    return Animated.sequence([timing(wave, 1, WAVE.up, delay + i * WAVE.between), timing(wave, 0, WAVE.down, 0, Easing.inOut(Easing.quad))]);
+  }));
 
   useEffect(() => {
+    const drawn = Math.min(MOST_PRINTS, count);
+    // Values for prints no longer drawn are let go; a food's place is never reused within a day.
+    for (const slot of [...values.keys()]) if (slot >= count || slot < count - MOST_PRINTS) values.delete(slot);
     if (reducedMotion) {
       shown.current = count;
       traced.current = true;
-      showAll();
-      return undefined;
+      values.forEach(({ land, toes }) => Animated.parallel([timing(land, 1, 1), timing(toes, 1, 1)]).start());
+      return;
     }
-    const drawn = Math.min(MOST_PRINTS, count);
     const fresh = Math.min(drawn, count - shown.current);
     // New prints wait, hidden, until the page is showing.
-    if (!active) {
-      if (!traced.current) values.forEach(({ land, toes }) => { land.setValue(0); toes.setValue(0); });
-      else for (let k = 0; k < Math.max(0, fresh); k += 1) { values[k].land.setValue(0); values[k].toes.setValue(0); }
-      return undefined;
-    }
-    let animation;
+    if (!active) return;
     if (!traced.current) {
       // The day's trail traces in, oldest print first, up to her. The first food's print follows her landing.
       traced.current = true;
-      animation = trot(drawn - 1, 0, landing.current ? AFTER_LANDING : AFTER_SHOW);
+      trot(drawn - 1, 0, landing.current ? AFTER_LANDING : AFTER_SHOW).start();
     } else if (fresh > 0) {
       // The visitor comes up the trail it left before, and leaves a new print (or a few, one after another) at her feet.
       const older = drawn - fresh;
-      animation = older > 0
+      (older > 0
         ? Animated.parallel([pass(drawn - 1, fresh, AFTER_RETURN), trot(fresh - 1, 0, AFTER_RETURN + older * WAVE.between)])
-        : trot(fresh - 1, 0, AFTER_RETURN);
-    } else if (fresh < 0) {
-      // A food went: the prints have moved up a step, so the trail quietly re-forms.
-      animation = trot(drawn - 1, 0, 0);
-    } else {
-      return undefined;
+        : trot(fresh - 1, 0, AFTER_RETURN)).start();
     }
+    // A food that went leaves the others to move up a step, still.
     landing.current = false;
     shown.current = count;
-    animation.start();
-    // Interrupted (the page left, or another food came in), the prints show in full rather than stopping halfway.
-    return () => { animation.stop(); showAll(); };
   }, [count, active, reducedMotion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!poke || !active || reducedMotion || !traced.current) return undefined;
-    const animation = pass(Math.min(MOST_PRINTS, count) - 1, 0, 0);
-    animation.start();
-    return () => { animation.stop(); values.forEach(({ wave }) => wave.setValue(0)); };
+    if (poke && active && !reducedMotion && traced.current) pass(Math.min(MOST_PRINTS, count) - 1, 0, 0).start();
   }, [poke]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Leaving the day stops whatever is still moving; the values go with the trail.
+  useEffect(() => () => values.forEach(({ land, toes, wave }) => { land.stopAnimation(); toes.stopAnimation(); wave.stopAnimation(); }), [values]);
 
   return <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-    {prints.map((print, k) => <Animated.View key={k} style={[styles.print, {
-      left: print.x - BOX / 2,
-      top: print.y - BOX / 2,
-      opacity: Animated.multiply(styleFor[k].opacity, STRENGTH * print.strength),
-      transform: [{ rotate: `${print.turn}deg` }, { scale: styleFor[k].waveScale }],
-    }]}>
-      <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ translateY: styleFor[k].landShift }, { scale: styleFor[k].landScale }] }]}><PawPad kind={kind} /></Animated.View>
-      <Animated.View style={[StyleSheet.absoluteFill, { opacity: styleFor[k].toeOpacity, transform: [{ scale: styleFor[k].toeScale }] }]}><PawToes kind={kind} /></Animated.View>
-    </Animated.View>)}
+    {prints.map((print, k) => {
+      const value = valueFor(slotOf(k));
+      return <Animated.View key={slotOf(k)} style={[styles.print, {
+        left: print.x - BOX / 2,
+        top: print.y - BOX / 2,
+        opacity: Animated.multiply(value.opacity, STRENGTH * print.strength),
+        transform: [{ rotate: `${print.turn}deg` }, { scale: value.waveScale }],
+      }]}>
+        <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ translateY: value.landShift }, { scale: value.landScale }] }]}><PawPad kind={kind} /></Animated.View>
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity: value.toeOpacity, transform: [{ scale: value.toeScale }] }]}><PawToes kind={kind} /></Animated.View>
+      </Animated.View>;
+    })}
   </View>;
 });
 
