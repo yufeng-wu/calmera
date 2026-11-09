@@ -37,7 +37,7 @@ const goalNumber = (value) => {
   return Number.isFinite(number) && number > 0 ? number : null;
 };
 
-// Your goals, how you log, the app itself, and erasing everything, in that order.
+// Your goals, how you log, and the app itself, in that order.
 export default function SettingsScreen({ calmeraPreview = false }) {
   const router = useRouter();
   useWarmSettingsRoutes();
@@ -89,10 +89,9 @@ export default function SettingsScreen({ calmeraPreview = false }) {
           onPress={() => openPage("/export-data", "Export your data")} />
         <SettingsRow title="Privacy Policy" icon="shield-checkmark" tint="leaf" divider
           onPress={() => openPage("/privacy", "Privacy Policy")} />
-      </SettingsSection>
-
-      <SettingsSection footnote="Removes your meals, goals and settings from this iPhone.">
-        <SettingsRow title="Erase all data" destructive centered showAccessory={false}
+        {/* Opens a page that says what goes and asks again, so it sits with the other rows. */}
+        <SettingsRow title="Erase all data" icon="trash" tint="rose" destructive divider
+          accessibilityHint="Removes your meals, goals and settings from this iPhone."
           onPress={() => openPage("/erase-data", "Erase all data")} />
       </SettingsSection>
 
