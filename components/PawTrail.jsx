@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useRef } from "react";
 import { Animated, Easing, StyleSheet, View } from "react-native";
 import { useReducedMotion } from "react-native-reanimated";
-import Svg, { Ellipse, G } from "react-native-svg";
+import Svg, { Ellipse, G, Path } from "react-native-svg";
 import { MOST_PRINTS, pawTrail, pawVisitor } from "@/lib/pawTrail.mjs";
 
 // One soft shade, a little see-through, reads as a print pressed into the hill on the gold day hill and the
@@ -9,75 +9,147 @@ import { MOST_PRINTS, pawTrail, pawVisitor } from "@/lib/pawTrail.mjs";
 const SHADE = "#7A4E62";
 const STRENGTH = 0.3;
 // Each print is drawn once, pointing up, in a small square of its own centred on its place.
-const BOX = 14;
-const PAW_SCALE = 1.25;
-// A new print presses in: it settles from a little larger into the hill as it shows. When several foods come in
-// together, their prints land one after another, oldest first, like the visitor trotting up to her.
-const PRESS = { from: 1.3, duration: 460, between: 220, most: 3 };
+const BOX = 24;
+// A dog's print is a little bigger than a cat's.
+const PAW_SCALE = { dog: 1.45, cat: 1.35 };
+// A paw lands pad first, a touch large and a little behind its place, pressing in and sliding forward as it
+// settles; the toes splay out from it a moment later.
+const LAND = { duration: 320, settle: 0.55, from: 1.35, press: 0.94, shift: 2.5 };
+const TOES = { after: 70, duration: 240, from: 0.4, splay: 1.15 };
+// Prints come in one after another, oldest first, like the visitor trotting up to her.
+const BETWEEN = 60;
+// When the visitor passes, the prints it crosses brighten and lift for a moment, in turn, up the trail.
+const WAVE = { up: 140, down: 220, between: 45, scale: 1.1, glow: 1.35 };
+// A day's trail traces in a beat after the scene is up, so it never lands in the middle of a page change.
+const AFTER_SHOW = 250;
 // After coming back to the page (from logging a meal, say), a beat for the page to settle first.
 const AFTER_RETURN = 350;
 // The first food lands with the orange: its print follows once she has settled on the hill.
 const AFTER_LANDING = 1300;
 
-// A pad and four toes, the outer two turned out. A dog's paw is a little wider than a cat's.
-const Paw = memo(function Paw({ kind }) {
-  const wide = kind === "dog";
-  const outer = wide ? 2.5 : 2.1;
-  const inner = wide ? 0.9 : 0.75;
-  return <Svg width={BOX} height={BOX} viewBox={`${-BOX / 2} ${-BOX / 2} ${BOX} ${BOX}`}>
-    <G transform={`scale(${PAW_SCALE})`} fill={SHADE}>
-      <Ellipse cy={1.1} rx={wide ? 2.4 : 1.9} ry={wide ? 1.9 : 1.6} />
-      <Ellipse cx={-outer} cy={-0.7} rx={0.8} ry={1.05} transform={`rotate(-22 ${-outer} -0.7)`} />
-      <Ellipse cx={-inner} cy={-2.2} rx={0.8} ry={1.1} />
-      <Ellipse cx={inner} cy={-2.2} rx={0.8} ry={1.1} />
-      <Ellipse cx={outer} cy={-0.7} rx={0.8} ry={1.05} transform={`rotate(22 ${outer} -0.7)`} />
+// The main pad: a dome on top for the toes to sit over, three soft lobes below. A cat's is rounder than a dog's.
+const PADS = {
+  dog: "M0 -2.6 C2.2 -2.6 4.9 -1.2 4.9 1.4 C4.9 3.4 3.7 4.9 2.1 4.9 C1.3 4.9 0.7 4.4 0 4.4 C-0.7 4.4 -1.3 4.9 -2.1 4.9 C-3.7 4.9 -4.9 3.4 -4.9 1.4 C-4.9 -1.2 -2.2 -2.6 0 -2.6 Z",
+  cat: "M0 -2.3 C2.3 -2.3 4.1 -0.7 4.1 1.3 C4.1 3 3.1 4.3 1.8 4.3 C1.1 4.3 0.6 3.8 0 3.8 C-0.6 3.8 -1.1 4.3 -1.8 4.3 C-3.1 4.3 -4.1 3 -4.1 1.3 C-4.1 -0.7 -2.3 -2.3 0 -2.3 Z",
+};
+// Four toes in an arc over the pad, the outer two lower and turned out. A dog's are taller ovals set wide; a cat's
+// are nearly round and closer together. Each is [x, y, rx, ry, tilt].
+const TOE_SETS = {
+  dog: [[-1.9, -5.5, 1.5, 1.95, -6], [1.9, -5.5, 1.5, 1.95, 6], [-4.8, -3.1, 1.35, 1.75, -30], [4.8, -3.1, 1.35, 1.75, 30]],
+  cat: [[-1.6, -4.9, 1.4, 1.55, -4], [1.6, -4.9, 1.4, 1.55, 4], [-4, -2.7, 1.3, 1.4, -26], [4, -2.7, 1.3, 1.4, 26]],
+};
+const VIEW_BOX = `${-BOX / 2} ${-BOX / 2} ${BOX} ${BOX}`;
+
+const PawPad = memo(function PawPad({ kind }) {
+  return <Svg width={BOX} height={BOX} viewBox={VIEW_BOX}><Path d={PADS[kind]} fill={SHADE} transform={`scale(${PAW_SCALE[kind]})`} /></Svg>;
+});
+const PawToes = memo(function PawToes({ kind }) {
+  return <Svg width={BOX} height={BOX} viewBox={VIEW_BOX}>
+    <G fill={SHADE} transform={`scale(${PAW_SCALE[kind]})`}>
+      {TOE_SETS[kind].map(([x, y, rx, ry, tilt]) => <Ellipse key={`${x},${y}`} cx={x} cy={y} rx={rx} ry={ry} transform={`rotate(${tilt} ${x} ${y})`} />)}
     </G>
   </Svg>;
 });
 
+const out = Easing.out(Easing.cubic);
+const timing = (value, toValue, duration, delay = 0, easing = out) => Animated.timing(value, { toValue, duration, delay, easing, useNativeDriver: true });
+
 // The day's paw trail on the hill: a dog or cat, picked by the date, leaves one print per food, climbing to the
-// orange, newest at her feet. Still drawings that only change when a food is added or removed; the only motion is a
-// new print pressing in, once, on the native driver. Nothing runs between meals. `seat` is the bottom-centre of the
-// seated orange, in the band's points.
-export default memo(function PawTrail({ count, seat, seed, active, arriving }) {
+// orange, newest at her feet. Still drawings between events: each print is two small drawings (pad and toes), drawn
+// once, and moved only by transforms and opacity on the native driver. Motion happens only when something happens,
+// and is over in about a second: the trail traces in when a day's scene shows; when a food is logged the visitor
+// passes up the trail (each print brightening in turn) and a new print lands at her feet; a tap on the trail sends
+// the visitor up it again. Nothing runs between. `seat` is the bottom-centre of the seated orange, in the band's
+// points; `poke` counts taps on the trail.
+export default memo(function PawTrail({ count, seat, seed, active, arriving, poke = 0 }) {
   const kind = pawVisitor(seed);
   const prints = useMemo(() => pawTrail({ count, seat, width: seat.width, seed, kind }), [count, seat, seed, kind]);
   const reducedMotion = useReducedMotion();
-  // How many foods the trail has shown prints for. Arriving with the orange, the first print is still to come.
-  const shown = useRef(arriving && !reducedMotion ? 0 : count);
+  // How many foods the trail has shown prints for, and whether this day's trail has traced in yet.
+  const shown = useRef(reducedMotion ? count : 0);
+  const traced = useRef(reducedMotion);
   const landing = useRef(arriving && !reducedMotion);
-  const press = useRef(Array.from({ length: MOST_PRINTS }, (_, k) => new Animated.Value(k < count - shown.current ? 0 : 1))).current;
+  const values = useRef(Array.from({ length: MOST_PRINTS }, () => ({
+    land: new Animated.Value(reducedMotion ? 1 : 0), toes: new Animated.Value(reducedMotion ? 1 : 0), wave: new Animated.Value(0),
+  }))).current;
+  const styleFor = useMemo(() => values.map(({ land, toes, wave }) => ({
+    opacity: Animated.multiply(land.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 1, 1] }), wave.interpolate({ inputRange: [0, 1], outputRange: [1, WAVE.glow] })),
+    waveScale: wave.interpolate({ inputRange: [0, 1], outputRange: [1, WAVE.scale] }),
+    landScale: land.interpolate({ inputRange: [0, LAND.settle, 1], outputRange: [LAND.from, LAND.press, 1] }),
+    landShift: land.interpolate({ inputRange: [0, LAND.settle, 1], outputRange: [LAND.shift, 0, 0] }),
+    toeOpacity: toes.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 1, 1] }),
+    toeScale: toes.interpolate({ inputRange: [0, 0.7, 1], outputRange: [TOES.from, TOES.splay, 1] }),
+  })), [values]);
+
+  const showAll = () => values.forEach(({ land, toes, wave }) => { land.setValue(1); toes.setValue(1); wave.setValue(0); });
+  // Print k steps in: pad, then toes.
+  const stepIn = (k, delay) => {
+    values[k].land.setValue(0);
+    values[k].toes.setValue(0);
+    return Animated.parallel([timing(values[k].land, 1, LAND.duration, delay), timing(values[k].toes, 1, TOES.duration, delay + TOES.after)]);
+  };
+  // Prints from `oldest` up to `newest` come in one after another, oldest first.
+  const trot = (oldest, newest, delay) => Animated.parallel(Array.from({ length: oldest - newest + 1 }, (_, i) => stepIn(oldest - i, delay + i * BETWEEN)));
+  // The visitor passes up the trail: the prints from `oldest` to `newest` brighten in turn.
+  const pass = (oldest, newest, delay) => Animated.parallel(Array.from({ length: Math.max(0, oldest - newest + 1) }, (_, i) => Animated.sequence([
+    timing(values[oldest - i].wave, 1, WAVE.up, delay + i * WAVE.between), timing(values[oldest - i].wave, 0, WAVE.down, 0, Easing.inOut(Easing.quad)),
+  ])));
 
   useEffect(() => {
-    const fresh = Math.min(PRESS.most, MOST_PRINTS, count - shown.current);
-    if (fresh <= 0 || reducedMotion) {
+    if (reducedMotion) {
       shown.current = count;
-      press.forEach((value) => value.setValue(1));
+      traced.current = true;
+      showAll();
       return undefined;
     }
-    // New prints wait, hidden, until the page is showing to press them in.
-    press.forEach((value, k) => value.setValue(k < fresh ? 0 : 1));
-    if (!active) return undefined;
-    const wait = landing.current ? AFTER_LANDING : AFTER_RETURN;
+    const drawn = Math.min(MOST_PRINTS, count);
+    const fresh = Math.min(drawn, count - shown.current);
+    // New prints wait, hidden, until the page is showing.
+    if (!active) {
+      if (!traced.current) values.forEach(({ land, toes }) => { land.setValue(0); toes.setValue(0); });
+      else for (let k = 0; k < Math.max(0, fresh); k += 1) { values[k].land.setValue(0); values[k].toes.setValue(0); }
+      return undefined;
+    }
+    let animation;
+    if (!traced.current) {
+      // The day's trail traces in, oldest print first, up to her. The first food's print follows her landing.
+      traced.current = true;
+      animation = trot(drawn - 1, 0, landing.current ? AFTER_LANDING : AFTER_SHOW);
+    } else if (fresh > 0) {
+      // The visitor comes up the trail it left before, and leaves a new print (or a few, one after another) at her feet.
+      const older = drawn - fresh;
+      animation = older > 0
+        ? Animated.parallel([pass(drawn - 1, fresh, AFTER_RETURN), trot(fresh - 1, 0, AFTER_RETURN + older * WAVE.between)])
+        : trot(fresh - 1, 0, AFTER_RETURN);
+    } else if (fresh < 0) {
+      // A food went: the prints have moved up a step, so the trail quietly re-forms.
+      animation = trot(drawn - 1, 0, 0);
+    } else {
+      return undefined;
+    }
     landing.current = false;
     shown.current = count;
-    const animation = Animated.parallel(Array.from({ length: fresh }, (_, k) => Animated.timing(press[k], {
-      toValue: 1, duration: PRESS.duration, delay: wait + (fresh - 1 - k) * PRESS.between,
-      easing: Easing.out(Easing.cubic), useNativeDriver: true,
-    })));
     animation.start();
     // Interrupted (the page left, or another food came in), the prints show in full rather than stopping halfway.
-    return () => { animation.stop(); press.forEach((value) => value.setValue(1)); };
-  }, [count, active, reducedMotion, press]);
+    return () => { animation.stop(); showAll(); };
+  }, [count, active, reducedMotion]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!poke || !active || reducedMotion || !traced.current) return undefined;
+    const animation = pass(Math.min(MOST_PRINTS, count) - 1, 0, 0);
+    animation.start();
+    return () => { animation.stop(); values.forEach(({ wave }) => wave.setValue(0)); };
+  }, [poke]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <View pointerEvents="none" style={StyleSheet.absoluteFill}>
     {prints.map((print, k) => <Animated.View key={k} style={[styles.print, {
       left: print.x - BOX / 2,
       top: print.y - BOX / 2,
-      opacity: Animated.multiply(press[k], STRENGTH * print.strength),
-      transform: [{ rotate: `${print.turn}deg` }, { scale: press[k].interpolate({ inputRange: [0, 1], outputRange: [PRESS.from, 1] }) }],
+      opacity: Animated.multiply(styleFor[k].opacity, STRENGTH * print.strength),
+      transform: [{ rotate: `${print.turn}deg` }, { scale: styleFor[k].waveScale }],
     }]}>
-      <Paw kind={kind} />
+      <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ translateY: styleFor[k].landShift }, { scale: styleFor[k].landScale }] }]}><PawPad kind={kind} /></Animated.View>
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: styleFor[k].toeOpacity, transform: [{ scale: styleFor[k].toeScale }] }]}><PawToes kind={kind} /></Animated.View>
     </Animated.View>)}
   </View>;
 });
