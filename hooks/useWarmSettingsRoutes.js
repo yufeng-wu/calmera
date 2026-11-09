@@ -6,7 +6,6 @@ const pages = [
   () => import("@/app/(root)/theme"),
   () => import("@/app/(root)/update-goals"),
   () => import("@/app/(root)/voice-language"),
-  () => import("@/app/(root)/meal-times"),
   () => import("@/app/(root)/chatgpt"),
   () => import("@/app/(root)/export-data"),
   () => import("@/app/(root)/erase-data"),

@@ -15,8 +15,8 @@ The Settings tab and every page it opens share one list style. Tokens live in
 - **Cards:** white, radius 24, a 0.5 pt warm edge. Rows are at least 56 pt tall with
   16 pt padding. Dividers start where the title starts, not at the card edge.
 - **Icon tiles:** 30 pt, radius 9, a pale fill with a darker icon, in these tints:
-  cocoa for ChatGPT, sky for voice, rose for meal times, plum for theme and model,
-  tangerine for export, leaf for goal suggestions.
+  cocoa for ChatGPT, sky for voice, plum for theme and model, tangerine for export,
+  leaf for privacy and goal suggestions, rose for erasing.
 - **Goals** always use the nutrient ring colors from `NUTRIENT_COLORS`, on the dots and
   on each slider's track. No goal can go below 1.
 - **Saving** pages name their button for what it does (Update) and keep it off until
@@ -39,11 +39,11 @@ The Settings tab and every page it opens share one list style. Tokens live in
 
 ## Layout of the Settings tab
 
-1. Account card: initial, email, join date.
-2. Daily goals: four targets. Tap to edit.
-3. Logging: ChatGPT, Voice language, Meal times.
-4. App: Theme, Export your data.
-5. Sign out, then the wordmark and version.
+1. Daily goals: four targets. Tap to edit.
+2. Logging: ChatGPT, Voice language.
+3. App: Theme, Export your data, Privacy Policy, Erase all data (red title; its page lists
+   what goes and asks again).
+4. The wordmark and version.
 
 Export always writes one JSON file with everything (`exportJson` in
 `lib/dataExport.mjs`). The only choice is the last 30 days or all history.

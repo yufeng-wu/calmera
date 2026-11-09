@@ -51,7 +51,7 @@ export default function SettingsScreen({ calmeraPreview = false }) {
   const [previewMessage, setPreviewMessage] = useState("");
   const openPage = (path, label) => {
     if (calmeraPreview) {
-      if (["/voice-language", "/meal-times", "/theme", "/erase-data", "/privacy"].includes(path)) router.push({ pathname: "/ui-gallery", params: { page: path.slice(1) } });
+      if (["/voice-language", "/theme", "/erase-data", "/privacy"].includes(path)) router.push({ pathname: "/ui-gallery", params: { page: path.slice(1) } });
       else setPreviewMessage(`${label} selected. Preview only.`);
       return;
     }
@@ -78,8 +78,6 @@ export default function SettingsScreen({ calmeraPreview = false }) {
           onPress={() => openPage("/chatgpt", "ChatGPT")} />
         <SettingsRow title="Voice language" value={status.language} icon="mic" tint="sky" divider
           onPress={() => openPage("/voice-language", "Voice language")} />
-        <SettingsRow title="Meal times" icon="time" tint="rose" divider
-          onPress={() => openPage("/meal-times", "Meal times")} />
       </SettingsSection>
 
       <SettingsSection label="App">

@@ -20,7 +20,6 @@ import { TYPOGRAPHY } from "@/constants/typography";
 import { useFoodIcons } from "@/context/FoodIconsContext";
 import { useDataStore } from "@/lib/store";
 import { nutritionClient, estimateMacros, inferenceError } from "@/lib/chatgpt/nutrition";
-import { mealTimePreferences } from "@/lib/mealTimeSettings";
 import { mealForLocalTime } from "@/lib/mealTimes.mjs";
 import { createMealReview, reviewTotals, saveMealReview, updateReviewFood } from "@/lib/mealReview.mjs";
 import { getLocalTimeWithOffset } from "@/lib/utils";
@@ -176,10 +175,8 @@ function VoiceSheet({ language, onClose, onSaved }) {
       const models = await client.models({ useCache: true }).catch(() => []);
       if (!alive()) return;
       setModel(modelLabel(models, slug));
-      const times = await mealTimePreferences.load(userId, { signal: controller.signal, isActive: alive });
-      if (!alive()) return;
       const createdAt = getLocalTimeWithOffset();
-      const result = await client.estimate({ text: said, model: slug, defaultMealType: mealForLocalTime(startedAt.current || new Date(), times),
+      const result = await client.estimate({ text: said, model: slug, defaultMealType: mealForLocalTime(startedAt.current || new Date()),
         signal: controller.signal, onProgress: next => { if (alive()) setStage(next); } });
       if (!alive()) return;
       if (!result.length) throw new Error("no_food_detected");

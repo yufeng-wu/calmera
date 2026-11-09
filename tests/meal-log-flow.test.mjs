@@ -284,7 +284,6 @@ function logFixture(inputMode = "text") {
       estimateMacros: (...args) => service.estimate(...args), inferenceError: error => errors.push(error) },
     "@/components/MealReview": "MealReview",
     "@/context/FoodIconsContext": { useFoodIcons: () => ({ rememberIcons: async () => {} }) },
-    "@/lib/mealTimeSettings": { mealTimePreferences: { load: async () => ({ Breakfast: 300, Lunch: 660, Dinner: 1020, Snack: 1320 }) } },
     "@/lib/mealTimes.mjs": { mealForLocalTime: () => "Lunch" },
     "@/lib/mealReview.mjs": { ...reviewModel, saveMealReview: async (draft, id, store, options) => {
       assert.equal(store, data); writes.push({ draft, id, options }); return draft.entries.map((entry, index) => ({ ...entry, id: index + 1 })); } },

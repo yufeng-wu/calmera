@@ -11,7 +11,6 @@ import Settings from "@/app/(root)/(tabs)/settings";
 import TodayCalendarPreview from "@/components/TodayCalendarPreview";
 import ChatGPT from "@/app/(root)/chatgpt";
 import VoiceLanguage from "@/app/(root)/voice-language";
-import MealTimes from "@/app/(root)/meal-times";
 import ThemeSettings from "@/app/(root)/theme";
 import Survey from "@/app/(root)/goals-survey";
 import EraseData from "@/app/(root)/erase-data";
@@ -50,9 +49,6 @@ const screens = [
   { id: "voice-language", title: "Voice language", Component: VoiceLanguage },
   { id: "voice-language-load-error", title: "Voice language load recovery", Component: VoiceLanguage, state: "load-error" },
   { id: "voice-language-save-error", title: "Voice language save recovery", Component: VoiceLanguage, state: "save-error" },
-  { id: "meal-times", title: "Meal times", Component: MealTimes },
-  { id: "meal-times-load-error", title: "Meal times load recovery", Component: MealTimes, state: "load-error" },
-  { id: "meal-times-save-error", title: "Meal times save recovery", Component: MealTimes, state: "save-error" },
   { id: "theme", title: "Theme", Component: ThemeSettings },
   { id: "survey", title: "Goals survey", Component: Survey },
   { id: "recommendation", title: "Survey recommendation", Component: Survey, stage: "recommendation" },

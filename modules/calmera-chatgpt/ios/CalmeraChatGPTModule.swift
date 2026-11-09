@@ -56,14 +56,6 @@ public final class CalmeraChatGPTModule: Module {
       Prop("destructiveOptions") { (view: CalmeraMenuButtonView, value: [String]) in view.destructiveOptions = value }
       OnViewDidUpdateProps { (view: CalmeraMenuButtonView) in view.updateControl() }
     }
-    View(CalmeraMealTimePickerView.self) {
-      ViewName("MealTimePicker")
-      Events("onValueChange")
-      Prop("minutes") { (view: CalmeraMealTimePickerView, value: Int) in view.minutes = value }
-      Prop("pickerLabel") { (view: CalmeraMealTimePickerView, value: String) in view.pickerLabel = value }
-      Prop("pickerDisabled") { (view: CalmeraMealTimePickerView, value: Bool) in view.pickerDisabled = value }
-      OnViewDidUpdateProps { (view: CalmeraMealTimePickerView) in view.updateControl() }
-    }
     View(CalmeraSegmentedView.self) {
       ViewName("Segmented")
       Events("onSelect")
@@ -1836,56 +1828,6 @@ final class CalmeraSegmentedView: ExpoView {
     onSelect(["value": options[index]])
   }
   deinit { NotificationCenter.default.removeObserver(self) }
-}
-
-final class CalmeraMealTimePickerView: ExpoView {
-  let onValueChange = EventDispatcher()
-  var minutes = 300
-  var pickerLabel = "Meal start time"
-  var pickerDisabled = false
-  private let picker = UIDatePicker()
-  private var wallClock: Calendar {
-    var calendar = Calendar(identifier: .gregorian)
-    calendar.timeZone = TimeZone(secondsFromGMT: 0)!
-    return calendar
-  }
-  required init(appContext: AppContext? = nil) {
-    super.init(appContext: appContext)
-    backgroundColor = .clear
-    picker.datePickerMode = .time
-    picker.preferredDatePickerStyle = .compact
-    picker.minuteInterval = 15
-    picker.calendar = wallClock
-    picker.timeZone = wallClock.timeZone
-    picker.tintColor = UIColor(red: 188/255, green: 90/255, blue: 25/255, alpha: 1)
-    picker.addTarget(self, action: #selector(changed), for: .valueChanged)
-    addSubview(picker)
-  }
-  func updateControl() {
-    let value = max(0, min(1425, minutes))
-    let components = DateComponents(year: 2000, month: 1, day: 1, hour: value / 60, minute: value % 60)
-    if let date = wallClock.date(from: components), picker.date != date {
-      picker.setDate(date, animated: false)
-    }
-    picker.isEnabled = !pickerDisabled
-    picker.accessibilityLabel = pickerLabel
-    let formatter = DateFormatter()
-    formatter.timeStyle = .short
-    formatter.timeZone = wallClock.timeZone
-    picker.accessibilityValue = formatter.string(from: picker.date)
-    setNeedsLayout()
-  }
-  @objc private func changed() {
-    let parts = wallClock.dateComponents([.hour, .minute], from: picker.date)
-    let raw = (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
-    minutes = min(1425, Int((Double(raw) / 15).rounded()) * 15)
-    updateControl()
-    onValueChange(["minutes": minutes])
-  }
-  override func layoutSubviews() {
-    super.layoutSubviews()
-    picker.frame = bounds
-  }
 }
 
 // UISlider keeps the native glass thumb, tracking, scroll arbitration and VoiceOver.

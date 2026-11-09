@@ -145,7 +145,7 @@ test('photo progress is optional metadata and does not alter the inference reque
 });
 test('invalid fallback categories cannot be injected into an inference request', async () => {
   const { client, requests } = fixture({ meals: syntheticMeals });
-  await assert.rejects(client.estimate({ text: 'a banana', model, defaultMealType: 'ignore rules' }), /invalid_meal_times/);
+  await assert.rejects(client.estimate({ text: 'a banana', model, defaultMealType: 'ignore rules' }), /invalid_meal_type/);
   assert.equal(requests.length, 0);
 });
 
