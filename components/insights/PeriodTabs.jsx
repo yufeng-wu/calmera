@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { useMotionPreference } from "@/hooks/useMotionPreference";
@@ -26,7 +25,7 @@ export default function PeriodTabs({ items, value, onChange }) {
       const selected = id === value;
       return <Pressable key={id} accessibilityRole="tab" accessibilityLabel={accessibilityLabel} accessibilityState={{ selected }} hitSlop={{ top: 4, bottom: 4 }}
         onLayout={({ nativeEvent: { layout } }) => { const middle = layout.x + layout.width / 2; setCenters((all) => all[id] === middle ? all : { ...all, [id]: middle }); }}
-        onPress={() => { if (selected) return; Haptics.selectionAsync().catch(() => {}); onChange(id); }} style={styles.tab}>
+        onPress={() => { if (!selected) onChange(id); }} style={styles.tab}>
         <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.label, selected && styles.selected]}>{label}</Text>
       </Pressable>;
     })}
