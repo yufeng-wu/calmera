@@ -68,11 +68,11 @@ Words, not abbreviations: "Month", not "M". Touch targets are at least 44 pt tal
 
 ## Today's hill
 
-- Food steps: every food logged on a day leaves one small footprint on the hill. The trail climbs to the orange, so the newest step is at her feet; older ones run down the slope, each a little fainter. The hill shows the newest eight. A day keeps its own gentle sway, seeded by its date.
-- Feet alternate, and a food's step keeps its foot as the day goes on. A print is a rounded sole with three toes, the biggest on the inside, in one soft mauve shade (`#7A4E62` at 26%) that reads as pressed in on the gold day hill and the lavender night one alike.
-- Steps stay on the hill, clear of the orange and her shadow, left of the Add button and above the tab bar, on every phone width (`tests/food-steps.test.mjs`).
-- Motion is a single press-in when a food arrives: the new step settles from 1.3 times its size into the hill over 460 ms. Several foods at once land one after another, oldest first, up to three. The first food's step follows the orange's landing. With Reduce Motion, steps just appear.
-- Energy: nothing runs between meals. No timers or frame callbacks; each print is a small still drawing, drawn once, and the press-in runs on the native driver.
+- Food dots: every food logged on a day leaves one small dot on the hill. The dots climb to the orange, so the newest is at her feet; older ones run down the slope, 16 points apart, each a little fainter. The hill shows the newest eight. A day keeps its own gentle sway, seeded by its date.
+- A dot is a 6-point circle in one soft mauve shade (`#7A4E62` at 30%) that reads as part of the hill on the gold day hill and the lavender night one alike.
+- Dots stay on the hill, clear of the orange and her shadow, left of the Add button and above the tab bar, on every phone width (`tests/food-dots.test.mjs`).
+- Motion is a single grow-in when a food arrives: the new dot grows from nothing with a small overshoot over 420 ms. Several foods at once arrive one after another, oldest first, up to three. The first food's dot follows the orange's landing. With Reduce Motion, dots just appear.
+- Energy: nothing runs between meals. No timers or frame callbacks; the dots are plain native circles, and the grow-in runs on the native driver.
 
 ## Writing
 
