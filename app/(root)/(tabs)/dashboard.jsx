@@ -216,7 +216,9 @@ export default function SummaryScreen() {
       {/* The hill and the seated orange, pinned behind the page (which sits above them at zIndex 1); the scene
           below sends what it shows. */}
       <TodayStageHost ref={stageHost} />
-      <ScrollView ref={scrollRef} onScrollBeginDrag={closeOpenMealActions} directionalLockEnabled alwaysBounceHorizontal={false}
+      {/* Always vertical: without it a short day's page doesn't own vertical drags, and a meal row
+          swiped open snaps shut on release. */}
+      <ScrollView ref={scrollRef} onScrollBeginDrag={closeOpenMealActions} directionalLockEnabled alwaysBounceVertical alwaysBounceHorizontal={false}
         style={[styles.scrollView, { zIndex: 1 }]}
         contentContainerStyle={{ flexGrow: 1, paddingBottom: SCROLL_BOTTOM_PADDING }}
         scrollIndicatorInsets={{ bottom: floatingBarInset }}

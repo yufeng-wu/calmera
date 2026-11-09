@@ -143,7 +143,7 @@ export default function InsightsScreen() {
   return <GestureDetector gesture={swipe}><View style={formStyles.screen}>
     <PeriodTabs key={fontScale} items={PERIODS} value={chosen ?? period} onChange={choosePeriod} />
     <MaskedView style={styles.scrollMask} maskElement={<LinearGradient colors={["transparent", "black"]} locations={[0, 0.02]} style={styles.mask} />}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 32 }]}
+      <ScrollView alwaysBounceVertical contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 32 }]}
         scrollIndicatorInsets={{ bottom: tabBarHeight }} showsVerticalScrollIndicator={false}>
         {!showData && error ? <RetryCard onRetry={retryError} />
           : !showData && !loaded ? <LoadingCards />
