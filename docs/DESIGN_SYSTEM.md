@@ -66,6 +66,14 @@ Words, not abbreviations: "Month", not "M". Touch targets are at least 44 pt tal
 - Parts of a whole are one thin bar per row, sliced in order, with a key under the title. The overview shows only the bars; the detail page shows the same bars, bigger, with each part's percent and amount in columns underneath.
 - Times of day share one clock from 6 AM to midnight, widened to the hour when a meal falls outside it, with ticks every six hours. Every meal or snack is a dot in `primary`, fainter for longer periods so crowded times read darker, and the average is a dark line. Rows are told apart by their names, not colors. Snacks can have up to three averages, one for each time they're regularly eaten.
 
+## Today's hill
+
+- Food steps: every food logged on a day leaves one small footprint on the hill. The trail climbs to the orange, so the newest step is at her feet; older ones run down the slope, each a little fainter. The hill shows the newest eight. A day keeps its own gentle sway, seeded by its date.
+- Feet alternate, and a food's step keeps its foot as the day goes on. A print is a rounded sole with three toes, the biggest on the inside, in one soft mauve shade (`#7A4E62` at 26%) that reads as pressed in on the gold day hill and the lavender night one alike.
+- Steps stay on the hill, clear of the orange and her shadow, left of the Add button and above the tab bar, on every phone width (`tests/food-steps.test.mjs`).
+- Motion is a single press-in when a food arrives: the new step settles from 1.3 times its size into the hill over 460 ms. Several foods at once land one after another, oldest first, up to three. The first food's step follows the orange's landing. With Reduce Motion, steps just appear.
+- Energy: nothing runs between meals. No timers or frame callbacks; each print is a small still drawing, drawn once, and the press-in runs on the native driver.
+
 ## Writing
 
 Sentence case. Plain statements of what happened. No praise, scolding, streaks, scores or exclamation marks. Say "average day" for the middle day of a period, and "Half your days are between A and B" for a range. Progress against a goal is a plain percent, "99% of goal". Earlier periods live on the detail page, with the change as "↓ 11 points from previous 7 days". Points are the gap between two percents of goal, and are never colored. Patterns get a caveat: "A pattern, not a cause."
