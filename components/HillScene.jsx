@@ -3,7 +3,6 @@ import { PixelRatio, StyleSheet, useWindowDimensions, View } from "react-native"
 import Animated, { interpolateColor, useAnimatedProps, useAnimatedStyle } from "react-native-reanimated";
 import Svg, { Defs, Ellipse, LinearGradient, Path, RadialGradient, Stop } from "react-native-svg";
 import { skyAt, skyFade } from "@/lib/skyClock.mjs";
-import PawTrail from "./PawTrail";
 import SkyLayer, { drawnWhen, SkyWash } from "./SkyLayer";
 
 const AnimatedEllipse = Animated.createAnimatedComponent(Ellipse);
@@ -85,7 +84,7 @@ const SHADOW_BOX = { width: 80, height: 40 };
 // The hill under the meal list, recoloured through the day. `clock` is a shared value of local minutes,
 // so the sky follows the time. Stretched to the band's width and height, which reaches under the tab bar.
 // Memoized: the page can resize every frame while a meal row opens, and none of that changes the hill.
-export default memo(function HillScene({ clock, height, seat, ground, foods = 0, seed = 0, active = true, arriving = false, poke = 0 }) {
+export default memo(function HillScene({ clock, height, seat, ground }) {
   const arc = useMemo(() => arcFor(seat?.width || 400), [seat?.width]);
   const warmHill = useAnimatedStyle(() => ({ opacity: skyAt(clock.value).warm }));
   const nightHill = useAnimatedStyle(() => ({ opacity: skyAt(clock.value).night }));
@@ -160,8 +159,6 @@ export default memo(function HillScene({ clock, height, seat, ground, foods = 0,
       <AnimatedEllipse animatedProps={shadow} cx={shadowX} cy={shadowY} ry={5} transform={shadowTransform} fill="url(#seatShadow)" />
       <AnimatedEllipse animatedProps={nightShadow} cx={shadowX} cy={shadowY} ry={5} transform={shadowTransform} fill="url(#seatShadowNight)" />
     </Svg>}
-    {/* A day's own trail: a new day starts its prints afresh rather than pressing in the difference. */}
-    {seat && foods > 0 && <PawTrail key={seed} count={foods} seat={seat} seed={seed} active={active} arriving={arriving} poke={poke} />}
   </>;
 });
 

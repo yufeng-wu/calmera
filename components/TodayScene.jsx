@@ -12,7 +12,6 @@ import { DUSK_WASH_STRENGTH, WASH } from "./SkyLayer";
 import HillScene, { HILL_BAND, hillTopAt, SKY_POINTS } from "./HillScene";
 import useSkyClock from "../hooks/useSkyClock";
 import { buddyFace } from "../lib/nutritionPresentation.mjs";
-import { pawTrail } from "../lib/pawTrail.mjs";
 
 // The orange's two homes. Empty, it hangs from a bough above the greeting, part of the page. Once the first meal
 // lands the bough lifts away, the orange drops, the hill rises to catch it, and from then on it sits on the hill.
@@ -30,8 +29,6 @@ const LIST_GAP = 30;
 const PILL_ABOVE_BASE = 52;
 // Taps near enough the seated orange count as tapping her, through the page that covers the stage.
 const TAP_SLOP = 10;
-// And a tap this near a paw print sends the visitor up the trail.
-const PRINT_SLOP = 18;
 // How long what she says stays up: a beat to read it, and a little longer for longer lines.
 const speechMs = (text) => 1900 + text.length * 45;
 const FALL = Easing.bezier(0.5, 0, 0.9, 0.5);
@@ -64,7 +61,7 @@ export const TodayStageHost = forwardRef(function TodayStageHost(_, ref) {
   return stage;
 });
 
-export default function TodayScene({ hasMeals, foods = 0, seed = 0, children, greeting, mood = "awake", isToday, bottomInset = 0, stageHost, style }) {
+export default function TodayScene({ hasMeals, children, greeting, mood = "awake", isToday, bottomInset = 0, stageHost, style }) {
   const { width } = useWindowDimensions();
   const reducedMotion = useReducedMotion();
   const { height: screenHeight } = useWindowDimensions();
@@ -100,7 +97,6 @@ export default function TodayScene({ hasMeals, foods = 0, seed = 0, children, gr
   const sceneId = useId();
   const [cheerSignal, setCheerSignal] = useState(0);
   const [landSignal, setLandSignal] = useState(0);
-  const [pokeSignal, setPokeSignal] = useState(0);
   const hillSeat = useMemo(() => ({ x: seatX, y: seatBase, width, tilt: ridgeTilt }), [seatX, seatBase, width, ridgeTilt]);
   const [bough, setBough] = useState(!hasMeals);
   const [inFront, setInFront] = useState(false);
@@ -227,14 +223,6 @@ export default function TodayScene({ hasMeals, foods = 0, seed = 0, children, gr
         // As if she'd been tapped herself: a wiggle (with its haptic), then a line.
         if (!dropping.current) setCheerSignal((n) => n + 1);
         speak();
-        return;
-      }
-      // A tap on the paw trail: the band shares the stage's top left corner.
-      const bandX = pageX - x;
-      const bandY = pageY - y;
-      if (!dropping.current && foods > 0 && pawTrail({ count: foods, seat: hillSeat, width, seed }).some((print) => Math.hypot(print.x - bandX, print.y - bandY) < PRINT_SLOP)) {
-        setPokeSignal((n) => n + 1);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch(() => {});
       }
     });
   };
@@ -264,7 +252,7 @@ export default function TodayScene({ hasMeals, foods = 0, seed = 0, children, gr
     </Animated.View>}
     <View ref={attachStage} collapsable={false} pointerEvents="none" style={[styles.stage, { height: bandHeight }]}>
       <Animated.View style={[StyleSheet.absoluteFill, bandStyle]}>
-        {hasMeals && <HillScene clock={clock} height={bandHeight} ground={ground} seat={hillSeat} foods={foods} seed={seed} active={focused} arriving={dropStarting} poke={pokeSignal} />}
+        {hasMeals && <HillScene clock={clock} height={bandHeight} ground={ground} seat={hillSeat} />}
         {hasMeals && said && <Animated.View style={[styles.pill, { left: SEAT.left + BUDDY_SIZE * COMPANION_SCALE + 6, top: seatBase - PILL_ABOVE_BASE, maxWidth: width - SEAT.left - 72 }, pillStyle]}><Text style={styles.pillText}>{said}</Text></Animated.View>}
       </Animated.View>
     </View>
@@ -273,7 +261,7 @@ export default function TodayScene({ hasMeals, foods = 0, seed = 0, children, gr
         <CitrusBuddy mood={mood} active={focused} arrive={!inFront && !dropStarting} cheerSignal={cheerSignal} landSignal={landSignal} />
       </Animated.View>}
     </View>
-  </>, [bough, sceneId, screenHeight, groveWashStyle, groveDuskStyle, groveNightStyle, groveGradient, attachStage, bandHeight, bandStyle, hasMeals, foods, seed, clock, focused, ground, hillSeat, said, seatBase, width, pillStyle, inFront, seatBox.left, seatBox.bottom, seatedStyle, mood, cheerSignal, landSignal, dropStarting, pokeSignal]);
+  </>, [bough, sceneId, screenHeight, groveWashStyle, groveDuskStyle, groveNightStyle, groveGradient, attachStage, bandHeight, bandStyle, hasMeals, clock, focused, ground, hillSeat, said, seatBase, width, pillStyle, inFront, seatBox.left, seatBox.bottom, seatedStyle, mood, cheerSignal, landSignal, dropStarting]);
   // Sent whenever it changes; let go when this day's scene goes away, for the next day's scene to replace.
   useLayoutEffect(() => { stageHost?.current?.show(stage); }, [stage, stageHost]);
   useLayoutEffect(() => () => stageHost?.current?.release(), [stageHost]);
