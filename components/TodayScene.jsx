@@ -61,7 +61,7 @@ export const TodayStageHost = forwardRef(function TodayStageHost(_, ref) {
   return stage;
 });
 
-export default function TodayScene({ hasMeals, children, greeting, mood = "awake", isToday, printSeed = 0, bottomInset = 0, stageHost, style }) {
+export default function TodayScene({ hasMeals, children, greeting, mood = "awake", isToday, bottomInset = 0, stageHost, style }) {
   const { width } = useWindowDimensions();
   const reducedMotion = useReducedMotion();
   const { height: screenHeight } = useWindowDimensions();
@@ -252,7 +252,7 @@ export default function TodayScene({ hasMeals, children, greeting, mood = "awake
     </Animated.View>}
     <View ref={attachStage} collapsable={false} pointerEvents="none" style={[styles.stage, { height: bandHeight }]}>
       <Animated.View style={[StyleSheet.absoluteFill, bandStyle]}>
-        {hasMeals && <HillScene clock={clock} active={focused} printSeed={printSeed} height={bandHeight} ground={ground} seat={hillSeat} />}
+        {hasMeals && <HillScene clock={clock} height={bandHeight} ground={ground} seat={hillSeat} />}
         {hasMeals && said && <Animated.View style={[styles.pill, { left: SEAT.left + BUDDY_SIZE * COMPANION_SCALE + 6, top: seatBase - PILL_ABOVE_BASE, maxWidth: width - SEAT.left - 72 }, pillStyle]}><Text style={styles.pillText}>{said}</Text></Animated.View>}
       </Animated.View>
     </View>
@@ -261,7 +261,7 @@ export default function TodayScene({ hasMeals, children, greeting, mood = "awake
         <CitrusBuddy mood={mood} active={focused} arrive={!inFront && !dropStarting} cheerSignal={cheerSignal} landSignal={landSignal} />
       </Animated.View>}
     </View>
-  </>, [bough, sceneId, screenHeight, groveWashStyle, groveDuskStyle, groveNightStyle, groveGradient, attachStage, bandHeight, bandStyle, hasMeals, clock, focused, printSeed, ground, hillSeat, said, seatBase, width, pillStyle, inFront, seatBox.left, seatBox.bottom, seatedStyle, mood, cheerSignal, landSignal, dropStarting]);
+  </>, [bough, sceneId, screenHeight, groveWashStyle, groveDuskStyle, groveNightStyle, groveGradient, attachStage, bandHeight, bandStyle, hasMeals, clock, focused, ground, hillSeat, said, seatBase, width, pillStyle, inFront, seatBox.left, seatBox.bottom, seatedStyle, mood, cheerSignal, landSignal, dropStarting]);
   // Sent whenever it changes; let go when this day's scene goes away, for the next day's scene to replace.
   useLayoutEffect(() => { stageHost?.current?.show(stage); }, [stage, stageHost]);
   useLayoutEffect(() => () => stageHost?.current?.release(), [stageHost]);

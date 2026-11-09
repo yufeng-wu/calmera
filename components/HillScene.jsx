@@ -1,8 +1,7 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { PixelRatio, StyleSheet, useWindowDimensions, View } from "react-native";
-import Animated, { cancelAnimation, Easing, interpolateColor, useAnimatedProps, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
-import Svg, { Defs, Ellipse, G, LinearGradient, Path, RadialGradient, Stop } from "react-native-svg";
-import { hillVisitor, hillWalk, MOST_STEPS, NEXT_WALK_AFTER, printShown, walkLength } from "@/lib/hillPrints.mjs";
+import Animated, { interpolateColor, useAnimatedProps, useAnimatedStyle } from "react-native-reanimated";
+import Svg, { Defs, Ellipse, LinearGradient, Path, RadialGradient, Stop } from "react-native-svg";
 import { skyAt, skyFade } from "@/lib/skyClock.mjs";
 import SkyLayer, { drawnWhen, SkyWash } from "./SkyLayer";
 
@@ -81,91 +80,11 @@ export const hillTopAt = (x, width) => {
 
 // Room around the orange's shadow at its widest (24 units across, scaled up 1.25 on impact, and tilted).
 const SHADOW_BOX = { width: 80, height: 40 };
-// The strip of hill the trails cross, in the hill's units, with room for the largest print.
-const PRINTS_AREA = { x: 0, y: 100, width: 310, height: 96 };
-// After the orange has landed and the meals have come in.
-const FIRST_WALK_AFTER = 2500;
-const PRINT = { day: "#8A5443", night: "#7D6E9A" };
-const PRINT_OPACITY = 0.45;
-const PRINT_SCALE = 0.98;
-const SLOTS = Array.from({ length: MOST_STEPS }, (_, index) => index);
-const AnimatedG = Animated.createAnimatedComponent(G);
-// Drawn pointing up, centered on the sole. Soft, so they read as pressed into the grass, in day and night tints alike.
-const Paw = ({ wide, fill }) => <>
-  <Ellipse cy={1.1} rx={wide ? 2.4 : 1.9} ry={wide ? 1.9 : 1.6} fill={fill} />
-  <Ellipse cx={wide ? -2.5 : -2.1} cy={-0.7} rx={0.8} ry={1.05} fill={fill} transform={`rotate(-22 ${wide ? -2.5 : -2.1} -0.7)`} />
-  <Ellipse cx={wide ? -0.9 : -0.75} cy={-2.2} rx={0.8} ry={1.1} fill={fill} />
-  <Ellipse cx={wide ? 0.9 : 0.75} cy={-2.2} rx={0.8} ry={1.1} fill={fill} />
-  <Ellipse cx={wide ? 2.5 : 2.1} cy={-0.7} rx={0.8} ry={1.05} fill={fill} transform={`rotate(22 ${wide ? 2.5 : 2.1} -0.7)`} />
-</>;
-// Each print shows on its own beat in the walk. With reduced motion the trail just sits there. A slot past the
-// end of this walk's route stays hidden.
-const Step = ({ walk, index, count, still, children }) => {
-  const shown = useAnimatedProps(() => {
-    const time = walk.value;
-    if (index >= count || typeof time !== "number") return { opacity: 0 };
-    return { opacity: still ? 1 : printShown(time, index) };
-  });
-  return <AnimatedG animatedProps={shown} opacity={still && index < count ? 1 : 0}>{children}</AnimatedG>;
-};
-// The same prints stay mounted from walk to walk, keyed by their place in the walk: a new route only moves them,
-// while they're all hidden, so nothing new appears on screen before its beat.
-const Trail = ({ kind, steps, fill, tint, walk, still }) => <AnimatedG animatedProps={tint}>
-  {SLOTS.map((index) => {
-    const { x, y, turn } = steps[Math.min(index, steps.length - 1)];
-    return <G key={index} transform={`translate(${x} ${y}) rotate(${turn}) scale(${PRINT_SCALE})`}>
-      <Step walk={walk} index={index} count={steps.length} still={still}>
-        <Paw wide={kind === "dog"} fill={fill} />
-      </Step>
-    </G>;
-  })}
-</AnimatedG>;
-const Prints = ({ seed, clock, active }) => {
-  const kind = useMemo(() => hillVisitor(seed), [seed]);
-  // A new route for every walk, picked just before it starts.
-  const [route, setRoute] = useState(null);
-  const still = useReducedMotion();
-  const walk = useSharedValue(0);
-  const activeNow = useRef(active);
-  activeNow.current = active;
-  const day = useAnimatedProps(() => ({ opacity: PRINT_OPACITY * (1 - skyAt(clock.value).night) }));
-  const night = useAnimatedProps(() => ({ opacity: PRINT_OPACITY * skyAt(clock.value).night }));
-  useEffect(() => { setRoute(kind && still ? { steps: hillWalk(kind) } : null); }, [kind, still]);
-  // Timed from here rather than repeated on the UI thread, so nothing runs at all between walks.
-  useEffect(() => {
-    if (!kind || still || !active) return undefined;
-    let timer = null;
-    const go = () => {
-      const steps = hillWalk(kind);
-      // Every print is hidden before the route moves under them.
-      walk.value = 0;
-      setRoute({ steps });
-      timer = setTimeout(go, walkLength(steps) + NEXT_WALK_AFTER);
-    };
-    timer = setTimeout(go, FIRST_WALK_AFTER);
-    return () => {
-      clearTimeout(timer);
-      cancelAnimation(walk);
-      walk.value = 0;
-    };
-  }, [kind, still, active, walk]);
-  // The walk starts once its route has been drawn.
-  useEffect(() => {
-    if (!route || still || !activeNow.current) return;
-    const length = walkLength(route.steps);
-    walk.value = withTiming(length, { duration: length, easing: Easing.linear });
-  }, [route]); // eslint-disable-line react-hooks/exhaustive-deps -- only a new route starts a walk
-  if (!kind || !route) return null;
-  return <>
-    <Trail kind={kind} steps={route.steps} fill={PRINT.day} tint={day} walk={walk} still={still} />
-    <Trail kind={kind} steps={route.steps} fill={PRINT.night} tint={night} walk={walk} still={still} />
-  </>;
-};
 
 // The hill under the meal list, recoloured through the day. `clock` is a shared value of local minutes,
 // so the sky follows the time. Stretched to the band's width and height, which reaches under the tab bar.
 // Memoized: the page can resize every frame while a meal row opens, and none of that changes the hill.
-export default memo(function HillScene({ clock, height, seat, ground, printSeed, active }) {
+export default memo(function HillScene({ clock, height, seat, ground }) {
   const arc = useMemo(() => arcFor(seat?.width || 400), [seat?.width]);
   const warmHill = useAnimatedStyle(() => ({ opacity: skyAt(clock.value).warm }));
   const nightHill = useAnimatedStyle(() => ({ opacity: skyAt(clock.value).night }));
@@ -232,7 +151,7 @@ export default memo(function HillScene({ clock, height, seat, ground, printSeed,
         the hill and never on the sky. */}
     {seat && <Svg pointerEvents="none" width={SHADOW_BOX.width * seat.width / 400} height={SHADOW_BOX.height / UNITS_PER_POINT}
       viewBox={`${shadowX - SHADOW_BOX.width / 2} ${shadowY - SHADOW_BOX.height / 2} ${SHADOW_BOX.width} ${SHADOW_BOX.height}`} preserveAspectRatio="none"
-      style={[styles.prints, { left: (shadowX - SHADOW_BOX.width / 2) * seat.width / 400, top: (shadowY - SHADOW_BOX.height / 2) / UNITS_PER_POINT }]}>
+      style={[styles.shadow, { left: (shadowX - SHADOW_BOX.width / 2) * seat.width / 400, top: (shadowY - SHADOW_BOX.height / 2) / UNITS_PER_POINT }]}>
       <Defs>
         <RadialGradient id="seatShadow"><Stop offset="0" stopColor="#A85F1F" stopOpacity={0.5} /><Stop offset="0.5" stopColor="#A85F1F" stopOpacity={0.24} /><Stop offset="1" stopColor="#A85F1F" stopOpacity={0} /></RadialGradient>
         <RadialGradient id="seatShadowNight"><Stop offset="0" stopColor="#6A5A8C" stopOpacity={0.5} /><Stop offset="0.5" stopColor="#6A5A8C" stopOpacity={0.24} /><Stop offset="1" stopColor="#6A5A8C" stopOpacity={0} /></RadialGradient>
@@ -240,14 +159,7 @@ export default memo(function HillScene({ clock, height, seat, ground, printSeed,
       <AnimatedEllipse animatedProps={shadow} cx={shadowX} cy={shadowY} ry={5} transform={shadowTransform} fill="url(#seatShadow)" />
       <AnimatedEllipse animatedProps={nightShadow} cx={shadowX} cy={shadowY} ry={5} transform={shadowTransform} fill="url(#seatShadowNight)" />
     </Svg>}
-    {/* The walk animates every frame while it lasts, so it gets a small drawing of its own over just the strip of
-        hill it crosses, rather than redrawing the whole hill and sky each frame. Same units, same stretch. */}
-    <Svg pointerEvents="none" width={PRINTS_AREA.width * (seat?.width || 400) / 400} height={PRINTS_AREA.height / UNITS_PER_POINT}
-      viewBox={`${PRINTS_AREA.x} ${PRINTS_AREA.y} ${PRINTS_AREA.width} ${PRINTS_AREA.height}`} preserveAspectRatio="none"
-      style={[styles.prints, { top: PRINTS_AREA.y / UNITS_PER_POINT, left: PRINTS_AREA.x * (seat?.width || 400) / 400 }]}>
-      <Prints seed={printSeed} clock={clock} active={active} />
-    </Svg>
   </>;
 });
 
-const styles = StyleSheet.create({ sky: { position: "absolute", left: 0, right: 0, top: -SKY_POINTS }, layer: { position: "absolute", left: 0, right: 0 }, prints: { position: "absolute" }, below: { position: "absolute", left: 0, right: 0, height: 1200 } });
+const styles = StyleSheet.create({ sky: { position: "absolute", left: 0, right: 0, top: -SKY_POINTS }, layer: { position: "absolute", left: 0, right: 0 }, shadow: { position: "absolute" }, below: { position: "absolute", left: 0, right: 0, height: 1200 } });
