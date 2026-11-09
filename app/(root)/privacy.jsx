@@ -17,7 +17,7 @@ export default function Privacy({ calmeraPreview = false, calmeraPreviewStage })
     ? router.push({ pathname: "/ui-gallery", params: { page: `privacy-${id}` } })
     : router.push({ pathname: "/privacy", params: { doc: id } });
   return <FormScreen>
-    <FormHeader title={doc === PRIVACY_POLICY ? "Privacy Policy" : "Health Data Policy"} onBack={leave} />
+    <FormHeader title={doc === PRIVACY_POLICY ? "Privacy policy" : "Health data policy"} onBack={leave} />
     <FormScrollView contentContainerStyle={settingsStyles.content}>
       {calmeraPreview && <Text style={settingsStyles.footnote}>Synthetic preview</Text>}
       <PrivacyPolicyView doc={doc} onOpenDoc={openDoc} preview={calmeraPreview} />

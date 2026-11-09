@@ -55,7 +55,7 @@ export default function PrivacyConsentSheet({ updated = false, saving = false, e
       {/* A page sheet starts below the status bar, so it needs no top inset of its own. */}
       <SafeScreenTopContext.Provider value={0}>
         {policy && <FormScreen>
-          <FormHeader title={policy === "privacy" ? "Privacy Policy" : "Health Data Policy"}
+          <FormHeader title={policy === "privacy" ? "Privacy policy" : "Health data policy"}
             onBack={policy === "privacy" ? undefined : () => setPolicy("privacy")}
             onSave={() => setPolicy(null)} saveTitle="Done" />
           <FormScrollView key={policy} contentContainerStyle={settingsStyles.content}>

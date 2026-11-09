@@ -85,10 +85,10 @@ export default function SettingsScreen({ calmeraPreview = false }) {
           onPress={() => openPage("/theme", "Theme")} />
         <SettingsRow title="Export your data" icon="share" tint="tangerine" divider
           onPress={() => openPage("/export-data", "Export your data")} />
-        <SettingsRow title="Privacy Policy" icon="shield-checkmark" tint="leaf" divider
-          onPress={() => openPage("/privacy", "Privacy Policy")} />
+        <SettingsRow title="Privacy policy" icon="shield-checkmark" tint="leaf" divider
+          onPress={() => openPage("/privacy", "Privacy policy")} />
         {/* Opens a page that says what goes and asks again, so it sits with the other rows. */}
-        <SettingsRow title="Erase all data" icon="trash" tint="rose" destructive divider
+        <SettingsRow title="Erase all data" icon="trash" tint="rose" divider
           accessibilityHint="Removes your meals, goals and settings from this iPhone."
           onPress={() => openPage("/erase-data", "Erase all data")} />
       </SettingsSection>

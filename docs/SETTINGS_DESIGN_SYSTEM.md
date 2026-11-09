@@ -41,7 +41,7 @@ The Settings tab and every page it opens share one list style. Tokens live in
 
 1. Daily goals: four targets. Tap to edit.
 2. Logging: ChatGPT, Voice language.
-3. App: Theme, Export your data, Privacy Policy, Erase all data (red title; its page lists
+3. App: Theme, Export your data, Privacy policy, Erase all data (rose icon, plain title; its page lists
    what goes and asks again).
 4. The wordmark and version.
 

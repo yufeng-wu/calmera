@@ -62,7 +62,7 @@ const screens = [
   { id: "privacy-consent", title: "Privacy and AI consent", Component: PrivacyConsentGate },
   { id: "privacy-consent-updated", title: "Updated policy consent", Component: PrivacyConsentGate, state: "updated" },
   { id: "privacy-consent-error", title: "Consent not saved", Component: PrivacyConsentGate, state: "error" },
-  { id: "privacy", title: "Privacy Policy", Component: Privacy, stage: "privacy" },
+  { id: "privacy", title: "Privacy policy", Component: Privacy, stage: "privacy" },
   { id: "privacy-health-data", title: "Health Data Policy", Component: Privacy, stage: "health-data" },
   { id: "edit-meal", title: "Edit meal", Component: EditMeal },
   { id: "edit-save-navigation-error", title: "Meal saved navigation recovery", Component: EditMeal, state: "saved-navigation-error" },
