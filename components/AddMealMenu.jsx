@@ -82,8 +82,9 @@ function FallbackAddMealMenu({ expanded, onToggle, onClose, onText, onPhoto,
 
 const styles = StyleSheet.create({
   stack: { position: "absolute", bottom: 108, right: 20, left: 20, alignItems: "flex-end", gap: 12 },
-  option: { width: ADD_MENU_OPTION_WIDTH, maxWidth: "100%", minHeight: 48, paddingVertical: 12, paddingHorizontal: 16,
-    borderRadius: 24, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
+  // Each option's content starts at the same inset, so the icons share one column and the titles one left edge.
+  option: { width: ADD_MENU_OPTION_WIDTH, maxWidth: "100%", minHeight: 48, paddingVertical: 12, paddingLeft: 28, paddingRight: 16,
+    borderRadius: 24, flexDirection: "row", alignItems: "center", justifyContent: "flex-start", gap: 10,
     backgroundColor: "transparent", shadowColor: COLORS.shadow, shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
   label: { fontSize: 14, fontWeight: "600", color: COLORS.text, flexShrink: 1 },
   trigger: { position: "absolute", bottom: 40, right: 20, minHeight: 56,

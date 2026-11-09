@@ -483,6 +483,7 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
   private var voiceReturnMaxAnchorError: CGFloat = 0
   private var voiceReturnBadSamples = 0
   private var voiceReturnStartWidth: CGFloat = 0
+  private static let optionTitles = ["Photo", "Text", "Voice"]
   private var previewPalette = "tangerine"
   private var tint: UIColor { comparisonAccent(previewPalette) }
   func setPreviewPalette(_ id: String) {
@@ -536,7 +537,15 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
       ])
       let icon = UIImageView(image: UIImage(systemName: symbols[index]))
       icon.tintColor = tint
-      icon.contentMode = .scaleAspectFit
+      // Drawn at one symbol size and centred in the 20-point column, rather than each stretched to fit it, so the
+      // wide camera, the square pencil and the narrow mic keep the same weight and share one centre line.
+      // The Add button's plus keeps its own fitted size.
+      if index < 3 {
+        icon.preferredSymbolConfiguration = UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)
+        icon.contentMode = .center
+      } else {
+        icon.contentMode = .scaleAspectFit
+      }
       if index == 2 {
         processingIndicator.color = tint
         processingIndicator.hidesWhenStopped = true
@@ -697,8 +706,12 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
     buttons[3].isEnabled = !recording
     buttons[3].accessibilityLabel = expanded ? "Close add meal menu" : "Add a meal"
     accessibilityViewIsModal = expanded
+    // Photo, Text and Voice share one content width, so their icons sit in one column and their titles start on one
+    // line; each title is left-aligned in that width. A longer Voice title while recording widens only Voice.
+    let optionTitleWidth = ceil(Self.optionTitles.map { ($0 as NSString).size(withAttributes: [.font: labels[0].font!]).width }.max() ?? 0)
     for index in 0..<4 {
-      let textWidth = ceil(((labels[index].text ?? "") as NSString).size(withAttributes: [.font: labels[index].font!]).width)
+      let ownWidth = ceil(((labels[index].text ?? "") as NSString).size(withAttributes: [.font: labels[index].font!]).width)
+      let textWidth = index < 3 ? max(ownWidth, optionTitleWidth) : ownWidth
       rowWidths[index].constant = index == 3 && expanded ? 20 : 20 + (index == 3 ? 4 : rows[index].spacing) + textWidth
     }
     visible = [expanded, expanded, expanded || recording || analyzing, true]
@@ -720,7 +733,7 @@ final class CalmeraActionMenuView: ExpoView, UIGestureRecognizerDelegate {
     if first {
       for glass in glasses { glass.frame = trigger }
     }
-    let longestTitle = ["Photo", "Text", "Voice"].map {
+    let longestTitle = Self.optionTitles.map {
       ($0 as NSString).size(withAttributes: [.font: labels[0].font!]).width
     }.max() ?? 0
     let width = min(max(optionWidth, ceil(longestTitle) + 62), bounds.width - 40)
