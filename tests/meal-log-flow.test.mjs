@@ -284,7 +284,6 @@ function logFixture(inputMode = "text") {
       estimateMacros: (...args) => service.estimate(...args), inferenceError: error => errors.push(error) },
     "@/components/MealReview": "MealReview",
     "@/context/FoodIconsContext": { useFoodIcons: () => ({ rememberIcons: async () => {} }) },
-    "@/lib/mealTimes.mjs": { mealForLocalTime: () => "Lunch" },
     "@/lib/mealReview.mjs": { ...reviewModel, saveMealReview: async (draft, id, store, options) => {
       assert.equal(store, data); writes.push({ draft, id, options }); return draft.entries.map((entry, index) => ({ ...entry, id: index + 1 })); } },
     "@/lib/confirmedMealSave.mjs": { createConfirmedMealSave },
@@ -309,7 +308,8 @@ test("a typed meal is analyzed as text, produces structured foods, and never sav
   tree = fixture.render(); await button(tree, "Analyze Meal").props.onPress();
   const request = fixture.requests[0];
   assert.equal(request.text, "Apple"); assert.equal(request.image, undefined);
-  assert.equal(request.defaultMealType, "Lunch");
+  // The meal is picked when saving, so analysis asks for no particular one.
+  assert.equal(request.defaultMealType, undefined);
   const review = fixture.render(); assert.equal(review.type, "MealReview");
   assert.equal(review.props.review.entries.length, 2);
   assert.equal(fixture.writes.length, 0);

@@ -18,7 +18,6 @@ import { pickMealPhoto } from "@/lib/chatgpt/planClient";
 import { nutritionClient, inferenceError, estimateMacros } from "@/lib/chatgpt/nutrition";
 import MealReview from "@/components/MealReview";
 import { useFoodIcons } from "@/context/FoodIconsContext";
-import { mealForLocalTime } from "@/lib/mealTimes.mjs";
 import { createMealReview, saveMealReview, updateReviewFood, MEAL_TYPES } from "@/lib/mealReview.mjs";
 import { createConfirmedMealSave } from "@/lib/confirmedMealSave.mjs";
 import { getLocalTimeWithOffset } from "@/lib/utils";
@@ -213,7 +212,7 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
         const { client, model } = await nutritionClient(userId);
         if (!isCurrent(ticket)) return;
         result = await client.estimate({ text: textMode ? selectedText : "", image: textMode ? undefined : selectedPhoto.dataURL,
-          defaultMealType: textMode ? mealForLocalTime(new Date(createdAt)) : "Snack", model, signal: ticket.controller.signal,
+          model, signal: ticket.controller.signal,
           onProgress: stage => { if (isCurrent(ticket)) setProgress(stage); } });
       }
       if (!isCurrent(ticket)) return;

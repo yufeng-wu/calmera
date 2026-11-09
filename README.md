@@ -39,7 +39,6 @@ Setup and verification:
 - [Full page audit](docs/LIQUID_GLASS_PAGE_AUDIT.md)
 - [UI verification](docs/LIQUID_GLASS_PAGE_VERIFICATION.md)
 - [Typography](docs/TYPOGRAPHY.md)
-- [Meal-time defaults](docs/MEAL_TIME_DEFAULTS.md)
 - [foodwrap rename and iOS 26 checks](docs/FOODWRAP_RENAME_AND_IOS26_QA.md)
 
 The cloud version's API is in [cal_backend](https://github.com/yufeng-wu/cal_backend) at tag `cloud-v1`; this app no longer uses it. The older Dot/iMessage/Shortcuts experiments are outside this mobile repository. The license and author information above are unchanged.

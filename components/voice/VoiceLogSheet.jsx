@@ -20,7 +20,6 @@ import { TYPOGRAPHY } from "@/constants/typography";
 import { useFoodIcons } from "@/context/FoodIconsContext";
 import { useDataStore } from "@/lib/store";
 import { nutritionClient, estimateMacros, inferenceError } from "@/lib/chatgpt/nutrition";
-import { mealForLocalTime } from "@/lib/mealTimes.mjs";
 import { createMealReview, reviewTotals, saveMealReview, updateReviewFood } from "@/lib/mealReview.mjs";
 import { getLocalTimeWithOffset } from "@/lib/utils";
 import { formatElapsed, modelLabel, voiceHint, VOICE_LIMIT_MS } from "@/lib/voice/voiceLog.mjs";
@@ -80,7 +79,6 @@ function VoiceSheet({ language, onClose, onSaved }) {
   const operation = useRef(null);
   const mounted = useRef(true);
   const closing = useRef(false);
-  const startedAt = useRef(null);
   const transcriptScroll = useRef(null);
   useEffect(() => () => { mounted.current = false; operation.current?.abort(); }, []);
 
@@ -148,7 +146,6 @@ function VoiceSheet({ language, onClose, onSaved }) {
   };
   const listen = () => {
     setNotice(null);
-    if (!startedAt.current) startedAt.current = new Date();
     haptic(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light));
     speech.start();
   };
@@ -176,7 +173,7 @@ function VoiceSheet({ language, onClose, onSaved }) {
       if (!alive()) return;
       setModel(modelLabel(models, slug));
       const createdAt = getLocalTimeWithOffset();
-      const result = await client.estimate({ text: said, model: slug, defaultMealType: mealForLocalTime(startedAt.current || new Date()),
+      const result = await client.estimate({ text: said, model: slug,
         signal: controller.signal, onProgress: next => { if (alive()) setStage(next); } });
       if (!alive()) return;
       if (!result.length) throw new Error("no_food_detected");
