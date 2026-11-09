@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Animated, { FadeIn, runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import * as Haptics from "expo-haptics";
@@ -8,7 +8,6 @@ import { useRouter } from "expo-router";
 import MaskedView from "@react-native-masked-view/masked-view";
 import { LinearGradient } from "expo-linear-gradient";
 import { FormCard, GlassButton, formStyles } from "@/components/GlassForm";
-import FoodwrapRefreshScrollView from "@/components/FoodwrapRefreshScrollView";
 import DayTimeline from "@/components/insights/DayTimeline";
 import Heatmap, { WeekDots } from "@/components/insights/Heatmap";
 import InsightCard from "@/components/insights/InsightCard";
@@ -45,7 +44,7 @@ export default function InsightsScreen() {
   // The period a tap or a finished swipe is sliding to. The tabs show it straight away,
   // while the cards are still on their way.
   const [chosen, setChosen] = useState(null);
-  const { stats, statsOf, goals, empty, loaded, error, refreshFailed, retryError, refresh } = useInsights(period);
+  const { stats, statsOf, goals, empty, loaded, error, retryError } = useInsights(period);
   // Until history loads, the store holds only the days already opened, which would
   // read as a short history.
   const showData = loaded && !empty;
@@ -144,7 +143,7 @@ export default function InsightsScreen() {
   return <GestureDetector gesture={swipe}><View style={formStyles.screen}>
     <PeriodTabs key={fontScale} items={PERIODS} value={chosen ?? period} onChange={choosePeriod} />
     <MaskedView style={styles.scrollMask} maskElement={<LinearGradient colors={["transparent", "black"]} locations={[0, 0.02]} style={styles.mask} />}>
-      <FoodwrapRefreshScrollView onRefresh={refresh} contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 32 }]}
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 32 }]}
         scrollIndicatorInsets={{ bottom: tabBarHeight }} showsVerticalScrollIndicator={false}>
         {!showData && error ? <RetryCard onRetry={retryError} />
           : !showData && !loaded ? <LoadingCards />
@@ -154,12 +153,12 @@ export default function InsightsScreen() {
                   besideAt={besideAt} page={page} width={width} beside={id !== period} reduceMotion={reduceMotion}
                   onDrawn={id !== period ? () => besideDrawn(id) : undefined}>
                   {id === period
-                    ? <PeriodCards period={id} stats={stats} goals={goals} open={open} refreshFailed={refreshFailed} refresh={refresh}
+                    ? <PeriodCards period={id} stats={stats} goals={goals} open={open}
                       onCalendarTouch={() => { onCalendar.value = true; }} onSeeLonger={(next) => slideTo(next, 1)} />
                     : <PeriodCards period={id} stats={statsOf(id)} goals={goals} open={() => () => {}} />}
                 </PeriodSlot>)}
               </View>}
-      </FoodwrapRefreshScrollView>
+      </ScrollView>
     </MaskedView>
   </View></GestureDetector>;
 }
@@ -175,12 +174,11 @@ function PeriodSlot({ position, besideAt, page, width, beside, reduceMotion, onD
 }
 
 // Everything under the tabs for one period: the date range, then the cards.
-function PeriodCards({ period, stats, goals, open, refreshFailed = false, refresh, onCalendarTouch, onSeeLonger }) {
+function PeriodCards({ period, stats, goals, open, onCalendarTouch, onSeeLonger }) {
   const name = PERIODS.find(({ id }) => id === period).name;
   const hidesCards = !stats.rhythm || !stats.shares || (stats.span > 7 && !stats.split);
   return <>
     <Text style={styles.range}>{`Past ${name} · ${formatRange(stats.keys)}`}</Text>
-    {refreshFailed && <Pressable accessibilityRole="button" onPress={() => refresh().catch(() => {})} hitSlop={{ top: 13, bottom: 13 }}><Text style={styles.staleNote}>{"Couldn’t refresh. Tap to try again."}</Text></Pressable>}
     {!stats.daysLogged ? <FormCard style={styles.emptyCard}>
       <Text style={styles.message}>{`No meals logged in the past ${name}.`}</Text>
       {period !== "year" && onSeeLonger && <Pressable accessibilityRole="button" onPress={() => onSeeLonger(period === "week" ? "month" : "year")} hitSlop={12}>
@@ -370,7 +368,6 @@ const styles = StyleSheet.create({
   topFoodIcon: { fontSize: 20, lineHeight: 26 },
   topFoodName: { ...TYPOGRAPHY.body, flex: 1, color: COLORS.text },
   topFoodValue: { ...TYPOGRAPHY.bodyMedium, color: COLORS.text, fontVariant: ["tabular-nums"] },
-  staleNote: { ...TYPOGRAPHY.caption, color: COLORS.primary, textAlign: "center" },
   moreNote: { ...TYPOGRAPHY.caption, color: COLORS.textLight, textAlign: "center" },
   skeleton: { borderRadius: 24, backgroundColor: COLORS.track, opacity: 0.45 },
   emptyCard: { gap: 10, alignItems: "center", paddingVertical: 28 },

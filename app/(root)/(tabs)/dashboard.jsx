@@ -7,9 +7,10 @@ import {
   Alert,
   Linking,
   StyleSheet,
+  ScrollView,
 } from "react-native";
 import { memo, useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { useFocusEffect, useIsFocused } from "@react-navigation/native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useDailyNutrition } from "../../../hooks/useDailyNutrition";
 import NutritionSummarySkeleton from "@/components/NutritionSummarySkeleton";
@@ -19,7 +20,6 @@ import { NutritionSummaryCard } from "@/components/NutritionSummaryCard";
 import { FoodEntryItem, closeOpenMealActions } from "@/components/FoodEntryItem";
 import TodayScene, { TodayStageHost } from "@/components/TodayScene";
 import { buddyMood, daySeed, emptyTodayGreeting } from "@/lib/nutritionPresentation.mjs";
-import FoodwrapRefreshScrollView from "@/components/FoodwrapRefreshScrollView";
 import FoodwrapWordmark from "@/components/FoodwrapWordmark";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { createPlanClient, preloadNutritionModels } from "@/lib/chatgpt/planClient";
@@ -59,7 +59,6 @@ const MealGroup = memo(function MealGroup({ title, entries, onDelete, springs })
 });
 
 export default function SummaryScreen() {
-  const isFocused = useIsFocused();
   const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
   const floatingBarInset = Platform.OS === "ios" ? tabBarHeight : 0;
@@ -77,7 +76,7 @@ export default function SummaryScreen() {
   const selectedDate = useMemo(() => pickedDate ?? new Date(), [pickedDate, todayKey]); // eslint-disable-line react-hooks/exhaustive-deps -- todayKey rolls today over at midnight.
   const isToday = localDateKey(selectedDate) === todayKey;
 
-  const { dateKey, entries, summary, goals, hasData, error: dataError, profileError, refreshFailed, goalsLoading, retryError, retrying, isSessionActive, loadData, deleteEntry, addEntries,
+  const { dateKey, entries, summary, goals, hasData, error: dataError, profileError, goalsLoading, retryError, retrying, isSessionActive, deleteEntry, addEntries,
     profile, dataByDate, historyLoading, historyError, historyPending, retryHistory, loadCalendar } =
     useDailyNutrition(selectedDate);
   // Today's card waits for its goals, so it never rewrites its own numbers when they land a moment later.
@@ -217,7 +216,7 @@ export default function SummaryScreen() {
       {/* The hill and the seated orange, pinned behind the page (which sits above them at zIndex 1); the scene
           below sends what it shows. */}
       <TodayStageHost ref={stageHost} />
-      <FoodwrapRefreshScrollView scrollRef={scrollRef} active={isFocused} onRefresh={loadData} onScrollBeginDrag={closeOpenMealActions} directionalLockEnabled alwaysBounceHorizontal={false}
+      <ScrollView ref={scrollRef} onScrollBeginDrag={closeOpenMealActions} directionalLockEnabled alwaysBounceHorizontal={false}
         style={[styles.scrollView, { zIndex: 1 }]}
         contentContainerStyle={{ flexGrow: 1, paddingBottom: SCROLL_BOTTOM_PADDING }}
         scrollIndicatorInsets={{ bottom: floatingBarInset }}
@@ -236,11 +235,11 @@ export default function SummaryScreen() {
           {/* A past day without meals has no saved goal to measure against. */}
           {!summaryReady ? <NutritionSummarySkeleton loading={!dataError} />
             : (isToday || entries.length > 0) && <NutritionSummaryCard summary={summary} goals={isToday ? goals : summary.goals || goals} />}
-          {(dataError || profileError || refreshFailed) && <Pressable onPress={() => (dataError || profileError ? retryError() : loadData()).catch(() => {})} disabled={retrying}
+          {(dataError || profileError) && <Pressable onPress={() => retryError().catch(() => {})} disabled={retrying}
             accessibilityRole="button" accessibilityState={{ disabled: retrying, busy: retrying }} style={{ paddingVertical: 10 }}>
             <Text style={styles.macrosText} accessibilityLiveRegion="polite">{retrying ? "Retrying…"
               : dataError ? "Meals couldn’t load. Tap to retry."
-                : profileError ? "Your nutrition goals couldn’t load. Tap to retry." : "Couldn’t refresh. Tap to retry."}</Text>
+                : "Your nutrition goals couldn’t load. Tap to retry."}</Text>
           </Pressable>}
         </View>
 
@@ -261,7 +260,7 @@ export default function SummaryScreen() {
           </TodayScene>}
         </View>
         </AnimatedRe.View>
-      </FoodwrapRefreshScrollView>
+      </ScrollView>
 
       {/* Meals always log to today. Above the page, which sits above the pinned scene. */}
       {isToday && <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { zIndex: 3 }]}><AddMealMenu bottomInset={floatingBarInset} expanded={fabExpanded} onToggle={toggleAddMenu}

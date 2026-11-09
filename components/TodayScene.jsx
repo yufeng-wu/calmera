@@ -105,7 +105,7 @@ export default function TodayScene({ hasMeals, children, greeting, mood = "awake
   const seatAt = useSharedValue({ left: seatBox.left, bottom: seatBox.bottom });
   useEffect(() => { seatAt.value = { left: seatBox.left, bottom: seatBox.bottom }; }, [seatBox.left, seatBox.bottom, seatAt]);
   // The hand-off. The hanging orange does the lift itself, as part of the page, so she stays on the bough even if
-  // the page is still moving (settling after a pull to refresh, say). When she lets go, on the UI thread, she is
+  // the page is still moving (settling after a scroll, say). When she lets go, on the UI thread, she is
   // swapped for the seated orange exactly where she is, which falls from there to her seat.
   const lift = useSharedValue(0);
   const dropStart = useSharedValue(-1);

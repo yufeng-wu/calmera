@@ -23,22 +23,7 @@ import TextLog from "@/app/(root)/create";
 import Photo from "@/app/(root)/photo-log";
 import FoodwrapWordmark from "@/components/FoodwrapWordmark";
 import AppLoadingScreen from "@/components/AppLoadingScreen";
-import FoodwrapRefreshScrollView from "@/components/FoodwrapRefreshScrollView";
 import FoodwrapLoading from "@/components/FoodwrapLoading";
-
-function TodayRefreshPreview() {
-  const focused = useIsFocused();
-  const refresh = () => new Promise(resolve => setTimeout(resolve, 1400));
-  return <FoodwrapRefreshScrollView active={focused} onRefresh={refresh}
-    contentContainerStyle={{ flexGrow: 1, paddingTop: 12, paddingHorizontal: 20 }}>
-    <FoodwrapWordmark style={{ marginBottom: 16 }} />
-    <Text style={[styles.note, { textAlign: "center" }]}>Pull down, then release to refresh</Text>
-    <View style={{ marginTop: 24, padding: 24, borderRadius: 24, backgroundColor: "#FFFFFF80" }}>
-      <Text style={{ color: COLORS.text, fontSize: 22, marginBottom: 12 }}>Today</Text>
-      <Text style={styles.note}>Your meals stay visible while the native control refreshes them.</Text>
-    </View>
-  </FoodwrapRefreshScrollView>;
-}
 
 function TodayLoadingPreview({ calmeraPreviewState }) {
   const focused = useIsFocused();
@@ -55,7 +40,6 @@ function TodayLoadingPreview({ calmeraPreviewState }) {
 
 const screens = [
   { id: "app-loading", title: "App loading", Component: AppLoadingScreen },
-  { id: "today-refresh", title: "Today pull to refresh", Component: TodayRefreshPreview },
   { id: "today-loading", title: "Today logo loading", Component: TodayLoadingPreview },
   { id: "today-loading-reduced", title: "Today loading reduced motion", Component: TodayLoadingPreview, state: "reduced" },
 

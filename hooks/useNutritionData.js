@@ -29,7 +29,6 @@ export function useNutritionData(date = new Date(), history = false) {
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
   const focused = useIsFocused();
   const [wakeVersion, setWakeVersion] = useState(0);
-  const [pullFailed, setPullFailed] = useState(false);
   const dateKey = localDateKey(date);
   const isSessionActive = useCallback(() => ownerRef.current === userId && store.belongsTo(userId), [store, userId]);
   const loader = useMemo(() => dataLoader(data, isSessionActive), [data, isSessionActive]);
@@ -52,11 +51,10 @@ export function useNutritionData(date = new Date(), history = false) {
     }).catch(() => {});
     return () => { active = false; clearTimeout(prefetch); };
   }, [store, loader, focused, isLoaded, userId, dateKey, history, entriesRevision, goalsRevision, wakeVersion]);
+  // Reads the screen's meals and goals again; the retry for a read that failed.
   const refresh = useCallback(() => {
-    setPullFailed(false);
     const data = history ? store.loadHistory(loader, { force: true }) : store.loadDay(dateKey, loader, { force: true });
-    return completeNutritionRefresh([data, store.loadProfile(loader, { force: true })])
-      .catch((error) => { setPullFailed(true); throw error; });
+    return completeNutritionRefresh([data, store.loadProfile(loader, { force: true })]);
   }, [store, loader, history, dateKey]);
   const refreshProfile = useCallback(() => store.loadProfile(loader, { force: true }), [store, loader]);
   const deleteEntry = useCallback((id) => removeStoredNutritionEntry({
@@ -72,9 +70,7 @@ export function useNutritionData(date = new Date(), history = false) {
   const retryError = useCallback(() => retryNutritionError(
     { error: presentation.error, profileError: presentation.profileError }, { refresh, refreshProfile }),
   [presentation.error, presentation.profileError, refresh, refreshProfile]);
-  // A pull is the one refresh someone asked for, so its failure shows over loaded data until a read succeeds.
-  const refreshFailed = pullFailed && Boolean(snapshot.errors[history ? "history" : `day:${dateKey}`] || snapshot.errors.profile);
-  return { store, dateKey, ...presentation, refreshFailed, goals, profile: snapshot.profile, dataByDate: snapshot.days,
+  return { store, dateKey, ...presentation, goals, profile: snapshot.profile, dataByDate: snapshot.days,
     historyPending: Boolean(snapshot.pending.history), profilePending: Boolean(snapshot.pending.profile),
     refresh, refreshProfile, retryError, deleteEntry, isSessionActive, snapshot, loader };
 }
