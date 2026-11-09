@@ -54,17 +54,30 @@ test("the newest print is at her feet and older ones run down the hill, fainter 
   assert.ok(away[0] < 40, `newest print ${away[0]} points from her`);
 });
 
-test("prints keep an even stride and alternate paws, and a food's print keeps its paw as the day goes on", () => {
+test("prints keep a near-even stride and alternate paws, and a food's print keeps its paw as the day goes on", () => {
   const seat = seatFor(402);
   for (const kind of ["dog", "cat"]) {
     const prints = pawTrail({ count: 6, seat, width: 402, seed: days[9], kind });
-    for (let k = 1; k < prints.length; k += 1) {
-      const gap = Math.hypot(prints[k].x - prints[k - 1].x, prints[k].y - prints[k - 1].y);
-      assert.ok(gap > 13 && gap < 18, `${kind} gap ${gap}`);
-      assert.notEqual(prints[k].paw, prints[k - 1].paw);
+    const gaps = prints.slice(1).map((print, k) => Math.hypot(print.x - prints[k].x, print.y - prints[k].y));
+    for (const [k, gap] of gaps.entries()) {
+      assert.ok(gap > 17 && gap < 27, `${kind} gap ${gap}`);
+      assert.notEqual(prints[k + 1].paw, prints[k].paw);
     }
+    // Steps vary a little, so the trail isn't stamped at exact intervals.
+    assert.ok(Math.max(...gaps) - Math.min(...gaps) > 0.5, `${kind} gaps ${gaps}`);
     assert.equal(pawTrail({ count: 1, seat, width: 402, kind })[0].paw, prints[5].paw);
   }
+});
+
+test("a food's print keeps its place, turn and paw as later foods are added", () => {
+  const seat = seatFor(402);
+  const five = pawTrail({ count: 5, seat, width: 402, seed: days[6] });
+  const seven = pawTrail({ count: 7, seat, width: 402, seed: days[6] });
+  // The newest print always sits at her feet, so an older food's print moves down the trail by whole steps, keeping
+  // its own paw and its own small variation relative to its neighbours.
+  assert.deepEqual(five.map((print) => print.paw), seven.slice(2).map((print) => print.paw));
+  assert.equal(seven[0].x, five[0].x);
+  assert.equal(seven[0].y, five[0].y);
 });
 
 test("a cat walks in a narrower line than a dog", () => {
@@ -84,6 +97,8 @@ test("each print points back up the trail towards her", () => {
     const off = Math.abs(((prints[k].turn - heading + 540) % 360) - 180);
     assert.ok(off < 45, `print ${k} is ${off} degrees off the way to the next`);
   }
+  // Each lands a little askew, in its own way.
+  assert.ok(new Set(prints.map((print) => Math.round(print.turn))).size > 4);
 });
 
 test("every print stays on the hill, clear of her, of the Add button and of the tab bar, on every phone", () => {
