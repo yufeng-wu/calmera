@@ -60,7 +60,7 @@ test("prints keep a near-even stride and alternate paws, and a food's print keep
     const prints = pawTrail({ count: 6, seat, width: 402, seed: days[9], kind });
     const gaps = prints.slice(1).map((print, k) => Math.hypot(print.x - prints[k].x, print.y - prints[k].y));
     for (const [k, gap] of gaps.entries()) {
-      assert.ok(gap > 17 && gap < 27, `${kind} gap ${gap}`);
+      assert.ok(gap > 8 && gap < 13, `${kind} gap ${gap}`);
       assert.notEqual(prints[k + 1].paw, prints[k].paw);
     }
     // Steps vary a little, so the trail isn't stamped at exact intervals.

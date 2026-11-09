@@ -9,12 +9,12 @@ import { MOST_PRINTS, pawTrail, pawVisitor } from "@/lib/pawTrail.mjs";
 const SHADE = "#7A4E62";
 const STRENGTH = 0.3;
 // Each print is drawn once, pointing up, in a small square of its own centred on its place.
-const BOX = 24;
-// A dog's print is a little bigger than a cat's.
-const PAW_SCALE = { dog: 1.45, cat: 1.35 };
+const BOX = 10;
+// Small, so a print reads as a little animal passing: about 6 points, a dog's a little bigger than a cat's.
+const PAW_SCALE = { dog: 0.48, cat: 0.45 };
 // A paw lands pad first, a touch large and a little behind its place, pressing in and sliding forward as it
 // settles; the toes splay out from it a moment later.
-const LAND = { duration: 320, settle: 0.55, from: 1.35, press: 0.94, shift: 2.5 };
+const LAND = { duration: 320, settle: 0.55, from: 1.35, press: 0.94, shift: 1 };
 const TOES = { after: 70, duration: 240, from: 0.4, splay: 1.15 };
 // Prints come in one after another, oldest first, like the visitor trotting up to her.
 const BETWEEN = 60;
