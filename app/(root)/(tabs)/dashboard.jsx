@@ -213,6 +213,10 @@ export default function SummaryScreen() {
 
   return (
     <View style={styles.container}>
+      {/* The page's layers change order as the orange drops in front of the page and back. They get a view of
+          their own, kept unflattened, so the voice sheet below is never among the views that get reordered:
+          a sheet that is taken out and put back closes and reopens, which showed as a flash on save. */}
+      <View collapsable={false} style={styles.container}>
       {/* The hill and the seated orange, pinned behind the page (which sits above them at zIndex 1); the scene
           below sends what it shows. */}
       <TodayStageHost ref={stageHost} />
@@ -270,6 +274,7 @@ export default function SummaryScreen() {
         onPhoto={() => collapseFabThenNavigate("/photo-log")}
         onVoicePress={openVoice}
         /></View>}
+      </View>
       <VoiceLogSheet key={voice?.key} open={Boolean(voice)} language={voice?.language} onClose={closeVoice} onSaved={voiceSaved} />
     </View>
   );
