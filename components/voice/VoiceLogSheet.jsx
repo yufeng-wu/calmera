@@ -26,6 +26,8 @@ import { formatElapsed, modelLabel, voiceHint, VOICE_LIMIT_MS } from "@/lib/voic
 
 const INSET = 8;
 const RADIUS = 40;
+// The transcript's padding above and below its words.
+const WORDS_PADDING = 8;
 const SPRING = { damping: 22, stiffness: 190, mass: 0.9 };
 const SHOW = { duration: 380, easing: Easing.bezier(0.32, 0.72, 0, 1) };
 const HIDE = { duration: 240, easing: Easing.bezier(0.32, 0.72, 0, 1) };
@@ -80,6 +82,9 @@ function VoiceSheet({ language, onClose, onSaved }) {
   const mounted = useRef(true);
   const closing = useRef(false);
   const transcriptScroll = useRef(null);
+  // The room the words have in the resting sheet, and how tall the words are now.
+  const wordsRoom = useRef(null);
+  const [wordsHeight, setWordsHeight] = useState(0);
   useEffect(() => () => { mounted.current = false; operation.current?.abort(); }, []);
 
   // Sizes: about a third of the screen to listen, two thirds once there's something to show,
@@ -87,6 +92,10 @@ function VoiceSheet({ language, onClose, onSaved }) {
   const listenHeight = Math.round(Math.min(Math.max(screenHeight * 0.38, 320), 380));
   const largeHeight = Math.round(screenHeight * 0.68);
   const fullHeight = Math.round(screenHeight - top - INSET * 2);
+  // While listening the sheet grows with the words, a line at a time, so what was said earlier stays in view.
+  // Past the large size the words scroll instead.
+  const wordsOver = wordsRoom.current == null ? 0 : Math.max(0, Math.ceil(wordsHeight + WORDS_PADDING - wordsRoom.current));
+  const listenTarget = Math.min(listenHeight + wordsOver, Math.max(listenHeight, largeHeight));
   const shown = useSharedValue(reducedMotion ? 1 : 0);
   const size = useSharedValue(listenHeight);
   const phaseCode = useSharedValue(0);
@@ -96,16 +105,18 @@ function VoiceSheet({ language, onClose, onSaved }) {
   useEffect(() => {
     const code = PHASES[phase];
     phaseCode.value = code;
-    const target = phase === "listen" || phase === "saved" ? listenHeight : largeHeight;
+    const target = phase === "listen" ? listenTarget : phase === "saved" ? listenHeight : largeHeight;
     size.value = reducedMotion ? target : withSpring(target, SPRING);
     tint.value = reducedMotion ? TINT[code] : withTiming(TINT[code], { duration: 360 });
-  }, [phase, listenHeight, largeHeight, reducedMotion, size, tint, phaseCode]);
+  }, [phase, listenHeight, listenTarget, largeHeight, reducedMotion, size, tint, phaseCode]);
 
   const sheetStyle = useAnimatedStyle(() => {
     const raised = keyboard.height.value;
     const reviewing = phaseCode.value === PHASES.review;
-    const height = reviewing ? interpolate(raised, [0, 260], [size.value, Math.max(size.value, fullHeight)], Extrapolation.CLAMP) : size.value;
     const lift = reviewing ? 0 : raised;
+    // Lifted over the keyboard, a sheet grown tall with words still has to fit under the status bar.
+    const height = reviewing ? interpolate(raised, [0, 260], [size.value, Math.max(size.value, fullHeight)], Extrapolation.CLAMP)
+      : Math.min(size.value, Math.max(listenHeight, fullHeight - lift));
     return { height, transform: [{ translateY: (1 - shown.value) * (height + INSET * 2) - lift + drag.value }] };
   });
   const tintStyle = useAnimatedStyle(() => ({ opacity: tint.value }));
@@ -279,8 +290,10 @@ function VoiceSheet({ language, onClose, onSaved }) {
 
           {phase === "listen" && <View style={[styles.listen, { paddingBottom: contentBottom }]}>
             <ScrollView ref={transcriptScroll} style={styles.transcript} contentContainerStyle={styles.transcriptContent}
+              onLayout={({ nativeEvent }) => { if (wordsRoom.current == null) wordsRoom.current = nativeEvent.layout.height; }}
               onContentSizeChange={() => { if (listening) transcriptScroll.current?.scrollToEnd({ animated: !reducedMotion }); }}
               keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <View onLayout={({ nativeEvent }) => setWordsHeight(nativeEvent.layout.height)}>
               {paused && hasWords ? <TextInput value={speech.committed} onChangeText={speech.editText} multiline maxLength={3000}
                 accessibilityLabel="What you said" accessibilityHint="Edit the words before sending"
                 returnKeyType="done" submitBehavior="blurAndSubmit" style={[styles.words, styles.wordsInput]} />
@@ -289,6 +302,7 @@ function VoiceSheet({ language, onClose, onSaved }) {
                     <Text style={styles.prompt}>{listening ? "Tell me what you ate" : speech.elapsed >= VOICE_LIMIT_MS ? "Close to start a new voice log" : "Tap Resume to keep talking"}</Text>
                     <Text style={styles.hint}>{hint}</Text>
                   </View>}
+              </View>
             </ScrollView>
             <VoiceWave level={level} active={listening} />
             <View style={styles.noticeRow}>
@@ -365,7 +379,7 @@ const styles = StyleSheet.create({
   dotPaused: { backgroundColor: "#C9B6A8" },
   listen: { flex: 1, paddingHorizontal: 20, gap: 8 },
   transcript: { flex: 1 },
-  transcriptContent: { flexGrow: 1, justifyContent: "center", paddingVertical: 4 },
+  transcriptContent: { flexGrow: 1, justifyContent: "center", paddingVertical: WORDS_PADDING / 2 },
   words: { fontSize: 20, lineHeight: 27, fontWeight: "500", color: COLORS.text, letterSpacing: -0.2 },
   wordsInput: { padding: 0, margin: 0 },
   empty: { alignItems: "center", gap: 4 },
