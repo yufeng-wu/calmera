@@ -107,8 +107,16 @@ export default function CitrusBuddy({ mood = "awake", asleep = false, hang = fal
   const faceStyle = useAnimatedStyle(() => ({ transform: [{ translateX: look.value * 6 * UNIT }, { translateY: look.value * 4 * UNIT }] }));
   // Cheeks travel half as far, so they stay on the fruit and the turn reads as round.
   const cheeksStyle = useAnimatedStyle(() => ({ transform: [{ translateX: look.value * 3 * UNIT }, { translateY: look.value * 2 * UNIT }] }));
-  const eyesStyle = useAnimatedStyle(() => ({ opacity: 1 - joy.value, transform: [{ scaleY: 1 - lid.value * 0.9 }] }));
-  const happyStyle = useAnimatedStyle(() => ({ opacity: joy.value }));
+  // Only one pair of eyes ever shows: the open eyes close like a blink over the first half of the change, then
+  // the smiling ones open in their place. A cross-fade would show both pairs at once.
+  const eyesStyle = useAnimatedStyle(() => ({
+    opacity: joy.value < 0.5 ? 1 : 0,
+    transform: [{ scaleY: (1 - lid.value * 0.9) * (1 - Math.min(1, joy.value * 2) * 0.9) }],
+  }));
+  const happyStyle = useAnimatedStyle(() => ({
+    opacity: joy.value < 0.5 ? 0 : 1,
+    transform: [{ scaleY: 0.3 + Math.min(1, Math.max(0, joy.value * 2 - 1)) * 0.7 }],
+  }));
 
   return <Pressable onPress={() => { cheer(); onTap?.(); }} accessible={false} importantForAccessibility="no-hide-descendants" style={[styles.fruit, style]}>
     <Animated.View style={[StyleSheet.absoluteFill, styles.hang, hangStyle]}>
@@ -140,7 +148,7 @@ export default function CitrusBuddy({ mood = "awake", asleep = false, hang = fal
             <View style={[styles.eye, { left: (EYE.left - EYE.w / 2) * UNIT }]}><View style={styles.shine} /></View>
             <View style={[styles.eye, { left: (EYE.right - EYE.w / 2) * UNIT }]}><View style={styles.shine} /></View>
           </Animated.View>}
-        <Animated.View style={[StyleSheet.absoluteFill, happyStyle]}>
+        <Animated.View style={[StyleSheet.absoluteFill, styles.happy, happyStyle]}>
           <Canvas><Path d={EYES_HAPPY} stroke={FACE} strokeWidth={3.5} strokeLinecap="round" /></Canvas>
         </Animated.View>
       </Animated.View>
@@ -155,6 +163,8 @@ const styles = StyleSheet.create({
   hang: { transformOrigin: "50% 13%" },
   // Turns on its base at the stem.
   leaf: { transformOrigin: "52% 17%" },
+  // Opens from the line the eyes sit on.
+  happy: { transformOrigin: `50% ${EYE.y}%` },
   eye: { position: "absolute", top: (EYE.y - EYE.h / 2) * UNIT, width: EYE.w * UNIT, height: EYE.h * UNIT, borderRadius: EYE.w / 2 * UNIT, backgroundColor: FACE },
   shine: { position: "absolute", top: 2.2 * UNIT, right: 1.8 * UNIT, width: 3.2 * UNIT, height: 3.2 * UNIT, borderRadius: 2 * UNIT, backgroundColor: "#FFFFFF" },
 });

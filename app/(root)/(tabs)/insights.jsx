@@ -222,7 +222,7 @@ function FirstRun({ onLog }) {
 
 function DaysCard({ stats, onCalendarTouch }) {
   const { fontScale } = useWindowDimensions();
-  const { span, keys, loggedDays, started, todayKey, daysLogged } = stats;
+  const { span, keys, loggedDays, started, daysLogged } = stats;
   const label = plural(daysLogged, "day");
   const which = span === 7 ? ` ${keys.filter((_, index) => loggedDays[index]).map(weekdayName).join(", ")}.` : "";
   if (span > 30) {
@@ -232,7 +232,7 @@ function DaysCard({ stats, onCalendarTouch }) {
         <Text style={styles.metric}>{label}</Text>
       </View>
       <View onTouchStart={onCalendarTouch}>
-        <Heatmap keys={keys} logged={loggedDays} started={started} todayKey={todayKey} />
+        <Heatmap keys={keys} logged={loggedDays} started={started} />
       </View>
     </FormCard>;
   }
@@ -243,10 +243,10 @@ function DaysCard({ stats, onCalendarTouch }) {
         <Text accessibilityRole="header" style={styles.cardTitle}>Days logged</Text>
         <Text style={styles.metric}>{label}</Text>
       </View>
-      {span === 30 ? <WeekDots keys={keys} logged={loggedDays} started={started} todayKey={todayKey} />
+      {span === 30 ? <WeekDots keys={keys} logged={loggedDays} started={started} />
         : <View style={styles.dayRow}>
           {keys.map((key, index) => <View key={key} style={styles.dayCell}>
-            <View style={[styles.dayDot, !started[index] && styles.dayNotStarted, loggedDays[index] && styles.dayLogged, key === todayKey && styles.dayToday]} />
+            <View style={[styles.dayDot, !started[index] && styles.dayNotStarted, loggedDays[index] && styles.dayLogged]} />
             <Text maxFontSizeMultiplier={1.3} style={styles.dayLabel}>{dayLetter(key)}</Text>
           </View>)}
         </View>}
@@ -392,7 +392,6 @@ const styles = StyleSheet.create({
   dayDot: { width: 22, height: 22, borderRadius: 11, backgroundColor: COLORS.track },
   dayNotStarted: { backgroundColor: "transparent", borderWidth: 1.5, borderColor: COLORS.track },
   dayLogged: { backgroundColor: COLORS.primary },
-  dayToday: { borderWidth: 2, borderColor: COLORS.text },
   dayLabel: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
   typicalRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
   typicalStacked: { flexDirection: "column", alignItems: "stretch", gap: 6 },
