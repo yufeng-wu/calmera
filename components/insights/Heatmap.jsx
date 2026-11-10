@@ -20,14 +20,14 @@ const fillFor = (day) => !day ? null : day.started ? { backgroundColor: day.logg
 
 // A small calendar of dots, one row per week with Sunday first, so weekends stay in
 // the same place.
-export function WeekDots({ keys, logged, started, todayKey }) {
+export function WeekDots({ keys, logged, started }) {
   const weeks = useMemo(() => heatmapWeeks(keys, logged, started), [keys, logged, started]);
   return <View style={styles.dots}>
     <View style={styles.dotRow}>
       {["S", "M", "T", "W", "T", "F", "S"].map((letter, index) => <Text key={index} maxFontSizeMultiplier={GRID_TEXT} style={styles.dotHeader}>{letter}</Text>)}
     </View>
     {weeks.map((week) => <View key={week.days.find(Boolean).key} style={styles.dotRow}>
-      {week.days.map((day, position) => <View key={position} style={[styles.dot, fillFor(day), day?.key === todayKey && styles.today]} />)}
+      {week.days.map((day, position) => <View key={position} style={[styles.dot, fillFor(day)]} />)}
     </View>)}
   </View>;
 }
@@ -35,7 +35,7 @@ export function WeekDots({ keys, logged, started, todayKey }) {
 // A calendar of rounded squares in the style of GitHub's contribution graph, filled
 // on logged days. It's wider than the phone, so it scrolls and opens on the newest
 // days, always stopping on a whole column.
-export default function Heatmap({ keys, logged, started, todayKey }) {
+export default function Heatmap({ keys, logged, started }) {
   const scroller = useRef(null);
   const weeks = useMemo(() => heatmapWeeks(keys, logged, started), [keys, logged, started]);
   const [available, setAvailable] = useState(0);
@@ -58,7 +58,7 @@ export default function Heatmap({ keys, logged, started, todayKey }) {
           </View>
           <View style={styles.weeks}>
             {weeks.map((week, index) => <View key={index} style={styles.week}>
-              {week.days.map((day, position) => <View key={position} style={[styles.cell, fillFor(day), day?.key === todayKey && styles.today]} />)}
+              {week.days.map((day, position) => <View key={position} style={[styles.cell, fillFor(day)]} />)}
             </View>)}
           </View>
         </View>
@@ -80,7 +80,6 @@ const styles = StyleSheet.create({
   week: { gap: GAP },
   cell: { width: SIZE, height: SIZE, borderRadius: 4 },
   notStarted: { borderWidth: 1, borderColor: COLORS.track },
-  today: { borderWidth: 1.5, borderColor: COLORS.text },
   weekdays: { gap: GAP, marginTop: 20, width: 12 },
   weekday: { height: SIZE, lineHeight: SIZE, fontSize: 10, color: COLORS.textLight, textAlign: "center" },
 });
