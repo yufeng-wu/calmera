@@ -1648,6 +1648,10 @@ final class CalmeraMenuButtonView: ExpoView {
   var actions = false
   var destructiveOptions: [String] = []
   private let button = UIButton(type: .system)
+  // On iOS 26 a menu grows out of its button's glass and closes back into it, so a menu on the
+  // prominent button turns solid orange as it closes. The prominent button's menu hangs on this
+  // clear button laid over it instead, and the orange one underneath only shows the press.
+  private let menuTrigger = UIButton(type: .custom)
   private var menuKey = ""
   private let tint = UIColor(red: 188/255, green: 90/255, blue: 25/255, alpha: 1)
 
@@ -1661,6 +1665,11 @@ final class CalmeraMenuButtonView: ExpoView {
     // Keep the listed order even when the menu opens upward from the Save bar.
     if #available(iOS 16.0, *) { button.preferredMenuElementOrder = .fixed }
     addSubview(button)
+    menuTrigger.showsMenuAsPrimaryAction = true
+    if #available(iOS 16.0, *) { menuTrigger.preferredMenuElementOrder = .fixed }
+    menuTrigger.addTarget(self, action: #selector(pressDown), for: [.touchDown, .touchDragEnter])
+    menuTrigger.addTarget(self, action: #selector(pressUp), for: [.touchUpInside, .touchUpOutside, .touchCancel, .touchDragExit, .menuActionTriggered])
+    addSubview(menuTrigger)
     for name in [UIContentSizeCategory.didChangeNotification,
       UIAccessibility.reduceTransparencyStatusDidChangeNotification,
       UIAccessibility.darkerSystemColorsStatusDidChangeNotification] {
@@ -1668,6 +1677,9 @@ final class CalmeraMenuButtonView: ExpoView {
     }
     updateControl()
   }
+
+  @objc private func pressDown() { button.isHighlighted = true }
+  @objc private func pressUp() { button.isHighlighted = false }
 
   @objc func updateControl() {
     var config: UIButton.Configuration
@@ -1705,18 +1717,26 @@ final class CalmeraMenuButtonView: ExpoView {
     button.isEnabled = !buttonDisabled
     // Rebuild the menu only when its contents change.
     let key = ([menuTitle, selected, actions ? "actions" : "choices"] + options + destructiveOptions).joined(separator: "\u{1F}")
-    if key != menuKey {
+    // Which button opens the menu: the clear one over a prominent button, else the button itself.
+    let overlaid = prominent
+    let opener = overlaid ? menuTrigger : button
+    menuTrigger.isHidden = !overlaid
+    menuTrigger.isEnabled = !buttonDisabled
+    button.isUserInteractionEnabled = !overlaid
+    button.isAccessibilityElement = !overlaid
+    if overlaid { button.menu = nil } else { menuTrigger.menu = nil }
+    if key != menuKey || opener.menu == nil {
       menuKey = key
-      button.menu = UIMenu(title: menuTitle, options: actions ? [] : .singleSelection, children: options.map { option in
+      opener.menu = UIMenu(title: menuTitle, options: actions ? [] : .singleSelection, children: options.map { option in
         UIAction(title: option, attributes: destructiveOptions.contains(option) ? .destructive : [],
           state: !actions && option == selected ? .on : .off) { [weak self] _ in
           self?.onSelect(["value": option])
         }
       })
     }
-    button.accessibilityLabel = buttonLabel.isEmpty ? (fixed ? buttonTitle : selected) : buttonLabel
-    button.accessibilityValue = actions ? nil : selected
-    button.accessibilityHint = buttonHint.isEmpty ? nil : buttonHint
+    opener.accessibilityLabel = buttonLabel.isEmpty ? (fixed ? buttonTitle : selected) : buttonLabel
+    opener.accessibilityValue = actions ? nil : selected
+    opener.accessibilityHint = buttonHint.isEmpty ? nil : buttonHint
     button.titleLabel?.adjustsFontForContentSizeCategory = true
     button.titleLabel?.numberOfLines = 1
     if #available(iOS 26.0, *) { button.cornerConfiguration = .capsule() }
@@ -1731,6 +1751,7 @@ final class CalmeraMenuButtonView: ExpoView {
   override func layoutSubviews() {
     super.layoutSubviews()
     button.frame = bounds
+    menuTrigger.frame = bounds
   }
   deinit { NotificationCenter.default.removeObserver(self) }
 }
