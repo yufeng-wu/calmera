@@ -9,7 +9,7 @@
     "userInterfaceStyle": "light",
     "ios": {
       "buildNumber": "8",
-      "supportsTablet": true,
+      "supportsTablet": false,
       "infoPlist": {
         "NSMicrophoneUsageDescription": "calmera uses the microphone when you log a meal by voice.",
         "NSSpeechRecognitionUsageDescription": "calmera turns what you say into text on this iPhone to log your meal. Your recording isn’t saved or sent anywhere.",
