@@ -25,6 +25,11 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
   const { iconFor } = useFoodIcons();
   const [isExpanded, setIsExpanded] = useState(false);
   const [actionsVisible, setActionsVisible] = useState(false);
+  // The glass Delete is created at the row's first reveal, not with the row. A day's first meals arrive inside a list
+  // that fades in, and a glass view created under that fade stays flat for good (bare red text): re-applying the
+  // effect, or rebuilding the glass inside the same native view, doesn't bring it back. A reveal starts from a hidden
+  // droplet, so the frame it takes to mount can't be seen.
+  const [actionsMounted, setActionsMounted] = useState(false);
   const initialReducedMotion = useReducedMotion();
   const [reducedMotion, setReducedMotion] = useState(initialReducedMotion);
   useEffect(() => {
@@ -118,7 +123,7 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
     if (activeRow && activeRow !== swipeable) activeRow.current?.close();
     activeRow = swipeable;
   };
-  const revealActions = () => { claimRow(); swipeable.current?.openRight(); };
+  const revealActions = () => { setActionsMounted(true); claimRow(); swipeable.current?.openRight(); };
   const edit = () => {
     if (pendingEdit.current || navigatingToEdit.current) return;
     const openEditor = () => {
@@ -149,7 +154,7 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
   };
 
   return <View style={swipeStyles.row}>
-    {nativeActions && <View pointerEvents="box-none" style={swipeStyles.actionOverlay}>
+    {nativeActions && actionsMounted && <View pointerEvents="box-none" style={swipeStyles.actionOverlay}>
       <MealSwipeActions overlay width={actionWidth} progress={nativeReveal} visible={actionsVisible}
         onDelete={remove} onMetrics={onActionMetrics} previewPalette={palette?.id} />
     </View>}
@@ -158,9 +163,9 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
       overshootLeft={false} overshootRight={!reducedMotion} overshootFriction={9}
       enableTrackpadTwoFingerGesture animationOptions={swipeSpring}
       containerStyle={swipeStyles.swipeable}
-      onSwipeableOpenStartDrag={() => { pendingEdit.current = null; claimRow(); onSwipeStateChange?.("dragging"); }}
+      onSwipeableOpenStartDrag={() => { setActionsMounted(true); pendingEdit.current = null; claimRow(); onSwipeStateChange?.("dragging"); }}
       onSwipeableWillOpen={() => {
-        claimRow(); isOpen.current = true; setActionsVisible(true);
+        setActionsMounted(true); claimRow(); isOpen.current = true; setActionsVisible(true);
         onSwipeStateChange?.("opening");
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch(() => {});
       }}
