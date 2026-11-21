@@ -18,7 +18,8 @@ test("a person's keys are recognised exactly", () => {
   for (const key of [`calmera.theme.v1:${me}x`, `calmera.meal-times.loc`, `other.theme.v1:${me}`, null]) assert.equal(ownsKey(key, me), false, String(key));
   assert.equal(ownsKey(`calmera.theme.v1:${me}`, ""), false);
   assert.ok(chatGPTKeys(me).every((key) => ownsKey(key, me)));
-  assert.equal(new Set(secureKeysFor(me)).size, 6);
+  assert.equal(new Set(secureKeysFor(me)).size, 7);
+  assert.ok(secureKeysFor(me).includes("calmera.connection.local"), "a pasted API key is erased too");
 });
 
 test("people who signed in to the cloud version are found from the keys they left", () => {

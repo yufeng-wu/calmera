@@ -10,6 +10,7 @@ import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import Settings from "@/app/(root)/(tabs)/settings";
 import TodayCalendarPreview from "@/components/TodayCalendarPreview";
 import ChatGPT from "@/app/(root)/chatgpt";
+import AIConnection from "@/app/(root)/ai-connection";
 import VoiceLanguage from "@/app/(root)/voice-language";
 import ThemeSettings from "@/app/(root)/theme";
 import Survey from "@/app/(root)/goals-survey";
@@ -46,6 +47,10 @@ const screens = [
   { id: "chatgpt", title: "ChatGPT connected", Component: ChatGPT },
   { id: "chatgpt-disconnected", title: "Connect ChatGPT", Component: ChatGPT, state: "disconnected" },
   { id: "chatgpt-catalog-error", title: "ChatGPT model recovery", Component: ChatGPT, state: "catalog-error" },
+  { id: "ai-connection", title: "Choose an AI connection", Component: AIConnection, state: "none" },
+  { id: "ai-connection-key", title: "Claude key connected", Component: AIConnection, state: "claude-key" },
+  { id: "ai-connection-chatgpt", title: "ChatGPT connected", Component: AIConnection, state: "chatgpt" },
+  { id: "ai-connection-error", title: "API key rejected", Component: AIConnection, state: "error" },
   { id: "voice-language", title: "Voice language", Component: VoiceLanguage },
   { id: "voice-language-load-error", title: "Voice language load recovery", Component: VoiceLanguage, state: "load-error" },
   { id: "voice-language-save-error", title: "Voice language save recovery", Component: VoiceLanguage, state: "save-error" },

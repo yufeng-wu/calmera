@@ -16,6 +16,8 @@ import OpenAILogo from "@/components/OpenAILogo";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import usePageExit from "@/hooks/usePageExit";
 import { createPlanClient, isChatGPTAvailable } from "@/lib/chatgpt/planClient";
+import { aiConnection } from "@/lib/ai/mealAI";
+import { providerFor } from "@/lib/ai/models.mjs";
 
 const PREVIEW_MODELS = [{ slug: "calmera-preview", display_name: "ChatGPT model" }, { slug: "calmera-preview-fast", display_name: "ChatGPT fast model" }];
 const settingsOperations = createSettingsOperations();
@@ -39,7 +41,12 @@ function ChatGPTSettingsForm({ userId, calmeraPreview = false, calmeraPreviewSta
   const { fontScale } = useWindowDimensions();
   const owner = calmeraPreview ? "calmera-ui-preview" : userId;
   const client = useMemo(() => {
-    if (!calmeraPreview) return userId ? createPlanClient(userId) : null;
+    if (!calmeraPreview) {
+      if (!userId) return null;
+      // calmera keeps one AI connection: once this sign-in is saved, a saved API key goes.
+      const plan = createPlanClient(userId);
+      return { ...plan, connect: async options => { await plan.connect(options); await aiConnection(userId).chatgptConnected(); } };
+    }
     let connected = calmeraPreviewState !== "disconnected", preferred = null, attempts = 0;
     return {
       connected: async () => connected,
@@ -55,10 +62,21 @@ function ChatGPTSettingsForm({ userId, calmeraPreview = false, calmeraPreviewSta
   const [action, setAction] = useState("check");
   const [view, setView] = useState("connection");
   const [notice, setNotice] = useState(null);
+  const [keyInUse, setKeyInUse] = useState(null);
   const checking = useRef(true);
   const presentation = useRef(null);
   const scope = useFormTaskScope(owner, () => { checking.current = true; presentation.current = null; setAction("check"); setView("connection"); setNotice(null); });
   usePreventRemove(view === "models", () => { if (!presentation.current) setView("connection"); });
+
+  // With an API key as the connection, signing in here replaces it; say so before it does.
+  useFocusEffect(useCallback(() => {
+    if (calmeraPreview) return;
+    let active = true;
+    aiConnection(owner).read().then(current => {
+      if (active) setKeyInUse(current && current.type !== "chatgpt" ? providerFor(current.provider)?.name : null);
+    }, () => {});
+    return () => { active = false; };
+  }, [calmeraPreview, owner]));
 
   useFocusEffect(useCallback(() => {
     const task = scope.start();
@@ -131,13 +149,18 @@ function ChatGPTSettingsForm({ userId, calmeraPreview = false, calmeraPreviewSta
   }), result => {
     if (!result) return;
     setConnection(result);
+    if (result.connected) setKeyInUse(null);
     if (result.welcomed === false) Alert.alert("You’re using your ChatGPT plan", "Meal estimates count toward it. Set limits anytime in ChatGPT settings.", [
       { text: "OK", onPress: () => client.markWelcomed?.().catch(() => {}) },
     ], { cancelable: false });
   });
-  const signIn = () => {
+  const signIn = (replacing = keyInUse) => {
     if (action || checking.current || presentation.current) return;
-    if (connection.account?.hasRegistration) chooseAction("Continue with ChatGPT", [
+    if (replacing) Alert.alert(`Replace your ${replacing} key?`, `calmera uses one AI connection. Your ${replacing} key is deleted from this iPhone once you’re signed in to ChatGPT.`, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Continue", onPress: () => signIn(null) },
+    ]);
+    else if (connection.account?.hasRegistration) chooseAction("Continue with ChatGPT", [
       { title: connection.account.email ? `Continue as ${connection.account.email}` : "Continue with Saved Account", onPress: () => connect(false) },
       { title: "Use Another Account", onPress: () => connect(true) },
     ]);
@@ -202,7 +225,7 @@ function ChatGPTSettingsForm({ userId, calmeraPreview = false, calmeraPreviewSta
               accessibilityLabel="Manage ChatGPT account" onChange={manageAccount} disabled={Boolean(action)} style={styles.accountMenu} />}
           </View>
           {(canSignIn || canRetry) && <View style={styles.signInAction}>
-            <GlassButton title={canSignIn ? "Continue with ChatGPT" : "Try again"} symbol={canSignIn ? "" : "arrow.clockwise"} onPress={canSignIn ? signIn : retry} />
+            <GlassButton title={canSignIn ? "Continue with ChatGPT" : "Try again"} symbol={canSignIn ? "" : "arrow.clockwise"} onPress={canSignIn ? () => signIn() : retry} />
           </View>}
           {linked && <SettingsRow title="Default model" value={defaultLabel} icon="sparkles" tint="plum" divider
             onPress={() => { if (!pending) { setNotice(null); setView("models"); } }} disabled={pending} />}
@@ -213,6 +236,7 @@ function ChatGPTSettingsForm({ userId, calmeraPreview = false, calmeraPreviewSta
         </Pressable>}
       </>}
       {notice && <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text>}
+      {keyInUse && <Text style={settingsStyles.footnote}>Your AI connection is a {keyInUse} API key. Signing in to ChatGPT replaces it.</Text>}
       <View style={styles.privacy}>
         <Ionicons name="lock-closed-outline" size={14} color={COLORS.textLight} accessible={false} />
         <Text style={styles.privacyText}>Only what you log goes to OpenAI. Your ChatGPT sign-in stays on this phone.</Text>

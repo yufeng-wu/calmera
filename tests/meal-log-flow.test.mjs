@@ -159,7 +159,7 @@ test("invalid inline edits keep the editor open and never save", () => {
 });
 
 const compiledHook = compile("../hooks/useMealLogConnection.js");
-function connectionFixture() {
+function connectionFixture({ current = { type: "chatgpt" } } = {}) {
   const runtime = hooks(); const pending = []; let focus, appListener, cleanup;
   const runConnectionHook = load(compiledHook, {
     react: runtime.react,
@@ -168,29 +168,49 @@ function connectionFixture() {
     "@/lib/chatgpt/planClient": { createPlanClient: () => ({}) },
     "@/lib/chatgpt/connectionOutcome.mjs": { readChatGPTConnection: (_, options) => new Promise(resolve => pending.push({ resolve, options })) },
     "@/lib/chatgpt/connectionStatus.mjs": { connectionIssue: () => ({ action: "retry" }) },
+    "@/lib/ai/mealAI": { aiConnection: () => ({ read: async () => current }) },
   });
   return { pending, render: () => { runtime.reset(); return runConnectionHook("owner"); },
     focus: () => { cleanup = focus(); }, blur: () => cleanup(), appState: state => appListener(state) };
 }
 const settle = () => new Promise(resolve => setImmediate(resolve));
 test("an obsolete connection check cannot override a newer result or a later screen focus", async () => {
-  const fixture = connectionFixture(); fixture.render(); fixture.focus();
-  fixture.render().refresh();
+  const fixture = connectionFixture(); fixture.render(); fixture.focus(); await settle();
+  fixture.render().refresh(); await settle();
   fixture.pending[1].resolve({ state: "temporary" }); await settle();
   fixture.pending[0].resolve({ state: "ready" }); await settle();
   assert.equal(fixture.render().connection.state, "temporary");
-  fixture.render().refresh(); fixture.blur();
+  fixture.render().refresh(); await settle(); fixture.blur();
   assert.equal(fixture.pending[2].options.isCurrent(), false);
   fixture.pending[2].resolve({ state: "ready" }); await settle();
   fixture.render(); fixture.focus();
   assert.equal(fixture.render().connection.state, "checking");
+  await settle();
   fixture.pending[3].resolve({ state: "ready" }); await settle();
   assert.equal(fixture.render().connection.state, "ready");
   fixture.appState("background"); fixture.appState("active");
   assert.equal(fixture.render().connection.state, "checking");
+  await settle();
   assert.equal(fixture.pending.length, 5);
 });
 
+test("an API key connection makes logging ready without checking ChatGPT", async () => {
+  const fixture = connectionFixture({ current: { type: "claude-key", provider: "anthropic", masked: "sk-ant-••••WXYZ" } });
+  fixture.render(); fixture.focus(); await settle();
+  const { state, type, provider } = fixture.render().connection;
+  assert.deepEqual({ state, type, provider }, { state: "ready", type: "claude-key", provider: "anthropic" });
+  assert.equal(fixture.pending.length, 0);
+  assert.equal(connectionPresentation(fixture.render().connection).title, "Your Claude key is ready");
+});
+
+test("with no AI connection, logging offers to choose one", async () => {
+  const fixture = connectionFixture({ current: null });
+  fixture.render(); fixture.focus(); await settle();
+  assert.equal(fixture.render().connection.state, "none");
+  assert.equal(fixture.pending.length, 0);
+  const copy = connectionPresentation(fixture.render().connection);
+  assert.deepEqual({ title: copy.title, action: copy.action }, { title: "No AI connection yet", action: "choose" });
+});
 
 test("food rows start compact; expanding exposes one set of directly editable fields", () => {
   const fixture = reviewFixture(); let tree = fixture.render();
@@ -280,7 +300,8 @@ function logFixture(inputMode = "text") {
     "@/lib/store": { useDataStore: () => data },
     "@/context/EntriesRefreshContext": { useRefreshSignal: () => ({ store: { belongsTo: id => id === owner }, setShouldRefresh() {} }) },
     "@/lib/chatgpt/planClient": { pickMealPhoto: async () => ({ dataURL: "synthetic-photo" }) },
-    "@/lib/chatgpt/nutrition": { nutritionClient: async () => ({ model: "synthetic", client: { estimate: options => { requests.push(options); return service.analyze(options); } } }),
+    "@/lib/ai/mealAI": { mealAI: async () => ({ source: "chatgpt", label: "Synthetic", estimate: options => { requests.push(options); return service.analyze(options); } }) },
+    "@/lib/chatgpt/nutrition": {
       estimateMacros: (...args) => service.estimate(...args), inferenceError: error => errors.push(error) },
     "@/components/MealReview": "MealReview",
     "@/context/FoodIconsContext": { useFoodIcons: () => ({ rememberIcons: async () => {} }) },
