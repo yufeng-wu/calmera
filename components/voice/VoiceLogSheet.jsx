@@ -19,10 +19,11 @@ import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { useFoodIcons } from "@/context/FoodIconsContext";
 import { useDataStore } from "@/lib/store";
-import { nutritionClient, estimateMacros, inferenceError } from "@/lib/chatgpt/nutrition";
+import { estimateMacros, inferenceError } from "@/lib/chatgpt/nutrition";
+import { mealAI } from "@/lib/ai/mealAI";
 import { createMealReview, reviewTotals, saveMealReview, updateReviewFood } from "@/lib/mealReview.mjs";
 import { getLocalTimeWithOffset } from "@/lib/utils";
-import { formatElapsed, modelLabel, voiceHint, VOICE_LIMIT_MS } from "@/lib/voice/voiceLog.mjs";
+import { formatElapsed, voiceHint, VOICE_LIMIT_MS } from "@/lib/voice/voiceLog.mjs";
 
 const INSET = 8;
 const RADIUS = 40;
@@ -178,13 +179,11 @@ function VoiceSheet({ language, onClose, onSaved }) {
     haptic(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium));
     setNotice(null); setSentText(said); setStage("sending"); setEstimateDone(false); setPhase("thinking");
     try {
-      const { client, model: slug } = await nutritionClient(userId);
+      const ai = await mealAI(userId);
       if (!alive()) return;
-      const models = await client.models({ useCache: true }).catch(() => []);
-      if (!alive()) return;
-      setModel(modelLabel(models, slug));
+      setModel(ai.label);
       const createdAt = getLocalTimeWithOffset();
-      const result = await client.estimate({ text: said, model: slug,
+      const result = await ai.estimate({ text: said,
         signal: controller.signal, onProgress: next => { if (alive()) setStage(next); } });
       if (!alive()) return;
       if (!result.length) throw new Error("no_food_detected");

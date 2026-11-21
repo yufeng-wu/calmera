@@ -15,7 +15,8 @@ import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { useDataStore } from "@/lib/store";
 import { pickMealPhoto } from "@/lib/chatgpt/planClient";
-import { nutritionClient, inferenceError, estimateMacros } from "@/lib/chatgpt/nutrition";
+import { inferenceError, estimateMacros } from "@/lib/chatgpt/nutrition";
+import { mealAI } from "@/lib/ai/mealAI";
 import MealReview from "@/components/MealReview";
 import { useFoodIcons } from "@/context/FoodIconsContext";
 import { createMealReview, saveMealReview, updateReviewFood, MEAL_TYPES } from "@/lib/mealReview.mjs";
@@ -209,10 +210,10 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
       if (uiFixture) {
         result = [{ foodName: "Oat bar", quantity: "1 bar", mealType: "Snack", calories: 180, protein: 4, carbs: 28, fat: 6 }];
       } else {
-        const { client, model } = await nutritionClient(userId);
+        const ai = await mealAI(userId);
         if (!isCurrent(ticket)) return;
-        result = await client.estimate({ text: textMode ? selectedText : "", image: textMode ? undefined : selectedPhoto.dataURL,
-          model, signal: ticket.controller.signal,
+        result = await ai.estimate({ text: textMode ? selectedText : "", image: textMode ? undefined : selectedPhoto.dataURL,
+          signal: ticket.controller.signal,
           onProgress: stage => { if (isCurrent(ticket)) setProgress(stage); } });
       }
       if (!isCurrent(ticket)) return;

@@ -4,6 +4,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { createPlanClient } from "@/lib/chatgpt/planClient";
 import { readChatGPTConnection } from "@/lib/chatgpt/connectionOutcome.mjs";
 import { connectionIssue } from "@/lib/chatgpt/connectionStatus.mjs";
+import { apiKeyStore } from "@/lib/ai/mealAI";
 
 // A fresh catalog request checks authorization and API reachability without
 // sending a meal or starting an inference. Late checks cannot update a new focus.
@@ -18,6 +19,10 @@ export default function useMealLogConnection(userId, preview = false) {
     setConnection({ state: "checking" });
     if (preview) { setConnection({ state: "ready" }); return; }
     try {
+      // A saved API key is used instead of ChatGPT; it is checked when a meal is sent.
+      const saved = await apiKeyStore(userId).summary().catch(() => null);
+      if (!isCurrent()) return;
+      if (saved) { setConnection({ state: "ready", source: "api-key", provider: saved.provider }); return; }
       const result = await readChatGPTConnection(createPlanClient(userId), { isCurrent });
       if (isCurrent() && result) setConnection(result);
     } catch (error) {

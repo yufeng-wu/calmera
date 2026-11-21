@@ -22,7 +22,8 @@ import TodayScene, { TodayStageHost } from "@/components/TodayScene";
 import { buddyMood, daySeed, emptyTodayGreeting } from "@/lib/nutritionPresentation.mjs";
 import FoodwrapWordmark from "@/components/FoodwrapWordmark";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
-import { createPlanClient, preloadNutritionModels } from "@/lib/chatgpt/planClient";
+import { preloadNutritionModels } from "@/lib/chatgpt/planClient";
+import { mealAISource } from "@/lib/ai/mealAI";
 import { getVoiceLanguage, inferenceError } from "@/lib/chatgpt/nutrition";
 import { speechEngine } from "@/lib/voice/speechEngine";
 import { ensureVoicePermission } from "@/lib/voice/voiceLog.mjs";
@@ -159,7 +160,7 @@ export default function SummaryScreen() {
     prepareMeal();
     setFabExpanded(false);
     try {
-      if (!await createPlanClient(LOCAL_OWNER).connected()) {
+      if (!await mealAISource(LOCAL_OWNER)) {
         inferenceError(new Error("chatgpt_sign_in_required"), router);
         return;
       }
