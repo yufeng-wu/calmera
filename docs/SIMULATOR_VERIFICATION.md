@@ -21,7 +21,7 @@ USB operation and public distribution remain separate checks.
 ## Environment and scope
 
 - Dedicated iPhone 17 Pro / iOS 26.0 simulator: Calmera ChatGPT Test.
-- Standalone Release app: `com.yfwu02.mobile.chatgpttest`, embedded JS bundle.
+- Standalone Release app: `com.yfwu02.calmera.chatgpttest`, embedded JS bundle.
 - App entry: `phone-test-entry.jsx`; no Clerk session or backend save path.
 - UI showed **Connected · GPT-6.1-Sol** and **Secure storage ready**.
 - The configured client directly uses its own OAuth grant against OpenAI's public

@@ -1,7 +1,7 @@
 # Test ChatGPT inference on your own iPhone
 
 The dedicated app is **Calmera AI Test**, bundle ID
-`com.yfwu02.mobile.chatgpttest`. It is separate from the installed Calmera app.
+`com.yfwu02.calmera.chatgpttest`. It is separate from the installed Calmera app.
 The goal is to test the real iPhone browser OAuth flow and direct text/photo
 inference before connecting the rest of the product.
 
@@ -141,7 +141,7 @@ upload was performed.
   free Personal Team. The original source project's team settings were preserved.
 - `codesign --verify --deep --strict` passed. The profile was checked against the
   intended Personal Team, exact test bundle ID and connected iPhone.
-- `devicectl` confirmed installation of `com.yfwu02.mobile.chatgpttest`.
+- `devicectl` confirmed installation of `com.yfwu02.calmera.chatgpttest`.
 - Initial launch required explicit developer trust. The user completed that step
   on the phone, then reported the app opened and ChatGPT connection plus text
   and photo tests passed.

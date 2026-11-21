@@ -21,7 +21,7 @@ project, build = map(pathlib.Path, sys.argv[1:])
 with (project / 'ios/mobile/Info.plist').open('rb') as f:
     info = plistlib.load(f)
 info['CFBundleDisplayName'] = 'foodwrap.'
-info['CFBundleURLTypes'] = [{'CFBundleURLSchemes': ['calmera-chatgpt-dev', 'com.yfwu02.mobile.chatgptdev']}]
+info['CFBundleURLTypes'] = [{'CFBundleURLSchemes': ['calmera-chatgpt-dev', 'com.yfwu02.calmera.chatgptdev']}]
 with (build / 'CalmeraTest-Info.plist').open('wb') as f:
     plistlib.dump(info, f)
 with (build / 'CalmeraTest.entitlements').open('wb') as f:
@@ -37,7 +37,7 @@ EXPO_NO_DOTENV=1 EXPO_NO_TELEMETRY=1 xcodebuild \
   -sdk iphoneos -destination 'generic/platform=iOS' \
   -derivedDataPath "$BUILD_ROOT/DerivedData" \
   DEVELOPMENT_TEAM="$CALMERA_APPLE_TEAM_ID" CODE_SIGN_STYLE=Automatic \
-  PRODUCT_BUNDLE_IDENTIFIER=com.yfwu02.mobile.chatgptdev \
+  PRODUCT_BUNDLE_IDENTIFIER=com.yfwu02.calmera.chatgptdev \
   INFOPLIST_FILE="$BUILD_ROOT/CalmeraTest-Info.plist" \
   CODE_SIGN_ENTITLEMENTS="$BUILD_ROOT/CalmeraTest.entitlements" \
   build

@@ -1,26 +1,21 @@
-// Calmera is free: neither the normal app nor the isolated probe needs Apple
-// Pay entitlements or Stripe configuration. Keep the original app.json intact.
+// Calmera is free and takes no payments. The test variants below get their own
+// bundle IDs so they install beside the real app.
 module.exports = ({ config }) => {
   const extra = { ...config.extra };
-  delete extra.stripe;
   delete extra.calmeraFullAppTest;
-  const freeConfig = {
-    ...config,
-    plugins: (config.plugins || []).filter(plugin => (Array.isArray(plugin) ? plugin[0] : plugin) !== "@stripe/stripe-react-native"),
-    extra,
-  };
+  const baseConfig = { ...config, extra };
   if (process.env.CALMERA_FULL_APP_TEST === "1") return {
-    ...freeConfig,
+    ...baseConfig,
     name: "calmera.",
     extra: { ...extra, calmeraFullAppTest: true },
     scheme: "calmera-chatgpt-dev",
-    ios: { ...config.ios, bundleIdentifier: "com.yfwu02.mobile.chatgptdev" },
+    ios: { ...config.ios, bundleIdentifier: "com.yfwu02.calmera.chatgptdev" },
   };
-  if (process.env.CALMERA_PHONE_TEST !== "1") return freeConfig;
+  if (process.env.CALMERA_PHONE_TEST !== "1") return baseConfig;
   return {
-    ...freeConfig,
+    ...baseConfig,
     name: "calmera.",
     scheme: "calmera-ai-test",
-    ios: { ...config.ios, bundleIdentifier: "com.yfwu02.mobile.chatgpttest", buildNumber: "1" },
+    ios: { ...config.ios, bundleIdentifier: "com.yfwu02.calmera.chatgpttest", buildNumber: "1" },
   };
 };
