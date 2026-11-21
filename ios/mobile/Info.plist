@@ -28,7 +28,7 @@
         <key>CFBundleURLSchemes</key>
         <array>
           <string>mobile</string>
-          <string>com.yfwu02.mobile</string>
+          <string>com.yfwu02.calmera</string>
         </array>
       </dict>
       <dict>

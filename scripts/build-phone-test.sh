@@ -19,7 +19,7 @@ project, build = map(pathlib.Path, sys.argv[1:])
 with (project/'ios/mobile/Info.plist').open('rb') as f:
     info=plistlib.load(f)
 info['CFBundleDisplayName']='foodwrap.'
-info['CFBundleURLTypes']=[{'CFBundleURLSchemes':['calmera-ai-test','com.yfwu02.mobile.chatgpttest']}]
+info['CFBundleURLTypes']=[{'CFBundleURLSchemes':['calmera-ai-test','com.yfwu02.calmera.chatgpttest']}]
 with (build/'PhoneTest-Info.plist').open('wb') as f:
     plistlib.dump(info,f)
 with (build/'PhoneTest.entitlements').open('wb') as f:
@@ -56,7 +56,7 @@ ENTRY_FILE="$PROJECT_ROOT/phone-test-entry.jsx" EXPO_NO_DOTENV=1 EXPO_NO_TELEMET
   -workspace ios/mobile.xcworkspace -scheme mobile -configuration Release \
   -sdk "$SDK" -destination "$DESTINATION" -derivedDataPath "$BUILD_ROOT/DerivedData" \
   "${SIGNING[@]}" "$@" ONLY_ACTIVE_ARCH=YES \
-  PRODUCT_BUNDLE_IDENTIFIER=com.yfwu02.mobile.chatgpttest \
+  PRODUCT_BUNDLE_IDENTIFIER=com.yfwu02.calmera.chatgpttest \
   INFOPLIST_FILE="$BUILD_ROOT/PhoneTest-Info.plist" \
   CODE_SIGN_ENTITLEMENTS="$BUILD_ROOT/PhoneTest.entitlements" \
   build
@@ -65,7 +65,7 @@ python3 - "$APP" <<'PYTHON'
 import pathlib, plistlib, sys
 app=pathlib.Path(sys.argv[1])
 info=plistlib.loads((app/'Info.plist').read_bytes())
-assert info['CFBundleIdentifier']=='com.yfwu02.mobile.chatgpttest'
+assert info['CFBundleIdentifier']=='com.yfwu02.calmera.chatgpttest'
 assert info['CFBundleDisplayName']=='foodwrap.'
 assert (app/'main.jsbundle').stat().st_size>0, 'Missing standalone JS bundle'
 print('Standalone test app built with an embedded JS bundle. No app was installed.')
