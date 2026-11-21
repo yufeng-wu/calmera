@@ -204,7 +204,8 @@ const styles = StyleSheet.create({
   menu: { width: 48, height: 48 },
   actions: { paddingHorizontal: 16, paddingBottom: 16, paddingTop: 4 },
   entry: { padding: 16, gap: 12 },
-  input: { ...TYPOGRAPHY.input, color: COLORS.text, minHeight: 48, paddingHorizontal: 14, borderRadius: 14,
+  // No lineHeight: on iOS it pushes a one-line field's text off its centre.
+  input: { fontSize: TYPOGRAPHY.input.fontSize, fontWeight: TYPOGRAPHY.input.fontWeight, color: COLORS.text, height: 48, paddingHorizontal: 14, borderRadius: 14,
     backgroundColor: COLORS.track, borderWidth: 0.5, borderColor: "#E4D6CA" },
   result: { flexDirection: "row", alignItems: "flex-start", gap: 8, paddingHorizontal: 4, marginTop: -8 },
   resultText: { ...TYPOGRAPHY.caption, flex: 1 },

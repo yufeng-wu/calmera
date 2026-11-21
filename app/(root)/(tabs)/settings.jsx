@@ -32,7 +32,7 @@ const GOALS = [
   { key: "carbsGoal", label: "Carbs", unit: "g", spoken: "grams", color: NUTRIENT_COLORS.carbs },
   { key: "fatGoal", label: "Fat", unit: "g", spoken: "grams", color: NUTRIENT_COLORS.fat },
 ];
-const PREVIEW = { chatgpt: "Connected", apiKey: "Not set", source: "ChatGPT", language: "English",
+const PREVIEW = { chatgpt: "Connected", apiKey: "Not set", source: "ChatGPT plan", language: "English",
   goals: { calorieGoal: 1800, proteinGoal: 140, carbsGoal: 180, fatGoal: 60 } };
 const goalNumber = (value) => {
   const number = value === null || value === undefined || value === "" ? NaN : Number(value);
