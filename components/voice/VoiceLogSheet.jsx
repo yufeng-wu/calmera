@@ -41,6 +41,7 @@ let hintSeed = Math.floor(Math.random() * 100);
 
 const NOTICES = {
   "no-speech": "Didn’t catch anything. Tap Resume and try again.",
+  stopped: "Listening paused. Your words are kept — Resume or send.",
   limit: "That’s the one-minute limit. Send it, or tap the words to edit.",
   "no-food": "No food in that. Try naming what you ate.",
   empty: "Say what you ate first.",
@@ -165,7 +166,9 @@ function VoiceSheet({ language, onClose, onSaved }) {
   // Recognizer errors arrive as codes; show them as a line above the buttons.
   useEffect(() => { if (speech.error) setNotice(speech.error); }, [speech.error]);
   // At the limit with every word deleted there's nothing to send; the prompt says to close instead.
-  const noticeText = !notice || (notice === "limit" && !hasWords) ? null : NOTICES[notice] || "Listening stopped. Tap Resume to keep going.";
+  // A long silence after some words isn't "nothing caught": the words stay, ready to resume or send.
+  const noticeKey = notice === "no-speech" && hasWords ? "stopped" : notice;
+  const noticeText = !noticeKey || (noticeKey === "limit" && !hasWords) ? null : NOTICES[noticeKey] || "Listening stopped. Tap Resume to keep going.";
 
   const send = async () => {
     if (operation.current || closing.current) return;
