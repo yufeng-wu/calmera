@@ -7,7 +7,7 @@ import { useFocusEffect, useNavigation, usePreventRemove } from "@react-navigati
 import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
 import useMealLogConnection from "@/hooks/useMealLogConnection";
-import { canAnalyzeMeal, connectionPresentation, estimationTitle, NO_FOOD_DETECTED, noFoodMessage } from "@/lib/mealLogPresentation.mjs";
+import { canAnalyzeMeal, connectionPresentation, estimationTitle, NO_FOOD_DETECTED, noFoodMessage, providerName } from "@/lib/mealLogPresentation.mjs";
 import usePageExit from "@/hooks/usePageExit";
 import { FormScreen, FormScrollView, FormHeader, FormCard, GlassButton } from "@/components/GlassForm";
 import { phoneTestNutritionLabel } from "@/lib/chatgpt/phoneTestFixtures.mjs";
@@ -406,8 +406,7 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
           )}
           <View style={styles.privacy}>
             <Ionicons name="lock-closed-outline" size={14} color={COLORS.textLight} accessible={false} />
-            <Text style={styles.note}>{textMode ? "Only your meal description is analyzed by ChatGPT. Nutrition estimates are approximate."
-              : "Only your selected photo is analyzed by ChatGPT. Nutrition estimates are approximate."}</Text>
+            <Text style={styles.note}>{`Only your ${textMode ? "meal description" : "selected photo"} is analyzed by ${providerName(connection.type)}. Nutrition estimates are approximate.`}</Text>
           </View>
         </View>
         </View>

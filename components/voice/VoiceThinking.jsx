@@ -4,7 +4,9 @@ import Animated, { Easing, FadeIn, FadeInDown, FadeOut, cancelAnimation, useAnim
   useSharedValue, withDelay, withRepeat, withSequence, withTiming } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
 import CitrusBuddy, { BUDDY_SIZE } from "@/components/CitrusBuddy";
+import { Ionicons } from "@expo/vector-icons";
 import OpenAILogo from "@/components/OpenAILogo";
+import { modelChipLabel } from "@/lib/mealLogPresentation.mjs";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { VOICE_STEPS, stageCopy, voiceStep } from "@/lib/voice/voiceLog.mjs";
@@ -20,7 +22,7 @@ const EASE = Easing.bezier(0.2, 0.8, 0.2, 1);
 // While ChatGPT works, the orange waits inside its rind, drawn as one travelling arc (Orbit).
 // When the estimate lands the arc closes into a full ring, the orange breathes once and a halo
 // leaves it (the Done beat). Stage copy names the model doing the work.
-export default function VoiceThinking({ stage, model, transcript, done }) {
+export default function VoiceThinking({ stage, model, provider, transcript, done }) {
   const reducedMotion = useReducedMotion();
   const spin = useSharedValue(0);
   const arc = useSharedValue(0.26);
@@ -51,12 +53,13 @@ export default function VoiceThinking({ stage, model, transcript, done }) {
   const haloStyle = useAnimatedStyle(() => ({ opacity: 0.45 * (1 - halo.value), transform: [{ scale: 1 + 0.4 * halo.value }] }));
 
   const current = done ? "completed" : stage;
-  const copy = stageCopy(current, model);
+  const copy = stageCopy(current, model || "the AI");
   const step = voiceStep(current, done);
   return <View style={styles.wrap} accessibilityLiveRegion="polite" accessibilityLabel={`${copy.title}. ${copy.detail}`}>
-    <View style={styles.chip}>
-      <OpenAILogo />
-      <Text style={styles.chipText} numberOfLines={1}>ChatGPT · {model}</Text>
+    {/* Held invisible until the connection is known, so a Claude key never flashes ChatGPT. */}
+    <View style={[styles.chip, !model && styles.chipPending]}>
+      {provider === "claude-key" ? <Ionicons name="sparkles" size={15} color="#D9772B" /> : <OpenAILogo />}
+      <Text style={styles.chipText} numberOfLines={1}>{modelChipLabel(provider, model)}</Text>
     </View>
     <View style={styles.stage}>
       <Animated.View pointerEvents="none" style={[styles.halo, haloStyle]} />
@@ -91,6 +94,7 @@ export default function VoiceThinking({ stage, model, transcript, done }) {
 const styles = StyleSheet.create({
   wrap: { flex: 1, alignItems: "center", justifyContent: "center", gap: 14, paddingHorizontal: 24 },
   chip: { flexDirection: "row", alignItems: "center", gap: 6, paddingLeft: 8, paddingRight: 12, height: 30, borderRadius: 15, backgroundColor: "rgba(255,255,255,0.72)" },
+  chipPending: { opacity: 0 },
   chipText: { ...TYPOGRAPHY.captionMedium, color: COLORS.text },
   stage: { width: RING, height: RING, alignItems: "center", justifyContent: "center" },
   halo: { position: "absolute", width: RING - 8, height: RING - 8, borderRadius: RING, borderWidth: 3, borderColor: TANGERINE },

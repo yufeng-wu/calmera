@@ -7,7 +7,7 @@ import { createConfirmedMealSave } from "../lib/confirmedMealSave.mjs";
 import * as reviewModel from "../lib/mealReview.mjs";
 import * as foodIcons from "../lib/foodIcons.mjs";
 import { connectionIssue } from "../lib/chatgpt/connectionStatus.mjs";
-import { canAnalyzeMeal, connectionPresentation } from "../lib/mealLogPresentation.mjs";
+import { canAnalyzeMeal, connectionPresentation, providerName } from "../lib/mealLogPresentation.mjs";
 
 const require = createRequire(import.meta.url);
 const React = require("react");
@@ -292,7 +292,7 @@ function logFixture(inputMode = "text") {
     "expo-constants": { expoConfig: { extra: {} } },
     "@expo/vector-icons": { Ionicons: "Ionicons" },
     "@/hooks/useMealLogConnection": () => ({ connection: { state: "ready" }, refresh() {} }),
-    "@/lib/mealLogPresentation.mjs": { canAnalyzeMeal, connectionPresentation, estimationTitle: () => "Sending…", NO_FOOD_DETECTED: { title: "No Food Detected" }, noFoodMessage: mode => `${mode} no food` },
+    "@/lib/mealLogPresentation.mjs": { canAnalyzeMeal, connectionPresentation, providerName, estimationTitle: () => "Sending…", NO_FOOD_DETECTED: { title: "No Food Detected" }, noFoodMessage: mode => `${mode} no food` },
     "@/hooks/usePageExit": () => () => { exits++; },
     "@/components/GlassForm": Object.fromEntries(["FormScreen", "FormScrollView", "FormHeader", "FormCard", "GlassButton"].map(key => [key, key])),
     "@/lib/chatgpt/phoneTestFixtures.mjs": { phoneTestNutritionLabel: "synthetic-photo" },

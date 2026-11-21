@@ -72,7 +72,8 @@ function VoiceSheet({ language, onClose, onSaved }) {
   const [phase, setPhase] = useState("listen");
   const [notice, setNotice] = useState(null);
   const [stage, setStage] = useState("sending");
-  const [model, setModel] = useState("ChatGPT");
+  const [model, setModel] = useState(null);
+  const [aiType, setAiType] = useState(null);
   const [estimateDone, setEstimateDone] = useState(false);
   const [sentText, setSentText] = useState("");
   const [review, setReview] = useState(null);
@@ -184,7 +185,7 @@ function VoiceSheet({ language, onClose, onSaved }) {
     try {
       const ai = await mealAI(userId);
       if (!alive()) return;
-      setModel(ai.label);
+      setModel(ai.label); setAiType(ai.type);
       const createdAt = getLocalTimeWithOffset();
       const result = await ai.estimate({ text: said,
         signal: controller.signal, onProgress: next => { if (alive()) setStage(next); } });
@@ -324,7 +325,7 @@ function VoiceSheet({ language, onClose, onSaved }) {
           </View>}
 
           {phase === "thinking" && <View style={[styles.fill, { paddingBottom: contentBottom }]}>
-            <VoiceThinking stage={stage} model={model} transcript={sentText} done={estimateDone} />
+            <VoiceThinking stage={stage} model={model} provider={aiType} transcript={sentText} done={estimateDone} />
           </View>}
 
           {phase === "review" && review && <View style={styles.fill}>
