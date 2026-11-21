@@ -46,13 +46,6 @@
           "backgroundColor": "#FFFBF9"
         }
       ],
-      [
-        "@stripe/stripe-react-native",
-        {
-          "merchantIdentifier": "merchant.com.yfwu02.mobile",
-          "publishableKey": "pk_test_51SCMuS36oMPBfRNmbj1vsVV1Daq6qey8UwWWczBBAdl0d0L2jmpererin1jFQ9BkF8g4GbLh9jHaClUqBcrDfrdN003ntlrp91"
-        }
-      ],
       "expo-speech-recognition"
     ],
     "experiments": {
@@ -60,10 +53,6 @@
     },
     "extra": {
       "router": {},
-      "stripe": {
-        "publishableKey": "pk_test_51SCMuS36oMPBfRNmbj1vsVV1Daq6qey8UwWWczBBAdl0d0L2jmpererin1jFQ9BkF8g4GbLh9jHaClUqBcrDfrdN003ntlrp91",
-        "merchantIdentifier": "merchant.com.yfwu02.mobile"
-      },
       "eas": {
         "projectId": "9ecd7d3c-4f54-4112-976a-f73234564951"
       }
