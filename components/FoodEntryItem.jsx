@@ -1,6 +1,5 @@
 import { View, Text, Pressable, StyleSheet, useWindowDimensions, AccessibilityInfo, Platform } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming, useReducedMotion, ReduceMotion, useAnimatedReaction, runOnJS } from "react-native-reanimated";
-import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -11,14 +10,26 @@ import { COLORS } from "../constants/colors";
 import { useFoodIcons } from "@/context/FoodIconsContext";
 import { formatTime } from "../lib/utils";
 import MealSwipeActions, { MEAL_EFFECT_OUTSET, MealActionRail } from "./MealSwipeActions";
+import SwipeRow from "./SwipeRow";
+import { PHASE, scrollCloses } from "../lib/swipeRow.mjs";
 
 // Only a UI controller reference is shared. Opening another row closes the old one.
 let activeRow = null;
+let activePhase = null;
 const SPRING = { mass: 0.9, stiffness: 310, damping: 34, overshootClamping: false };
+// A swipe takes over after 10 pt to the left, or 12 pt to the right on an open row.
+const SWIPE_STARTS = [-10, 12];
 
 export function closeOpenMealActions() {
   activeRow?.current?.close();
   activeRow = null;
+  activePhase = null;
+}
+
+// For a page that starts to scroll. A scroll can begin under the very finger that is swiping a row open, and the
+// news of it can arrive after that finger has lifted: closing then would shut the row the touch just opened.
+export function closeSettledMealActions() {
+  if (scrollCloses(activePhase?.current)) closeOpenMealActions();
 }
 
 export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdit, onSwipeStateChange, onActionMetrics, onDetailsMetrics, palette }) {
@@ -85,6 +96,7 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
     reduceMotion: reducedMotion ? ReduceMotion.Always : ReduceMotion.System }), [reducedMotion]);
   const router = useRouter();
   const swipeable = useRef(null);
+  const phase = useRef(PHASE.closed);
   const isOpen = useRef(false);
   const pendingEdit = useRef(null);
   const navigatingToEdit = useRef(false);
@@ -97,6 +109,7 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
     swipeable.current?.reset();
     nativeReveal.value = 0;
     isOpen.current = false;
+    phase.current = PHASE.closed;
     setActionsVisible(false);
     if (activeRow === swipeable) activeRow = null;
   }, [actionWidth, nativeReveal]);
@@ -115,6 +128,7 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
       swipeable.current?.reset();
       nativeReveal.value = 0;
       isOpen.current = false;
+      phase.current = PHASE.closed;
       setActionsVisible(false);
       if (activeRow === swipeable) activeRow = null;
     };
@@ -122,8 +136,9 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
   const claimRow = () => {
     if (activeRow && activeRow !== swipeable) activeRow.current?.close();
     activeRow = swipeable;
+    activePhase = phase;
   };
-  const revealActions = () => { setActionsMounted(true); claimRow(); swipeable.current?.openRight(); };
+  const revealActions = () => { setActionsMounted(true); claimRow(); swipeable.current?.open(); };
   const edit = () => {
     if (pendingEdit.current || navigatingToEdit.current) return;
     const openEditor = () => {
@@ -158,20 +173,20 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
       <MealSwipeActions overlay width={actionWidth} progress={nativeReveal} visible={actionsVisible}
         onDelete={remove} onMetrics={onActionMetrics} previewPalette={palette?.id} />
     </View>}
-    <Swipeable ref={swipeable} pointerEvents="box-none" friction={1} rightThreshold={22}
-      dragOffsetFromLeftEdge={12} dragOffsetFromRightEdge={10}
-      overshootLeft={false} overshootRight={!reducedMotion} overshootFriction={9}
-      enableTrackpadTwoFingerGesture animationOptions={swipeSpring}
+    <SwipeRow ref={swipeable} pointerEvents="box-none" width={actionWidth + 12} threshold={22} activeOffset={SWIPE_STARTS}
+      overshoot={!reducedMotion} overshootFriction={9} trackpad spring={swipeSpring}
       containerStyle={swipeStyles.swipeable}
-      onSwipeableOpenStartDrag={() => { setActionsMounted(true); pendingEdit.current = null; claimRow(); onSwipeStateChange?.("dragging"); }}
-      onSwipeableWillOpen={() => {
+      onStartDrag={() => { phase.current = PHASE.dragging; setActionsMounted(true); pendingEdit.current = null; claimRow(); onSwipeStateChange?.("dragging"); }}
+      onWillOpen={() => {
+        phase.current = PHASE.opening;
         setActionsMounted(true); claimRow(); isOpen.current = true; setActionsVisible(true);
         onSwipeStateChange?.("opening");
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch(() => {});
       }}
-      onSwipeableWillClose={() => onSwipeStateChange?.("closing")}
-      onSwipeableOpen={() => onSwipeStateChange?.("open")}
-      onSwipeableClose={() => {
+      onWillClose={() => { phase.current = PHASE.closing; onSwipeStateChange?.("closing"); }}
+      onOpen={() => { phase.current = PHASE.open; onSwipeStateChange?.("open"); }}
+      onClose={() => {
+        phase.current = PHASE.closed;
         isOpen.current = false; setActionsVisible(false);
         if (activeRow === swipeable) activeRow = null;
         onSwipeStateChange?.("closed");
@@ -179,7 +194,7 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
         pendingEdit.current = null;
         openEditor?.();
       }}
-      renderRightActions={(progress, translation) => nativeActions
+      renderActions={(progress, translation) => nativeActions
         ? <MealActionRail translation={translation} reveal={nativeReveal} width={actionWidth + 12} />
         : <MealSwipeActions width={actionWidth} progress={progress}
           visible={actionsVisible} onDelete={remove} onMetrics={onActionMetrics} previewPalette={palette?.id} />}>
@@ -221,7 +236,7 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
           </View>
         </Animated.View>
       </Pressable>
-    </Swipeable>
+    </SwipeRow>
   </View>;
 });
 

@@ -17,7 +17,7 @@ import NutritionSummarySkeleton from "@/components/NutritionSummarySkeleton";
 import { styles } from "@/assets/styles/home.styles";
 import { useRouter } from "expo-router";
 import { NutritionSummaryCard } from "@/components/NutritionSummaryCard";
-import { FoodEntryItem, closeOpenMealActions } from "@/components/FoodEntryItem";
+import { FoodEntryItem, closeOpenMealActions, closeSettledMealActions } from "@/components/FoodEntryItem";
 import TodayScene, { TodayStageHost } from "@/components/TodayScene";
 import { buddyMood, daySeed, emptyTodayGreeting } from "@/lib/nutritionPresentation.mjs";
 import FoodwrapWordmark from "@/components/FoodwrapWordmark";
@@ -217,9 +217,9 @@ export default function SummaryScreen() {
       {/* The hill and the seated orange, pinned behind the page (which sits above them at zIndex 1); the scene
           below sends what it shows. */}
       <TodayStageHost ref={stageHost} />
-      {/* Always vertical: without it a short day's page doesn't own vertical drags, and a meal row
-          swiped open snaps shut on release. */}
-      <ScrollView ref={scrollRef} onScrollBeginDrag={closeOpenMealActions} directionalLockEnabled alwaysBounceVertical alwaysBounceHorizontal={false}
+      {/* Always vertical, so a short day's page still owns vertical drags. A scroll closes a meal row that rests
+          open, not one the same touch is swiping open. */}
+      <ScrollView ref={scrollRef} onScrollBeginDrag={closeSettledMealActions} directionalLockEnabled alwaysBounceVertical alwaysBounceHorizontal={false}
         style={[styles.scrollView, { zIndex: 1 }]}
         contentContainerStyle={{ flexGrow: 1, paddingBottom: SCROLL_BOTTOM_PADDING }}
         scrollIndicatorInsets={{ bottom: floatingBarInset }}

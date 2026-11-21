@@ -11,8 +11,8 @@ const NativeActions = Platform.OS === "ios" ? requireNativeViewManager("CalmeraC
 const AnimatedNativeActions = NativeActions ? Animated.createAnimatedComponent(NativeActions) : null;
 Animated.addWhitelistedNativeProps({ revealProgress: true });
 
-// The library's right-action wrapper hides/clips its entire compositing tree.
-// Reserve its original width, but draw iOS glass in a sibling with full alpha.
+// The swipe row's action wrapper hides/clips its entire compositing tree.
+// Reserve the rail's width there, but draw iOS glass in a sibling with full alpha.
 export function MealActionRail({ translation, reveal, width }) {
   useAnimatedReaction(() => Math.max(0, Math.min(1, -translation.value / width)),
     value => { reveal.value = value; }, [translation, reveal, width]);
