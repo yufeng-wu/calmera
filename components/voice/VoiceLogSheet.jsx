@@ -37,6 +37,7 @@ const PHASES = { listen: 0, thinking: 1, review: 2, saved: 3 };
 const TINT = [0.28, 0.6, 0.95, 0.7];
 const haptic = run => { run().catch(() => {}); };
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+const SAVED_HOLD_MS = 900;
 let hintSeed = Math.floor(Math.random() * 100);
 
 const NOTICES = {
@@ -242,7 +243,8 @@ function VoiceSheet({ language, onClose, onSaved }) {
       haptic(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success));
       setSaved({ mealType, count: meal.entries.length, calories: reviewTotals(meal).calories });
       setPhase("saved");
-      await wait(reducedMotion ? 600 : 1300);
+      // Long enough for "Saved" to register, short enough that the orange's drop follows soon after.
+      await wait(reducedMotion ? 600 : SAVED_HOLD_MS);
       if (mounted.current) dismiss();
     } catch (error) {
       const message = error?.message || "";
