@@ -73,7 +73,7 @@ export default function SettingsScreen({ calmeraPreview = false }) {
       </LayoutAnimationConfig>
 
       <SettingsSection label="Logging">
-        <SettingsRow title="AI connection" value={status.connection} icon="sparkles" tint="tangerine"
+        <SettingsRow title="AI connection" value={status.connection} icon="link" tint="plum"
           onPress={() => openPage("/ai-connection", "AI connection")} />
         <SettingsRow title="Voice language" value={status.language} icon="mic" tint="sky" divider
           onPress={() => openPage("/voice-language", "Voice language")} />
