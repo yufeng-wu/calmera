@@ -8,6 +8,7 @@ if [[ $# -gt 1 || ! "$MODE" =~ ^(signed|--unsigned-check|--simulator|--prepare-o
   exit 2
 fi
 source "$(dirname "$0")/signing-team.sh"
+source "$(dirname "$0")/release-hermes.sh"
 CALMERA_APPLE_TEAM_ID="${CALMERA_APPLE_TEAM_ID:-$CALMERA_TEAM_ID}"
 if [[ "$MODE" == signed ]]; then require_calmera_team "$CALMERA_APPLE_TEAM_ID"; fi
 BUILD_ROOT="${CALMERA_TEST_BUILD_ROOT:-/tmp/calmera-phone-test}"
@@ -51,6 +52,7 @@ elif [[ "$MODE" == --simulator ]]; then
   SIGNING=(CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= "ARCHS=$(uname -m)")
 fi
 cd "$PROJECT_ROOT"
+forget_hermes_configuration "$PROJECT_ROOT"
 ENTRY_FILE="$PROJECT_ROOT/phone-test-entry.jsx" EXPO_NO_DOTENV=1 EXPO_NO_TELEMETRY=1 xcodebuild \
   -workspace ios/mobile.xcworkspace -scheme mobile -configuration Release \
   -sdk "$SDK" -destination "$DESTINATION" -derivedDataPath "$BUILD_ROOT/DerivedData" \
@@ -61,6 +63,7 @@ ENTRY_FILE="$PROJECT_ROOT/phone-test-entry.jsx" EXPO_NO_DOTENV=1 EXPO_NO_TELEMET
   build
 APP="$BUILD_ROOT/DerivedData/Build/Products/Release-$SDK/mobile.app"
 if [[ "$MODE" == signed ]]; then require_app_signed_by_calmera_team "$APP"; fi
+require_release_hermes "$APP"
 python3 - "$APP" <<'PYTHON'
 import pathlib, plistlib, sys
 app=pathlib.Path(sys.argv[1])
