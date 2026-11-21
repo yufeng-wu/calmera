@@ -9,8 +9,8 @@ export const useDailyNutrition = (date = new Date()) => {
   const retryHistory = useCallback(() => store.loadHistory(loader, { force: true }).catch(() => {}), [store, loader]);
   // Opening the calendar asks for its dots at once, ahead of the delayed load behind Today.
   const loadCalendar = useCallback(() => store.loadHistory(loader).catch(() => {}), [store, loader]);
+  // Today folds a deleted meal away itself; a layout animation here would replay over the closed gap.
   const deleteEntry = useCallback(async (id) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     try { await removeEntry(id); }
     catch { Alert.alert("Couldn't delete meal", "Please try again."); }
   }, [removeEntry]);

@@ -27,35 +27,35 @@ import { aiConnection } from "@/lib/ai/mealAI";
 import { getVoiceLanguage, inferenceError } from "@/lib/chatgpt/nutrition";
 import { speechEngine } from "@/lib/voice/speechEngine";
 import { ensureVoicePermission } from "@/lib/voice/voiceLog.mjs";
-import AnimatedRe, { Layout as ReLayout, useAnimatedStyle } from "react-native-reanimated";
+import AnimatedRe, { useAnimatedStyle } from "react-native-reanimated";
 import AddMealMenu from "@/components/AddMealMenu";
 import VoiceLogSheet from "@/components/voice/VoiceLogSheet";
 import DayDrop, { dayDropLift, useDayDropMotion } from "@/components/DayDrop";
 import { parseLocalDate } from "@/lib/calendarMonths.mjs";
 import { localDateKey } from "@/lib/nutritionStore.mjs";
 import { LOCAL_OWNER } from "@/lib/owner.mjs";
+import FoldAway from "@/components/FoldAway";
+import { groupLeaving, rowLeaving, withLeaving, withoutLeaving } from "@/lib/mealLeaving.mjs";
 
-const AnimatedMealGroupContainer = AnimatedRe.createAnimatedComponent(View);
-
-// Only while a meal is being removed, so what's below springs up to fill its place. The rest of the time the groups
-// have no layout animation: a row opening moves the page every frame, and a spring restarted that often only trails.
-const MEAL_LAYOUT = ReLayout.springify().damping(15);
-const MEAL_SPRING_MS = 900;
 const NO_ENTRIES = [];
+const NOT_LEAVING = new Set();
 
-const MealGroup = memo(function MealGroup({ title, entries, onDelete, springs }) {
+// A deleted meal folds away before it leaves; the last one in a group takes its heading with it.
+const MealGroup = memo(function MealGroup({ title, entries, onDelete, leaving, onGone }) {
   if (entries.length === 0) return null;
+  const wholeGroup = groupLeaving(entries, leaving);
 
   return (
-    <AnimatedMealGroupContainer
-      style={styles.mealGroupContainer}
-      layout={springs ? MEAL_LAYOUT : undefined}
-    >
-      <Text style={styles.mealGroupTitle}>{title}</Text>
-      {entries.map((item) => (
-        <FoodEntryItem key={item.id} item={item} onDelete={onDelete} />
-      ))}
-    </AnimatedMealGroupContainer>
+    <FoldAway leaving={wholeGroup} onGone={() => onGone(entries.map((item) => item.id))}>
+      <View style={styles.mealGroupContainer}>
+        <Text style={styles.mealGroupTitle}>{title}</Text>
+        {entries.map((item) => (
+          <FoldAway key={item.id} leaving={rowLeaving(item.id, leaving, wholeGroup)} onGone={() => onGone([item.id])}>
+            <FoodEntryItem item={item} onDelete={onDelete} />
+          </FoldAway>
+        ))}
+      </View>
+    </FoldAway>
   );
 });
 
@@ -89,16 +89,17 @@ export default function SummaryScreen() {
   // The page below the calendar slides with its edge as it opens and closes.
   const calendarMotion = useDayDropMotion();
   const belowCalendarStyle = useAnimatedStyle(() => ({ transform: [{ translateY: dayDropLift(calendarMotion) }] }));
-  const [mealsSpring, setMealsSpring] = useState(false);
-  const springEnds = useRef(null);
-  useEffect(() => () => clearTimeout(springEnds.current), []);
-  // Removed only once the spring has been committed, so the page always has it when it changes.
-  const [pendingDelete, setPendingDelete] = useState(null);
-  useEffect(() => {
-    if (!pendingDelete || !mealsSpring) return;
-    setPendingDelete(null);
-    deleteEntry(pendingDelete);
-  }, [pendingDelete, mealsSpring, deleteEntry]);
+  // Meals confirmed for deletion fold away first; each leaves the store (and the totals) once it has folded.
+  const [leaving, setLeaving] = useState(NOT_LEAVING);
+  const leavingNow = useRef(leaving);
+  leavingNow.current = leaving;
+  const mealsGone = useCallback((ids) => {
+    const going = ids.filter((id) => leavingNow.current.has(id));
+    if (!going.length) return;
+    leavingNow.current = withoutLeaving(leavingNow.current, going);
+    setLeaving((current) => withoutLeaving(current, going));
+    going.forEach((id) => deleteEntry(id));
+  }, [deleteEntry]);
   const handleDelete = useCallback((id) => {
     Alert.alert(
       "Delete Entry",
@@ -108,12 +109,7 @@ export default function SummaryScreen() {
         {
           text: "Delete",
           style: "destructive",
-          onPress: () => {
-            setMealsSpring(true);
-            setPendingDelete(id);
-            clearTimeout(springEnds.current);
-            springEnds.current = setTimeout(() => setMealsSpring(false), MEAL_SPRING_MS);
-          },
+          onPress: () => setLeaving((current) => withLeaving(current, id)),
         },
       ]
     );
@@ -262,7 +258,8 @@ export default function SummaryScreen() {
                 title={meal}
                 entries={groupedEntries[meal] || NO_ENTRIES}
                 onDelete={handleDelete}
-                springs={mealsSpring}
+                leaving={leaving}
+                onGone={mealsGone}
               />
             ))}
           </TodayScene>}
