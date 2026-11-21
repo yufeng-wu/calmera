@@ -18,7 +18,8 @@
         "NSPhotoLibraryUsageDescription": "Allow calmera to access your photo library to load/import meal photos.",
         "NSPhotoLibraryAddUsageDescription": "Allow calmera to save captured photos to your photo library."
       },
-      "bundleIdentifier": "com.yfwu02.calmera"
+      "bundleIdentifier": "com.yfwu02.calmera",
+      "appleTeamId": "2G2578H6DX"
     },
     "android": {
       "adaptiveIcon": {
