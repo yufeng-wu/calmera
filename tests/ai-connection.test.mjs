@@ -284,7 +284,7 @@ test("a connection problem while logging is one alert that leads to the one page
   const key = code => Object.assign(new Error(code), { provider: "anthropic" });
   const rejected = loggingProblem(key("apikey_rejected"));
   assert.deepEqual([rejected.title, rejected.action, rejected.actionLabel], ["Key not accepted", "connection", "Replace Key"]);
-  assert.match(rejected.message, /Your meal is still here\.$/);
+  assert.equal(rejected.message, "Claude didn’t accept your key. Your meal is still here.");
   // Credit is added with the provider and a busy provider just needs time: no button pretends otherwise.
   for (const code of ["apikey_no_credit", "apikey_network", "apikey_rate_limited", "apikey_provider_busy"]) assert.equal(loggingProblem(key(code)).action, null, code);
   assert.match(loggingProblem(key("apikey_no_credit")).message, /Anthropic account has no credit/);
@@ -302,7 +302,7 @@ test("a connection problem while logging is one alert that leads to the one page
 test("from the voice sheet nothing can open over it, so the alert says where to go instead", () => {
   const rejected = loggingProblem(Object.assign(new Error("apikey_rejected"), { provider: "openai" }), { inSheet: true });
   assert.equal(rejected.action, null);
-  assert.match(rejected.message, /Replace it in Settings → AI connection\. Your words are still here\.$/);
+  assert.equal(rejected.message, "OpenAI didn’t accept your key. Replace it in Settings → AI connection. Your words are still here.");
   const expired = loggingProblem(new Error("chatgpt_sign_in_required"), { inSheet: true });
   assert.equal(expired.action, null);
   assert.match(expired.message, /Sign in again in Settings → AI connection\./);

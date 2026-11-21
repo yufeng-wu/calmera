@@ -86,7 +86,7 @@ export default function AIKey({ calmeraPreview = false, calmeraPreviewState = "n
               <Text style={styles.problemTitle}>{problem.title}. </Text>{problem.message}
             </Text> : reading.caption ? <View style={styles.recognized} accessibilityLiveRegion="polite">
               <Ionicons name="checkmark-circle" size={16} color={TINTS.leaf.icon} accessible={false} />
-              <Text numberOfLines={1} ellipsizeMode="middle" style={styles.recognizedText}>{reading.caption}</Text>
+              <Text numberOfLines={fontScale > 1.3 ? undefined : 1} ellipsizeMode="middle" style={styles.recognizedText}>{reading.caption}</Text>
             </View> : <Text style={styles.hint}>calmera can tell which one it is.</Text>}
           </View>
           <GlassButton title={busy ? "Checking…" : connectTitle(current)} role="accent" onPress={connect}

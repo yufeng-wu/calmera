@@ -132,6 +132,9 @@ function Choice({ title, detail, state, tile, onPress, busy = false, disabled = 
   const { pressProps, highlight } = usePressHighlight();
   const stacked = useWindowDimensions().fontScale > 1.3;
   const current = state === "current", attention = state === "attention";
+  // A check that was there when the page opened just shows; one that has just been earned pops in.
+  const earned = useRef(false);
+  if (!current) earned.current = true;
   return <Pressable accessibilityRole="radio" accessibilityLabel={title} accessibilityValue={{ text: detail }}
     accessibilityState={{ checked: current, busy, disabled: disabled || !onPress }}
     disabled={disabled || !onPress} onPress={onPress} {...pressProps} style={styles.choice}>
@@ -143,10 +146,17 @@ function Choice({ title, detail, state, tile, onPress, busy = false, disabled = 
       <Text numberOfLines={stacked ? undefined : 1} ellipsizeMode="middle" style={[styles.choiceDetail, attention && styles.bad]}>{detail}</Text>
     </View>
     {busy ? <ActivityIndicator color={SETTINGS.accent} accessible={false} />
-      : current ? <SettingsCheck selected />
+      : current ? <Landing pop={earned.current} />
         : attention ? <Ionicons name="alert-circle" size={20} color={SETTINGS.danger} accessible={false} />
           : <Ionicons name="chevron-forward" size={16} color={SETTINGS.chevron} accessible={false} />}
   </Pressable>;
+}
+
+// SettingsCheck springs when it turns selected, so a pop mounts it unselected and selects it at once.
+function Landing({ pop }) {
+  const [selected, setSelected] = useState(!pop);
+  useEffect(() => { setSelected(true); }, []);
+  return <SettingsCheck selected={selected} />;
 }
 
 const styles = StyleSheet.create({
