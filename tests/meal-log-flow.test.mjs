@@ -340,16 +340,32 @@ test("a typed meal is analyzed as text, produces structured foods, and never sav
   assert.equal(fixture.exits(), 1);
 });
 
-test("without an AI the page's one button connects one, then comes back", async () => {
+test("without an AI the page offers to connect one, and a typed meal can still be entered by hand", async () => {
   const fixture = logFixture("text", { state: "none" }); const tree = fixture.render();
   // One main button: there is no Analyze to press while nothing could answer it.
   assert.equal(button(tree, "Analyze Meal"), undefined);
   const connect = button(tree, "Connect an AI to estimate");
   assert.equal(connect.props.role, "accent");
   connect.props.onPress();
+  // The connection page is asked to come back here once an AI is connected.
   assert.equal(JSON.stringify(fixture.pushes), JSON.stringify([{ pathname: "/ai-connection", params: { then: "back" } }]));
-  assert.ok(button(logFixture("photo", { state: "none" }).render(), "Connect an AI to estimate"));
-  assert.equal(button(logFixture().render(), "Connect an AI to estimate"), undefined);
+  button(tree, "Enter it by hand").props.onPress();
+  const review = fixture.render();
+  assert.equal(review.type, "MealReview");
+  assert.deepEqual(review.props.review.entries.map(entry => [entry.origin, entry.foodName, entry.calories]), [["added", "", ""]]);
+  assert.equal(fixture.requests.length, 0, "nothing is sent anywhere");
+  const filled = { ...review.props.review, entries: [{ ...review.props.review.entries[0], foodName: "Apple", quantity: "1 medium", calories: "95", protein: "0.5", carbs: "25", fat: "0.3" }] };
+  await review.props.onSave("Snack", filled);
+  assert.equal(fixture.writes.length, 1);
+  assert.equal(fixture.writes[0].draft.entries[0].foodName, "Apple");
+  // A photo can't be entered by hand, so that page offers only the connection.
+  const photo = logFixture("photo", { state: "none" }).render();
+  assert.ok(button(photo, "Connect an AI to estimate"));
+  assert.equal(button(photo, "Enter it by hand"), undefined);
+  // With a working connection neither extra button exists.
+  const ready = logFixture().render();
+  assert.equal(button(ready, "Connect an AI to estimate"), undefined);
+  assert.equal(button(ready, "Enter it by hand"), undefined);
 });
 
 test("photo input uses the same review flow with only the selected image", async () => {
