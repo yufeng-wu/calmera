@@ -7,10 +7,9 @@ if [[ $# -gt 1 || ! "$MODE" =~ ^(signed|--unsigned-check|--simulator|--prepare-o
   echo "Usage: bash scripts/build-phone-test.sh [--unsigned-check|--simulator|--prepare-only]" >&2
   exit 2
 fi
-if [[ "$MODE" == signed ]] && [[ -z "${CALMERA_APPLE_TEAM_ID:-}" || ! "$CALMERA_APPLE_TEAM_ID" =~ ^[A-Z0-9]{10}$ ]]; then
-  echo "Signing is required for installation. Set CALMERA_APPLE_TEAM_ID after configuring Xcode signing." >&2
-  exit 2
-fi
+source "$(dirname "$0")/signing-team.sh"
+CALMERA_APPLE_TEAM_ID="${CALMERA_APPLE_TEAM_ID:-$CALMERA_TEAM_ID}"
+if [[ "$MODE" == signed ]]; then require_calmera_team "$CALMERA_APPLE_TEAM_ID"; fi
 BUILD_ROOT="${CALMERA_TEST_BUILD_ROOT:-/tmp/calmera-phone-test}"
 mkdir -p "$BUILD_ROOT"
 python3 - "$PROJECT_ROOT" "$BUILD_ROOT" <<'PYTHON'
@@ -61,6 +60,7 @@ ENTRY_FILE="$PROJECT_ROOT/phone-test-entry.jsx" EXPO_NO_DOTENV=1 EXPO_NO_TELEMET
   CODE_SIGN_ENTITLEMENTS="$BUILD_ROOT/PhoneTest.entitlements" \
   build
 APP="$BUILD_ROOT/DerivedData/Build/Products/Release-$SDK/mobile.app"
+if [[ "$MODE" == signed ]]; then require_app_signed_by_calmera_team "$APP"; fi
 python3 - "$APP" <<'PYTHON'
 import pathlib, plistlib, sys
 app=pathlib.Path(sys.argv[1])

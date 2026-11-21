@@ -9,10 +9,9 @@ elif [[ $# -ne 0 ]]; then
   echo "Usage: bash scripts/build-iphone-development.sh [--prepare-only]" >&2
   exit 2
 fi
-if [[ "$PREPARE_ONLY" == false ]] && [[ -z "${CALMERA_APPLE_TEAM_ID:-}" || ! "$CALMERA_APPLE_TEAM_ID" =~ ^[A-Z0-9]{10}$ ]]; then
-  echo "Set CALMERA_APPLE_TEAM_ID to your Apple development team ID (Xcode > Signing & Capabilities)." >&2
-  exit 2
-fi
+source "$(dirname "$0")/signing-team.sh"
+CALMERA_APPLE_TEAM_ID="${CALMERA_APPLE_TEAM_ID:-$CALMERA_TEAM_ID}"
+if [[ "$PREPARE_ONLY" == false ]]; then require_calmera_team "$CALMERA_APPLE_TEAM_ID"; fi
 BUILD_ROOT="${CALMERA_PHONE_BUILD_ROOT:-/tmp/calmera-iphone-development}"
 mkdir -p "$BUILD_ROOT"
 python3 - "$PROJECT_ROOT" "$BUILD_ROOT" <<'PYTHON'
@@ -41,4 +40,5 @@ EXPO_NO_DOTENV=1 EXPO_NO_TELEMETRY=1 xcodebuild \
   INFOPLIST_FILE="$BUILD_ROOT/CalmeraTest-Info.plist" \
   CODE_SIGN_ENTITLEMENTS="$BUILD_ROOT/CalmeraTest.entitlements" \
   build
+require_app_signed_by_calmera_team "$BUILD_ROOT/DerivedData/Build/Products/Debug-iphoneos/mobile.app"
 echo "Built foodwrap test with a separate bundle ID; no app was installed."

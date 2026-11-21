@@ -91,8 +91,12 @@ bash scripts/build-phone-test.sh --simulator
 # Local hardware-target compiler check, not installable.
 bash scripts/build-phone-test.sh --unsigned-check
 
-# Local signed build, after Xcode signing/provisioning is configured.
-CALMERA_APPLE_TEAM_ID=YOURTEAMID bash scripts/build-phone-test.sh
+# Local signed build. Always signed by calmera's team 2G2578H6DX
+# (scripts/signing-team.sh refuses any other team).
+bash scripts/build-phone-test.sh
+
+# The real app on a plugged-in, unlocked iPhone.
+CALMERA_IPHONE_UDID=<udid> bash scripts/install-iphone.sh
 
 # EAS account/signing/device setup must be completed first.
 eas build --platform ios --profile chatgpt-phone-test

@@ -47,8 +47,8 @@ an existing ChatGPT mobile login authorizes Calmera.
 
 ## Safe local phone build preparation
 
-`scripts/build-iphone-development.sh` builds locally after the developer supplies
-CALMERA_APPLE_TEAM_ID. It stages Info.plist and empty app-specific entitlements
+`scripts/build-iphone-development.sh` builds locally, signed only by calmera's
+team 2G2578H6DX (scripts/signing-team.sh refuses any other). It stages Info.plist and empty app-specific entitlements
 under /tmp, uses bundle ID **com.yfwu02.mobile.chatgptdev**, display name
 **Calmera Test**, and unique URL schemes. No original app/data is replaced; the
 script does not install, upload, create provisioning resources or auto-login.
