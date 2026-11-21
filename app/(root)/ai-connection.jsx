@@ -175,10 +175,12 @@ export default function AIConnectionSettings({ calmeraPreview = false, calmeraPr
           </SettingsSection>
           {pickedProvider && <SettingsSection label={`${providerFor(pickedProvider).name} key`}>
             <View style={styles.entry}>
+              {/* A secure field makes iOS show its Passwords bar and offer to save the key as a password;
+                  marking it as a one-time code turns both off. */}
               <TextInput value={draft} onChangeText={value => { setDraft(value); if (result) setResult(null); }}
                 accessibilityLabel={`${providerFor(pickedProvider).name} API key`} placeholder={`Paste your ${providerFor(pickedProvider).name} key`}
                 placeholderTextColor={COLORS.textLight} secureTextEntry autoCapitalize="none" autoCorrect={false} spellCheck={false}
-                autoComplete="off" textContentType="none" editable={!busy} returnKeyType="done" onSubmitEditing={save}
+                autoComplete="off" textContentType="oneTimeCode" editable={!busy} returnKeyType="done" onSubmitEditing={save}
                 style={styles.input} maxLength={512} />
               <GlassButton title={action === "save" ? "Checking…" : "Save and test"} role="accent" onPress={save}
                 disabled={busy || !draft.trim()} loading={action === "save"} />
