@@ -204,7 +204,7 @@ function VoiceSheet({ language, onClose, onSaved }) {
       if (!alive()) return;
       setPhase("listen");
       if (/no_food/.test(error?.message || "")) setNotice("no-food");
-      else inferenceError(error, router);
+      else inferenceError(error, router, { inSheet: true });
     } finally {
       if (operation.current === controller) operation.current = null;
     }
@@ -221,7 +221,7 @@ function VoiceSheet({ language, onClose, onSaved }) {
       if (!mounted.current || controller.signal.aborted) return;
       setReview(current => updateReviewFood(current, id, { ...values, ...result, quantity: result.normalizedQuantity || values.quantity }));
     } catch (error) {
-      if (mounted.current && !controller.signal.aborted) inferenceError(error, router);
+      if (mounted.current && !controller.signal.aborted) inferenceError(error, router, { inSheet: true });
     } finally {
       if (operation.current === controller) operation.current = null;
       if (mounted.current) setEstimatingId(null);
@@ -251,11 +251,11 @@ function VoiceSheet({ language, onClose, onSaved }) {
       const mayHaveSaved = error?.mayHaveSaved === true || message === "meal_save_uncertain" || Boolean(error?.savedEntries?.length);
       if (mayHaveSaved) {
         onSaved?.(error?.savedEntries || []);
-        inferenceError(error, router);
+        inferenceError(error, router, { inSheet: true });
         if (mounted.current) dismiss();
       } else if (/meal_save/.test(message)) {
         Alert.alert("Couldn’t save meal", "Your meal is still here. Try again.");
-      } else inferenceError(error, router);
+      } else inferenceError(error, router, { inSheet: true });
     } finally {
       if (operation.current === controller) operation.current = null;
       if (mounted.current) setSaving(false);

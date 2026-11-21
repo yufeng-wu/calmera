@@ -178,6 +178,14 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
     ]);
   });
 
+  // Every connection problem but usage and a plain retry is fixed on the AI connection page,
+  // which comes back here once it's sorted.
+  const fixConnection = action => {
+    if (action === "usage") Linking.openURL("https://chatgpt.com/settings/usage").catch(() => {});
+    else if (action === "retry") refreshConnection();
+    else router.push({ pathname: "/ai-connection", params: { then: "back" } });
+  };
+
   const changePhoto = () => {
     if (operation.current || uncertain || mealSaved) return;
     Alert.alert("Change photo", "Choosing a new photo will replace this unsaved review.", [
@@ -376,18 +384,19 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
               <Text style={styles.statusTitle}>Check your meals before trying again</Text>
             </View>
           )}
-          {!mealSaved && !uncertain && <View style={styles.status} accessibilityRole="text" accessibilityLiveRegion="polite">
-            {(busy || connection.state === "checking")
-              ? <ActivityIndicator size="small" color={COLORS.textLight} accessible={false} />
-              : <View style={[styles.connectionIndicator, { backgroundColor: connection.state === "ready" ? "#2E7D32" : "#C12D26" }]} accessible={false} />}
+          {/* A working connection needs no words. While a meal is estimated its stage shows here; a problem shows with the one button that fixes it. */}
+          {!mealSaved && !uncertain && (busy || connectionCopy.title) && <View style={styles.status} accessibilityRole="text" accessibilityLiveRegion="polite">
+            {busy ? <ActivityIndicator size="small" color={COLORS.textLight} accessible={false} />
+              : <View style={[styles.connectionIndicator, { backgroundColor: "#C12D26" }]} accessible={false} />}
             <Text style={[styles.statusTitle, { flex: 1 }]}>{busy ? estimationTitle(progress, inputMode) : connectionCopy.title}</Text>
           </View>}
-          {!busy && connectionCopy.action && <GlassButton
+          {!busy && connectionCopy.action ? <GlassButton
             title={connectionCopy.actionLabel}
-            onPress={() => connectionCopy.action === "choose" ? router.push("/ai-connection") : ["sign-in", "settings"].includes(connectionCopy.action) ? router.push("/chatgpt") : connectionCopy.action === "usage"
-              ? Linking.openURL("https://chatgpt.com/settings/usage").catch(() => {}) : refreshConnection()}
-            disabled={selecting || mealSaved || uncertain} />}
-          <GlassButton
+            role="accent"
+            onPress={() => fixConnection(connectionCopy.action)}
+            disabled={selecting || mealSaved || uncertain}
+            style={styles.logButton} />
+          : <GlassButton
             title={busy ? "Analyzing…" : "Analyze Meal"}
             symbol="sparkles"
             role="accent"
@@ -396,7 +405,7 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
             disabled={!canAnalyzeMeal({ inputMode, photo, text, connection, busy, selecting, uncertain, mealSaved })}
             style={styles.logButton}
             accessibilityLabel={busy ? "Analyzing meal" : "Analyze Meal"}
-          />
+          />}
           {mealSaved && <GlassButton title="Go back" symbol="chevron.left" onPress={leaveLog} disabled={busy || selecting} style={styles.logButton} />}
           {uncertain && (
             <GlassButton title="View meals" symbol="clock" onPress={() => { if (!operation.current) router.replace("/dashboard"); }} disabled={busy || selecting} style={styles.logButton} />
@@ -406,7 +415,7 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
           )}
           <View style={styles.privacy}>
             <Ionicons name="lock-closed-outline" size={14} color={COLORS.textLight} accessible={false} />
-            <Text style={styles.note}>{`Only your ${textMode ? "meal description" : "selected photo"} is analyzed by ${providerName(connection.type)}. Nutrition estimates are approximate.`}</Text>
+            <Text style={styles.note}>{`Only your ${textMode ? "meal description" : "selected photo"} is analyzed by ${connection.state === "none" ? "the AI you connect" : providerName(connection.type)}. Nutrition estimates are approximate.`}</Text>
           </View>
         </View>
         </View>

@@ -24,6 +24,7 @@ import FoodwrapWordmark from "@/components/FoodwrapWordmark";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { preloadNutritionModels } from "@/lib/chatgpt/planClient";
 import { aiConnection } from "@/lib/ai/mealAI";
+import { takeLogAfterConnect } from "@/lib/ai/connectHandoff.mjs";
 import { getVoiceLanguage, inferenceError } from "@/lib/chatgpt/nutrition";
 import { speechEngine } from "@/lib/voice/speechEngine";
 import { ensureVoicePermission } from "@/lib/voice/voiceLog.mjs";
@@ -156,8 +157,10 @@ export default function SummaryScreen() {
     prepareMeal();
     setFabExpanded(false);
     try {
+      // Voice can't work without an AI, so the tap opens the page that connects one;
+      // the sheet opens by itself once that's done.
       if (!await aiConnection(LOCAL_OWNER).read()) {
-        inferenceError(new Error("ai_connection_required"), router);
+        router.push({ pathname: "/ai-connection", params: { then: "voice" } });
         return;
       }
       const speech = speechEngine();
@@ -182,6 +185,10 @@ export default function SummaryScreen() {
       voiceOpening.current = false;
     }
   };
+  // Back from connecting the AI that Voice asked for: carry on to the voice sheet.
+  const resumeVoice = useRef(openVoice);
+  resumeVoice.current = openVoice;
+  useFocusEffect(useCallback(() => { if (takeLogAfterConnect() === "voice") resumeVoice.current(); }, []));
   const closeVoice = useCallback(() => setVoice(null), []);
   const voiceSaved = useCallback((savedEntries) => {
     if (savedEntries?.length) addEntries(savedEntries);
