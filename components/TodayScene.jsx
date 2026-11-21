@@ -150,7 +150,8 @@ export default function TodayScene({ hasMeals: dayHasMeals, holdDrop = false, ch
     sy.value = withSequence(withTiming(scale * 1.14, fall), beat(0.58, 100), beat(0.76, 140), beat(scale, 140), beat(0.66, 70), beat(scale, 90));
   }, false);
 
-  useEffect(() => {
+  // Before paint, so the frame where a day's last meal leaves already shows the bough, not a bare page.
+  useLayoutEffect(() => {
     if (!laidOut) return undefined;
     const previous = settled.current;
     settled.current = hasMeals;
