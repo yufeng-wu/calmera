@@ -15,7 +15,7 @@ const [before, after] = COPY.agreement.split(POLICY_LINK);
 const EDGE = 28;
 
 // Shown once to everyone before calmera opens, and again after a material policy change:
-// what we keep, what goes to OpenAI, the full policy, and one explicit choice. Plain type
+// what we keep, what goes to the chosen AI provider, the full policy, and one explicit choice. Plain type
 // on the page: no cards, no icons.
 export default function PrivacyConsentSheet({ updated = false, saving = false, error = "", notice = "", onAgree, onDecline, preview = false }) {
   const { bottom } = useSafeAreaInsets();
