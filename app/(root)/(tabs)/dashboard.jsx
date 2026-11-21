@@ -253,7 +253,8 @@ export default function SummaryScreen() {
         {/* Keyed by day so switching dates swaps meals without spring layout animations.
             Kept unflattened so the meal springs measure from here, not from the page the calendar moves. */}
         <View key={dateKey} collapsable={false} style={styles.sceneContainer}>
-          {hasData && <TodayScene stageHost={stageHost} hasMeals={entries.length > 0} isToday={isToday} greeting={emptyGreeting} bottomInset={SCROLL_BOTTOM_PADDING}
+          {/* The first meal's drop waits for the voice sheet that saved it to be gone. */}
+          {hasData && <TodayScene stageHost={stageHost} hasMeals={entries.length > 0} holdDrop={Boolean(voice)} isToday={isToday} greeting={emptyGreeting} bottomInset={SCROLL_BOTTOM_PADDING}
             mood={mood}>
             {mealOrder.map((meal) => (
               <MealGroup
