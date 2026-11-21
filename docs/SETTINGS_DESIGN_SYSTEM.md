@@ -40,7 +40,18 @@ The Settings tab and every page it opens share one list style. Tokens live in
 ## Layout of the Settings tab
 
 1. Daily goals: four targets. Tap to edit.
-2. Logging: ChatGPT, Voice language.
+2. Logging: AI connection, Voice language.
+
+## AI connection
+
+One page (`app/(root)/ai-connection.jsx`), two rows that never move: ChatGPT and API key.
+The one in use carries the check; its settings sit in a card under it (ChatGPT: Model,
+Manage usage, Sign out; a key: Check key, Replace key, Remove key). Tapping the other row
+is the switch: the old connection goes only once the new one works, and a green line says
+what happened. There is no warning before; Sign out and Remove key are the only alerts.
+The key page (`ai-key.jsx`) takes any OpenAI or Claude key and tells which it is from how it
+starts. Model choice (`ai-model.jsx`) is one tap down. The logic is
+`lib/ai/connectionController.mjs`; the words are `lib/ai/connectionPresentation.mjs`.
 3. App: Theme, Export your data, Privacy policy, Erase all data (rose icon, plain title; its page lists
    what goes and asks again).
 4. The wordmark and version.
