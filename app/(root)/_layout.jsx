@@ -35,7 +35,7 @@ export default function Layout() {
       <Stack initialRouteName="(tabs)" screenLayout={renderNavigationScene} screenOptions={{ headerShown: false, animation: "simple_push", contentStyle: { backgroundColor: COLORS.background, paddingTop: topInset } }}>
         {/* Forms own their inset so native material can span the status area.
             Other screens keep their inset locally without resizing this stack. */}
-        {["update-goals", "create", "photo-log", "chatgpt", "voice-language", "theme", "export-data", "erase-data", "privacy", "insights/[card]", "goals-survey", "edit/[id]", "calmera-guide"].map((name) => (
+        {["update-goals", "create", "photo-log", "chatgpt", "api-key", "voice-language", "theme", "export-data", "erase-data", "privacy", "insights/[card]", "goals-survey", "edit/[id]", "calmera-guide"].map((name) => (
           <Stack.Screen key={name} name={name} options={{
             presentation: "card", gestureEnabled: true,
             contentStyle: { backgroundColor: COLORS.background, paddingTop:

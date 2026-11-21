@@ -16,6 +16,8 @@ import OpenAILogo from "@/components/OpenAILogo";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import usePageExit from "@/hooks/usePageExit";
 import { createPlanClient, isChatGPTAvailable } from "@/lib/chatgpt/planClient";
+import { apiKeyStore } from "@/lib/ai/mealAI";
+import { providerFor } from "@/lib/ai/models.mjs";
 
 const PREVIEW_MODELS = [{ slug: "calmera-preview", display_name: "ChatGPT model" }, { slug: "calmera-preview-fast", display_name: "ChatGPT fast model" }];
 const settingsOperations = createSettingsOperations();
@@ -55,10 +57,19 @@ function ChatGPTSettingsForm({ userId, calmeraPreview = false, calmeraPreviewSta
   const [action, setAction] = useState("check");
   const [view, setView] = useState("connection");
   const [notice, setNotice] = useState(null);
+  const [keyInUse, setKeyInUse] = useState(null);
   const checking = useRef(true);
   const presentation = useRef(null);
   const scope = useFormTaskScope(owner, () => { checking.current = true; presentation.current = null; setAction("check"); setView("connection"); setNotice(null); });
   usePreventRemove(view === "models", () => { if (!presentation.current) setView("connection"); });
+
+  // A saved API key is used instead of ChatGPT; say so here too.
+  useFocusEffect(useCallback(() => {
+    if (calmeraPreview) return;
+    let active = true;
+    apiKeyStore(owner).summary().then(saved => { if (active) setKeyInUse(saved ? providerFor(saved.provider)?.name : null); }, () => {});
+    return () => { active = false; };
+  }, [calmeraPreview, owner]));
 
   useFocusEffect(useCallback(() => {
     const task = scope.start();
@@ -213,6 +224,7 @@ function ChatGPTSettingsForm({ userId, calmeraPreview = false, calmeraPreviewSta
         </Pressable>}
       </>}
       {notice && <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text>}
+      {keyInUse && <Text style={settingsStyles.footnote}>Your {keyInUse} API key is in use, so meals don’t use ChatGPT right now. Remove the key in Settings → API key to switch back.</Text>}
       <View style={styles.privacy}>
         <Ionicons name="lock-closed-outline" size={14} color={COLORS.textLight} accessible={false} />
         <Text style={styles.privacyText}>Only what you log goes to OpenAI. Your ChatGPT sign-in stays on this phone.</Text>

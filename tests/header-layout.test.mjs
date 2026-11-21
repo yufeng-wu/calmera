@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { formOwnsTopInset } from "../lib/headerLayout.mjs";
 
 test("adopted iOS26 forms own the safe area without shifting ordinary tabs", () => {
-  for (const path of ["/create", "/update-goals", "/photo-log", "/chatgpt", "/voice-language", "/theme", "/goals-survey", "/export-data", "/erase-data", "/privacy", "/insights/typical", "/edit/synthetic-id", "/motion-check"]) {
+  for (const path of ["/create", "/update-goals", "/photo-log", "/chatgpt", "/api-key", "/voice-language", "/theme", "/goals-survey", "/export-data", "/erase-data", "/privacy", "/insights/typical", "/edit/synthetic-id", "/motion-check"]) {
     assert.equal(formOwnsTopInset(path, undefined, "ios", "26.0"), true, path);
   }
   for (const path of ["/dashboard", "/settings", "/ui-gallery", "/background-compare", "/unknown"]) {
@@ -11,7 +11,7 @@ test("adopted iOS26 forms own the safe area without shifting ordinary tabs", () 
   }
 });
 test("only adopted gallery pages get full-bleed headers", () => {
-  for (const page of ["manual", "manual-save-navigation-error", "edit-save-navigation-error", "photo-save-navigation-error", "theme", "chatgpt-catalog-error", "voice-language-load-error", "voice-language-save-error", "recommendation", "recommendation-unspecified", "recommendation-minor", "recommendation-save-error", "erase-data", "erase-data-erasing", "erase-data-failed", "erase-data-done", "privacy", "privacy-health-data", "privacy-consent", "privacy-consent-updated", "privacy-consent-error", "photo-selected", "edit-meal"]) {
+  for (const page of ["manual", "manual-save-navigation-error", "edit-save-navigation-error", "photo-save-navigation-error", "theme", "chatgpt-catalog-error", "api-key", "api-key-saved", "api-key-error", "voice-language-load-error", "voice-language-save-error", "recommendation", "recommendation-unspecified", "recommendation-minor", "recommendation-save-error", "erase-data", "erase-data-erasing", "erase-data-failed", "erase-data-done", "privacy", "privacy-health-data", "privacy-consent", "privacy-consent-updated", "privacy-consent-error", "photo-selected", "edit-meal"]) {
     assert.equal(formOwnsTopInset("/ui-gallery", page, "ios", 26), true, page);
   }
   assert.equal(formOwnsTopInset("/ui-gallery", ["theme"], "ios", 26), true);
