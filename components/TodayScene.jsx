@@ -61,7 +61,15 @@ export const TodayStageHost = forwardRef(function TodayStageHost(_, ref) {
   return stage;
 });
 
-export default function TodayScene({ hasMeals, children, greeting, mood = "awake", isToday, bottomInset = 0, stageHost, style }) {
+// `holdDrop` is for while something covers the page, like the voice sheet that saved the day's first meal: the
+// scene stays as it was, empty, and the drop waits until it can be seen, instead of playing out behind the cover.
+export default function TodayScene({ hasMeals: dayHasMeals, holdDrop = false, children, greeting, mood = "awake", isToday, bottomInset = 0, stageHost, style }) {
+  // Whether the scene last settled with meals; null until it has been laid out once.
+  const settled = useRef(null);
+  const hasMeals = dayHasMeals && !(holdDrop && settled.current === false);
+  // The hill, the seated orange and the meals mount as soon as the day has meals, held or not: parked out of sight,
+  // they are ready when the drop starts, so it doesn't open on the frames it takes to build them.
+  const mealsMounted = dayHasMeals;
   const { width } = useWindowDimensions();
   const reducedMotion = useReducedMotion();
   const { height: screenHeight } = useWindowDimensions();
@@ -100,7 +108,10 @@ export default function TodayScene({ hasMeals, children, greeting, mood = "awake
   const hillSeat = useMemo(() => ({ x: seatX, y: seatBase, width, tilt: ridgeTilt }), [seatX, seatBase, width, ridgeTilt]);
   const [bough, setBough] = useState(!hasMeals);
   const [inFront, setInFront] = useState(false);
-  const settled = useRef(null);
+  // The greeting goes when the first meal arrives, but it stays on the bough to fade out with it.
+  const lastGreeting = useRef(greeting);
+  if (greeting) lastGreeting.current = greeting;
+  const shownGreeting = greeting ?? (bough ? lastGreeting.current : null);
   const timers = useRef([]);
   const seatAt = useSharedValue({ left: seatBox.left, bottom: seatBox.bottom });
   useEffect(() => { seatAt.value = { left: seatBox.left, bottom: seatBox.bottom }; }, [seatBox.left, seatBox.bottom, seatAt]);
@@ -252,16 +263,16 @@ export default function TodayScene({ hasMeals, children, greeting, mood = "awake
     </Animated.View>}
     <View ref={attachStage} collapsable={false} pointerEvents="none" style={[styles.stage, { height: bandHeight }]}>
       <Animated.View style={[StyleSheet.absoluteFill, bandStyle]}>
-        {hasMeals && <HillScene clock={clock} height={bandHeight} ground={ground} seat={hillSeat} />}
+        {mealsMounted && <HillScene clock={clock} height={bandHeight} ground={ground} seat={hillSeat} />}
         {hasMeals && said && <Animated.View style={[styles.pill, { left: SEAT.left + BUDDY_SIZE * COMPANION_SCALE + 6, top: seatBase - PILL_ABOVE_BASE, maxWidth: width - SEAT.left - 72 }, pillStyle]}><Text style={styles.pillText}>{said}</Text></Animated.View>}
       </Animated.View>
     </View>
     <View pointerEvents="none" style={[styles.stage, { height: bandHeight, zIndex: inFront ? 2 : 0 }]}>
-      {hasMeals && <Animated.View style={[styles.orange, { left: seatBox.left, bottom: seatBox.bottom }, seatedStyle]}>
+      {mealsMounted && <Animated.View style={[styles.orange, { left: seatBox.left, bottom: seatBox.bottom }, seatedStyle]}>
         <CitrusBuddy mood={mood} active={focused} arrive={!inFront && !dropStarting} cheerSignal={cheerSignal} landSignal={landSignal} />
       </Animated.View>}
     </View>
-  </>, [bough, sceneId, screenHeight, groveWashStyle, groveDuskStyle, groveNightStyle, groveGradient, attachStage, bandHeight, bandStyle, hasMeals, clock, focused, ground, hillSeat, said, seatBase, width, pillStyle, inFront, seatBox.left, seatBox.bottom, seatedStyle, mood, cheerSignal, landSignal, dropStarting]);
+  </>, [bough, sceneId, screenHeight, groveWashStyle, groveDuskStyle, groveNightStyle, groveGradient, attachStage, bandHeight, bandStyle, hasMeals, mealsMounted, clock, focused, ground, hillSeat, said, seatBase, width, pillStyle, inFront, seatBox.left, seatBox.bottom, seatedStyle, mood, cheerSignal, landSignal, dropStarting]);
   // Sent whenever it changes; let go when this day's scene goes away, for the next day's scene to replace.
   useLayoutEffect(() => { stageHost?.current?.show(stage); }, [stage, stageHost]);
   useLayoutEffect(() => () => stageHost?.current?.release(), [stageHost]);
@@ -270,12 +281,12 @@ export default function TodayScene({ hasMeals, children, greeting, mood = "awake
   return <View style={[styles.scene, style]} onLayout={laidOut ? undefined : () => setLaidOut(true)}>
     {bough && <Animated.View pointerEvents="none" style={[styles.grove, groveStyle]}>
       <GroveScene clock={clock} />
-      {greeting && <View style={styles.greeting}>
-        <Text style={home.emptyStateTitle}>{greeting.title}</Text>
-        <Text style={home.emptyStateText}>{greeting.text}</Text>
+      {shownGreeting && <View style={styles.greeting}>
+        <Text style={home.emptyStateTitle}>{shownGreeting.title}</Text>
+        <Text style={home.emptyStateText}>{shownGreeting.text}</Text>
       </View>}
     </Animated.View>}
-    {hasMeals && <Animated.View style={[styles.list, listStyle]}>{children}</Animated.View>}
+    {mealsMounted && <Animated.View style={[styles.list, listStyle]}>{children}</Animated.View>}
     {/* Room at the end of the page to see the whole stage, which stays put behind it. */}
     <Pressable onPress={tapScene} accessible={false} style={[styles.room, { height: bandHeight - SCENE_DROP, marginBottom: -bottomInset }]} />
     {bough && <Animated.View ref={heroRef} collapsable={false} style={[styles.orange, hero, hangingStyle]}>
