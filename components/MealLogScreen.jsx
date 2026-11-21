@@ -384,7 +384,7 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
           </View>}
           {!busy && connectionCopy.action && <GlassButton
             title={connectionCopy.actionLabel}
-            onPress={() => ["sign-in", "settings"].includes(connectionCopy.action) ? router.push("/chatgpt") : connectionCopy.action === "usage"
+            onPress={() => connectionCopy.action === "choose" ? router.push("/ai-connection") : ["sign-in", "settings"].includes(connectionCopy.action) ? router.push("/chatgpt") : connectionCopy.action === "usage"
               ? Linking.openURL("https://chatgpt.com/settings/usage").catch(() => {}) : refreshConnection()}
             disabled={selecting || mealSaved || uncertain} />}
           <GlassButton

@@ -159,7 +159,7 @@ test("invalid inline edits keep the editor open and never save", () => {
 });
 
 const compiledHook = compile("../hooks/useMealLogConnection.js");
-function connectionFixture({ savedKey = null } = {}) {
+function connectionFixture({ current = { type: "chatgpt" } } = {}) {
   const runtime = hooks(); const pending = []; let focus, appListener, cleanup;
   const runConnectionHook = load(compiledHook, {
     react: runtime.react,
@@ -168,7 +168,7 @@ function connectionFixture({ savedKey = null } = {}) {
     "@/lib/chatgpt/planClient": { createPlanClient: () => ({}) },
     "@/lib/chatgpt/connectionOutcome.mjs": { readChatGPTConnection: (_, options) => new Promise(resolve => pending.push({ resolve, options })) },
     "@/lib/chatgpt/connectionStatus.mjs": { connectionIssue: () => ({ action: "retry" }) },
-    "@/lib/ai/mealAI": { apiKeyStore: () => ({ summary: async () => savedKey }) },
+    "@/lib/ai/mealAI": { aiConnection: () => ({ read: async () => current }) },
   });
   return { pending, render: () => { runtime.reset(); return runConnectionHook("owner"); },
     focus: () => { cleanup = focus(); }, blur: () => cleanup(), appState: state => appListener(state) };
@@ -194,13 +194,22 @@ test("an obsolete connection check cannot override a newer result or a later scr
   assert.equal(fixture.pending.length, 5);
 });
 
-test("a saved API key makes logging ready without checking ChatGPT", async () => {
-  const fixture = connectionFixture({ savedKey: { provider: "anthropic", masked: "sk-ant-••••WXYZ" } });
+test("an API key connection makes logging ready without checking ChatGPT", async () => {
+  const fixture = connectionFixture({ current: { type: "claude-key", provider: "anthropic", masked: "sk-ant-••••WXYZ" } });
   fixture.render(); fixture.focus(); await settle();
-  const { state, source, provider } = fixture.render().connection;
-  assert.deepEqual({ state, source, provider }, { state: "ready", source: "api-key", provider: "anthropic" });
+  const { state, type, provider } = fixture.render().connection;
+  assert.deepEqual({ state, type, provider }, { state: "ready", type: "claude-key", provider: "anthropic" });
   assert.equal(fixture.pending.length, 0);
   assert.equal(connectionPresentation(fixture.render().connection).title, "Your Claude key is ready");
+});
+
+test("with no AI connection, logging offers to choose one", async () => {
+  const fixture = connectionFixture({ current: null });
+  fixture.render(); fixture.focus(); await settle();
+  assert.equal(fixture.render().connection.state, "none");
+  assert.equal(fixture.pending.length, 0);
+  const copy = connectionPresentation(fixture.render().connection);
+  assert.deepEqual({ title: copy.title, action: copy.action }, { title: "No AI connection yet", action: "choose" });
 });
 
 test("food rows start compact; expanding exposes one set of directly editable fields", () => {

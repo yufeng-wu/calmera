@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { API_KEY_PROVIDERS, ANTHROPIC_VERSION } from "../lib/ai/models.mjs";
-import { apiKeyErrorCode, checkKeyShape, createApiKeyCompletion, maskKey, mealRequest, responseText, testApiKey } from "../lib/ai/providers.mjs";
-import { createApiKeyStore, apiKeyStorageKey } from "../lib/ai/apiKeyStore.mjs";
+import { apiKeyErrorCode, checkKeyShape, createApiKeyCompletion, mealRequest, responseText, testApiKey } from "../lib/ai/providers.mjs";
+import { createConnectionStore, connectionStorageKey } from "../lib/ai/connection.mjs";
 import { apiKeyIssue, loggingIssue } from "../lib/ai/apiKeyPresentation.mjs";
 import { createMealEstimator } from "../lib/ai/mealEstimator.mjs";
 import { mealInstructions, quantityPrompt } from "../lib/chatgpt/prompts.mjs";
@@ -195,30 +195,80 @@ test("key shape checks catch the common paste mistakes", () => {
   assert.throws(() => checkKeyShape("gemini", KEYS.openai), /apikey_provider_unknown/);
 });
 
-test("a saved key is masked, stored only under its Keychain name, and removable", async () => {
+// A Keychain in memory, and a ChatGPT sign-in that can be present and forgotten.
+function connectionFixture({ signedIn = false, forgetFails = false } = {}) {
   const values = new Map();
   const writes = [];
+  const chatgpt = { signedIn, forgets: 0 };
   const secureStore = {
     getItemAsync: async key => values.get(key) ?? null,
     setItemAsync: async (key, value, options) => { writes.push({ key, options }); values.set(key, value); },
     deleteItemAsync: async key => { values.delete(key); },
   };
-  const store = createApiKeyStore(secureStore, "local", { keychainAccessible: "this-device-only" });
-  assert.equal(await store.summary(), null);
-  const saved = await store.save("anthropic", ` ${KEYS.anthropic} `);
-  assert.deepEqual(saved, { provider: "anthropic", masked: "sk-ant-••••WXYZ" });
-  assert.deepEqual(writes, [{ key: apiKeyStorageKey("local"), options: { keychainAccessible: "this-device-only" } }]);
-  assert.deepEqual(await store.read(), { provider: "anthropic", key: KEYS.anthropic });
-  assert.deepEqual(await store.summary(), saved);
-  assert.ok(!JSON.stringify(await store.summary()).includes("FAKE"));
-  await assert.rejects(store.save("openai", KEYS.anthropic), /apikey_wrong_provider/);
-  assert.deepEqual(await store.read(), { provider: "anthropic", key: KEYS.anthropic }, "a failed save keeps the old key");
-  await store.remove();
+  const store = createConnectionStore({ secureStore, owner: "local", options: { keychainAccessible: "this-device-only" }, chatgpt: {
+    connected: async () => chatgpt.signedIn,
+    forget: async () => { chatgpt.forgets++; if (forgetFails) throw new Error("keychain"); chatgpt.signedIn = false; },
+  } });
+  return { store, values, writes, chatgpt };
+}
+
+test("the AI connection is one record: a key is stored masked-on-read, and removable", async () => {
+  const { store, values, writes } = connectionFixture();
   assert.equal(await store.read(), null);
-  values.set(apiKeyStorageKey("local"), "{broken");
+  const saved = await store.saveKey("anthropic", ` ${KEYS.anthropic} `);
+  assert.deepEqual(saved, { type: "claude-key", provider: "anthropic", masked: "sk-ant-••••WXYZ" });
+  assert.deepEqual(writes, [{ key: connectionStorageKey("local"), options: { keychainAccessible: "this-device-only" } }]);
+  assert.deepEqual([...values.keys()], ["calmera.connection.local"]);
+  assert.deepEqual(await store.read(), saved);
+  assert.ok(!JSON.stringify(await store.read()).includes("FAKE"));
+  assert.deepEqual(await store.credential(), { type: "claude-key", provider: "anthropic", key: KEYS.anthropic });
+  await assert.rejects(store.saveKey("openai", KEYS.anthropic), /apikey_wrong_provider/);
+  assert.equal((await store.read()).type, "claude-key", "a failed save keeps the old connection");
+  await store.saveKey("openai", KEYS.openai);
+  assert.deepEqual(await store.read(), { type: "openai-key", provider: "openai", masked: "sk-proj-••••ABCD" });
+  assert.equal(values.size, 1, "a new key replaces the old one in the same record");
+  await store.disconnect();
   assert.equal(await store.read(), null);
-  assert.equal(maskKey(KEYS.openai), "sk-proj-••••ABCD");
-  assert.throws(() => createApiKeyStore(secureStore, "../x"), /calmera_sign_in_required/);
+  values.set(connectionStorageKey("local"), "{broken");
+  assert.equal(await store.read(), null);
+  values.set(connectionStorageKey("local"), JSON.stringify({ type: "gemini-key", key: KEYS.openai }));
+  assert.equal(await store.read(), null);
+  assert.throws(() => createConnectionStore({ secureStore: {}, owner: "../x", chatgpt: {} }), /calmera_sign_in_required/);
+});
+
+test("a ChatGPT sign-in saved before is the connection, and a key replaces it only once saved", async () => {
+  const fixture = connectionFixture({ signedIn: true });
+  assert.deepEqual(await fixture.store.read(), { type: "chatgpt" });
+  await assert.rejects(fixture.store.saveKey("anthropic", "sk-ant-short"), /apikey_malformed/);
+  assert.equal(fixture.chatgpt.signedIn, true, "a key that can't be saved leaves ChatGPT connected");
+  await fixture.store.saveKey("anthropic", KEYS.anthropic);
+  assert.equal(fixture.chatgpt.signedIn, false);
+  assert.equal(fixture.chatgpt.forgets, 1);
+  assert.equal((await fixture.store.read()).type, "claude-key");
+});
+
+test("signing in to ChatGPT replaces a key; disconnecting ChatGPT leaves nothing", async () => {
+  const fixture = connectionFixture();
+  await fixture.store.saveKey("openai", KEYS.openai);
+  fixture.chatgpt.signedIn = true;           // the ChatGPT sign-in has just been saved...
+  await fixture.store.chatgptConnected();    // ...so the key goes
+  assert.deepEqual(await fixture.store.read(), { type: "chatgpt" });
+  assert.equal(fixture.values.size, 0);
+  await fixture.store.disconnect();
+  assert.equal(fixture.chatgpt.signedIn, false);
+  assert.equal(await fixture.store.read(), null);
+});
+
+test("a switch that stopped half way is finished, so two credentials never stay", async () => {
+  const fixture = connectionFixture({ forgetFails: true, signedIn: true });
+  await assert.rejects(fixture.store.saveKey("anthropic", KEYS.anthropic), /keychain/);
+  // The key is saved first, so a failure after it leaves the new connection, not the old one.
+  assert.ok(fixture.values.has(connectionStorageKey("local")));
+  // The next read deletes the old sign-in once it can.
+  const healed = connectionFixture({ signedIn: true });
+  healed.values.set(connectionStorageKey("local"), JSON.stringify({ type: "claude-key", key: KEYS.anthropic }));
+  assert.equal((await healed.store.read()).type, "claude-key");
+  assert.equal(healed.chatgpt.signedIn, false);
 });
 
 test("logging errors from a key read plainly; other errors are left to the usual alert", () => {

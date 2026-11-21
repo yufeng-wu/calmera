@@ -23,7 +23,7 @@ import { buddyMood, daySeed, emptyTodayGreeting } from "@/lib/nutritionPresentat
 import FoodwrapWordmark from "@/components/FoodwrapWordmark";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { preloadNutritionModels } from "@/lib/chatgpt/planClient";
-import { mealAISource } from "@/lib/ai/mealAI";
+import { aiConnection } from "@/lib/ai/mealAI";
 import { getVoiceLanguage, inferenceError } from "@/lib/chatgpt/nutrition";
 import { speechEngine } from "@/lib/voice/speechEngine";
 import { ensureVoicePermission } from "@/lib/voice/voiceLog.mjs";
@@ -160,8 +160,8 @@ export default function SummaryScreen() {
     prepareMeal();
     setFabExpanded(false);
     try {
-      if (!await mealAISource(LOCAL_OWNER)) {
-        inferenceError(new Error("chatgpt_sign_in_required"), router);
+      if (!await aiConnection(LOCAL_OWNER).read()) {
+        inferenceError(new Error("ai_connection_required"), router);
         return;
       }
       const speech = speechEngine();

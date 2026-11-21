@@ -9,7 +9,6 @@ import { Ionicons } from "@expo/vector-icons";
 import MaskedView from "@react-native-masked-view/masked-view";
 import { LinearGradient } from "expo-linear-gradient";
 import FoodwrapWordmark from "@/components/FoodwrapWordmark";
-import OpenAILogo from "@/components/OpenAILogo";
 import SettingsRow from "@/components/SettingsRow";
 import { SettingsSection, settingsStyles, usePressHighlight } from "@/components/SettingsSection";
 import { NUTRIENT_COLORS } from "@/constants/colors";
@@ -19,9 +18,7 @@ import { useTheme } from "@/context/ThemeContext";
 import useProfile from "@/hooks/useProfile";
 import useWarmSettingsRoutes from "@/hooks/useWarmSettingsRoutes";
 import { getVoiceLanguage } from "@/lib/chatgpt/nutrition";
-import { createPlanClient, isChatGPTAvailable } from "@/lib/chatgpt/planClient";
-import { apiKeyStore } from "@/lib/ai/mealAI";
-import { providerFor } from "@/lib/ai/models.mjs";
+import { aiConnection } from "@/lib/ai/mealAI";
 import { formatNumber } from "@/lib/insights/stats.mjs";
 import { LOCAL_OWNER } from "@/lib/owner.mjs";
 import { VOICE_LANGUAGES } from "@/lib/voiceLanguagePreferences.mjs";
@@ -32,7 +29,7 @@ const GOALS = [
   { key: "carbsGoal", label: "Carbs", unit: "g", spoken: "grams", color: NUTRIENT_COLORS.carbs },
   { key: "fatGoal", label: "Fat", unit: "g", spoken: "grams", color: NUTRIENT_COLORS.fat },
 ];
-const PREVIEW = { chatgpt: "Connected", apiKey: "Not set", source: "ChatGPT plan", language: "English",
+const PREVIEW = { connection: "ChatGPT", language: "English",
   goals: { calorieGoal: 1800, proteinGoal: 140, carbsGoal: 180, fatGoal: 60 } };
 const goalNumber = (value) => {
   const number = value === null || value === undefined || value === "" ? NaN : Number(value);
@@ -53,7 +50,7 @@ export default function SettingsScreen({ calmeraPreview = false }) {
   const [previewMessage, setPreviewMessage] = useState("");
   const openPage = (path, label) => {
     if (calmeraPreview) {
-      if (["/voice-language", "/api-key", "/theme", "/erase-data", "/privacy"].includes(path)) router.push({ pathname: "/ui-gallery", params: { page: path.slice(1) } });
+      if (["/voice-language", "/ai-connection", "/theme", "/erase-data", "/privacy"].includes(path)) router.push({ pathname: "/ui-gallery", params: { page: path.slice(1) } });
       else setPreviewMessage(`${label} selected. Preview only.`);
       return;
     }
@@ -75,11 +72,9 @@ export default function SettingsScreen({ calmeraPreview = false }) {
       </SettingsSection>
       </LayoutAnimationConfig>
 
-      <SettingsSection label="Logging" footnote={sourceNote(status.source)}>
-        <SettingsRow title="ChatGPT" value={status.chatgpt} iconElement={<OpenAILogo />} tint="cocoa"
-          onPress={() => openPage("/chatgpt", "ChatGPT")} />
-        <SettingsRow title="API key" value={status.apiKey} icon="key" tint="tangerine" divider
-          onPress={() => openPage("/api-key", "API key")} />
+      <SettingsSection label="Logging">
+        <SettingsRow title="AI connection" value={status.connection} icon="sparkles" tint="tangerine"
+          onPress={() => openPage("/ai-connection", "AI connection")} />
         <SettingsRow title="Voice language" value={status.language} icon="mic" tint="sky" divider
           onPress={() => openPage("/voice-language", "Voice language")} />
       </SettingsSection>
@@ -107,29 +102,22 @@ export default function SettingsScreen({ calmeraPreview = false }) {
   </View>;
 }
 
-// Which way meals are estimated. A saved API key wins over a ChatGPT sign-in.
-const sourceNote = source => source === undefined ? undefined
-  : source ? `Meals are estimated with your ${source}.` : "Sign in to ChatGPT or add an API key to log meals by voice, text or photo.";
+// The one AI connection, named the way its page names it.
+const CONNECTION_NAMES = { chatgpt: "ChatGPT", "openai-key": "OpenAI key", "claude-key": "Claude key" };
 
 // Read on every visit, since these can change on their own pages or outside the app.
 function useLoggingStatus(userId, preview) {
-  const [status, setStatus] = useState(preview ? { chatgpt: PREVIEW.chatgpt, apiKey: PREVIEW.apiKey, source: PREVIEW.source, language: PREVIEW.language }
-    : { chatgpt: null, apiKey: null, source: undefined, language: null });
+  const [status, setStatus] = useState(preview ? { connection: PREVIEW.connection, language: PREVIEW.language } : { connection: null, language: null });
   useFocusEffect(useCallback(() => {
     if (preview || !userId) return;
     let active = true;
     const controller = new AbortController();
-    const client = isChatGPTAvailable() ? createPlanClient(userId) : null;
     Promise.all([
-      client ? client.connected().catch(() => null) : false,
+      aiConnection(userId).read().catch(() => undefined),
       getVoiceLanguage(userId, { signal: controller.signal, isActive: () => active }).catch(() => null),
-      apiKeyStore(userId).summary().catch(() => undefined),
-    ]).then(([connected, language, key]) => {
+    ]).then(([connection, language]) => {
       if (!active) return;
-      const keyName = key ? providerFor(key.provider)?.name : null;
-      setStatus({ chatgpt: connected === null ? null : connected ? (keyName ? "Not in use" : "Connected") : "Not connected",
-        apiKey: key === undefined ? null : keyName || "Not set",
-        source: key === undefined || (!key && connected === null) ? undefined : keyName ? `${keyName} key` : connected ? "ChatGPT plan" : null,
+      setStatus({ connection: connection === undefined ? null : CONNECTION_NAMES[connection?.type] || "Not connected",
         language: VOICE_LANGUAGES.find(({ value }) => value === language)?.label ?? null });
     });
     return () => { active = false; controller.abort(); };
