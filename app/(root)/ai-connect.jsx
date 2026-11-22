@@ -20,7 +20,7 @@ import { previewConnectionServices } from "@/lib/ai/previewConnection.mjs";
 
 const KEY_PAGES = [
   { name: "OpenAI", url: "https://platform.openai.com/api-keys" },
-  { name: "Claude", url: "https://platform.claude.com/settings/keys" },
+  { name: "Anthropic", url: "https://platform.claude.com/settings/keys" },
 ];
 
 // Connecting, the same page for both ways: what you connect with, one line under it (a hint,
@@ -78,7 +78,7 @@ export default function AIConnect({ calmeraPreview = false, calmeraPreviewState 
           {keyMethod
             // A secure field makes iOS show its Passwords bar and offer to save the key as a password;
             // marking it as a one-time code turns both off.
-            ? <TextInput value={draft} onChangeText={change} accessibilityLabel="API key" placeholder="Paste your OpenAI or Claude key"
+            ? <TextInput value={draft} onChangeText={change} accessibilityLabel="API key" placeholder="Paste your OpenAI or Anthropic key"
               placeholderTextColor={COLORS.textLight} autoFocus={!calmeraPreview} secureTextEntry autoCapitalize="none" autoCorrect={false}
               spellCheck={false} autoComplete="off" textContentType="oneTimeCode" editable={!busy} returnKeyType="done" onSubmitEditing={connect}
               style={[styles.box, styles.input, problem && styles.boxProblem]} maxLength={512} />

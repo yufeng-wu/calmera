@@ -12,7 +12,7 @@ The policy is US-only (calmera ships only in the US App Store) and names Yufeng 
 
 ## Consent
 
-`components/PrivacyConsentGate.jsx` wraps the whole app (`app/(root)/_layout.jsx`). Until the person agrees to the current version, nothing else opens, so nothing reaches an AI provider. One sheet (`components/PrivacyConsentSheet.jsx`) covers both the policy and sending meal text, chosen photos and voice transcripts to the AI provider the person chooses. It names OpenAI (ChatGPT account or OpenAI API key) and Anthropic (Claude API key) and has no pre-checked box. Agreeing is required: **Not Now** explains that calmera can't open without it and keeps the sheet up.
+`components/PrivacyConsentGate.jsx` wraps the whole app (`app/(root)/_layout.jsx`). Until the person agrees to the current version, nothing else opens, so nothing reaches an AI provider. One sheet (`components/PrivacyConsentSheet.jsx`) covers both the policy and sending meal text, chosen photos and voice transcripts to the AI provider the person chooses. It names OpenAI (ChatGPT account or OpenAI API key) and Anthropic (Anthropic API key) and has no pre-checked box. Agreeing is required: **Not Now** explains that calmera can't open without it and keeps the sheet up.
 
 The record `{ version, acceptedAt, ai: ["openai", "anthropic"] }` (`lib/privacyConsent.mjs`) is kept only on this iPhone (`calmera.privacy-consent.local` in app storage), so launch checks it instantly. Settings → Erase all data removes it with everything else, and calmera then asks again.
 
@@ -26,5 +26,5 @@ The record `{ version, acceptedAt, ai: ["openai", "anthropic"] }` (`lib/privacyC
 ## Still to do outside the code
 
 - Host the web pages, then add the URL in App Store Connect (App Privacy → Privacy Policy URL).
-- Make the App Store privacy label match the policy: meals, goals and settings stay on the iPhone, and meal text, photos and voice text go to the AI provider the person connects: OpenAI (ChatGPT account or OpenAI API key) or Anthropic (Claude API key). `ios/mobile/PrivacyInfo.xcprivacy` declares this as Other User Content and Photos, for app functionality. None of it is used for tracking.
+- Make the App Store privacy label match the policy: meals, goals and settings stay on the iPhone, and meal text, photos and voice text go to the AI provider the person connects: OpenAI (ChatGPT account or OpenAI API key) or Anthropic (Anthropic API key). `ios/mobile/PrivacyInfo.xcprivacy` declares this as Other User Content and Photos, for app functionality. None of it is used for tracking.
 - Have a lawyer review the text.

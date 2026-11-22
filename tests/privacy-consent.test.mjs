@@ -59,7 +59,7 @@ const allText = (doc) => [...doc.intro, ...doc.sections.flatMap((s) => [{ type: 
 
 test("the policy names both providers and each kind of data they receive", () => {
   const text = allText(PRIVACY_POLICY);
-  for (const phrase of ["OpenAI", "Anthropic", "OpenAI API key", "Claude API key", "text you type", "Photos you choose", "what you say",
+  for (const phrase of ["OpenAI", "Anthropic", "OpenAI API key", "Anthropic API key", "text you type", "Photos you choose", "what you say",
     "Voice recordings", "ChatGPT account", "Keychain", "disconnect your AI provider"]) {
     assert.match(text, new RegExp(phrase), phrase);
   }
@@ -88,7 +88,8 @@ test("the policy describes data kept on the iPhone, with no account or calmera s
 test("the consent sheet names both providers, the three kinds of data and the choice", () => {
   assert.match(CONSENT_COPY.ai.heading, /OpenAI/);
   assert.match(CONSENT_COPY.ai.heading, /Anthropic/);
-  assert.match(CONSENT_COPY.ai.text, /Claude API key/);
+  assert.match(CONSENT_COPY.ai.text, /Anthropic API key/);
+  assert.doesNotMatch(JSON.stringify(CONSENT_COPY), /Claude/);
   assert.match(CONSENT_COPY.ai.note, /Keychain/);
   assert.equal(CONSENT_COPY.ai.items.length, 3);
   assert.match(CONSENT_COPY.agreement, /Privacy Policy/);

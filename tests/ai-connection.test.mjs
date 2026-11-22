@@ -24,7 +24,7 @@ test("a pasted key says whose it is, so nobody has to pick a provider", () => {
   assert.equal(keyProvider(OPENAI), "openai");
   assert.equal(keyProvider("sk-svcacct-FAKE"), "openai");
   for (const other of ["", "hello there", "AIzaFAKE-not-a-key", null, 42]) assert.equal(keyProvider(other), null);
-  assert.deepEqual(readKeyDraft(` ${CLAUDE}\n`), { provider: "anthropic", key: CLAUDE, caption: "Claude key · sk-ant-••••WXYZ" });
+  assert.deepEqual(readKeyDraft(` ${CLAUDE}\n`), { provider: "anthropic", key: CLAUDE, caption: "Anthropic key · sk-ant-••••WXYZ" });
   assert.equal(readKeyDraft(OPENAI).caption, "OpenAI key · sk-proj-••••ABCD");
   assert.ok(!readKeyDraft(CLAUDE).caption.includes("FAKE"), "the caption never shows the middle of the key");
   assert.deepEqual(readKeyDraft("sk-ant-short"), { provider: "anthropic", key: null, caption: null });
@@ -64,8 +64,8 @@ test("ChatGPT's own problems map onto the same outcome words", () => {
 });
 
 test("one name for each connection and each problem, wherever it is shown", () => {
-  assert.deepEqual([chatgpt, openai, claude, null].map(connectionName), ["ChatGPT", "OpenAI key", "Claude key", null]);
-  assert.deepEqual([undefined, null, claude].map(connectionValue), [null, "Not connected", "Claude key"]);
+  assert.deepEqual([chatgpt, openai, claude, null].map(connectionName), ["ChatGPT", "OpenAI key", "Anthropic key", null]);
+  assert.deepEqual([undefined, null, claude].map(connectionValue), [null, "Not connected", "Anthropic key"]);
   assert.deepEqual([chatgpt, claude, null].map(methodOf), ["chatgpt", "key", null]);
   // The same outcome reads the same for both ways, apart from naming whose it is.
   for (const method of ["chatgpt", "key"]) {
@@ -80,19 +80,21 @@ test("one name for each connection and each problem, wherever it is shown", () =
   assert.equal(problemFor("chatgpt", "signed-out").title, "Signed out");
   assert.equal(problemFor("key", "rejected", "anthropic").title, "Key not accepted");
   assert.match(problemFor("key", "no-credit", "anthropic").message, /Anthropic account has no credit/);
-  assert.match(problemFor("key", "unknown").title, /OpenAI or Claude/);
+  assert.match(problemFor("key", "unknown").title, /OpenAI or Anthropic/);
+  assert.equal(problemFor("key", "wrong-provider", "anthropic").message, "This looks like an OpenAI key, not an Anthropic one.");
+  assert.equal(problemFor("key", "rejected", "anthropic").message.split(" ")[0], "Anthropic");
 });
 
 test("the two rows keep their place; only the detail and the mark change, the same way for both", () => {
   const none = connectionRows({ current: null });
   assert.deepEqual(none, {
     chatgpt: { id: "chatgpt", title: "ChatGPT", detail: "Sign in with your account", state: "available" },
-    key: { id: "key", title: "API key", detail: "OpenAI or Claude", state: "available" },
+    key: { id: "key", title: "API key", detail: "OpenAI or Anthropic", state: "available" },
   });
   const signedIn = connectionRows({ current: chatgpt, account: "you@example.com" });
   assert.deepEqual([signedIn.chatgpt.detail, signedIn.chatgpt.state, signedIn.key.state], ["you@example.com", "current", "available"]);
   const key = connectionRows({ current: claude });
-  assert.deepEqual([key.key.title, key.key.detail, key.key.state, key.chatgpt.state], ["API key", "Claude · sk-ant-••••WXYZ", "current", "available"]);
+  assert.deepEqual([key.key.title, key.key.detail, key.key.state, key.chatgpt.state], ["API key", "Anthropic · sk-ant-••••WXYZ", "current", "available"]);
   // Needing to connect again looks the same for both: red detail, tap to fix.
   const expired = connectionRows({ current: chatgpt, account: "you@example.com", attention: "signed-out" });
   const refused = connectionRows({ current: claude, attention: "rejected" });
@@ -112,7 +114,7 @@ test("the connect page's button and its one line say what will happen to the con
   assert.equal(connectTitle("chatgpt", chatgpt), "Sign in again");
   assert.equal(connectTitle("chatgpt", chatgpt, { mode: "change" }), "Change account");
   assert.equal(keepsUntil("chatgpt", null), null);
-  assert.equal(keepsUntil("chatgpt", claude), "Your Claude key stays until you’re signed in to ChatGPT.");
+  assert.equal(keepsUntil("chatgpt", claude), "Your Anthropic key stays until you’re signed in to ChatGPT.");
   assert.equal(keepsUntil("key", chatgpt), "ChatGPT stays signed in until the new key works.");
   assert.equal(keepsUntil("key", openai), "Your current key stays until the new one works.");
   assert.equal(keepsUntil("chatgpt", chatgpt, { mode: "change" }), "You stay signed in until the new account is.");
@@ -121,9 +123,9 @@ test("the connect page's button and its one line say what will happen to the con
 test("a switch is said once it has happened, naming what went", () => {
   assert.equal(switchNotice(null, claude), null);
   assert.equal(switchNotice(claude, null), null);
-  assert.equal(switchNotice(claude, chatgpt), "Now using ChatGPT. Your Claude key is gone from this iPhone.");
+  assert.equal(switchNotice(claude, chatgpt), "Now using ChatGPT. Your Anthropic key is gone from this iPhone.");
   assert.equal(switchNotice(chatgpt, openai), "Now using your OpenAI key. ChatGPT is signed out.");
-  assert.equal(switchNotice(openai, claude), "Now using your Claude key. Your OpenAI key is gone from this iPhone.");
+  assert.equal(switchNotice(openai, claude), "Now using your Anthropic key. Your OpenAI key is gone from this iPhone.");
   assert.equal(switchNotice(claude, { ...claude, masked: "sk-ant-••••0000" }), "Key replaced.");
   assert.equal(switchNotice(claude, claude), null);
   assert.equal(switchNotice(chatgpt, chatgpt), null);
@@ -285,7 +287,7 @@ test("a connection problem while logging is one alert, in the page's words, lead
   const key = code => Object.assign(new Error(code), { provider: "anthropic" });
   const refused = loggingProblem(key("apikey_rejected"));
   assert.deepEqual([refused.title, refused.message, refused.action, refused.actionLabel],
-    ["Key not accepted", "Claude didn’t accept your key. Your meal is still here.", "connection", "Replace Key"]);
+    ["Key not accepted", "Anthropic didn’t accept your key. Your meal is still here.", "connection", "Replace Key"]);
   const expired = loggingProblem(new Error("chatgpt_refresh_required"));
   assert.deepEqual([expired.title, expired.action, expired.actionLabel], [problemFor("chatgpt", "signed-out").title, "connection", "Sign In"]);
   // Problems the provider fixes open the provider's page, for a key as for ChatGPT.

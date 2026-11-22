@@ -119,9 +119,9 @@ test("ChatGPT's stream reads the final answer and reports tokens and searches wh
 
 test("one switch, the same for every connection, with what it costs", async () => {
   const claude = { type: "claude-key", provider: "anthropic", masked: "sk-ant-••••WXYZ" };
-  assert.equal(searchLine(claude), "When you name a restaurant or brand, Claude can look it up on the web. Each search costs about 1¢.");
+  assert.equal(searchLine(claude), "When you name a restaurant or brand, Anthropic can look it up on the web. Each search costs about 1¢.");
   assert.equal(searchLine({ type: "chatgpt" }), "When you name a restaurant or brand, ChatGPT can look it up on the web. It counts toward your plan.");
-  assert.equal(searchLine(claude, { on: false }), "Claude estimates from what it already knows.");
+  assert.equal(searchLine(claude, { on: false }), "Anthropic estimates from what it already knows.");
   assert.match(searchLine(claude, { searchable: false }), /can’t search the web/);
   assert.equal(searchLine(null), null);
   for (const state of ["chatgpt", "claude-key"]) {
