@@ -80,7 +80,6 @@ export default function AIConnection({ calmeraPreview = false, calmeraPreviewSta
   return <FormScreen style={formStyles.screen}>
     <FormHeader title="AI connection" onBack={leave} />
     <FormScrollView key={`ai-connection-${fontScale}`} contentContainerStyle={settingsStyles.content} showsVerticalScrollIndicator={false}>
-      <Text style={settingsStyles.lead}>One AI estimates your meals from what you say, type or snap.</Text>
       {/* The Keychain answers at once, so nothing stands in for it. */}
       {current !== undefined && <>
         <SettingsSection footnote={state.notice && <View style={styles.notice} accessibilityRole="alert" accessibilityLiveRegion="polite">
