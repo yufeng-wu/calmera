@@ -6,7 +6,7 @@ import { FormScreen, FormScrollView, FormHeader, formStyles } from "@/components
 import SettingsRow from "@/components/SettingsRow";
 import { SettingsSection, settingsStyles } from "@/components/SettingsSection";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
-import { SETTINGS } from "@/constants/settingsTheme";
+import { AI_PAGE, SETTINGS } from "@/constants/settingsTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
 import usePageExit from "@/hooks/usePageExit";
 import { LOCAL_OWNER } from "@/lib/owner.mjs";
@@ -40,13 +40,13 @@ export default function AIUsage({ calmeraPreview = false, calmeraPreviewState = 
 
   const total = summary?.total;
   const priced = Boolean(total?.priced);
-  return <FormScreen style={formStyles.screen}>
+  return <FormScreen style={[formStyles.screen, styles.page]}>
     <FormHeader title="Usage" onBack={leave} />
     <FormScrollView key={`ai-usage-${fontScale}`} contentContainerStyle={settingsStyles.content} showsVerticalScrollIndicator={false}>
       <Text style={settingsStyles.lead}>AI requests from this iPhone over the last 7 days.</Text>
       {/* The record is on this iPhone and answers at once, so nothing stands in for it. */}
       {summary && <>
-        <SettingsSection>
+        <SettingsSection cardStyle={styles.card}>
           <View style={styles.week}>
             <View style={styles.headline} accessible accessibilityLabel={total.requests
               ? `${priced ? `About ${formatCost(total.cost)}, estimated. ` : ""}${plural(total.requests, "request")}, ${formatTokens(total.tokens)} tokens.`
@@ -65,7 +65,7 @@ export default function AIUsage({ calmeraPreview = false, calmeraPreviewState = 
           </View>
         </SettingsSection>
 
-        {summary.companies.map(company => <SettingsSection key={company.id} label={company.name} footnote={companyNote(company)}>
+        {summary.companies.map(company => <SettingsSection key={company.id} label={company.name} cardStyle={styles.card} footnote={companyNote(company)}>
           {company.models.map((model, index) => <SettingsRow key={model.id} title={model.name} divider={index > 0}
             subtitle={[plural(model.requests, "request"), model.input + model.output ? `${formatTokens(model.input + model.output)} tokens` : null,
               model.searches ? plural(model.searches, "search", "searches") : null].filter(Boolean).join(" · ")}
@@ -117,6 +117,8 @@ function DayBars({ days }) {
 }
 
 const styles = StyleSheet.create({
+  page: { backgroundColor: AI_PAGE.page },
+  card: { backgroundColor: AI_PAGE.card },
   week: { padding: SETTINGS.rowPadding, gap: 18 },
   headline: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   headlineMain: { flex: 1, gap: 2 },

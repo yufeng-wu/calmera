@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { FormScreen, FormScrollView, FormHeader, GlassButton, formStyles } from "@/components/GlassForm";
+import { AI_PAGE } from "@/constants/settingsTheme";
 import SettingsRow from "@/components/SettingsRow";
 import { SettingsSection, settingsStyles } from "@/components/SettingsSection";
 import usePageExit from "@/hooks/usePageExit";
@@ -53,16 +54,16 @@ export default function AIModel({ calmeraPreview = false, calmeraPreviewState = 
     </View>
     : problem ? <Text accessibilityRole="alert" style={settingsStyles.problem}>{problem}</Text>
       : catalog?.fromFallback ? <View style={styles.recover}>
-        <Text style={settingsStyles.footnote}>{`Couldn’t get the full list from ${company}, so these are the ones calmera knows.`}</Text>
+        <Text style={settingsStyles.footnote}>{`Couldn’t get the full list from ${company}, so these are the ones Calmera knows.`}</Text>
         <GlassButton title="Try again" symbol="arrow.clockwise" onPress={load} />
       </View>
         : calmeraPreview ? "Preview only · nothing is saved." : "Used from the next meal you log.";
 
-  return <FormScreen style={formStyles.screen}>
+  return <FormScreen style={[formStyles.screen, styles.page]}>
     <FormHeader title="Model" onBack={leave} />
     <FormScrollView key={`ai-model-${fontScale}`} contentContainerStyle={settingsStyles.content} showsVerticalScrollIndicator={false}>
       {catalog === null && <Text style={settingsStyles.lead}>Connect an AI to choose its model.</Text>}
-      {catalog && <SettingsSection footnote={footnote}>
+      {catalog && <SettingsSection cardStyle={styles.card} footnote={footnote}>
         {catalog.models.map((model, index) => <SettingsRow key={model.id} title={model.name} accessibilityRole="radio" divider={index > 0}
           selected={catalog.selected === model.id} loading={saving === model.id} disabled={Boolean(saving)} onPress={() => choose(model)} />)}
       </SettingsSection>}
@@ -71,5 +72,7 @@ export default function AIModel({ calmeraPreview = false, calmeraPreviewState = 
 }
 
 const styles = StyleSheet.create({
+  page: { backgroundColor: AI_PAGE.page },
+  card: { backgroundColor: AI_PAGE.card },
   recover: { gap: 10 },
 });
