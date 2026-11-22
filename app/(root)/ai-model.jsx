@@ -1,78 +1,112 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
+import { Ionicons } from "@expo/vector-icons";
 import { FormScreen, FormScrollView, FormHeader, GlassButton, formStyles } from "@/components/GlassForm";
 import SettingsRow from "@/components/SettingsRow";
 import { SettingsSection, settingsStyles } from "@/components/SettingsSection";
+import { FORM_COLORS as COLORS } from "@/constants/formTheme";
+import { SETTINGS } from "@/constants/settingsTheme";
+import { TYPOGRAPHY } from "@/constants/typography";
 import usePageExit from "@/hooks/usePageExit";
 import { LOCAL_OWNER } from "@/lib/owner.mjs";
-import { connectionIssue } from "@/lib/chatgpt/connectionStatus.mjs";
+import { providerFor } from "@/lib/ai/models.mjs";
 import { connectionServices } from "@/lib/ai/connectionServices";
 import { previewConnectionServices } from "@/lib/ai/previewConnection.mjs";
 
-// Which ChatGPT model estimates meals. Automatic is the choice for nearly everyone, so this
-// sits one tap below the connection page. Laid out like Voice language: tap a row, the check moves.
+// Long lists get a search field; short ones don't need it.
+const SEARCH_FROM = 9;
+
+// Which model estimates meals, the same page for ChatGPT and for a key. The recommended one is
+// already chosen and listed first; every other model the connection can use follows, newest
+// first, in plain words. Choosing one takes effect on the next meal; nothing reconnects.
 export default function AIModel({ calmeraPreview = false, calmeraPreviewState = "chatgpt" }) {
   const leave = usePageExit(calmeraPreview ? "/ui-gallery" : "/ai-connection");
   const { fontScale } = useWindowDimensions();
   const services = useMemo(() => (calmeraPreview ? previewConnectionServices(calmeraPreviewState) : connectionServices(LOCAL_OWNER)),
     [calmeraPreview, calmeraPreviewState]);
-  // preferred: undefined until read, null for Automatic, else a model's slug.
-  const [catalog, setCatalog] = useState({ choices: [], preferred: undefined, issue: null });
-  const [saving, setSaving] = useState(false);
+  // undefined while it loads, null with no connection.
+  const [catalog, setCatalog] = useState(undefined);
+  const [query, setQuery] = useState("");
+  const [saving, setSaving] = useState(null);
   const [problem, setProblem] = useState(null);
   const visit = useRef(0);
 
   const load = useCallback(async () => {
     const mine = ++visit.current;
-    let details;
-    try { details = await services.chatgpt(); } catch (error) { details = { issue: connectionIssue(error) }; }
-    if (visit.current !== mine) return;
-    setCatalog({ choices: details.choices || [], issue: details.issue || null,
-      // A choice that couldn't be read is unknown, not Automatic: no row gets a check it hasn't earned.
-      preferred: details.preferenceError || !("preferred" in details) ? undefined : details.preferred ?? null });
+    const next = await services.models().catch(() => null);
+    if (visit.current === mine) setCatalog(next);
   }, [services]);
   useFocusEffect(useCallback(() => { load(); return () => { visit.current += 1; }; }, [load]));
 
-  const choose = async slug => {
-    if (saving || catalog.preferred === undefined || slug === catalog.preferred) return;
+  const choose = async choice => {
+    if (saving || !catalog || choice.id === catalog.selected) return;
     const mine = visit.current;
     Haptics.selectionAsync().catch(() => {});
-    setSaving(true); setProblem(null);
+    setSaving(choice.id); setProblem(null);
     try {
-      await services.setModel(slug);
-      if (visit.current === mine) setCatalog(previous => ({ ...previous, preferred: slug }));
+      await services.setModel(catalog, choice);
+      if (visit.current === mine) setCatalog(previous => ({ ...previous, selected: choice.id }));
     } catch {
       if (visit.current === mine) setProblem("Couldn’t save your model. Try again.");
-    } finally { if (visit.current === mine) setSaving(false); }
+    } finally { if (visit.current === mine) setSaving(null); }
   };
 
-  const { choices, preferred, issue } = catalog;
-  const known = preferred !== undefined;
-  const listed = choices.some(item => item.slug === preferred);
-  const gone = known && preferred && choices.length > 0 && !listed;
+  const recommended = catalog?.models?.[0];
+  const others = catalog?.models?.slice(1) || [];
+  const needle = query.trim().toLowerCase();
+  const shown = needle ? others.filter(model => `${model.name} ${model.id}`.toLowerCase().includes(needle)) : others;
+  const company = catalog ? (catalog.provider === "chatgpt" ? "ChatGPT" : providerFor(catalog.provider)?.company) : null;
+  const row = (model, index) => <SettingsRow key={model.id} title={model.name} subtitle={model.detail || undefined} accessibilityRole="radio"
+    divider={index > 0} selected={catalog.selected === model.id} loading={saving === model.id} disabled={Boolean(saving)} onPress={() => choose(model)} />;
+
   return <FormScreen style={formStyles.screen}>
     <FormHeader title="Model" onBack={leave} />
-    <FormScrollView key={`ai-model-${fontScale}`} contentContainerStyle={settingsStyles.content} showsVerticalScrollIndicator={false}>
-      {/* Automatic keeps its place while the list loads, so nothing jumps when the models arrive. */}
-      <SettingsSection footnote={issue ? <View style={styles.recover}>
-        <Text style={settingsStyles.footnote}>{issue.kind === "sign-in" ? issue.message : "Couldn’t load ChatGPT’s models. Your choice hasn’t changed."}</Text>
-        {issue.action === "retry" && <GlassButton title="Try again" symbol="arrow.clockwise" onPress={load} />}
-      </View> : problem ? <Text accessibilityRole="alert" style={settingsStyles.problem}>{problem}</Text>
-        : gone ? "The model you chose isn’t offered to this account any more, so Automatic is in use."
-          : calmeraPreview ? "Preview only · nothing is saved." : "Used to estimate your meals."}>
-        <SettingsRow title="Automatic" subtitle="Picked for you" accessibilityRole="radio" disabled={saving || !known}
-          selected={known && (!preferred || gone)} onPress={() => choose(null)} />
-        {/* A saved choice stays listed even when the catalog can't be read. */}
-        {known && preferred && !choices.length && <SettingsRow title={preferred} divider accessibilityRole="radio" selected disabled />}
-        {choices.map(item => <SettingsRow key={item.slug} title={item.display_name || item.slug} divider accessibilityRole="radio"
-          disabled={saving || !known} selected={preferred === item.slug} onPress={() => choose(item.slug)} />)}
-      </SettingsSection>
+    <FormScrollView key={`ai-model-${fontScale}`} keyboardAware contentContainerStyle={settingsStyles.content}
+      keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}>
+      {catalog === null && <Text style={settingsStyles.lead}>Connect an AI to choose its model.</Text>}
+      {catalog && <>
+        <SettingsSection label="Recommended" footnote={catalog.issue
+          ? <View style={styles.recover}>
+            <Text style={settingsStyles.footnote}>{catalog.issue.kind === "sign-in" ? catalog.issue.message : "Couldn’t load ChatGPT’s models. Your choice hasn’t changed."}</Text>
+            {catalog.issue.action === "retry" && <GlassButton title="Try again" symbol="arrow.clockwise" onPress={load} />}
+          </View> : undefined}>
+          {recommended && row(recommended, 0)}
+        </SettingsSection>
+        {others.length > 0 && <>
+          {others.length >= SEARCH_FROM && <View style={styles.search}>
+            <Ionicons name="search" size={16} color={SETTINGS.inkSoft} accessible={false} />
+            <TextInput value={query} onChangeText={setQuery} accessibilityLabel="Search models" placeholder="Search models"
+              placeholderTextColor={COLORS.textLight} autoCapitalize="none" autoCorrect={false} clearButtonMode="while-editing"
+              returnKeyType="search" style={styles.searchInput} />
+          </View>}
+          <SettingsSection label="All models" footnote={problem
+            ? <Text accessibilityRole="alert" style={settingsStyles.problem}>{problem}</Text>
+            : catalog.fromFallback ? <View style={styles.recover}>
+              <Text style={settingsStyles.footnote}>{`Couldn’t get the full list from ${company}, so these are the ones calmera knows.`}</Text>
+              <GlassButton title="Try again" symbol="arrow.clockwise" onPress={load} />
+            </View>
+              : calmeraPreview ? "Preview only · nothing is saved." : "Used from the next meal you log."}>
+            {shown.length ? shown.map((model, index) => row(model, index))
+              : <Text style={styles.empty}>{`No model matches “${query.trim()}”.`}</Text>}
+          </SettingsSection>
+        </>}
+        {needle && others.length >= SEARCH_FROM && <Pressable accessibilityRole="button" onPress={() => setQuery("")} style={styles.clear}>
+          <Text style={styles.clearText}>Show all models</Text>
+        </Pressable>}
+      </>}
     </FormScrollView>
   </FormScreen>;
 }
 
 const styles = StyleSheet.create({
   recover: { gap: 10 },
+  search: { flexDirection: "row", alignItems: "center", gap: 8, height: 44, paddingHorizontal: 14, borderRadius: 14,
+    backgroundColor: COLORS.track, marginBottom: -8 },
+  // No lineHeight: on iOS it pushes a one-line field's text off its centre.
+  searchInput: { flex: 1, fontSize: TYPOGRAPHY.body.fontSize, color: COLORS.text, height: 44 },
+  empty: { ...TYPOGRAPHY.body, color: SETTINGS.inkSoft, padding: SETTINGS.rowPadding },
+  clear: { alignSelf: "center", minHeight: 44, justifyContent: "center", marginTop: -12 },
+  clearText: { ...TYPOGRAPHY.captionMedium, color: COLORS.primary },
 });

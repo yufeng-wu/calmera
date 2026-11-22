@@ -97,8 +97,7 @@ export default function AIConnection({ calmeraPreview = false, calmeraPreviewSta
         {using && <SettingsSection footnote={check?.message
           ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={settingsStyles.problem}>{check.message}</Text>
           : billingLine(current)}>
-          <SettingsRow title="Model" value={state.model || undefined} disabled={Boolean(busy)}
-            onPress={using === "chatgpt" ? () => go("/ai-model") : undefined} />
+          <SettingsRow title="Model" value={state.model || undefined} disabled={Boolean(busy)} onPress={() => go("/ai-model")} />
           <SettingsRow title="Check connection" value={check?.title} tone={check ? (check.ok ? "good" : "bad") : undefined} divider
             showAccessory={false} loading={busy === "check"} disabled={Boolean(busy)} onPress={() => controller.check()} />
           <SettingsRow title={METHODS[using].change} divider disabled={Boolean(busy)} onPress={() => openConnect(using, "change")} />

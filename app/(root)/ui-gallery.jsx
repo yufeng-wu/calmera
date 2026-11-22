@@ -53,6 +53,7 @@ const screens = [
   { id: "ai-connect-key", title: "Connect an API key", Component: AIConnect, state: "none", stage: "key" },
   { id: "ai-connect-key-error", title: "API key not accepted", Component: AIConnect, state: "key-error", stage: "key" },
   { id: "ai-model", title: "ChatGPT model", Component: AIModel, state: "chatgpt" },
+  { id: "ai-model-key", title: "Claude key model", Component: AIModel, state: "claude-key" },
   { id: "ai-model-error", title: "ChatGPT model recovery", Component: AIModel, state: "catalog-error" },
   { id: "voice-language", title: "Voice language", Component: VoiceLanguage },
   { id: "voice-language-load-error", title: "Voice language load recovery", Component: VoiceLanguage, state: "load-error" },
