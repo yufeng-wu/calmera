@@ -238,7 +238,7 @@ export function ProduceDetail({ produce }) {
   const { vegetables, fruits } = produce;
   const kinds = (count, word) => `${formatNumber(count)} ${count === 1 ? "kind" : "kinds"} of ${word}`;
   return <InsightCard
-    answer={vegetables.length || fruits.length ? `${kinds(vegetables.length, "vegetable")} and ${kinds(fruits.length, "fruit")}.` : "No vegetables or fruit spotted yet."}>
+    answer={vegetables.length || fruits.length ? `${kinds(vegetables.length, "vegetable")} and ${kinds(fruits.length, "fruit")}.` : "No vegetables or fruits spotted yet."}>
     <ProduceGroup title="Vegetables" items={vegetables} />
     <ProduceGroup title="Fruits" items={fruits} />
   </InsightCard>;

@@ -324,7 +324,7 @@ function ProduceCard({ produce, onPress }) {
   // "+N" in the caption face: the plus and each digit about 9 pt at the default size, with 8 pt either side.
   const chipWidth = (more) => Math.max(slot, Math.ceil((String(more).length + 1) * 9 * fontScale) + 16);
   const { shown, more } = produceRow(produceItems(produce), { width: rowWidth ?? windowWidth - CARD_SIDES, slot, gap: PRODUCE_GAP, chipWidth });
-  return <InsightCard title="Veggies and fruit" onPress={onPress} answer={counts.length ? counts.join(" · ") : "None spotted yet."}>
+  return <InsightCard title="Veggies and fruits" onPress={onPress} answer={counts.length ? counts.join(" · ") : "None spotted yet."}>
     {shown.length + more > 0 && <View style={styles.produceIcons} onLayout={({ nativeEvent }) => setRowWidth(nativeEvent.layout.width)}>
       {shown.map((item) => <View key={item.key} style={[styles.produceSlot, { width: slot, height: slot }]}>
         <Text style={styles.produceIcon}>{produceEmoji(item, iconFor)}</Text>
