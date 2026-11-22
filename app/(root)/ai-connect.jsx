@@ -111,11 +111,12 @@ export default function AIConnect({ calmeraPreview = false, calmeraPreviewState 
 const styles = StyleSheet.create({
   entry: { padding: 16, gap: 10 },
   // The thing you connect with, the same size for a sign-in and a key.
-  box: { height: 48, borderRadius: 14, backgroundColor: COLORS.track, borderWidth: 1, borderColor: "transparent" },
+  box: { minHeight: 48, borderRadius: 14, backgroundColor: COLORS.track, borderWidth: 1, borderColor: "transparent" },
   // No lineHeight: on iOS it pushes a one-line field's text off its centre.
-  input: { fontSize: TYPOGRAPHY.input.fontSize, fontWeight: TYPOGRAPHY.input.fontWeight, color: COLORS.text, paddingHorizontal: 14 },
-  account: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 9 },
-  accountText: { ...TYPOGRAPHY.input, color: COLORS.text, flex: 1 },
+  input: { height: 48, fontSize: TYPOGRAPHY.input.fontSize, fontWeight: TYPOGRAPHY.input.fontWeight, color: COLORS.text, paddingHorizontal: 14 },
+  // The account box grows with large text rather than cutting its words.
+  account: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 9, paddingVertical: 8 },
+  accountText: { ...TYPOGRAPHY.input, color: COLORS.text, flex: 1, flexShrink: 1 },
   boxProblem: { borderColor: SETTINGS.danger },
   // Room for a two-line problem at the default text size.
   line: { minHeight: 2 * TYPOGRAPHY.caption.lineHeight, justifyContent: "center" },

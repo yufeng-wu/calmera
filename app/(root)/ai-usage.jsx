@@ -108,7 +108,9 @@ function DayBars({ days }) {
       })}
     </View>
     <View style={styles.days} accessible={false} importantForAccessibility="no-hide-descendants">
-      {days.map((day, index) => <Text key={day.key} style={[styles.barDay, index === days.length - 1 && styles.barToday]}>
+      {/* One line each: at large text sizes a day shrinks rather than breaking mid-word. */}
+      {days.map((day, index) => <Text key={day.key} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}
+        style={[styles.barDay, index === days.length - 1 && styles.barToday]}>
         {index === days.length - 1 ? "Today" : WEEKDAYS[day.weekday].slice(0, 3)}</Text>)}
     </View>
   </View>;
