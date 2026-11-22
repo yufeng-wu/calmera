@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
   dayRow: { flexDirection: "row", gap: 5 },
   dayCell: { alignItems: "center", gap: 2 },
   dayDot: { width: 22, height: 22, borderRadius: 11, backgroundColor: COLORS.track },
-  dayNotStarted: { backgroundColor: "transparent", borderWidth: 1.5, borderColor: COLORS.track },
+  dayNotStarted: { opacity: 0.5 },
   dayLogged: { backgroundColor: COLORS.primary },
   dayLabel: { ...TYPOGRAPHY.caption, color: COLORS.textLight },
   typicalRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },

@@ -4,9 +4,12 @@ import { TYPOGRAPHY } from "@/constants/typography";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { heatmapWeeks } from "@/lib/insights/stats.mjs";
 
-const GAP = 3;
-const SIZE = 12;
+// Fuller squares with a narrower gap, on the same 15 pt pitch so the columns and labels don't move. The corner is
+// about a third of the side, drawn as an iOS continuous curve, so it flows into the edge with no visible join.
+const GAP = 2;
+const SIZE = 13;
 const PITCH = SIZE + GAP;
+const RADIUS = 4.5;
 const DOT = 14;
 const DOT_GAP = 5;
 const WEEKDAYS = ["", "M", "", "W", "", "F", ""];
@@ -14,7 +17,7 @@ const LABEL_WIDTH = 12 + 6;
 // Labels locked to the grid can only grow so far before they collide.
 const GRID_TEXT = 1.2;
 
-// Filled on logged days, gray on missed ones, and an empty outline before you started,
+// Filled on logged days, gray on missed ones, and a fainter gray before you started,
 // so every period always shows all its days.
 const fillFor = (day) => !day ? null : day.started ? { backgroundColor: day.logged ? COLORS.primary : COLORS.track } : styles.notStarted;
 
@@ -78,8 +81,9 @@ const styles = StyleSheet.create({
   month: { ...TYPOGRAPHY.caption, position: "absolute", top: 0, width: 40, fontSize: 11, lineHeight: 16, color: COLORS.textLight },
   weeks: { flexDirection: "row", gap: GAP },
   week: { gap: GAP },
-  cell: { width: SIZE, height: SIZE, borderRadius: 4 },
-  notStarted: { borderWidth: 1, borderColor: COLORS.track },
+  cell: { width: SIZE, height: SIZE, borderRadius: RADIUS, borderCurve: "continuous" },
+  // The missed-day gray, lighter: a soft full shape rather than a hairline outline, which read thin and uneven.
+  notStarted: { backgroundColor: COLORS.track, opacity: 0.5 },
   weekdays: { gap: GAP, marginTop: 20, width: 12 },
   weekday: { height: SIZE, lineHeight: SIZE, fontSize: 10, color: COLORS.textLight, textAlign: "center" },
 });
