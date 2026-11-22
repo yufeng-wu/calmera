@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -12,20 +12,20 @@ import { SETTINGS, TINTS } from "@/constants/settingsTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
 import usePageExit from "@/hooks/usePageExit";
 import { LOCAL_OWNER } from "@/lib/owner.mjs";
-import { providerFor } from "@/lib/ai/models.mjs";
 import { INITIAL_CONNECTION, createConnectionController } from "@/lib/ai/connectionController.mjs";
-import { chatgptNote, connectionRows, isConnected, keyCheck, privacyLine } from "@/lib/ai/connectionPresentation.mjs";
-import { logAfterConnect, takeKeyOutcome } from "@/lib/ai/connectHandoff.mjs";
+import { methodOf } from "@/lib/ai/connectionMethods.mjs";
+import { METHODS, billingLine, checkResult, connectionName, connectionRows, isConnected, privacyLine } from "@/lib/ai/connectionPresentation.mjs";
+import { logAfterConnect, takeConnectOutcome } from "@/lib/ai/connectHandoff.mjs";
 import { connectionServices } from "@/lib/ai/connectionServices";
 import { previewConnectionServices } from "@/lib/ai/previewConnection.mjs";
 
-const USAGE_URL = "https://chatgpt.com/settings/usage";
 // Long enough for the check to land before the page hands back to what was being logged.
 const RETURN_AFTER_MS = 700;
 
-// calmera's one AI connection, as one list: ChatGPT or an API key. The row in use is checked and
-// its few settings sit underneath. Picking the other row replaces it once the new one works.
-// `then` comes from Today: "voice" opens the voice sheet after connecting, "back" just returns.
+// calmera's one AI connection, as one list: ChatGPT or an API key. Both are connected the same
+// way (tap the row, connect on its page) and, once connected, carry the same card: Model,
+// Check connection, change it, Disconnect. Picking the other row replaces the one in use once
+// the new one works. `then` comes from Today: "voice" opens the voice sheet after connecting.
 export default function AIConnection({ calmeraPreview = false, calmeraPreviewState = "none" }) {
   const router = useRouter();
   const { then } = useLocalSearchParams();
@@ -36,7 +36,7 @@ export default function AIConnection({ calmeraPreview = false, calmeraPreviewSta
   const [state, setState] = useState(INITIAL_CONNECTION);
   const controller = useMemo(() => createConnectionController(services, { onChange: setState }), [services]);
   useFocusEffect(useCallback(() => {
-    controller.open({ keyOutcome: takeKeyOutcome() });
+    controller.open({ outcome: takeConnectOutcome() });
     return () => controller.close();
   }, [controller]));
 
@@ -63,19 +63,21 @@ export default function AIConnection({ calmeraPreview = false, calmeraPreviewSta
   }, [connected, state.loaded]);
 
   const { current, busy } = state;
+  const using = methodOf(current);
   const rows = connectionRows(state);
-  const owner = current && current.type !== "chatgpt" ? providerFor(current.provider) : null;
-  const check = keyCheck(state.check?.outcome, current?.provider);
-  const note = chatgptNote(state.issue);
-  const openKey = () => router.push(calmeraPreview ? { pathname: "/ui-gallery", params: { page: "ai-key" } } : "/ai-key");
-  const openModel = () => router.push(calmeraPreview ? { pathname: "/ui-gallery", params: { page: "ai-model" } } : "/ai-model");
-  const confirmLeaving = (title, action) => Alert.alert(title, "AI estimates stop until you connect again.", [
+  const check = checkResult(using, state.check?.outcome, current?.provider);
+  const go = (page, params) => router.push(calmeraPreview
+    ? { pathname: "/ui-gallery", params: { page: page === "/ai-connect" ? `ai-connect-${params.method}` : page.slice(1) } }
+    : { pathname: page, params });
+  const openConnect = (method, mode) => go("/ai-connect", mode ? { method, mode } : { method });
+  const disconnect = () => Alert.alert(`Disconnect ${connectionName(current)}?`, "AI estimates stop until you connect again.", [
     { text: "Cancel", style: "cancel" },
-    { text: action, style: "destructive", onPress: () => controller.disconnect() },
+    { text: "Disconnect", style: "destructive", onPress: () => controller.disconnect() },
   ]);
+  const tile = { chatgpt: <SettingsTile tint="cocoa" size={36}><OpenAILogo /></SettingsTile>, key: <SettingsTile icon="key" tint="tangerine" size={36} /> };
 
   return <FormScreen style={formStyles.screen}>
-    <FormHeader title="AI connection" onBack={leave} backDisabled={busy === "sign-in"} />
+    <FormHeader title="AI connection" onBack={leave} />
     <FormScrollView key={`ai-connection-${fontScale}`} contentContainerStyle={settingsStyles.content} showsVerticalScrollIndicator={false}>
       <Text style={settingsStyles.lead}>One AI estimates your meals from what you say, type or snap.</Text>
       {/* The Keychain answers at once, so nothing stands in for it. */}
@@ -86,35 +88,22 @@ export default function AIConnection({ calmeraPreview = false, calmeraPreviewSta
           <Text style={[styles.noticeText, state.notice.tone === "good" ? styles.good : styles.bad]}>{state.notice.text}</Text>
         </View>}>
           <View accessibilityRole="radiogroup">
-            <Choice {...rows.chatgpt} busy={busy === "sign-in"} disabled={Boolean(busy)}
-              tile={<SettingsTile tint="cocoa" size={36}><OpenAILogo /></SettingsTile>}
-              onPress={rows.chatgpt.state === "current" ? undefined : () => controller.signIn()} />
-            <Choice {...rows.key} divider disabled={Boolean(busy)} tile={<SettingsTile icon="key" tint="tangerine" size={36} />}
-              onPress={rows.key.state === "current" ? undefined : openKey} />
+            {["chatgpt", "key"].map((id, index) => <Choice key={id} {...rows[id]} divider={index > 0} disabled={Boolean(busy)} tile={tile[id]}
+              onPress={rows[id].state === "current" ? undefined : () => openConnect(id)} />)}
           </View>
         </SettingsSection>
 
-        {current?.type === "chatgpt" && <SettingsSection footnote={note
-          ? <Text style={note.tone === "bad" ? settingsStyles.problem : settingsStyles.footnote}>{note.text}</Text>
-          : rows.chatgpt.state === "current" ? "Estimates count toward your ChatGPT plan." : undefined}>
-          {rows.chatgpt.state === "current" && <>
-            <SettingsRow title="Model" value={state.model || undefined} disabled={Boolean(busy)} onPress={openModel} />
-            <SettingsRow title="Manage usage" divider disabled={Boolean(busy)} accessibilityRole="link" accessibilityHint="Opens ChatGPT settings"
-              accessory={<Ionicons name="open-outline" size={16} color={SETTINGS.chevron} />}
-              onPress={() => { if (!calmeraPreview) Linking.openURL(USAGE_URL).catch(() => {}); }} />
-          </>}
-          <SettingsRow title="Sign out" destructive divider={rows.chatgpt.state === "current"} showAccessory={false}
-            loading={busy === "disconnect"} disabled={Boolean(busy)} onPress={() => confirmLeaving("Sign out of ChatGPT?", "Sign Out")} />
-        </SettingsSection>}
-
-        {owner && <SettingsSection footnote={check?.message
+        {/* The same card for either way of connecting. */}
+        {using && <SettingsSection footnote={check?.message
           ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={settingsStyles.problem}>{check.message}</Text>
-          : `Estimates use ${owner.modelName}, billed to your ${owner.company} account.`}>
-          <SettingsRow title="Check key" value={check?.title} tone={check ? (check.ok ? "good" : "bad") : undefined} showAccessory={false}
-            loading={busy === "check"} disabled={Boolean(busy)} onPress={() => controller.checkKey()} />
-          <SettingsRow title="Replace key" divider disabled={Boolean(busy)} onPress={openKey} />
-          <SettingsRow title="Remove key" destructive divider showAccessory={false} loading={busy === "disconnect"} disabled={Boolean(busy)}
-            onPress={() => confirmLeaving(`Remove your ${owner.name} key?`, "Remove")} />
+          : billingLine(current)}>
+          <SettingsRow title="Model" value={state.model || undefined} disabled={Boolean(busy)}
+            onPress={using === "chatgpt" ? () => go("/ai-model") : undefined} />
+          <SettingsRow title="Check connection" value={check?.title} tone={check ? (check.ok ? "good" : "bad") : undefined} divider
+            showAccessory={false} loading={busy === "check"} disabled={Boolean(busy)} onPress={() => controller.check()} />
+          <SettingsRow title={METHODS[using].change} divider disabled={Boolean(busy)} onPress={() => openConnect(using, "change")} />
+          <SettingsRow title="Disconnect" destructive divider showAccessory={false} loading={busy === "disconnect"} disabled={Boolean(busy)}
+            onPress={disconnect} />
         </SettingsSection>}
 
         <View style={styles.privacy}>
@@ -126,9 +115,9 @@ export default function AIConnection({ calmeraPreview = false, calmeraPreviewSta
   </FormScreen>;
 }
 
-// One of the two ways to connect. The one in use is checked; the other leads somewhere, so it
-// keeps its chevron. An email or key never wraps: it is cut in the middle, keeping both ends.
-function Choice({ title, detail, state, tile, onPress, busy = false, disabled = false, divider = false }) {
+// One of the two ways to connect. The one in use is checked; the other leads to its connect
+// page, so it keeps its chevron. An email or key never wraps: it is cut in the middle.
+function Choice({ title, detail, state, tile, onPress, disabled = false, divider = false }) {
   const { pressProps, highlight } = usePressHighlight();
   const stacked = useWindowDimensions().fontScale > 1.3;
   const current = state === "current", attention = state === "attention";
@@ -136,7 +125,7 @@ function Choice({ title, detail, state, tile, onPress, busy = false, disabled = 
   const earned = useRef(false);
   if (!current) earned.current = true;
   return <Pressable accessibilityRole="radio" accessibilityLabel={title} accessibilityValue={{ text: detail }}
-    accessibilityState={{ checked: current, busy, disabled: disabled || !onPress }}
+    accessibilityState={{ checked: current, disabled: disabled || !onPress }}
     disabled={disabled || !onPress} onPress={onPress} {...pressProps} style={styles.choice}>
     {highlight}
     {divider && <View style={styles.choiceDivider} />}
@@ -145,10 +134,9 @@ function Choice({ title, detail, state, tile, onPress, busy = false, disabled = 
       <Text style={styles.choiceTitle}>{title}</Text>
       <Text numberOfLines={stacked ? undefined : 1} ellipsizeMode="middle" style={[styles.choiceDetail, attention && styles.bad]}>{detail}</Text>
     </View>
-    {busy ? <ActivityIndicator color={SETTINGS.accent} accessible={false} />
-      : current ? <Landing pop={earned.current} />
-        : attention ? <Ionicons name="alert-circle" size={20} color={SETTINGS.danger} accessible={false} />
-          : <Ionicons name="chevron-forward" size={16} color={SETTINGS.chevron} accessible={false} />}
+    {current ? <Landing pop={earned.current} />
+      : attention ? <Ionicons name="alert-circle" size={20} color={SETTINGS.danger} accessible={false} />
+        : <Ionicons name="chevron-forward" size={16} color={SETTINGS.chevron} accessible={false} />}
   </Pressable>;
 }
 

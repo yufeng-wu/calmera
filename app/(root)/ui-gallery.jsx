@@ -10,7 +10,7 @@ import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import Settings from "@/app/(root)/(tabs)/settings";
 import TodayCalendarPreview from "@/components/TodayCalendarPreview";
 import AIConnection from "@/app/(root)/ai-connection";
-import AIKey from "@/app/(root)/ai-key";
+import AIConnect from "@/app/(root)/ai-connect";
 import AIModel from "@/app/(root)/ai-model";
 import VoiceLanguage from "@/app/(root)/voice-language";
 import ThemeSettings from "@/app/(root)/theme";
@@ -49,8 +49,9 @@ const screens = [
   { id: "ai-connection-chatgpt", title: "AI connection, ChatGPT", Component: AIConnection, state: "chatgpt" },
   { id: "ai-connection-key", title: "AI connection, Claude key", Component: AIConnection, state: "claude-key" },
   { id: "ai-connection-expired", title: "AI connection, ChatGPT signed out", Component: AIConnection, state: "expired" },
-  { id: "ai-key", title: "API key", Component: AIKey, state: "none" },
-  { id: "ai-key-error", title: "API key not accepted", Component: AIKey, state: "key-error" },
+  { id: "ai-connect-chatgpt", title: "Connect ChatGPT", Component: AIConnect, state: "none", stage: "chatgpt" },
+  { id: "ai-connect-key", title: "Connect an API key", Component: AIConnect, state: "none", stage: "key" },
+  { id: "ai-connect-key-error", title: "API key not accepted", Component: AIConnect, state: "key-error", stage: "key" },
   { id: "ai-model", title: "ChatGPT model", Component: AIModel, state: "chatgpt" },
   { id: "ai-model-error", title: "ChatGPT model recovery", Component: AIModel, state: "catalog-error" },
   { id: "voice-language", title: "Voice language", Component: VoiceLanguage },

@@ -41,20 +41,23 @@ The Settings tab and every page it opens share one list style. Tokens live in
 
 1. Daily goals: four targets. Tap to edit.
 2. Logging: AI connection, Voice language.
-
-## AI connection
-
-One page (`app/(root)/ai-connection.jsx`), two rows that never move: ChatGPT and API key.
-The one in use carries the check; its settings sit in a card under it (ChatGPT: Model,
-Manage usage, Sign out; a key: Check key, Replace key, Remove key). Tapping the other row
-is the switch: the old connection goes only once the new one works, and a green line says
-what happened. There is no warning before; Sign out and Remove key are the only alerts.
-The key page (`ai-key.jsx`) takes any OpenAI or Claude key and tells which it is from how it
-starts. Model choice (`ai-model.jsx`) is one tap down. The logic is
-`lib/ai/connectionController.mjs`; the words are `lib/ai/connectionPresentation.mjs`.
 3. App: Theme, Export your data, Privacy policy, Erase all data (rose icon, plain title; its page lists
    what goes and asks again).
 4. The wordmark and version.
 
 Export always writes one JSON file with everything (`exportJson` in
 `lib/dataExport.mjs`). The only choice is the last 30 days or all history.
+
+## AI connection
+
+Signing in to ChatGPT and pasting an API key are two ways of doing one thing, so they share
+every step. `app/(root)/ai-connection.jsx` lists both as rows that never move; the one in use
+carries the check and the same card for either (Model, Check connection, Change account or
+Replace key, Disconnect). Tapping a row opens `ai-connect.jsx?method=chatgpt|key`, one page for
+both: what you connect with (the ChatGPT account box or the key field), one line under it (a
+hint, whose key it is, or what went wrong), one button (Connect, Switch to…, Replace key), and a
+note that the old connection stays until the new one works. A switch is said once afterwards in
+green; there is no warning before. Disconnect is the only alert. Underneath, one record names the
+connection (`lib/ai/connection.mjs`), one controller runs connect, check and disconnect for both
+(`lib/ai/connectionController.mjs`), and both report in one set of outcome words
+(`lib/ai/connectionMethods.mjs`) that `lib/ai/connectionPresentation.mjs` turns into sentences.
