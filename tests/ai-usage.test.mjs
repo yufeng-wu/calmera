@@ -82,8 +82,9 @@ test("numbers read plainly", () => {
   assert.deepEqual([0, 0.004, 0.0151, 2.5, 1234].map(formatCost), ["$0", "<$0.01", "$0.02", "$2.50", "$1,234"]);
   assert.deepEqual([0, 980, 1500, 81234, 1234567].map(formatTokens), ["0", "980", "1.5k", "81k", "1.2M"]);
   assert.equal(usageValue(summarizeUsage([], NOW)), "None yet");
-  assert.equal(usageValue(summarizeUsage(sampleUsage(NOW), NOW)), `${formatCost(summarizeUsage(sampleUsage(NOW), NOW).total.cost)} · 24 requests`);
-  assert.equal(usageValue(summarizeUsage([usageRow({ provider: "chatgpt", model: "gpt-6.2-sol" }, NOW)], NOW)), "1 request", "the plan pays: no dollars");
+  // The AI connection page shows no prices: the row counts requests, every connection together.
+  assert.equal(usageValue(summarizeUsage(sampleUsage(NOW), NOW)), "24 requests");
+  assert.equal(usageValue(summarizeUsage([usageRow({ provider: "chatgpt", model: "gpt-6.2-sol" }, NOW)], NOW)), "1 request");
 });
 
 test("every billed reply is reported, from each provider's own counts", async () => {

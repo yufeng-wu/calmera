@@ -52,34 +52,32 @@ test("OpenAI's list says nothing about what a model can do, so other kinds are l
   assert.deepEqual(listed.map(model => model.id), ["gpt-4-turbo", "chatgpt-4o-latest", "o4-mini", "gpt-5.4-mini", "gpt-6.2-sol", "gpt-6-luna"]);
 });
 
-test("a key's list: the recommended model first, then newest first, with plain words", () => {
+test("a key's list: names only, newest first, nothing singled out; the default is just the one checked", () => {
   const listed = anthropicModels([
     claudeModel("claude-opus-5-5", "Claude Opus 5.5", "2026-10-01T00:00:00Z", caps()),
     claudeModel("claude-opus-4-8", "Claude Opus 4.8", "2026-03-01T00:00:00Z", caps()),
     claudeModel("claude-haiku-5-5", "Claude Haiku 5.5", "2026-09-01T00:00:00Z", caps()),
   ]);
   const catalog = keyModels("anthropic", listed, null);
-  assert.deepEqual(catalog.models.map(model => [model.id, model.detail]), [
-    ["claude-haiku-5-5", "Fastest and cheapest · Recommended"],
-    ["claude-opus-5-5", "Most careful. Slower and pricier"],
-    ["claude-opus-4-8", "Earlier version"],
-  ]);
-  assert.deepEqual([catalog.recommended, catalog.selected, catalog.fromFallback], ["claude-haiku-5-5", "claude-haiku-5-5", false]);
+  assert.deepEqual(catalog.models.map(model => model.name), ["Opus 5.5", "Haiku 5.5", "Opus 4.8"]);
+  assert.ok(catalog.models.every(model => Object.keys(model).every(key => ["id", "name", "effort", "search"].includes(key))), "no description on any model");
+  assert.deepEqual([catalog.defaultModel, catalog.selected, catalog.fromFallback], ["claude-haiku-5-5", "claude-haiku-5-5", false]);
   assert.equal(selectedName(catalog), "Haiku 5.5");
   // A saved choice is shown even when the list can't be fetched, and stays chosen.
   const offline = keyModels("openai", null, { id: "gpt-6.2-astra", name: "GPT-6.2 Astra" });
-  assert.deepEqual([offline.fromFallback, offline.selected, offline.models[0].id], [true, "gpt-6.2-astra", "gpt-6-luna"]);
+  assert.deepEqual([offline.fromFallback, offline.selected], [true, "gpt-6.2-astra"]);
   assert.deepEqual(offline.models.map(model => model.id), FALLBACK_MODELS.openai.map(model => model.id));
+  assert.deepEqual(FALLBACK_MODELS.openai.map(model => model.name), ["Astra 6.2", "Sol 6.2", "Terra 6.1", "Luna 6"], "newest first");
   const kept = keyModels("anthropic", listed, { id: "claude-custom-1", name: "Custom" });
   assert.equal(kept.models.at(-1).id, "claude-custom-1");
-  // The recommended model is listed even if the account's list leaves it out.
-  assert.equal(keyModels("anthropic", [listed[0]], null).models[0].id, "claude-haiku-5-5");
+  // The default is listed even if the account's list leaves it out, at the end.
+  assert.deepEqual(keyModels("anthropic", [listed[0]], null).models.map(model => model.id), ["claude-opus-5-5", "claude-haiku-5-5"]);
 });
 
-test("ChatGPT's list has the same shape, with Automatic recommended", () => {
+test("ChatGPT's list has the same shape, after its own Automatic", () => {
   const catalog = chatgptModels({ choices: [{ slug: "gpt-6.2-sol", display_name: "GPT-6.2 Sol" }, { slug: "gpt-6-luna" }], preferred: "gpt-6-luna" });
-  assert.deepEqual(catalog.models.map(model => [model.id, model.name]), [[AUTOMATIC, "Automatic"], ["gpt-6.2-sol", "Sol 6.2"], ["gpt-6-luna", "Luna 6"]]);
-  assert.deepEqual([catalog.provider, catalog.recommended, catalog.selected], ["chatgpt", AUTOMATIC, "gpt-6-luna"]);
+  assert.deepEqual(catalog.models, [{ id: AUTOMATIC, name: "Automatic" }, { id: "gpt-6.2-sol", name: "Sol 6.2" }, { id: "gpt-6-luna", name: "Luna 6" }]);
+  assert.deepEqual([catalog.provider, catalog.defaultModel, catalog.selected], ["chatgpt", AUTOMATIC, "gpt-6-luna"]);
   assert.equal(chatgptModels({ choices: [{ slug: "gpt-6-luna" }], preferred: "retired" }).selected, AUTOMATIC);
   assert.equal(chatgptModels({ choices: [], preferred: "kept", issue: { kind: "temporary" } }).selected, "kept");
 });
@@ -88,9 +86,15 @@ test("preferences: search is on unless turned off; a key's model is remembered w
   const values = new Map();
   const storage = { getItem: async key => values.get(key) ?? null, setItem: async (key, value) => { values.set(key, value); } };
   const preferences = createAIPreferences({ storage, owner: "local" });
-  assert.deepEqual(await preferences.read(), { search: true, models: { anthropic: null, openai: null } });
+  assert.deepEqual(await preferences.read(), { search: true, models: { anthropic: null, openai: null }, status: null });
   await Promise.all([preferences.setModel("openai", { id: "gpt-6.2-sol", name: "GPT-6.2 Sol", detail: "dropped", effort: true }), preferences.setSearch(false)]);
-  assert.deepEqual(await preferences.read(), { search: false, models: { anthropic: null, openai: { id: "gpt-6.2-sol", name: "GPT-6.2 Sol", effort: true } } });
+  assert.deepEqual(await preferences.read(), { search: false, models: { anthropic: null, openai: { id: "gpt-6.2-sol", name: "GPT-6.2 Sol", effort: true } }, status: null });
+  // The last check's status: an outcome word for a named connection, nothing else.
+  await preferences.setStatus({ of: "claude-key:sk-ant-••••WXYZ", outcome: "works", key: "dropped" });
+  assert.deepEqual((await preferences.read()).status, { of: "claude-key:sk-ant-••••WXYZ", outcome: "works" });
+  assert.equal(normalizePreferences({ status: { of: "chatgpt", outcome: "<script>" } }).status, null);
+  await preferences.setStatus(null);
+  assert.equal((await preferences.read()).status, null);
   assert.deepEqual([...values.keys()], [preferencesKey("local")]);
   assert.equal(preferencesKey("local"), "calmera.ai.v1.local", "a calmera key, so Erase all data removes it");
   await preferences.setModel("openai", null);
@@ -125,19 +129,20 @@ test("requests name the chosen model, and a model that refuses a setting is aske
   assert.equal(tries, 1);
 });
 
-test("a model that can't read photos says so, and the fix is the recommended model", async () => {
+test("a model that can't read photos says so, and the fix is choosing another model", async () => {
   const fetch = async () => answer(400, { error: { type: "invalid_request_error", message: "Invalid content type. image_url is only supported by certain models." } });
   const complete = createApiKeyCompletion({ fetch, provider: "openai", key: KEYS.openai, model: "gpt-5.4-mini", effort: false });
   const error = await complete({ instructions: "x", text: "", image: "data:image/jpeg;base64,/9j/AAAA" }).catch(caught => caught);
   assert.deepEqual([error.message, testOutcome(error), error.provider, error.model], ["apikey_image_unsupported", "no-images", "openai", "gpt-5.4-mini"]);
   assert.match(loggingIssue(error).message, /^GPT-5\.4 mini can’t read photos/);
   const problem = loggingProblem(error);
-  assert.deepEqual([problem.title, problem.action, problem.actionLabel, problem.provider, problem.recommended],
-    ["Can’t read photos", "model", "Use Recommended", "openai", "Luna 6"]);
-  // The same fix from the voice sheet: it opens no page, so it stays a button.
-  assert.equal(loggingProblem(error, { inSheet: true }).action, "model");
+  assert.deepEqual([problem.title, problem.action, problem.actionLabel], ["Can’t read photos", "model", "Choose Model"]);
+  // Nothing opens over the voice sheet, so there it says where to go.
+  const inSheet = loggingProblem(error, { inSheet: true });
+  assert.equal(inSheet.action, null);
+  assert.match(inSheet.message, /Choose another in Settings → AI connection → Model\. Your words are still here\.$/);
   const unavailable = loggingProblem(Object.assign(new Error("apikey_model_unavailable"), { provider: "anthropic", model: "claude-opus-4-1" }));
-  assert.deepEqual([unavailable.action, unavailable.recommended], ["model", "Haiku 5.5"]);
+  assert.equal(unavailable.action, "model");
   assert.match(unavailable.message, /can’t use Opus 4\.1/);
   assert.equal(problemFor("key", "no-images", "openai", "GPT-5.4 mini").fix, "model");
   assert.equal(problemFor("chatgpt", "not-allowed").fix, null, "ChatGPT's plan access isn't a model choice");
@@ -156,17 +161,18 @@ test("model lists are fetched with the key's own headers, from the provider only
 });
 
 test("the same model page for every connection, and the row shows the choice", async () => {
-  for (const [state, recommended] of [["chatgpt", AUTOMATIC], ["claude-key", "claude-haiku-5-5"]]) {
+  for (const [state, standard] of [["chatgpt", AUTOMATIC], ["claude-key", "claude-haiku-5-5"]]) {
     const services = previewConnectionServices(state);
     const catalog = await services.models();
-    assert.deepEqual([catalog.recommended, catalog.selected, catalog.models[0].id], [recommended, recommended, recommended], state);
-    await services.setModel(catalog, catalog.models[1]);
-    assert.equal((await services.models()).selected, catalog.models[1].id, state);
+    assert.deepEqual([catalog.defaultModel, catalog.selected], [standard, standard], state);
+    const other = catalog.models.find(model => model.id !== standard);
+    await services.setModel(catalog, other);
+    assert.equal((await services.models()).selected, other.id, state);
     const controller = createConnectionController(services);
     await controller.open();
-    assert.equal(controller.state.model, catalog.models[1].name, state);
-    await services.setModel(catalog, catalog.models[0]);
-    assert.equal((await services.models()).selected, recommended, `${state}: back to the recommended one`);
+    assert.equal(controller.state.model, other.name, state);
+    await services.setModel(catalog, catalog.models.find(model => model.id === standard));
+    assert.equal((await services.models()).selected, standard, `${state}: back to the default`);
   }
   assert.equal(await previewConnectionServices("none").models(), null);
 });

@@ -23,6 +23,11 @@ export const SETTINGS = Object.freeze({
   tileRadius: 9,
 });
 
+// The AI connection pages (and the Model, Usage and key pages they open) as the owner set them:
+// a solid peach page and off-white cards, over whichever theme canvas is chosen. faint is the
+// quietest text, for the OPTION labels and OR.
+export const AI_PAGE = Object.freeze({ page: "#FFF4EA", card: "#FFFBF9", faint: "#9A8478" });
+
 // A pale fill with a darker icon on top, dark enough to read on its fill.
 export const TINTS = Object.freeze({
   tangerine: { fill: "#FDEBDD", icon: "#BC5A19" },

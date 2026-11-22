@@ -11,7 +11,7 @@ test("adopted iOS26 forms own the safe area without shifting ordinary tabs", () 
   }
 });
 test("only adopted gallery pages get full-bleed headers", () => {
-  for (const page of ["manual", "manual-save-navigation-error", "edit-save-navigation-error", "photo-save-navigation-error", "theme", "ai-connection", "ai-connection-key", "ai-connection-chatgpt", "ai-connection-expired", "ai-connect-chatgpt", "ai-connect-key", "ai-connect-key-error", "ai-model", "ai-model-error", "voice-language-load-error", "voice-language-save-error", "recommendation", "recommendation-unspecified", "recommendation-minor", "recommendation-save-error", "erase-data", "erase-data-erasing", "erase-data-failed", "erase-data-done", "privacy", "privacy-health-data", "privacy-consent", "privacy-consent-updated", "privacy-consent-error", "photo-selected", "edit-meal"]) {
+  for (const page of ["manual", "manual-save-navigation-error", "edit-save-navigation-error", "photo-save-navigation-error", "theme", "ai-connection", "ai-connection-key", "ai-connection-openai", "ai-connection-chatgpt", "ai-connection-expired", "ai-connection-refused", "ai-connection-signin-error", "ai-connect-key", "ai-connect-key-error", "ai-model", "ai-model-error", "voice-language-load-error", "voice-language-save-error", "recommendation", "recommendation-unspecified", "recommendation-minor", "recommendation-save-error", "erase-data", "erase-data-erasing", "erase-data-failed", "erase-data-done", "privacy", "privacy-health-data", "privacy-consent", "privacy-consent-updated", "privacy-consent-error", "photo-selected", "edit-meal"]) {
     assert.equal(formOwnsTopInset("/ui-gallery", page, "ios", 26), true, page);
   }
   assert.equal(formOwnsTopInset("/ui-gallery", ["theme"], "ios", 26), true);
