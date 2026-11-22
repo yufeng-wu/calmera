@@ -56,11 +56,13 @@ or Anthropic key. Keys go by their company (OpenAI, Anthropic), signing in by th
 (ChatGPT), and models by their name alone.
 
 With nothing connected, `app/(root)/ai-connection.jsx` shows "Choose one" and two cards of the
-same size with "or" between: Your ChatGPT account (Opens OpenAI to sign in, then comes back
-here; a filled **Sign in with ChatGPT** that starts OpenAI's sign-in at once) and An API key
-(OpenAI or Anthropic; an outlined **Paste a key** that opens the key page). A sign-in that
-fails says so in red in its card's line. No intro and no recommendation; the privacy line sits
-under both. Today's first voice, text or photo tap opens this same page and goes back to the
+same width with "or" between. Your ChatGPT account says it uses the plan's limits and suits
+ChatGPT Go, Plus or Pro; its filled **Sign in with ChatGPT** starts OpenAI's sign-in at once, and
+a sign-in that fails says so in red in place of that text. An API key says it is from OpenAI or
+Anthropic and which plans include monthly API credits, then "How to get credits: OpenAI ·
+Anthropic" (links in the accent colour that open each company's help page in Safari); its
+outlined **Paste a key** opens the key page. No prices, no intro and no recommendation; the
+privacy line sits under both. Today's first voice, text or photo tap opens this same page and goes back to the
 meal once connected.
 
 Once connected, the one in use is a card of its own (its name, who or which key, a green

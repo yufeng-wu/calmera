@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { keyProvider } from "../lib/ai/providers.mjs";
 import { chatgptOutcome, connectChatGPT, connectKey, issueOutcome, keepsKey, methodOf } from "../lib/ai/connectionMethods.mjs";
-import { METHODS, billingLine, checkResult, connectTitle, connectionCard, connectionName, connectionValue, isConnected, keepsUntil,
+import { CREDIT_PAGES, METHODS, billingLine, checkResult, connectTitle, connectionCard, connectionName, connectionValue, isConnected, keepsUntil,
   methodPrivacy, modelValue, privacyLine, problemFor, readKeyDraft, switchNotice } from "../lib/ai/connectionPresentation.mjs";
 import { INITIAL_CONNECTION, createConnectionController } from "../lib/ai/connectionController.mjs";
 import { summarizeUsage } from "../lib/ai/usage.mjs";
@@ -86,12 +86,17 @@ test("one name for each connection and each problem, wherever it is shown", () =
 });
 
 test("two cards with nothing connected; once connected, one card for the one in use and a row for the other", () => {
-  // Both ways are offered the same way: a title, one line and a button. Keys go by their
+  // Both ways are offered the same way: a title, what it is for and a button. Keys go by their
   // company, signing in by the product.
   assert.deepEqual(["chatgpt", "key"].map(id => [METHODS[id].account, METHODS[id].offer, METHODS[id].start]), [
-    ["Your ChatGPT account", "Opens OpenAI to sign in, then comes back here.", "Sign in with ChatGPT"],
-    ["An API key", "OpenAI or Anthropic", "Paste a key"],
+    ["Your ChatGPT account", "Uses your ChatGPT plan’s limits. Works great if you already have ChatGPT Go, Plus, or Pro.", "Sign in with ChatGPT"],
+    ["An API key", "From OpenAI or Anthropic. ChatGPT Pro and Business, and Claude Max, Ultra and Team, include monthly API credits you can use here.", "Paste a key"],
   ]);
+  // Where each company explains the credits: its own help page, over HTTPS. No prices anywhere.
+  assert.deepEqual(CREDIT_PAGES.map(page => page.name), ["OpenAI", "Anthropic"]);
+  assert.deepEqual(CREDIT_PAGES.map(page => new URL(page.url).host), ["help.openai.com", "support.claude.com"]);
+  assert.ok(CREDIT_PAGES.every(page => page.url.startsWith("https://")));
+  assert.doesNotMatch(JSON.stringify(METHODS), /[$€£]|\bUSD\b/);
   assert.equal(connectionCard({ current: null }), null);
   assert.equal(connectionCard({ current: undefined }), null);
   assert.deepEqual(connectionCard({ current: chatgpt, account: "you@example.com" }),

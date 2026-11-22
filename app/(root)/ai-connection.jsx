@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Alert, Linking, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Animated, { FadeIn, LayoutAnimationConfig } from "react-native-reanimated";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -15,7 +15,7 @@ import { TYPOGRAPHY } from "@/constants/typography";
 import usePageExit from "@/hooks/usePageExit";
 import { LOCAL_OWNER } from "@/lib/owner.mjs";
 import { INITIAL_CONNECTION, createConnectionController } from "@/lib/ai/connectionController.mjs";
-import { METHODS, billingLine, checkResult, connectionCard, connectionName, isConnected, privacyLine, problemFor, searchLine } from "@/lib/ai/connectionPresentation.mjs";
+import { CREDIT_PAGES, METHODS, billingLine, checkResult, connectionCard, connectionName, isConnected, privacyLine, problemFor, searchLine } from "@/lib/ai/connectionPresentation.mjs";
 import { logAfterConnect, takeConnectOutcome } from "@/lib/ai/connectHandoff.mjs";
 import { connectionServices } from "@/lib/ai/connectionServices";
 import { usageValue } from "@/lib/ai/usage.mjs";
@@ -100,7 +100,20 @@ export default function AIConnection({ calmeraPreview = false, calmeraPreviewSta
           </SettingsSection>
           <Text style={styles.or}>or</Text>
           <SettingsSection footnote={notice}>
-            <Offer method="key" tile={tile(30).key} disabled={Boolean(busy)} onPress={() => openConnect("key")} />
+            <Offer method="key" tile={tile(30).key} disabled={Boolean(busy)} onPress={() => openConnect("key")}>
+              <View style={styles.links}>
+                <Text style={styles.linksLabel}>How to get credits:</Text>
+                {CREDIT_PAGES.map((page, index) => <View key={page.name} style={styles.linkItem}>
+                  {index > 0 && <Text style={styles.linksLabel} accessible={false}>·</Text>}
+                  <Pressable accessibilityRole="link" accessibilityLabel={`How to get ${page.name} API credits`} accessibilityHint="Opens in Safari."
+                    hitSlop={8} onPress={() => { if (!calmeraPreview) Linking.openURL(page.url).catch(() => {}); }}
+                    style={({ pressed }) => [styles.link, pressed && styles.linkPressed]}>
+                    <Text style={styles.linkText}>{page.name}</Text>
+                    <Ionicons name="open-outline" size={13} color={COLORS.primary} />
+                  </Pressable>
+                </View>)}
+              </View>
+            </Offer>
           </SettingsSection>
         </View>}
 
@@ -140,10 +153,11 @@ export default function AIConnection({ calmeraPreview = false, calmeraPreviewSta
   </FormScreen>;
 }
 
-// One way to connect, with nothing connected: what it is, one line, one button. Both cards are
-// the same size; only the button says which is the usual way in (filled) and which isn't. The
-// line is always there, two lines tall, so a problem in it never moves the button.
-function Offer({ method, tile, accent = false, problem = null, loading = false, disabled = false, onPress }) {
+// One way to connect, with nothing connected: what it is, what it is for, one button. Both cards
+// are the same width; only the button says which is the usual way in (filled) and which isn't.
+// The text under the box is at least two lines tall, so a problem in its place never moves the
+// button. children: anything more to say before the button (the key card's credit links).
+function Offer({ method, tile, accent = false, problem = null, loading = false, disabled = false, onPress, children }) {
   const words = METHODS[method];
   return <View style={styles.offer}>
     <View style={styles.box} accessible accessibilityRole="header" accessibilityLabel={words.account}>
@@ -155,6 +169,7 @@ function Offer({ method, tile, accent = false, problem = null, loading = false, 
         <Text style={styles.problemTitle}>{problem.title}. </Text>{problem.message}
       </Text> : <Text style={styles.hint}>{words.offer}</Text>}
     </View>
+    {children}
     <GlassButton title={loading ? "Signing in…" : words.start} role={accent ? "accent" : "default"} onPress={onPress}
       disabled={disabled} loading={loading} />
   </View>;
@@ -198,6 +213,13 @@ const styles = StyleSheet.create({
   hint: { ...TYPOGRAPHY.caption, color: SETTINGS.inkSoft, marginHorizontal: 2 },
   problem: { ...TYPOGRAPHY.caption, color: SETTINGS.danger, marginHorizontal: 2 },
   problemTitle: { ...TYPOGRAPHY.captionMedium },
+  // Links out of the app, in the accent colour, each with room to tap.
+  links: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", columnGap: 8, marginHorizontal: 2, marginTop: -6 },
+  linksLabel: { ...TYPOGRAPHY.caption, color: SETTINGS.inkSoft },
+  linkItem: { flexDirection: "row", alignItems: "center", gap: 8 },
+  link: { flexDirection: "row", alignItems: "center", gap: 4, minHeight: 36 },
+  linkText: { ...TYPOGRAPHY.captionMedium, color: COLORS.primary },
+  linkPressed: { opacity: 0.45 },
   inUse: { minHeight: 68, paddingVertical: 14, paddingHorizontal: SETTINGS.rowPadding, gap: 14, flexDirection: "row", alignItems: "center" },
   inUseCopy: { flex: 1, gap: 2 },
   inUseTitle: { ...TYPOGRAPHY.sectionTitle, color: SETTINGS.ink },
