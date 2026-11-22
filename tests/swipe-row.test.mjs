@@ -1,12 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CLOSED, PHASE, dragPosition, releaseTarget, rowTouch, scrollCloses, tapCloses } from "../lib/swipeRow.mjs";
+import { CLOSED, PHASE, dragPosition, pressIsTap, releaseTarget, rowTouch, scrollCloses, tapCloses } from "../lib/swipeRow.mjs";
 
 // A meal row on Today: swipe left for Delete. The owner's phone showed rows springing shut the moment the finger
 // lifted, on every swipe: the touch that opened the row also closed it.
 const WIDTH = 84;
 const after = (state, ...events) => events.reduce(rowTouch, state);
-const OPEN = after(CLOSED, "opened");
+const OPEN = after(CLOSED, "opened", "rested");
 
 test("the swipe that opens a row can't also tap it shut, in whatever order the lift is reported", () => {
   // The drag ends and opens the row, then the same lift arrives as a tap.
@@ -20,14 +20,32 @@ test("the swipe that opens a row can't also tap it shut, in whatever order the l
   assert.equal(tapCloses(after(CLOSED, "down", "drag", "release", "down", "opened")), false);
 });
 
+test("a touch reported again after the lift, while the row is still springing open, can't close it", () => {
+  assert.equal(tapCloses(after(CLOSED, "touch", "drag", "release", "opened", "down")), false);
+  assert.equal(tapCloses(after(CLOSED, "touch", "drag", "opened", "release", "touch")), false);
+  // Once it has come to rest, a new tap does close it.
+  assert.equal(tapCloses(after(CLOSED, "touch", "drag", "release", "opened", "rested", "touch")), true);
+});
+
+test("the lift that ends a swipe is not a press on the card; a tap is", () => {
+  // The swipe opened the row, then its lift reaches the card's press handler.
+  assert.equal(pressIsTap(after(CLOSED, "touch", "drag", "release", "opened")), false);
+  assert.equal(pressIsTap(after(CLOSED, "touch", "drag", "opened", "release", "down")), false);
+  // A plain tap on a closed row expands it.
+  assert.equal(pressIsTap(after(CLOSED, "touch", "down", "release")), true);
+  // The next touch after a swipe starts clean.
+  assert.equal(pressIsTap(after(CLOSED, "touch", "drag", "release", "opened", "rested", "touch")), true);
+});
+
 test("a row opened by holding stays open when the finger lifts", () => {
   assert.equal(tapCloses(after(CLOSED, "down", "opened")), false);
 });
 
 test("tapping a row that rests open closes it", () => {
   assert.equal(tapCloses(after(OPEN, "down")), true);
+  assert.equal(tapCloses(after(OPEN, "touch")), true);
   // And the next swipe starts clean.
-  assert.deepEqual(after(OPEN, "down", "closed"), CLOSED);
+  assert.deepEqual(after(OPEN, "touch", "closed"), CLOSED);
 });
 
 test("dragging an open row is a drag, not a tap", () => {

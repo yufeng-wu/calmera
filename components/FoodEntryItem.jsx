@@ -156,6 +156,8 @@ export const FoodEntryItem = memo(function FoodEntryItem({ item, onDelete, onEdi
   };
   const remove = () => { close(); onDelete?.(item.id); };
   const toggleExpand = () => {
+    // The lift that ends a swipe can arrive here as a press, after the swipe has opened the row.
+    if (swipeable.current && !swipeable.current.pressIsTap()) return;
     if (isOpen.current) { close(); return; }
     expandedNow.current = !expandedNow.current;
     animateDetails(expandedNow.current, detailsHeight);
