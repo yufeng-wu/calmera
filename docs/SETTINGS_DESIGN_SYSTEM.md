@@ -50,44 +50,49 @@ Export always writes one JSON file with everything (`exportJson` in
 
 ## AI connection
 
-Signing in to ChatGPT and pasting an API key are two ways of doing one thing, so they share
-every step. The Settings row's value says which is in use: Not connected, ChatGPT, OpenAI key
-or Anthropic key. Keys go by their company (OpenAI, Anthropic), signing in by the product
-(ChatGPT), and models by their name alone.
+One connection at a time, made one of two ways: signing in with ChatGPT, or an API key from
+OpenAI or Anthropic. To change how it connects, a person disconnects and connects again; there
+is no switch, check, change-account or replace-key row. The Settings row's value is Not
+connected, ChatGPT Plan or API key. Signing in goes by "ChatGPT"; a key is "OpenAI API key" or
+"Anthropic API key" on the AI connection page and just "API key" anywhere else. Models go by
+their name alone. No prices on these pages. The text on them writes the brand "Calmera".
 
-With nothing connected, `app/(root)/ai-connection.jsx` shows "Choose one" and two cards of the
-same width with "or" between. Your ChatGPT account says it uses the plan's limits and suits
-ChatGPT Go, Plus or Pro; its filled **Sign in with ChatGPT** starts OpenAI's sign-in at once, and
-a sign-in that fails says so in red in place of that text. An API key says it is from OpenAI or
-Anthropic and which plans include monthly API credits, then "How to get credits: OpenAI ·
-Anthropic" (links in the accent colour that open each company's help page in Safari); its
-outlined **Paste a key** opens the key page. No prices, no intro and no recommendation; the
-privacy line sits under both. Today's first voice, text or photo tap opens this same page and goes back to the
-meal once connected.
+These pages (AI connection, the key page, Model, Usage) have a solid #FFF4EA page and #FFFBF9
+cards, over whichever theme canvas is chosen (`AI_PAGE` in `constants/settingsTheme.js`). No
+spinners: a button says "Signing in…" or "Checking…" while it works.
 
-Once connected, the one in use is a card of its own (its name, who or which key, a green
-check and Connected; red with "Tap to …" when it needs connecting again), and the other way
-folds into one row under it: Switch to an API key, or Switch to ChatGPT. Then, for either:
+With nothing connected, `app/(root)/ai-connection.jsx` shows two cards of the same width with
+OR between, and everything about an option stays in its card:
 
-- **Estimates:** Model (opens `ai-model.jsx`: the provider's live list, names only, newest
-  first; no model is singled out, the default is simply the one checked) and Online search (one
-  switch, on by default; the note says what it does and costs).
-- **The connection:** Check connection, Change account or Replace key, Disconnect, and who is
-  billed.
-- **Usage:** Last 7 days (opens `ai-usage.jsx`: estimated cost, requests, tokens and searches;
-  one bar per day; each company and its models). With nothing connected it shows only if the
-  last 7 days had requests.
+- **Option 1, ChatGPT Plan:** "Works great if you already have a paid ChatGPT subscription." Its
+  filled **Sign in with ChatGPT** starts OpenAI's sign-in at once. If that fails, red text takes
+  the description's place: "Couldn't reach ChatGPT. Check your connection and try again."
+- **Option 2, API key:** "Bring your own OpenAI or Anthropic API key." and which plans include
+  monthly API credits, then "How to get credits: OpenAI · Anthropic" (accent links to each
+  company's help page, in Safari). Its outlined **Add API key** opens `ai-connect.jsx`, where the
+  key is pasted and Calmera works out whose it is.
 
-Paste a key, a switch, Change account and Replace key open `ai-connect.jsx?method=chatgpt|key`,
-one page for both: what you connect with (the ChatGPT account box or the key field), one line
-under it (a hint, whose key it is, or what went wrong), one button (Connect, Switch to…,
-Replace key), and a note that the old connection stays until the new one works. A switch is
-said once afterwards in green; there is no warning before. Disconnect is the only alert. Model
-names leave out the maker (Haiku 5.5, Sol 6.2), since the page already says whose they are.
+Then Usage and the privacy line. Today's first voice, text or photo tap opens this same page and
+goes back to the meal once connected.
+
+Once connected, the page is about that connection:
+
+1. **Status card:** its name (ChatGPT, or OpenAI / Anthropic API key), then the email or the
+   masked key and what the last check found: Connected in green, or what's wrong in red. The
+   note under it says who pays, or what to do ("Disconnect, then sign in with ChatGPT again.").
+   The check runs on every visit and spends nothing (a key lists its provider's models;
+   ChatGPT's model list is read). The last status shows at once and changes only when the
+   result is different; not reaching the provider changes nothing.
+2. **Model** (opens `ai-model.jsx`: the provider's list, names only, newest first) and **Online
+   search** (one switch, on by default; the note says what it looks up).
+3. **Usage:** Last 7 days, every connection together, kept after a disconnect. The row counts
+   requests; the usage page (`ai-usage.jsx`) has the rest.
+4. **Disconnect:** its own card, red and centred. It asks first; confirming goes back to the
+   two options.
 
 Underneath, one record names the connection (`lib/ai/connection.mjs`), one controller runs
-connect, check, disconnect and Online search for both (`lib/ai/connectionController.mjs`),
+connect, the check, disconnect and Online search for both (`lib/ai/connectionController.mjs`),
 both report in one set of outcome words (`lib/ai/connectionMethods.mjs`) that
 `lib/ai/connectionPresentation.mjs` turns into sentences, model lists come from
-`lib/ai/modelCatalog.mjs`, preferences from `lib/ai/preferences.mjs`, and the usage record and
-its prices from `lib/ai/usage.mjs` and `lib/ai/prices.mjs`.
+`lib/ai/modelCatalog.mjs`, preferences (and the last status) from `lib/ai/preferences.mjs`, and
+the usage record and its prices from `lib/ai/usage.mjs` and `lib/ai/prices.mjs`.
