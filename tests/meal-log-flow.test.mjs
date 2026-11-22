@@ -7,7 +7,7 @@ import { createConfirmedMealSave } from "../lib/confirmedMealSave.mjs";
 import * as reviewModel from "../lib/mealReview.mjs";
 import * as foodIcons from "../lib/foodIcons.mjs";
 import { connectionIssue } from "../lib/chatgpt/connectionStatus.mjs";
-import { canAnalyzeMeal, connectionPresentation } from "../lib/mealLogPresentation.mjs";
+import { canAnalyzeMeal, connectionPresentation, providerName } from "../lib/mealLogPresentation.mjs";
 
 const require = createRequire(import.meta.url);
 const React = require("react");
@@ -80,10 +80,10 @@ test("photo estimation requires a verified ready connection and a photo", () => 
     assert.equal(canAnalyzeMeal({ ...ready, connection: { state } }), false);
   }
   for (const flag of ["busy", "selecting", "uncertain", "mealSaved"]) assert.equal(canAnalyzeMeal({ ...ready, [flag]: true }), false);
-  assert.equal(connectionPresentation({ state: "restricted", issue: { action: null } }).action, "settings");
+  assert.equal(connectionPresentation({ state: "restricted", issue: { action: null } }).action, "connect");
 });
 
-test("unavailable photo connections share one message and open settings without suggesting reauthorization", () => {
+test("unavailable photo connections share one message and open the AI connection page without suggesting reauthorization", () => {
   const errors = [new Error("development_build_required"), new Error("no_eligible_models"),
     Object.assign(new Error("openai_http_403"), { apiCode: "subscription_sharing_user_not_eligible" }),
     Object.assign(new Error("openai_http_400"), { apiCode: "invalid_client" })];
@@ -94,13 +94,13 @@ test("unavailable photo connections share one message and open settings without 
   });
   assert.equal(new Set(presentations.map(value => value.title)).size, 1);
   assert.equal(new Set(presentations.map(value => value.detail)).size, 1);
-  assert.ok(presentations.every(value => value.action === "settings"));
+  assert.ok(presentations.every(value => value.action === "connect" && value.actionLabel === "AI connection"));
 });
 
 test("simplified photo messages retain distinct sign-in, permission, usage and retry actions", () => {
   const cases = [
-    [new Error("chatgpt_refresh_required"), "sign-in"],
-    [new Error("plan_permission_required"), "sign-in"],
+    [new Error("chatgpt_refresh_required"), "connect"],
+    [new Error("plan_permission_required"), "connect"],
     [Object.assign(new Error("openai_http_429"), { apiCode: "subscription_sharing_usage_limit_exceeded" }), "usage"],
     [new Error("openai_http_429"), "retry"],
     [new Error("openai_http_503"), "retry"],
@@ -159,7 +159,7 @@ test("invalid inline edits keep the editor open and never save", () => {
 });
 
 const compiledHook = compile("../hooks/useMealLogConnection.js");
-function connectionFixture() {
+function connectionFixture({ current = { type: "chatgpt" } } = {}) {
   const runtime = hooks(); const pending = []; let focus, appListener, cleanup;
   const runConnectionHook = load(compiledHook, {
     react: runtime.react,
@@ -168,29 +168,49 @@ function connectionFixture() {
     "@/lib/chatgpt/planClient": { createPlanClient: () => ({}) },
     "@/lib/chatgpt/connectionOutcome.mjs": { readChatGPTConnection: (_, options) => new Promise(resolve => pending.push({ resolve, options })) },
     "@/lib/chatgpt/connectionStatus.mjs": { connectionIssue: () => ({ action: "retry" }) },
+    "@/lib/ai/mealAI": { aiConnection: () => ({ read: async () => current }) },
   });
   return { pending, render: () => { runtime.reset(); return runConnectionHook("owner"); },
     focus: () => { cleanup = focus(); }, blur: () => cleanup(), appState: state => appListener(state) };
 }
 const settle = () => new Promise(resolve => setImmediate(resolve));
 test("an obsolete connection check cannot override a newer result or a later screen focus", async () => {
-  const fixture = connectionFixture(); fixture.render(); fixture.focus();
-  fixture.render().refresh();
+  const fixture = connectionFixture(); fixture.render(); fixture.focus(); await settle();
+  fixture.render().refresh(); await settle();
   fixture.pending[1].resolve({ state: "temporary" }); await settle();
   fixture.pending[0].resolve({ state: "ready" }); await settle();
   assert.equal(fixture.render().connection.state, "temporary");
-  fixture.render().refresh(); fixture.blur();
+  fixture.render().refresh(); await settle(); fixture.blur();
   assert.equal(fixture.pending[2].options.isCurrent(), false);
   fixture.pending[2].resolve({ state: "ready" }); await settle();
   fixture.render(); fixture.focus();
   assert.equal(fixture.render().connection.state, "checking");
+  await settle();
   fixture.pending[3].resolve({ state: "ready" }); await settle();
   assert.equal(fixture.render().connection.state, "ready");
   fixture.appState("background"); fixture.appState("active");
   assert.equal(fixture.render().connection.state, "checking");
+  await settle();
   assert.equal(fixture.pending.length, 5);
 });
 
+test("an API key connection makes logging ready without checking ChatGPT", async () => {
+  const fixture = connectionFixture({ current: { type: "claude-key", provider: "anthropic", masked: "sk-ant-••••WXYZ" } });
+  fixture.render(); fixture.focus(); await settle();
+  const { state, type, provider } = fixture.render().connection;
+  assert.deepEqual({ state, type, provider }, { state: "ready", type: "claude-key", provider: "anthropic" });
+  assert.equal(fixture.pending.length, 0);
+  assert.deepEqual(connectionPresentation(fixture.render().connection), {}, "a working connection needs no words");
+});
+
+test("with no AI connection, logging offers to connect one", async () => {
+  const fixture = connectionFixture({ current: null });
+  fixture.render(); fixture.focus(); await settle();
+  assert.equal(fixture.render().connection.state, "none");
+  assert.equal(fixture.pending.length, 0);
+  const copy = connectionPresentation(fixture.render().connection);
+  assert.deepEqual(copy, { action: "connect", actionLabel: "Connect an AI to estimate" });
+});
 
 test("food rows start compact; expanding exposes one set of directly editable fields", () => {
   const fixture = reviewFixture(); let tree = fixture.render();
@@ -251,10 +271,10 @@ test("text analysis needs one nonblank description; amount is optional at input"
 });
 
 const compiledLog = compile("../components/MealLogScreen.jsx");
-function logFixture(inputMode = "text") {
+function logFixture(inputMode = "text", connection = { state: "ready" }) {
   const runtime = hooks();
   let focus, cleanup, owner = "owner", exits = 0;
-  const requests = [], writes = [], alerts = [], errors = [];
+  const requests = [], writes = [], alerts = [], errors = [], pushes = [];
   const service = { analyze: async () => [food], estimate: async () => ({ calories: 180, protein: 4, carbs: 39, fat: 1 }) };
   const navigation = { setOptions() {}, dispatch() {} };
   // Saves go through the data module; this one only exists to be handed on.
@@ -267,12 +287,12 @@ function logFixture(inputMode = "text") {
     "react-native-reanimated": reanimatedStub,
     // The screen reads the owner on every render; the getter lets a test change it.
     "@/lib/owner.mjs": { get LOCAL_OWNER() { return owner; } },
-    "expo-router": { useLocalSearchParams: () => ({}), useRouter: () => ({}) },
+    "expo-router": { useLocalSearchParams: () => ({}), useRouter: () => ({ push: target => pushes.push(target) }) },
     "@react-navigation/native": { useNavigation: () => navigation, useFocusEffect: callback => { focus = callback; }, usePreventRemove() {} },
     "expo-constants": { expoConfig: { extra: {} } },
     "@expo/vector-icons": { Ionicons: "Ionicons" },
-    "@/hooks/useMealLogConnection": () => ({ connection: { state: "ready" }, refresh() {} }),
-    "@/lib/mealLogPresentation.mjs": { canAnalyzeMeal, connectionPresentation, estimationTitle: () => "Sending…", NO_FOOD_DETECTED: { title: "No Food Detected" }, noFoodMessage: mode => `${mode} no food` },
+    "@/hooks/useMealLogConnection": () => ({ connection, refresh() {} }),
+    "@/lib/mealLogPresentation.mjs": { canAnalyzeMeal, connectionPresentation, providerName, estimationTitle: () => "Sending…", NO_FOOD_DETECTED: { title: "No Food Detected" }, noFoodMessage: mode => `${mode} no food` },
     "@/hooks/usePageExit": () => () => { exits++; },
     "@/components/GlassForm": Object.fromEntries(["FormScreen", "FormScrollView", "FormHeader", "FormCard", "GlassButton"].map(key => [key, key])),
     "@/lib/chatgpt/phoneTestFixtures.mjs": { phoneTestNutritionLabel: "synthetic-photo" },
@@ -280,7 +300,8 @@ function logFixture(inputMode = "text") {
     "@/lib/store": { useDataStore: () => data },
     "@/context/EntriesRefreshContext": { useRefreshSignal: () => ({ store: { belongsTo: id => id === owner }, setShouldRefresh() {} }) },
     "@/lib/chatgpt/planClient": { pickMealPhoto: async () => ({ dataURL: "synthetic-photo" }) },
-    "@/lib/chatgpt/nutrition": { nutritionClient: async () => ({ model: "synthetic", client: { estimate: options => { requests.push(options); return service.analyze(options); } } }),
+    "@/lib/ai/mealAI": { mealAI: async () => ({ source: "chatgpt", label: "Synthetic", estimate: options => { requests.push(options); return service.analyze(options); } }) },
+    "@/lib/chatgpt/nutrition": {
       estimateMacros: (...args) => service.estimate(...args), inferenceError: error => errors.push(error) },
     "@/components/MealReview": "MealReview",
     "@/context/FoodIconsContext": { useFoodIcons: () => ({ rememberIcons: async () => {} }) },
@@ -292,7 +313,7 @@ function logFixture(inputMode = "text") {
   const Form = Log({ inputMode }).type;
   const render = () => { runtime.reset(); return Form({ inputMode }); };
   render(); cleanup = focus();
-  return { render, requests, writes, alerts, errors, service, blur: () => cleanup(), focus: () => { render(); cleanup = focus(); },
+  return { render, requests, writes, alerts, errors, pushes, service, blur: () => cleanup(), focus: () => { render(); cleanup = focus(); },
     changeOwner: value => { owner = value; render(); }, exits: () => exits };
 }
 const defer = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
@@ -317,6 +338,34 @@ test("a typed meal is analyzed as text, produces structured foods, and never sav
   assert.equal(fixture.writes.length, 1);
   assert.equal(fixture.writes[0].draft.mealType, "Dinner");
   assert.equal(fixture.exits(), 1);
+});
+
+test("without an AI the page offers to connect one, and a typed meal can still be entered by hand", async () => {
+  const fixture = logFixture("text", { state: "none" }); const tree = fixture.render();
+  // One main button: there is no Analyze to press while nothing could answer it.
+  assert.equal(button(tree, "Analyze Meal"), undefined);
+  const connect = button(tree, "Connect an AI to estimate");
+  assert.equal(connect.props.role, "accent");
+  connect.props.onPress();
+  // The connection page is asked to come back here once an AI is connected.
+  assert.equal(JSON.stringify(fixture.pushes), JSON.stringify([{ pathname: "/ai-connection", params: { then: "back" } }]));
+  button(tree, "Enter it by hand").props.onPress();
+  const review = fixture.render();
+  assert.equal(review.type, "MealReview");
+  assert.deepEqual(review.props.review.entries.map(entry => [entry.origin, entry.foodName, entry.calories]), [["added", "", ""]]);
+  assert.equal(fixture.requests.length, 0, "nothing is sent anywhere");
+  const filled = { ...review.props.review, entries: [{ ...review.props.review.entries[0], foodName: "Apple", quantity: "1 medium", calories: "95", protein: "0.5", carbs: "25", fat: "0.3" }] };
+  await review.props.onSave("Snack", filled);
+  assert.equal(fixture.writes.length, 1);
+  assert.equal(fixture.writes[0].draft.entries[0].foodName, "Apple");
+  // A photo can't be entered by hand, so that page offers only the connection.
+  const photo = logFixture("photo", { state: "none" }).render();
+  assert.ok(button(photo, "Connect an AI to estimate"));
+  assert.equal(button(photo, "Enter it by hand"), undefined);
+  // With a working connection neither extra button exists.
+  const ready = logFixture().render();
+  assert.equal(button(ready, "Connect an AI to estimate"), undefined);
+  assert.equal(button(ready, "Enter it by hand"), undefined);
 });
 
 test("photo input uses the same review flow with only the selected image", async () => {

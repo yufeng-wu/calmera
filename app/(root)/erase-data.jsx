@@ -4,7 +4,6 @@ import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { FormHeader, FormScreen, FormScrollView, GlassButton } from "@/components/GlassForm";
-import OpenAILogo from "@/components/OpenAILogo";
 import SettingsRow from "@/components/SettingsRow";
 import { SettingsSection, settingsStyles } from "@/components/SettingsSection";
 import { SETTINGS } from "@/constants/settingsTheme";
@@ -53,7 +52,7 @@ export default function EraseData({ calmeraPreview = false, calmeraPreviewStage 
       <View accessible accessibilityLiveRegion="polite" style={styles.done}>
         <Ionicons name="checkmark-circle" size={44} color={SETTINGS.ink} />
         <Text accessibilityRole="header" style={styles.doneTitle}>Everything is erased</Text>
-        <Text style={styles.doneBody}>Your meals, goals and settings are gone from this iPhone, and ChatGPT is disconnected.</Text>
+        <Text style={styles.doneBody}>Your meals, goals and settings are gone from this iPhone, and your AI connection with them.</Text>
       </View>
       <GlassButton title="Start Over" role="accent" onPress={startOver} />
     </FormScrollView>
@@ -67,8 +66,8 @@ export default function EraseData({ calmeraPreview = false, calmeraPreviewStage 
       <SettingsSection label="What’s erased" footnote="Copies in iCloud backups follow your backup settings.">
         <SettingsRow title="Meals you’ve logged" icon="restaurant" tint="leaf" />
         <SettingsRow title="Goals" icon="flag" tint="sky" divider />
-        <SettingsRow title="Settings" subtitle="Theme, voice language and food icons" icon="options" tint="plum" divider />
-        <SettingsRow title="ChatGPT on this phone" subtitle="Disconnected and forgotten" iconElement={<OpenAILogo />} tint="cocoa" divider />
+        <SettingsRow title="Settings" subtitle="Theme, voice language, food icons and AI usage" icon="options" tint="plum" divider />
+        <SettingsRow title="AI connection" subtitle="Your ChatGPT sign-in or API key" icon="link" tint="plum" divider />
       </SettingsSection>
       <SettingsSection label="Before you go" footnote="Keep a copy of your meals and goals first, if you’d like one.">
         <SettingsRow title="Export your data" icon="share" tint="tangerine" disabled={busy}

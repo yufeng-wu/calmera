@@ -8,7 +8,7 @@ import { styles as home } from "@/assets/styles/home.styles";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { NutritionSummaryCard } from "@/components/NutritionSummaryCard";
-import { FoodEntryItem, closeOpenMealActions } from "@/components/FoodEntryItem";
+import { FoodEntryItem, closeOpenMealActions, closeSettledMealActions } from "@/components/FoodEntryItem";
 import { GlassButton } from "@/components/GlassForm";
 import AddMealMenu from "@/components/AddMealMenu";
 import { useTheme } from "@/context/ThemeContext";
@@ -43,7 +43,7 @@ export default function BackgroundCompare() {
       </View>
       <Text style={styles.note}>{selected.description} · example meals</Text>
     </View>
-    <ScrollView style={home.scrollView} onScrollBeginDrag={closeOpenMealActions}
+    <ScrollView style={home.scrollView} onScrollBeginDrag={closeSettledMealActions}
       contentContainerStyle={{ paddingBottom: 116 + barHeight }} scrollIndicatorInsets={{ bottom: barHeight }}>
       <View style={[home.headerContainer, { paddingTop: 12 }]}>
         <FoodwrapWordmark style={{ marginBottom: 16 }} />

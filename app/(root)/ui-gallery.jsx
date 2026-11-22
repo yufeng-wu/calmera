@@ -9,7 +9,10 @@ import { FormHeader, GlassButton } from "@/components/GlassForm";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import Settings from "@/app/(root)/(tabs)/settings";
 import TodayCalendarPreview from "@/components/TodayCalendarPreview";
-import ChatGPT from "@/app/(root)/chatgpt";
+import AIConnection from "@/app/(root)/ai-connection";
+import AIConnect from "@/app/(root)/ai-connect";
+import AIModel from "@/app/(root)/ai-model";
+import AIUsage from "@/app/(root)/ai-usage";
 import VoiceLanguage from "@/app/(root)/voice-language";
 import ThemeSettings from "@/app/(root)/theme";
 import Survey from "@/app/(root)/goals-survey";
@@ -43,9 +46,20 @@ const screens = [
   { id: "today-loading-reduced", title: "Today loading reduced motion", Component: TodayLoadingPreview, state: "reduced" },
 
   { id: "settings", title: "Settings", Component: Settings },
-  { id: "chatgpt", title: "ChatGPT connected", Component: ChatGPT },
-  { id: "chatgpt-disconnected", title: "Connect ChatGPT", Component: ChatGPT, state: "disconnected" },
-  { id: "chatgpt-catalog-error", title: "ChatGPT model recovery", Component: ChatGPT, state: "catalog-error" },
+  { id: "ai-connection", title: "AI connection, nothing connected", Component: AIConnection, state: "none" },
+  { id: "ai-connection-chatgpt", title: "AI connection, ChatGPT", Component: AIConnection, state: "chatgpt" },
+  { id: "ai-connection-key", title: "AI connection, Anthropic API key", Component: AIConnection, state: "claude-key" },
+  { id: "ai-connection-openai", title: "AI connection, OpenAI API key", Component: AIConnection, state: "openai-key" },
+  { id: "ai-connection-expired", title: "AI connection, ChatGPT signed out", Component: AIConnection, state: "expired" },
+  { id: "ai-connection-refused", title: "AI connection, key no longer accepted", Component: AIConnection, state: "key-refused" },
+  { id: "ai-connection-signin-error", title: "AI connection, sign-in failed", Component: AIConnection, state: "signin-error" },
+  { id: "ai-connect-key", title: "Add an API key", Component: AIConnect, state: "none" },
+  { id: "ai-connect-key-error", title: "API key not accepted", Component: AIConnect, state: "key-error" },
+  { id: "ai-model", title: "ChatGPT model", Component: AIModel, state: "chatgpt" },
+  { id: "ai-model-key", title: "Anthropic key model", Component: AIModel, state: "claude-key" },
+  { id: "ai-model-error", title: "ChatGPT model recovery", Component: AIModel, state: "catalog-error" },
+  { id: "ai-usage", title: "AI usage, last 7 days", Component: AIUsage, state: "sample" },
+  { id: "ai-usage-empty", title: "AI usage, nothing yet", Component: AIUsage, state: "empty" },
   { id: "voice-language", title: "Voice language", Component: VoiceLanguage },
   { id: "voice-language-load-error", title: "Voice language load recovery", Component: VoiceLanguage, state: "load-error" },
   { id: "voice-language-save-error", title: "Voice language save recovery", Component: VoiceLanguage, state: "save-error" },

@@ -1,7 +1,7 @@
 # Test ChatGPT inference on your own iPhone
 
 The dedicated app is **Calmera AI Test**, bundle ID
-`com.yfwu02.mobile.chatgpttest`. It is separate from the installed Calmera app.
+`com.yfwu02.calmera.chatgpttest`. It is separate from the installed Calmera app.
 The goal is to test the real iPhone browser OAuth flow and direct text/photo
 inference before connecting the rest of the product.
 
@@ -91,8 +91,12 @@ bash scripts/build-phone-test.sh --simulator
 # Local hardware-target compiler check, not installable.
 bash scripts/build-phone-test.sh --unsigned-check
 
-# Local signed build, after Xcode signing/provisioning is configured.
-CALMERA_APPLE_TEAM_ID=YOURTEAMID bash scripts/build-phone-test.sh
+# Local signed build. Always signed by calmera's team 2G2578H6DX
+# (scripts/signing-team.sh refuses any other team).
+bash scripts/build-phone-test.sh
+
+# The real app on a plugged-in, unlocked iPhone.
+CALMERA_IPHONE_UDID=<udid> bash scripts/install-iphone.sh
 
 # EAS account/signing/device setup must be completed first.
 eas build --platform ios --profile chatgpt-phone-test
@@ -141,7 +145,7 @@ upload was performed.
   free Personal Team. The original source project's team settings were preserved.
 - `codesign --verify --deep --strict` passed. The profile was checked against the
   intended Personal Team, exact test bundle ID and connected iPhone.
-- `devicectl` confirmed installation of `com.yfwu02.mobile.chatgpttest`.
+- `devicectl` confirmed installation of `com.yfwu02.calmera.chatgpttest`.
 - Initial launch required explicit developer trust. The user completed that step
   on the phone, then reported the app opened and ChatGPT connection plus text
   and photo tests passed.

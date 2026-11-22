@@ -17,44 +17,46 @@ import NutritionSummarySkeleton from "@/components/NutritionSummarySkeleton";
 import { styles } from "@/assets/styles/home.styles";
 import { useRouter } from "expo-router";
 import { NutritionSummaryCard } from "@/components/NutritionSummaryCard";
-import { FoodEntryItem, closeOpenMealActions } from "@/components/FoodEntryItem";
+import { FoodEntryItem, closeOpenMealActions, closeSettledMealActions } from "@/components/FoodEntryItem";
 import TodayScene, { TodayStageHost } from "@/components/TodayScene";
 import { buddyMood, daySeed, emptyTodayGreeting } from "@/lib/nutritionPresentation.mjs";
 import FoodwrapWordmark from "@/components/FoodwrapWordmark";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
-import { createPlanClient, preloadNutritionModels } from "@/lib/chatgpt/planClient";
+import { preloadNutritionModels } from "@/lib/chatgpt/planClient";
+import { aiConnection } from "@/lib/ai/mealAI";
+import { takeLogAfterConnect } from "@/lib/ai/connectHandoff.mjs";
 import { getVoiceLanguage, inferenceError } from "@/lib/chatgpt/nutrition";
 import { speechEngine } from "@/lib/voice/speechEngine";
 import { ensureVoicePermission } from "@/lib/voice/voiceLog.mjs";
-import AnimatedRe, { Layout as ReLayout, useAnimatedStyle } from "react-native-reanimated";
+import AnimatedRe, { useAnimatedStyle } from "react-native-reanimated";
 import AddMealMenu from "@/components/AddMealMenu";
 import VoiceLogSheet from "@/components/voice/VoiceLogSheet";
 import DayDrop, { dayDropLift, useDayDropMotion } from "@/components/DayDrop";
 import { parseLocalDate } from "@/lib/calendarMonths.mjs";
 import { localDateKey } from "@/lib/nutritionStore.mjs";
 import { LOCAL_OWNER } from "@/lib/owner.mjs";
+import FoldAway from "@/components/FoldAway";
+import { groupLeaving, rowLeaving, withLeaving, withoutLeaving } from "@/lib/mealLeaving.mjs";
 
-const AnimatedMealGroupContainer = AnimatedRe.createAnimatedComponent(View);
-
-// Only while a meal is being removed, so what's below springs up to fill its place. The rest of the time the groups
-// have no layout animation: a row opening moves the page every frame, and a spring restarted that often only trails.
-const MEAL_LAYOUT = ReLayout.springify().damping(15);
-const MEAL_SPRING_MS = 900;
 const NO_ENTRIES = [];
+const NOT_LEAVING = new Set();
 
-const MealGroup = memo(function MealGroup({ title, entries, onDelete, springs }) {
+// A deleted meal folds away before it leaves; the last one in a group takes its heading with it.
+const MealGroup = memo(function MealGroup({ title, entries, onDelete, leaving, onGone }) {
   if (entries.length === 0) return null;
+  const wholeGroup = groupLeaving(entries, leaving);
 
   return (
-    <AnimatedMealGroupContainer
-      style={styles.mealGroupContainer}
-      layout={springs ? MEAL_LAYOUT : undefined}
-    >
-      <Text style={styles.mealGroupTitle}>{title}</Text>
-      {entries.map((item) => (
-        <FoodEntryItem key={item.id} item={item} onDelete={onDelete} />
-      ))}
-    </AnimatedMealGroupContainer>
+    <FoldAway leaving={wholeGroup} onGone={() => onGone(entries.map((item) => item.id))}>
+      <View style={styles.mealGroupContainer}>
+        <Text style={styles.mealGroupTitle}>{title}</Text>
+        {entries.map((item) => (
+          <FoldAway key={item.id} leaving={rowLeaving(item.id, leaving, wholeGroup)} onGone={() => onGone([item.id])}>
+            <FoodEntryItem item={item} onDelete={onDelete} />
+          </FoldAway>
+        ))}
+      </View>
+    </FoldAway>
   );
 });
 
@@ -88,16 +90,17 @@ export default function SummaryScreen() {
   // The page below the calendar slides with its edge as it opens and closes.
   const calendarMotion = useDayDropMotion();
   const belowCalendarStyle = useAnimatedStyle(() => ({ transform: [{ translateY: dayDropLift(calendarMotion) }] }));
-  const [mealsSpring, setMealsSpring] = useState(false);
-  const springEnds = useRef(null);
-  useEffect(() => () => clearTimeout(springEnds.current), []);
-  // Removed only once the spring has been committed, so the page always has it when it changes.
-  const [pendingDelete, setPendingDelete] = useState(null);
-  useEffect(() => {
-    if (!pendingDelete || !mealsSpring) return;
-    setPendingDelete(null);
-    deleteEntry(pendingDelete);
-  }, [pendingDelete, mealsSpring, deleteEntry]);
+  // Meals confirmed for deletion fold away first; each leaves the store (and the totals) once it has folded.
+  const [leaving, setLeaving] = useState(NOT_LEAVING);
+  const leavingNow = useRef(leaving);
+  leavingNow.current = leaving;
+  const mealsGone = useCallback((ids) => {
+    const going = ids.filter((id) => leavingNow.current.has(id));
+    if (!going.length) return;
+    leavingNow.current = withoutLeaving(leavingNow.current, going);
+    setLeaving((current) => withoutLeaving(current, going));
+    going.forEach((id) => deleteEntry(id));
+  }, [deleteEntry]);
   const handleDelete = useCallback((id) => {
     Alert.alert(
       "Delete Entry",
@@ -107,12 +110,7 @@ export default function SummaryScreen() {
         {
           text: "Delete",
           style: "destructive",
-          onPress: () => {
-            setMealsSpring(true);
-            setPendingDelete(id);
-            clearTimeout(springEnds.current);
-            springEnds.current = setTimeout(() => setMealsSpring(false), MEAL_SPRING_MS);
-          },
+          onPress: () => setLeaving((current) => withLeaving(current, id)),
         },
       ]
     );
@@ -159,8 +157,10 @@ export default function SummaryScreen() {
     prepareMeal();
     setFabExpanded(false);
     try {
-      if (!await createPlanClient(LOCAL_OWNER).connected()) {
-        inferenceError(new Error("chatgpt_sign_in_required"), router);
+      // Voice can't work without an AI, so the tap opens the page that connects one;
+      // the sheet opens by itself once that's done.
+      if (!await aiConnection(LOCAL_OWNER).read()) {
+        router.push({ pathname: "/ai-connection", params: { then: "voice" } });
         return;
       }
       const speech = speechEngine();
@@ -185,6 +185,10 @@ export default function SummaryScreen() {
       voiceOpening.current = false;
     }
   };
+  // Back from connecting the AI that Voice asked for: carry on to the voice sheet.
+  const resumeVoice = useRef(openVoice);
+  resumeVoice.current = openVoice;
+  useFocusEffect(useCallback(() => { if (takeLogAfterConnect() === "voice") resumeVoice.current(); }, []));
   const closeVoice = useCallback(() => setVoice(null), []);
   const voiceSaved = useCallback((savedEntries) => {
     if (savedEntries?.length) addEntries(savedEntries);
@@ -220,9 +224,9 @@ export default function SummaryScreen() {
       {/* The hill and the seated orange, pinned behind the page (which sits above them at zIndex 1); the scene
           below sends what it shows. */}
       <TodayStageHost ref={stageHost} />
-      {/* Always vertical: without it a short day's page doesn't own vertical drags, and a meal row
-          swiped open snaps shut on release. */}
-      <ScrollView ref={scrollRef} onScrollBeginDrag={closeOpenMealActions} directionalLockEnabled alwaysBounceVertical alwaysBounceHorizontal={false}
+      {/* Always vertical, so a short day's page still owns vertical drags. A scroll closes a meal row that rests
+          open, not one the same touch is swiping open. */}
+      <ScrollView ref={scrollRef} onScrollBeginDrag={closeSettledMealActions} directionalLockEnabled alwaysBounceVertical alwaysBounceHorizontal={false}
         style={[styles.scrollView, { zIndex: 1 }]}
         contentContainerStyle={{ flexGrow: 1, paddingBottom: SCROLL_BOTTOM_PADDING }}
         scrollIndicatorInsets={{ bottom: floatingBarInset }}
@@ -252,7 +256,8 @@ export default function SummaryScreen() {
         {/* Keyed by day so switching dates swaps meals without spring layout animations.
             Kept unflattened so the meal springs measure from here, not from the page the calendar moves. */}
         <View key={dateKey} collapsable={false} style={styles.sceneContainer}>
-          {hasData && <TodayScene stageHost={stageHost} hasMeals={entries.length > 0} isToday={isToday} greeting={emptyGreeting} bottomInset={SCROLL_BOTTOM_PADDING}
+          {/* The first meal's drop waits for the voice sheet that saved it to be gone. */}
+          {hasData && <TodayScene stageHost={stageHost} hasMeals={entries.length > 0} holdDrop={Boolean(voice)} isToday={isToday} greeting={emptyGreeting} bottomInset={SCROLL_BOTTOM_PADDING}
             mood={mood}>
             {mealOrder.map((meal) => (
               <MealGroup
@@ -260,7 +265,8 @@ export default function SummaryScreen() {
                 title={meal}
                 entries={groupedEntries[meal] || NO_ENTRIES}
                 onDelete={handleDelete}
-                springs={mealsSpring}
+                leaving={leaving}
+                onGone={mealsGone}
               />
             ))}
           </TodayScene>}

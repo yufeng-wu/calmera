@@ -6,7 +6,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import vm from 'node:vm';
 import * as protocol from '../lib/chatgpt/protocol.mjs';
 import * as connectionStatus from '../lib/chatgpt/connectionStatus.mjs';
-import * as prompts from '../lib/chatgpt/prompts.mjs';
+import * as mealEstimator from '../lib/ai/mealEstimator.mjs';
 
 const require = createRequire(import.meta.url);
 const { transformSync } = require('@babel/core');
@@ -65,7 +65,7 @@ function fixture({ prior = record('old'), registration = prior?.client_id, cance
       return Response.json({ access_token: 'synthetic-access-new', refresh_token: 'synthetic-refresh-new', id_token: 'synthetic-id-new',
         scope: planPermission ? protocol.PLAN_SCOPE : 'openid', token_type: 'Bearer', expires_in: 3600 });
     } },
-    './connectionStatus.mjs': connectionStatus, './protocol.mjs': protocol, './prompts.mjs': prompts,
+    './connectionStatus.mjs': connectionStatus, './protocol.mjs': protocol, '../ai/mealEstimator.mjs': mealEstimator,
     './browserCallback.mjs': { waitForBrowserCallback: async ({ url }) => {
       const auth = new URL(url); authorizations.push(auth);
       if (cancel) throw new Error('authorization_cancelled');

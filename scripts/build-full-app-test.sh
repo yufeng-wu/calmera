@@ -7,10 +7,10 @@ if [[ $# -gt 1 || ! "$MODE" =~ ^(signed|--unsigned-check|--simulator|--prepare-o
   echo "Usage: bash scripts/build-full-app-test.sh [--unsigned-check|--simulator|--prepare-only]" >&2
   exit 2
 fi
-if [[ "$MODE" == signed ]] && [[ -z "${CALMERA_APPLE_TEAM_ID:-}" || ! "$CALMERA_APPLE_TEAM_ID" =~ ^[A-Z0-9]{10}$ ]]; then
-  echo "Signing is required for installation. Set CALMERA_APPLE_TEAM_ID after configuring Xcode signing." >&2
-  exit 2
-fi
+source "$(dirname "$0")/signing-team.sh"
+source "$(dirname "$0")/release-hermes.sh"
+CALMERA_APPLE_TEAM_ID="${CALMERA_APPLE_TEAM_ID:-$CALMERA_TEAM_ID}"
+if [[ "$MODE" == signed ]]; then require_calmera_team "$CALMERA_APPLE_TEAM_ID"; fi
 BUILD_ROOT="${CALMERA_TEST_BUILD_ROOT:-/tmp/calmera-full-app-test}"
 mkdir -p "$BUILD_ROOT"
 python3 - "$PROJECT_ROOT" "$BUILD_ROOT" <<'PYTHON'
@@ -19,7 +19,7 @@ project, build = map(pathlib.Path, sys.argv[1:])
 with (project/'ios/mobile/Info.plist').open('rb') as f:
     info=plistlib.load(f)
 info['CFBundleDisplayName']='calmera.'
-info['CFBundleURLTypes']=[{'CFBundleURLSchemes':['calmera-chatgpt-dev','com.yfwu02.mobile.chatgptdev']}]
+info['CFBundleURLTypes']=[{'CFBundleURLSchemes':['calmera-chatgpt-dev','com.yfwu02.calmera.chatgptdev']}]
 with (build/'PhoneTest-Info.plist').open('wb') as f:
     plistlib.dump(info,f)
 with (build/'PhoneTest.entitlements').open('wb') as f:
@@ -52,20 +52,23 @@ elif [[ "$MODE" == --simulator ]]; then
   SIGNING=(CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= "ARCHS=$(uname -m)")
 fi
 cd "$PROJECT_ROOT"
+forget_hermes_configuration "$PROJECT_ROOT"
 CALMERA_FULL_APP_TEST=1 ENTRY_FILE="$PROJECT_ROOT/node_modules/expo-router/entry.js" EXPO_NO_DOTENV=1 EXPO_NO_TELEMETRY=1 xcodebuild \
   -workspace ios/mobile.xcworkspace -scheme mobile -configuration Release \
   -sdk "$SDK" -destination "$DESTINATION" -derivedDataPath "$BUILD_ROOT/DerivedData" \
   "${SIGNING[@]}" "$@" ONLY_ACTIVE_ARCH=YES \
-  PRODUCT_BUNDLE_IDENTIFIER=com.yfwu02.mobile.chatgptdev \
+  PRODUCT_BUNDLE_IDENTIFIER=com.yfwu02.calmera.chatgptdev \
   INFOPLIST_FILE="$BUILD_ROOT/PhoneTest-Info.plist" \
   CODE_SIGN_ENTITLEMENTS="$BUILD_ROOT/PhoneTest.entitlements" \
   build
 APP="$BUILD_ROOT/DerivedData/Build/Products/Release-$SDK/mobile.app"
+if [[ "$MODE" == signed ]]; then require_app_signed_by_calmera_team "$APP"; fi
+require_release_hermes "$APP"
 python3 - "$APP" <<'PYTHON'
 import pathlib, plistlib, sys
 app=pathlib.Path(sys.argv[1])
 info=plistlib.loads((app/'Info.plist').read_bytes())
-assert info['CFBundleIdentifier']=='com.yfwu02.mobile.chatgptdev'
+assert info['CFBundleIdentifier']=='com.yfwu02.calmera.chatgptdev'
 assert info['CFBundleDisplayName']=='calmera.'
 assert (app/'main.jsbundle').stat().st_size>0, 'Missing standalone JS bundle'
 print('Full-UI test app built with an embedded JS bundle. No app was installed.')

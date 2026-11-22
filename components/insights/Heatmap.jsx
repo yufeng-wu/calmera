@@ -1,12 +1,15 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { heatmapWeeks } from "@/lib/insights/stats.mjs";
 
-const GAP = 3;
-const SIZE = 12;
+// Fuller squares with a narrower gap, on the same 15 pt pitch so the columns and labels don't move. The corner is
+// about a third of the side, drawn as an iOS continuous curve, so it flows into the edge with no visible join.
+const GAP = 2;
+const SIZE = 13;
 const PITCH = SIZE + GAP;
+const RADIUS = 4.5;
 const DOT = 14;
 const DOT_GAP = 5;
 const WEEKDAYS = ["", "M", "", "W", "", "F", ""];
@@ -14,7 +17,7 @@ const LABEL_WIDTH = 12 + 6;
 // Labels locked to the grid can only grow so far before they collide.
 const GRID_TEXT = 1.2;
 
-// Filled on logged days, gray on missed ones, and an empty outline before you started,
+// Filled on logged days, gray on missed ones, and a fainter gray before you started,
 // so every period always shows all its days.
 const fillFor = (day) => !day ? null : day.started ? { backgroundColor: day.logged ? COLORS.primary : COLORS.track } : styles.notStarted;
 
@@ -41,6 +44,13 @@ export default function Heatmap({ keys, logged, started }) {
   const [available, setAvailable] = useState(0);
   const [scrolledTo, setScrolledTo] = useState(null);
   const columns = Math.min(weeks.length, Math.floor((available + GAP) / PITCH));
+  // Open on the newest whole column, again whenever the width changes until the grid is dragged. Scrolling to the
+  // end once, on the first content size, kept an offset from before the width settled and cut a column off.
+  const dragged = useRef(false);
+  const openOnNewest = useCallback(() => {
+    if (columns > 0 && !dragged.current) scroller.current?.scrollTo({ x: (weeks.length - columns) * PITCH, animated: false });
+  }, [columns, weeks.length]);
+  useEffect(openOnNewest, [openOnNewest]);
   // A month label running off either edge would show clipped, like "un" or "Ju".
   const firstColumn = scrolledTo ?? weeks.length - columns;
   return <View style={styles.wrap} onLayout={(event) => setAvailable(event.nativeEvent.layout.width - LABEL_WIDTH)}>
@@ -48,10 +58,13 @@ export default function Heatmap({ keys, logged, started }) {
       <View style={styles.weekdays}>
         {WEEKDAYS.map((label, index) => <Text key={index} maxFontSizeMultiplier={GRID_TEXT} style={styles.weekday}>{label}</Text>)}
       </View>
-      <ScrollView ref={scroller} horizontal showsHorizontalScrollIndicator={false} style={{ width: columns * PITCH - GAP }}
+      {/* Exactly whole columns wide: a horizontal ScrollView grows to fill the row by default, and those extra
+          points showed part of a column at the left edge on wider phones. */}
+      <ScrollView ref={scroller} horizontal showsHorizontalScrollIndicator={false} style={{ width: columns * PITCH - GAP, flexGrow: 0 }}
         snapToInterval={PITCH} decelerationRate="fast" scrollEventThrottle={16}
+        onScrollBeginDrag={() => { dragged.current = true; }}
         onScroll={(event) => setScrolledTo(Math.round(event.nativeEvent.contentOffset.x / PITCH))}
-        onContentSizeChange={() => scroller.current?.scrollToEnd({ animated: false })}>
+        onContentSizeChange={openOnNewest}>
         <View>
           <View style={[styles.months, { width: weeks.length * PITCH - GAP }]}>
             {weeks.map((week, index) => week.month && index >= firstColumn && index < firstColumn + columns - 1 && <Text key={index} maxFontSizeMultiplier={GRID_TEXT} numberOfLines={1} style={[styles.month, { left: index * PITCH }]}>{week.month}</Text>)}
@@ -78,8 +91,9 @@ const styles = StyleSheet.create({
   month: { ...TYPOGRAPHY.caption, position: "absolute", top: 0, width: 40, fontSize: 11, lineHeight: 16, color: COLORS.textLight },
   weeks: { flexDirection: "row", gap: GAP },
   week: { gap: GAP },
-  cell: { width: SIZE, height: SIZE, borderRadius: 4 },
-  notStarted: { borderWidth: 1, borderColor: COLORS.track },
+  cell: { width: SIZE, height: SIZE, borderRadius: RADIUS, borderCurve: "continuous" },
+  // The missed-day gray, lighter: a soft full shape rather than a hairline outline, which read thin and uneven.
+  notStarted: { backgroundColor: COLORS.track, opacity: 0.5 },
   weekdays: { gap: GAP, marginTop: 20, width: 12 },
   weekday: { height: SIZE, lineHeight: SIZE, fontSize: 10, color: COLORS.textLight, textAlign: "center" },
 });

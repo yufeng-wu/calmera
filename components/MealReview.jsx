@@ -41,7 +41,8 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
   const stackedNutrients = large || (width - 2 * (20 + 12) - 3 * 6) / 4 < 72 * fontScale;
   const inFlowSave = fontScale >= 2.3;
   const { iconFor } = useFoodIcons();
-  const [expandedId, setExpandedId] = useState(null);
+  // A review that starts as one blank food was opened to enter a meal by hand: its fields are open.
+  const [expandedId, setExpandedId] = useState(() => (review.entries.length === 1 && review.entries[0].origin === "added" ? review.entries[0].id : null));
   // The whole row header tints while touched, as a table cell does.
   // Once the entrance has settled, build every row's edit panel so taps open instantly.
   const [warm, setWarm] = useState(false);
@@ -86,7 +87,7 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
   const [savingAs, setSavingAs] = useState(null);
   const initialIds = useRef(new Set(review.entries.map(entry => entry.id)));
   // "Detected" only while the list is still exactly what the estimate found.
-  const estimateIds = useRef(new Set(initialIds.current)).current;
+  const estimateIds = useRef(new Set(review.entries.filter(entry => entry.origin !== "added").map(entry => entry.id))).current;
   const detected = review.entries.length === estimateIds.size && review.entries.every(entry => estimateIds.has(entry.id));
   const scroll = useRef(null);
   const scrollMetrics = useRef({ y: 0, height: 0, content: 0, under: 0 });

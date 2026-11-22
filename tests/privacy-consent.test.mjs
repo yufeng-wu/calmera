@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { ownsKey } from "../lib/eraseData.mjs";
 import { consentRecord, consentStatus, consentStorageKey, coversVersion, readConsent, saveConsent } from "../lib/privacyConsent.mjs";
 import {
-  CONSENT_COPY, HEALTH_DATA_POLICY, PRIVACY_DOCS, PRIVACY_POLICY, PRIVACY_POLICY_VERSION, placeholdersRemaining,
+  CONSENT_COPY, HEALTH_DATA_POLICY, SEARCH_NOTICE, PRIVACY_DOCS, PRIVACY_POLICY, PRIVACY_POLICY_VERSION, placeholdersRemaining,
 } from "../lib/privacyPolicy.mjs";
 import { escapeHTML, renderPolicyPage } from "../scripts/build-privacy-site.mjs";
 import { createMemoryStorage } from "../lib/store/memoryStorage.mjs";
@@ -11,10 +11,10 @@ import { createMemoryStorage } from "../lib/store/memoryStorage.mjs";
 const NOW = new Date("2026-11-08T15:00:00.000Z");
 const older = { version: "2025-01-01", acceptedAt: "2025-01-01T00:00:00.000Z", ai: "openai" };
 
-test("a record names the current version, the time and OpenAI", () => {
-  assert.deepEqual(consentRecord(NOW), { version: PRIVACY_POLICY_VERSION, acceptedAt: NOW.toISOString(), ai: "openai" });
+test("a record names the current version, the time and both AI providers", () => {
+  assert.deepEqual(consentRecord(NOW), { version: PRIVACY_POLICY_VERSION, acceptedAt: NOW.toISOString(), ai: ["openai", "anthropic"] });
   assert.match(PRIVACY_POLICY_VERSION, /^\d{4}-\d{2}-\d{2}$/);
-  assert.ok(PRIVACY_POLICY_VERSION > "2026-11-08", "the phone-only policy asks everyone again");
+  assert.ok(PRIVACY_POLICY_VERSION > "2026-11-09", "naming Anthropic asks everyone again");
 });
 
 test("only a record for this version or later opens the app", () => {
@@ -57,12 +57,16 @@ test("erasing all data also forgets the agreement", () => {
 const allText = (doc) => [...doc.intro, ...doc.sections.flatMap((s) => [{ type: "p", text: s.heading }, ...s.blocks])]
   .flatMap((b) => b.text ? [b.text] : b.items ? b.items.map((i) => typeof i === "string" ? i : `${i.term} ${i.text}`) : []).join("\n");
 
-test("the policy names OpenAI and each kind of data it receives", () => {
+test("the policy names both providers and each kind of data they receive", () => {
   const text = allText(PRIVACY_POLICY);
-  for (const phrase of ["OpenAI", "text you type", "Photos you choose", "what you say", "Voice recordings", "ChatGPT account"]) {
+  for (const phrase of ["OpenAI", "Anthropic", "OpenAI API key", "Anthropic API key", "text you type", "Photos you choose", "what you say",
+    "Voice recordings", "ChatGPT account", "Keychain", "disconnect your AI provider"]) {
     assert.match(text, new RegExp(phrase), phrase);
   }
   assert.match(text, /don’t sell/);
+  assert.doesNotMatch(text, /disconnect ChatGPT/i);
+  const links = PRIVACY_POLICY.sections.flatMap((s) => s.blocks).filter((b) => b.type === "link").map((b) => b.url);
+  assert.ok(links.some((url) => url.includes("openai.com")) && links.some((url) => url.includes("anthropic.com")));
 });
 
 test("the policy describes data kept on the iPhone, with no account or calmera servers", () => {
@@ -81,11 +85,23 @@ test("the policy describes data kept on the iPhone, with no account or calmera s
   assert.doesNotMatch(JSON.stringify(CONSENT_COPY), /Sign Out|sign in|connection/i);
 });
 
-test("the consent sheet names OpenAI, the three kinds of data and the choice", () => {
+test("the consent sheet names both providers, the three kinds of data and the choice", () => {
   assert.match(CONSENT_COPY.ai.heading, /OpenAI/);
+  assert.match(CONSENT_COPY.ai.heading, /Anthropic/);
+  assert.match(CONSENT_COPY.ai.text, /Anthropic API key/);
+  assert.doesNotMatch(JSON.stringify(CONSENT_COPY), /Claude/);
+  assert.match(CONSENT_COPY.ai.note, /Keychain/);
   assert.equal(CONSENT_COPY.ai.items.length, 3);
   assert.match(CONSENT_COPY.agreement, /Privacy Policy/);
-  assert.match(CONSENT_COPY.agreement, /OpenAI/);
+  assert.match(CONSENT_COPY.agreement, /OpenAI or Anthropic/);
+  // Online search is said in one sentence, the same on every page that mentions it.
+  assert.ok(CONSENT_COPY.ai.note.includes(SEARCH_NOTICE));
+  assert.match(SEARCH_NOTICE, /^When Online search is on, which it is unless you turn it off in Settings, your AI provider may also search the web with what you log/);
+  const everywhere = JSON.stringify([PRIVACY_POLICY, HEALTH_DATA_POLICY]);
+  assert.equal(everywhere.split(SEARCH_NOTICE).length - 1, 3, "summary, AI section and health data policy");
+  // The usage record is named with what it keeps, and what it never does.
+  assert.match(JSON.stringify(PRIVACY_POLICY), /AI usage.*how many tokens and web searches.*Never what you logged/);
+  assert.match(JSON.stringify(PRIVACY_POLICY), /AI usage record keeps only the last 7 days/);
   assert.match(CONSENT_COPY.agreement, new RegExp(CONSENT_COPY.agree));
   assert.match(CONSENT_COPY.agreement, /need to agree/);
   // The sheet turns this phrase into the link that opens the policy, so it appears once.

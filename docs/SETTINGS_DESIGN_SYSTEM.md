@@ -40,10 +40,59 @@ The Settings tab and every page it opens share one list style. Tokens live in
 ## Layout of the Settings tab
 
 1. Daily goals: four targets. Tap to edit.
-2. Logging: ChatGPT, Voice language.
+2. Logging: AI connection, Voice language.
 3. App: Theme, Export your data, Privacy policy, Erase all data (rose icon, plain title; its page lists
    what goes and asks again).
 4. The wordmark and version.
 
 Export always writes one JSON file with everything (`exportJson` in
 `lib/dataExport.mjs`). The only choice is the last 30 days or all history.
+
+## AI connection
+
+One connection at a time, made one of two ways: signing in with ChatGPT, or an API key from
+OpenAI or Anthropic. To change how it connects, a person disconnects and connects again; there
+is no switch, check, change-account or replace-key row. The Settings row's value is Not
+connected, ChatGPT Plan or API key. Signing in goes by "ChatGPT"; a key is "OpenAI API key" or
+"Anthropic API key" on the AI connection page and just "API key" anywhere else. Models go by
+their name alone. No prices on these pages. The text on them writes the brand "Calmera".
+
+These pages (AI connection, the key page, Model, Usage) have a solid #FFF4EA page and #FFFBF9
+cards, over whichever theme canvas is chosen (`AI_PAGE` in `constants/settingsTheme.js`). No
+spinners: a button says "Signing in…" or "Checking…" while it works.
+
+With nothing connected, `app/(root)/ai-connection.jsx` shows two cards of the same width with
+OR between, and everything about an option stays in its card:
+
+- **Option 1, ChatGPT Plan:** "Works great if you already have a paid ChatGPT subscription." Its
+  filled **Sign in with ChatGPT** starts OpenAI's sign-in at once. If that fails, red text takes
+  the description's place: "Couldn't reach ChatGPT. Check your connection and try again."
+- **Option 2, API key:** "Bring your own OpenAI or Anthropic API key." and which plans include
+  monthly API credits, then "How to get credits: OpenAI · Anthropic" (accent links to each
+  company's help page, in Safari). Its outlined **Add API key** opens `ai-connect.jsx`, where the
+  key is pasted and Calmera works out whose it is.
+
+Then Usage and the privacy line. Today's first voice, text or photo tap opens this same page and
+goes back to the meal once connected.
+
+Once connected, the page is about that connection:
+
+1. **Status card:** its name (ChatGPT, or OpenAI / Anthropic API key), then the email or the
+   masked key and what the last check found: Connected in green, or what's wrong in red. The
+   note under it says who pays, or what to do ("Disconnect, then sign in with ChatGPT again.").
+   The check runs on every visit and spends nothing (a key lists its provider's models;
+   ChatGPT's model list is read). The last status shows at once and changes only when the
+   result is different; not reaching the provider changes nothing.
+2. **Model** (opens `ai-model.jsx`: the provider's list, names only, newest first) and **Online
+   search** (one switch, on by default; the note says what it looks up).
+3. **Usage:** Last 7 days, every connection together, kept after a disconnect. The row counts
+   requests; the usage page (`ai-usage.jsx`) has the rest.
+4. **Disconnect:** its own card, red and centred. It asks first; confirming goes back to the
+   two options.
+
+Underneath, one record names the connection (`lib/ai/connection.mjs`), one controller runs
+connect, the check, disconnect and Online search for both (`lib/ai/connectionController.mjs`),
+both report in one set of outcome words (`lib/ai/connectionMethods.mjs`) that
+`lib/ai/connectionPresentation.mjs` turns into sentences, model lists come from
+`lib/ai/modelCatalog.mjs`, preferences (and the last status) from `lib/ai/preferences.mjs`, and
+the usage record and its prices from `lib/ai/usage.mjs` and `lib/ai/prices.mjs`.

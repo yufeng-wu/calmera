@@ -19,10 +19,11 @@ import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { useFoodIcons } from "@/context/FoodIconsContext";
 import { useDataStore } from "@/lib/store";
-import { nutritionClient, estimateMacros, inferenceError } from "@/lib/chatgpt/nutrition";
+import { estimateMacros, inferenceError } from "@/lib/chatgpt/nutrition";
+import { mealAI } from "@/lib/ai/mealAI";
 import { createMealReview, reviewTotals, saveMealReview, updateReviewFood } from "@/lib/mealReview.mjs";
 import { getLocalTimeWithOffset } from "@/lib/utils";
-import { formatElapsed, modelLabel, voiceHint, VOICE_LIMIT_MS } from "@/lib/voice/voiceLog.mjs";
+import { formatElapsed, voiceHint, VOICE_LIMIT_MS } from "@/lib/voice/voiceLog.mjs";
 
 const INSET = 8;
 const RADIUS = 40;
@@ -36,10 +37,12 @@ const PHASES = { listen: 0, thinking: 1, review: 2, saved: 3 };
 const TINT = [0.28, 0.6, 0.95, 0.7];
 const haptic = run => { run().catch(() => {}); };
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+const SAVED_HOLD_MS = 900;
 let hintSeed = Math.floor(Math.random() * 100);
 
 const NOTICES = {
   "no-speech": "Didn’t catch anything. Tap Resume and try again.",
+  stopped: "Listening paused. Your words are kept — Resume or send.",
   limit: "That’s the one-minute limit. Send it, or tap the words to edit.",
   "no-food": "No food in that. Try naming what you ate.",
   empty: "Say what you ate first.",
@@ -70,7 +73,8 @@ function VoiceSheet({ language, onClose, onSaved }) {
   const [phase, setPhase] = useState("listen");
   const [notice, setNotice] = useState(null);
   const [stage, setStage] = useState("sending");
-  const [model, setModel] = useState("ChatGPT");
+  const [model, setModel] = useState(null);
+  const [aiType, setAiType] = useState(null);
   const [estimateDone, setEstimateDone] = useState(false);
   const [sentText, setSentText] = useState("");
   const [review, setReview] = useState(null);
@@ -164,7 +168,9 @@ function VoiceSheet({ language, onClose, onSaved }) {
   // Recognizer errors arrive as codes; show them as a line above the buttons.
   useEffect(() => { if (speech.error) setNotice(speech.error); }, [speech.error]);
   // At the limit with every word deleted there's nothing to send; the prompt says to close instead.
-  const noticeText = !notice || (notice === "limit" && !hasWords) ? null : NOTICES[notice] || "Listening stopped. Tap Resume to keep going.";
+  // A long silence after some words isn't "nothing caught": the words stay, ready to resume or send.
+  const noticeKey = notice === "no-speech" && hasWords ? "stopped" : notice;
+  const noticeText = !noticeKey || (noticeKey === "limit" && !hasWords) ? null : NOTICES[noticeKey] || "Listening stopped. Tap Resume to keep going.";
 
   const send = async () => {
     if (operation.current || closing.current) return;
@@ -178,13 +184,11 @@ function VoiceSheet({ language, onClose, onSaved }) {
     haptic(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium));
     setNotice(null); setSentText(said); setStage("sending"); setEstimateDone(false); setPhase("thinking");
     try {
-      const { client, model: slug } = await nutritionClient(userId);
+      const ai = await mealAI(userId);
       if (!alive()) return;
-      const models = await client.models({ useCache: true }).catch(() => []);
-      if (!alive()) return;
-      setModel(modelLabel(models, slug));
+      setModel(ai.label); setAiType(ai.type);
       const createdAt = getLocalTimeWithOffset();
-      const result = await client.estimate({ text: said, model: slug,
+      const result = await ai.estimate({ text: said,
         signal: controller.signal, onProgress: next => { if (alive()) setStage(next); } });
       if (!alive()) return;
       if (!result.length) throw new Error("no_food_detected");
@@ -200,7 +204,7 @@ function VoiceSheet({ language, onClose, onSaved }) {
       if (!alive()) return;
       setPhase("listen");
       if (/no_food/.test(error?.message || "")) setNotice("no-food");
-      else inferenceError(error, router);
+      else inferenceError(error, router, { inSheet: true });
     } finally {
       if (operation.current === controller) operation.current = null;
     }
@@ -217,7 +221,7 @@ function VoiceSheet({ language, onClose, onSaved }) {
       if (!mounted.current || controller.signal.aborted) return;
       setReview(current => updateReviewFood(current, id, { ...values, ...result, quantity: result.normalizedQuantity || values.quantity }));
     } catch (error) {
-      if (mounted.current && !controller.signal.aborted) inferenceError(error, router);
+      if (mounted.current && !controller.signal.aborted) inferenceError(error, router, { inSheet: true });
     } finally {
       if (operation.current === controller) operation.current = null;
       if (mounted.current) setEstimatingId(null);
@@ -239,18 +243,19 @@ function VoiceSheet({ language, onClose, onSaved }) {
       haptic(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success));
       setSaved({ mealType, count: meal.entries.length, calories: reviewTotals(meal).calories });
       setPhase("saved");
-      await wait(reducedMotion ? 600 : 1300);
+      // Long enough for "Saved" to register, short enough that the orange's drop follows soon after.
+      await wait(reducedMotion ? 600 : SAVED_HOLD_MS);
       if (mounted.current) dismiss();
     } catch (error) {
       const message = error?.message || "";
       const mayHaveSaved = error?.mayHaveSaved === true || message === "meal_save_uncertain" || Boolean(error?.savedEntries?.length);
       if (mayHaveSaved) {
         onSaved?.(error?.savedEntries || []);
-        inferenceError(error, router);
+        inferenceError(error, router, { inSheet: true });
         if (mounted.current) dismiss();
       } else if (/meal_save/.test(message)) {
         Alert.alert("Couldn’t save meal", "Your meal is still here. Try again.");
-      } else inferenceError(error, router);
+      } else inferenceError(error, router, { inSheet: true });
     } finally {
       if (operation.current === controller) operation.current = null;
       if (mounted.current) setSaving(false);
@@ -322,7 +327,7 @@ function VoiceSheet({ language, onClose, onSaved }) {
           </View>}
 
           {phase === "thinking" && <View style={[styles.fill, { paddingBottom: contentBottom }]}>
-            <VoiceThinking stage={stage} model={model} transcript={sentText} done={estimateDone} />
+            <VoiceThinking stage={stage} model={model} provider={aiType} transcript={sentText} done={estimateDone} />
           </View>}
 
           {phase === "review" && review && <View style={styles.fill}>

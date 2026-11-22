@@ -9,10 +9,9 @@ elif [[ $# -ne 0 ]]; then
   echo "Usage: bash scripts/build-iphone-development.sh [--prepare-only]" >&2
   exit 2
 fi
-if [[ "$PREPARE_ONLY" == false ]] && [[ -z "${CALMERA_APPLE_TEAM_ID:-}" || ! "$CALMERA_APPLE_TEAM_ID" =~ ^[A-Z0-9]{10}$ ]]; then
-  echo "Set CALMERA_APPLE_TEAM_ID to your Apple development team ID (Xcode > Signing & Capabilities)." >&2
-  exit 2
-fi
+source "$(dirname "$0")/signing-team.sh"
+CALMERA_APPLE_TEAM_ID="${CALMERA_APPLE_TEAM_ID:-$CALMERA_TEAM_ID}"
+if [[ "$PREPARE_ONLY" == false ]]; then require_calmera_team "$CALMERA_APPLE_TEAM_ID"; fi
 BUILD_ROOT="${CALMERA_PHONE_BUILD_ROOT:-/tmp/calmera-iphone-development}"
 mkdir -p "$BUILD_ROOT"
 python3 - "$PROJECT_ROOT" "$BUILD_ROOT" <<'PYTHON'
@@ -21,7 +20,7 @@ project, build = map(pathlib.Path, sys.argv[1:])
 with (project / 'ios/mobile/Info.plist').open('rb') as f:
     info = plistlib.load(f)
 info['CFBundleDisplayName'] = 'foodwrap.'
-info['CFBundleURLTypes'] = [{'CFBundleURLSchemes': ['calmera-chatgpt-dev', 'com.yfwu02.mobile.chatgptdev']}]
+info['CFBundleURLTypes'] = [{'CFBundleURLSchemes': ['calmera-chatgpt-dev', 'com.yfwu02.calmera.chatgptdev']}]
 with (build / 'CalmeraTest-Info.plist').open('wb') as f:
     plistlib.dump(info, f)
 with (build / 'CalmeraTest.entitlements').open('wb') as f:
@@ -37,8 +36,9 @@ EXPO_NO_DOTENV=1 EXPO_NO_TELEMETRY=1 xcodebuild \
   -sdk iphoneos -destination 'generic/platform=iOS' \
   -derivedDataPath "$BUILD_ROOT/DerivedData" \
   DEVELOPMENT_TEAM="$CALMERA_APPLE_TEAM_ID" CODE_SIGN_STYLE=Automatic \
-  PRODUCT_BUNDLE_IDENTIFIER=com.yfwu02.mobile.chatgptdev \
+  PRODUCT_BUNDLE_IDENTIFIER=com.yfwu02.calmera.chatgptdev \
   INFOPLIST_FILE="$BUILD_ROOT/CalmeraTest-Info.plist" \
   CODE_SIGN_ENTITLEMENTS="$BUILD_ROOT/CalmeraTest.entitlements" \
   build
+require_app_signed_by_calmera_team "$BUILD_ROOT/DerivedData/Build/Products/Debug-iphoneos/mobile.app"
 echo "Built foodwrap test with a separate bundle ID; no app was installed."

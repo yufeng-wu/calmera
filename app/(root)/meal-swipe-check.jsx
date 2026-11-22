@@ -4,7 +4,7 @@ import { Redirect, useLocalSearchParams } from "expo-router";
 import { useSharedValue, withTiming } from "react-native-reanimated";
 import MealSwipeActions, { MEAL_EFFECT_OUTSET } from "@/components/MealSwipeActions";
 import Constants from "expo-constants";
-import { FoodEntryItem, closeOpenMealActions } from "@/components/FoodEntryItem";
+import { FoodEntryItem, closeOpenMealActions, closeSettledMealActions } from "@/components/FoodEntryItem";
 import { COLORS } from "@/constants/colors";
 
 const fixtures = [
@@ -99,7 +99,7 @@ export default function MealSwipeCheck() {
   ]), []);
   if (Constants.expoConfig?.extra?.calmeraFullAppTest !== true) return <Redirect href="/dashboard" />;
   if (motion === "1") return <GlassMotionReview />;
-  return <ScrollView onScrollBeginDrag={closeOpenMealActions} directionalLockEnabled alwaysBounceHorizontal={false} onScroll={({ nativeEvent }) => setOffset(Math.round(nativeEvent.contentOffset.y))} scrollEventThrottle={100}
+  return <ScrollView onScrollBeginDrag={closeSettledMealActions} directionalLockEnabled alwaysBounceHorizontal={false} onScroll={({ nativeEvent }) => setOffset(Math.round(nativeEvent.contentOffset.y))} scrollEventThrottle={100}
     contentContainerStyle={{ padding: 16, paddingBottom: 60, backgroundColor: COLORS.background, flexGrow: 1 }}>
     <View style={{ gap: 12, paddingVertical: 18 }}>
       <Text allowFontScaling={false} style={{ fontSize: 22, fontWeight: "600", color: COLORS.text }}>Meal swipe check</Text>

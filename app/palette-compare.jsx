@@ -8,7 +8,7 @@ import { PALETTE_PROPOSALS } from "@/constants/paletteProposals.mjs";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { styles as home } from "@/assets/styles/home.styles";
 import { NutritionSummaryCard } from "@/components/NutritionSummaryCard";
-import { FoodEntryItem, closeOpenMealActions } from "@/components/FoodEntryItem";
+import { FoodEntryItem, closeOpenMealActions, closeSettledMealActions } from "@/components/FoodEntryItem";
 import AddMealMenu from "@/components/AddMealMenu";
 import { SystemTabsInteractionCheck } from "@/components/SystemTabBar";
 
@@ -46,7 +46,7 @@ export default function PaletteCompare() {
       </View>
       <Text style={[styles.caption, { color: palette.textLight }]}>{palette.description} · example meals</Text>
     </View>
-    <ScrollView onScrollBeginDrag={closeOpenMealActions} showsVerticalScrollIndicator={false}
+    <ScrollView onScrollBeginDrag={closeSettledMealActions} showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingBottom: 116 + barHeight }}>
       <View style={[home.headerContainer, { paddingTop: 12 }]}>
         <FoodwrapWordmark color={palette.primary} style={{ marginBottom: 16 }} />

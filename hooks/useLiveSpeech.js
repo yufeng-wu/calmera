@@ -1,27 +1,35 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 import { speechEngine } from "@/lib/voice/speechEngine";
-import { joinTranscript, levelFromVolume, VOICE_LIMIT_MS } from "@/lib/voice/voiceLog.mjs";
+import { levelFromVolume, VOICE_LIMIT_MS } from "@/lib/voice/voiceLog.mjs";
+import { emptyTranscript, transcriptReducer, transcriptText } from "@/lib/voice/transcript.mjs";
 
 // Live, on-device dictation for the voice sheet. Audio never leaves the phone: only the words
-// are kept, and pausing ends a recognition session so the next one's words follow on.
+// are kept, and pausing ends a recognition session so the next one's words follow on. iOS also
+// ends a phrase at each short silence and starts the next from empty; the transcript reducer
+// keeps every phrase, so nothing said before a pause disappears.
 // status: idle → starting → listening → stopping → paused (and back to starting on resume).
 export default function useLiveSpeech({ language, onLevel }) {
   const engine = useRef(speechEngine()).current;
   const [status, setStatus] = useState("idle");
-  const [committed, setCommitted] = useState("");
-  const [segment, setSegment] = useState("");
+  const [transcript, setTranscript] = useState(emptyTranscript);
   const [error, setError] = useState(null);
   const [elapsed, setElapsed] = useState(0);
   const statusRef = useRef("idle");
-  const committedRef = useRef("");
-  const segmentRef = useRef("");
+  const transcriptRef = useRef(emptyTranscript());
   const startedAt = useRef(0);
   const listenedMs = useRef(0);
   const endWaiters = useRef([]);
   const level = useRef(onLevel);
   level.current = onLevel;
   const mounted = useRef(true);
+
+  const apply = useCallback(event => {
+    const next = transcriptReducer(transcriptRef.current, event);
+    if (next === transcriptRef.current) return;
+    transcriptRef.current = next;
+    if (mounted.current) setTranscript(next);
+  }, []);
 
   const moveTo = useCallback(next => {
     statusRef.current = next;
@@ -31,15 +39,14 @@ export default function useLiveSpeech({ language, onLevel }) {
   const settle = useCallback(() => {
     if (startedAt.current) listenedMs.current += Date.now() - startedAt.current;
     startedAt.current = 0;
-    committedRef.current = joinTranscript(committedRef.current, segmentRef.current);
-    segmentRef.current = "";
+    apply({ type: "end" });
     level.current?.(0);
-    if (mounted.current) { setCommitted(committedRef.current); setSegment(""); setElapsed(listenedMs.current); }
+    if (mounted.current) setElapsed(listenedMs.current);
     moveTo("paused");
     const waiters = endWaiters.current;
     endWaiters.current = [];
     waiters.forEach(resolve => resolve());
-  }, [moveTo]);
+  }, [apply, moveTo]);
 
   useEffect(() => {
     mounted.current = true;
@@ -50,10 +57,10 @@ export default function useLiveSpeech({ language, onLevel }) {
         if (statusRef.current === "starting") moveTo("listening");
       }),
       engine.addListener("result", event => {
+        // Only results from a live run count; a late one after Pause would land nowhere visible.
+        if (!["starting", "listening", "stopping"].includes(statusRef.current)) return;
         const text = event?.results?.[0]?.transcript;
-        if (typeof text !== "string" || statusRef.current === "idle") return;
-        segmentRef.current = text;
-        if (mounted.current) setSegment(text);
+        apply({ type: "result", text: typeof text === "string" ? text : "", isFinal: event?.isFinal === true });
       }),
       engine.addListener("volumechange", event => {
         if (statusRef.current === "listening") level.current?.(levelFromVolume(event?.value));
@@ -75,7 +82,7 @@ export default function useLiveSpeech({ language, onLevel }) {
       endWaiters.current.forEach(resolve => resolve());
       endWaiters.current = [];
     };
-  }, [engine, moveTo, settle]);
+  }, [apply, engine, moveTo, settle]);
 
   const start = useCallback(() => {
     if (!engine) { setError("unavailable"); return; }
@@ -114,15 +121,14 @@ export default function useLiveSpeech({ language, onLevel }) {
       await ended;
       clearTimeout(late);
     }
-    return committedRef.current;
+    return transcriptText(transcriptRef.current);
   }, [engine, moveTo, settle]);
 
   // While paused the words can be corrected by hand; resuming adds to the corrected text.
   const editText = useCallback(text => {
     if (statusRef.current !== "paused") return;
-    committedRef.current = text;
-    setCommitted(text);
-  }, []);
+    apply({ type: "edit", text });
+  }, [apply]);
 
   // Leaving the app (home screen, app switcher, a call) pauses listening, so the mic is never
   // on behind the user's back. The words stay, and Resume picks up where they left off.
@@ -142,6 +148,6 @@ export default function useLiveSpeech({ language, onLevel }) {
     return () => clearInterval(timer);
   }, [status, pause]);
 
-  const text = joinTranscript(committed, segment);
-  return { available: Boolean(engine), status, text, committed, error, elapsed, start, pause, finish, editText, clearError: () => setError(null) };
+  const text = transcriptText(transcript);
+  return { available: Boolean(engine), status, text, committed: transcript.committed, error, elapsed, start, pause, finish, editText, clearError: () => setError(null) };
 }

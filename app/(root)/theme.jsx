@@ -27,20 +27,18 @@ export default function ThemeSettings({ calmeraPreview = false }) {
     selectTheme(id).catch(() => {});
   };
   const wide = fontScale > 1.35;
+  // Only loading, saving and problems are worth a line; a saved choice speaks for itself.
+  const status = !ready ? "Loading your theme…" : saving ? "Saving…" : error === "save" ? "Couldn’t save this theme. Try again."
+    : error === "load" ? "Couldn’t load your saved theme. Try again, or pick one." : null;
   return <FormScreen style={formStyles.screen}>
     <FormHeader title="Theme" onBack={back} />
     <FormScrollView key={`theme-text-${fontScale}`} contentContainerStyle={settingsStyles.content}>
-      <Text style={settingsStyles.lead}>Choose your calmera mood. The whole app changes with it.</Text>
       <View style={styles.grid} accessibilityRole="radiogroup" accessibilityLabel="App theme">
         {APPEARANCE_THEMES.map(item => <ThemeOption key={item.id} item={item} wide={wide} disabled={!ready}
           selected={item.id === themeId} onPress={() => choose(item.id)} />)}
       </View>
       <View style={styles.notes}>
-        <Text accessibilityLiveRegion="polite" style={[settingsStyles.footnote, error && styles.problem]}>
-          {!ready ? "Loading your theme…" : saving ? "Saving…" : error === "save" ? "Couldn’t save this theme. Try again."
-            : error === "load" ? "Couldn’t load your saved theme. Try again, or pick one."
-              : "Saved on this phone."}
-        </Text>
+        {status && <Text accessibilityLiveRegion="polite" style={[settingsStyles.footnote, error && styles.problem]}>{status}</Text>}
         {!!error && <GlassButton title="Try again" symbol="arrow.clockwise" onPress={() => error === "load" ? reload() : selectTheme(themeId).catch(() => {})} />}
         <Text style={settingsStyles.footnote}>Glow and Aura move gently. They stay still when Reduce Motion is on.</Text>
         {review && <Text style={settingsStyles.footnote}>UI review · this choice is saved only in the test preference.</Text>}
@@ -61,7 +59,7 @@ function ThemeOption({ item, selected, wide, disabled, onPress }) {
   const { pressProps, highlight } = usePressHighlight(styles.highlight);
   const badge = useAnimatedStyle(() => ({ opacity: Math.min(1, shown.value),
     transform: [{ scale: SETTINGS_MOTION.popFrom + (1 - SETTINGS_MOTION.popFrom) * shown.value }] }));
-  return <Pressable accessibilityRole="radio" accessibilityLabel={`${item.name}. ${item.description}.`}
+  return <Pressable accessibilityRole="radio" accessibilityLabel={item.name}
     accessibilityState={{ checked: selected, disabled }} disabled={disabled} onPress={onPress} {...pressProps}
     style={[styles.option, { width: wide ? "100%" : "48%" }]}>
     {highlight}
@@ -69,10 +67,7 @@ function ThemeOption({ item, selected, wide, disabled, onPress }) {
       <ThemeCanvas variant={item.id} motionEnabled={false} />
       <Animated.View style={[styles.badge, badge]}><Ionicons name="checkmark" size={14} color={SETTINGS.surface} /></Animated.View>
     </View>
-    <View style={styles.copy}>
-      <Text style={styles.name}>{item.name}</Text>
-      <Text style={settingsStyles.footnote} numberOfLines={wide ? undefined : 2}>{item.description}</Text>
-    </View>
+    <Text style={styles.name}>{item.name}</Text>
     <Animated.View pointerEvents="none" style={[styles.ring, ring]} />
   </Pressable>;
 }
@@ -87,8 +82,7 @@ const styles = StyleSheet.create({
   swatch: { height: 96, borderRadius: 15, overflow: "hidden", borderWidth: 0.5, borderColor: SETTINGS.hairline },
   badge: { position: "absolute", top: 8, right: 8, width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center",
     backgroundColor: SETTINGS.accent },
-  copy: { gap: 2, paddingHorizontal: 6 },
-  name: { ...TYPOGRAPHY.bodyMedium, color: SETTINGS.ink },
+  name: { ...TYPOGRAPHY.bodyMedium, color: SETTINGS.ink, paddingHorizontal: 6 },
   notes: { gap: 10, marginTop: -8 },
   problem: { color: SETTINGS.danger },
 });

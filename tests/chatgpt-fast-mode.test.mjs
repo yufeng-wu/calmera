@@ -5,8 +5,8 @@ import vm from 'node:vm';
 import { createRequire } from 'node:module';
 import * as protocol from '../lib/chatgpt/protocol.mjs';
 import * as connectionStatus from '../lib/chatgpt/connectionStatus.mjs';
-import * as prompts from '../lib/chatgpt/prompts.mjs';
 import * as browserCallback from '../lib/chatgpt/browserCallback.mjs';
+import * as mealEstimator from '../lib/ai/mealEstimator.mjs';
 
 const require = createRequire(import.meta.url);
 const { transformSync } = require('@babel/core');
@@ -45,7 +45,7 @@ function fixture({ tier = 'priority', fullTest = true, meals = null, modelFetch 
           : JSON.stringify(meals || { calories: 105, protein: 1, carbs: 27, fat: 0 }) }] }] } };
       return new Response(`data: ${JSON.stringify(event)}\n\n`, { headers: { 'Content-Type': 'text/event-stream' } });
     } },
-    './connectionStatus.mjs': connectionStatus, './protocol.mjs': protocol, './prompts.mjs': prompts, './browserCallback.mjs': browserCallback,
+    './connectionStatus.mjs': connectionStatus, './protocol.mjs': protocol, '../ai/mealEstimator.mjs': mealEstimator, './browserCallback.mjs': browserCallback,
   };
   const module = { exports: {} };
   vm.runInNewContext(compiled, { module, exports: module.exports, require: name => {
