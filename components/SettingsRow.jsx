@@ -1,18 +1,23 @@
 import { useEffect } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, View, useWindowDimensions } from "react-native";
 import Animated, { FadeIn, LayoutAnimationConfig, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { SettingsTile, usePressHighlight } from "@/components/SettingsSection";
-import { SETTINGS, SETTINGS_MOTION } from "@/constants/settingsTheme";
+import { SETTINGS, SETTINGS_MOTION, TINTS } from "@/constants/settingsTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { useMotionPreference } from "@/hooks/useMotionPreference";
 
 // One row of a Settings list. A navigation row shows its current value and a chevron;
 // a radio row shows a check that pops in when chosen. The divider starts at the title.
 // With large text the value moves under the title, so neither has to break mid-word.
-export default function SettingsRow({ title, subtitle, value, icon, tint, iconElement, onPress, selected = false,
+// tone colors the value when it reports a result ("good" or "bad"); accessory replaces the chevron,
+// for a row that leaves the app. With onToggle the row is a switch: tapping anywhere on it flips it.
+export default function SettingsRow({ title, subtitle, value, icon, tint, iconElement, onPress: press, selected = false,
   destructive = false, disabled = false, divider = false, showAccessory = true, loading = false, centered = false,
-  accessibilityRole = "button", accessibilityValue, accessibilityHint }) {
+  accessibilityRole = "button", accessibilityValue, accessibilityHint, tone, accessory, toggle, onToggle }) {
+  const switched = typeof onToggle === "function";
+  const onPress = switched ? () => onToggle(!toggle) : press;
+  if (switched) accessibilityRole = "switch";
   const interactive = typeof onPress === "function";
   const radio = accessibilityRole === "radio";
   const tiled = Boolean(icon || iconElement);
@@ -24,12 +29,12 @@ export default function SettingsRow({ title, subtitle, value, icon, tint, iconEl
   // A value there from the start just shows; one that arrives or changes later fades in.
   const shownValue = <LayoutAnimationConfig skipEntering>
     {!!value && <Animated.Text key={value} entering={FadeIn.duration(SETTINGS_MOTION.fade)} numberOfLines={stacked ? undefined : 1}
-      style={[styles.value, stacked && styles.valueStacked]}>{value}</Animated.Text>}
+      style={[styles.value, stacked && styles.valueStacked, tone === "good" && styles.good, tone === "bad" && styles.destructive]}>{value}</Animated.Text>}
   </LayoutAnimationConfig>;
   return <Row accessible accessibilityRole={interactive ? accessibilityRole : "text"}
     accessibilityLabel={[title, subtitle].filter(Boolean).join(". ")}
     accessibilityValue={spoken} accessibilityHint={accessibilityHint}
-    accessibilityState={interactive ? { disabled, busy: loading, ...(radio ? { checked: selected } : {}) } : undefined}
+    accessibilityState={interactive ? { disabled, busy: loading, ...(radio ? { checked: selected } : {}), ...(switched ? { checked: Boolean(toggle) } : {}) } : undefined}
     {...(interactive ? { disabled, onPress, ...pressProps } : {})}
     style={rowStyles}>
     {interactive && highlight}
@@ -42,13 +47,15 @@ export default function SettingsRow({ title, subtitle, value, icon, tint, iconEl
     </View>
     {!stacked && shownValue}
     {loading ? <ActivityIndicator color={SETTINGS.accent} />
-      : radio ? <Check selected={selected} />
-        : interactive && showAccessory && <Ionicons name="chevron-forward" size={16} color={SETTINGS.chevron} />}
+      : switched ? <Switch value={Boolean(toggle)} onValueChange={onToggle} disabled={disabled} accessible={false}
+        trackColor={{ true: SETTINGS.accent }} ios_backgroundColor={SETTINGS.hairline} />
+      : radio ? <SettingsCheck selected={selected} />
+        : interactive && showAccessory && (accessory || <Ionicons name="chevron-forward" size={16} color={SETTINGS.chevron} />)}
   </Row>;
 }
 
 // A check that springs in when its row is chosen and is gone at once when it isn't.
-function Check({ selected }) {
+export function SettingsCheck({ selected }) {
   const { reduceMotion } = useMotionPreference();
   const shown = useSharedValue(selected ? 1 : 0);
   useEffect(() => {
@@ -73,6 +80,7 @@ const styles = StyleSheet.create({
   copyCentered: { flex: 0, alignItems: "center" },
   title: { ...TYPOGRAPHY.bodyMedium, color: SETTINGS.ink },
   destructive: { color: SETTINGS.danger },
+  good: { color: TINTS.leaf.icon },
   subtitle: { ...TYPOGRAPHY.caption, color: SETTINGS.inkSoft },
   value: { ...TYPOGRAPHY.body, color: SETTINGS.inkSoft, flexShrink: 1, maxWidth: "50%", textAlign: "right" },
   valueStacked: { maxWidth: "100%", textAlign: "left" },

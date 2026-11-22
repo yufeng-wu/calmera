@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { ownsKey } from "../lib/eraseData.mjs";
 import { consentRecord, consentStatus, consentStorageKey, coversVersion, readConsent, saveConsent } from "../lib/privacyConsent.mjs";
 import {
-  CONSENT_COPY, HEALTH_DATA_POLICY, PRIVACY_DOCS, PRIVACY_POLICY, PRIVACY_POLICY_VERSION, placeholdersRemaining,
+  CONSENT_COPY, HEALTH_DATA_POLICY, SEARCH_NOTICE, PRIVACY_DOCS, PRIVACY_POLICY, PRIVACY_POLICY_VERSION, placeholdersRemaining,
 } from "../lib/privacyPolicy.mjs";
 import { escapeHTML, renderPolicyPage } from "../scripts/build-privacy-site.mjs";
 import { createMemoryStorage } from "../lib/store/memoryStorage.mjs";
@@ -93,6 +93,14 @@ test("the consent sheet names both providers, the three kinds of data and the ch
   assert.equal(CONSENT_COPY.ai.items.length, 3);
   assert.match(CONSENT_COPY.agreement, /Privacy Policy/);
   assert.match(CONSENT_COPY.agreement, /OpenAI or Anthropic/);
+  // Online search is said in one sentence, the same on every page that mentions it.
+  assert.ok(CONSENT_COPY.ai.note.includes(SEARCH_NOTICE));
+  assert.match(SEARCH_NOTICE, /^When Online search is on, which it is unless you turn it off in Settings, your AI provider may also search the web with what you log/);
+  const everywhere = JSON.stringify([PRIVACY_POLICY, HEALTH_DATA_POLICY]);
+  assert.equal(everywhere.split(SEARCH_NOTICE).length - 1, 3, "summary, AI section and health data policy");
+  // The usage record is named with what it keeps, and what it never does.
+  assert.match(JSON.stringify(PRIVACY_POLICY), /AI usage.*how many tokens and web searches.*Never what you logged/);
+  assert.match(JSON.stringify(PRIVACY_POLICY), /AI usage record keeps only the last 7 days/);
   assert.match(CONSENT_COPY.agreement, new RegExp(CONSENT_COPY.agree));
   assert.match(CONSENT_COPY.agreement, /need to agree/);
   // The sheet turns this phrase into the link that opens the policy, so it appears once.

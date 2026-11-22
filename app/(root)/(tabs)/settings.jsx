@@ -19,6 +19,7 @@ import useProfile from "@/hooks/useProfile";
 import useWarmSettingsRoutes from "@/hooks/useWarmSettingsRoutes";
 import { getVoiceLanguage } from "@/lib/chatgpt/nutrition";
 import { aiConnection } from "@/lib/ai/mealAI";
+import { connectionValue } from "@/lib/ai/connectionPresentation.mjs";
 import { formatNumber } from "@/lib/insights/stats.mjs";
 import { LOCAL_OWNER } from "@/lib/owner.mjs";
 import { VOICE_LANGUAGES } from "@/lib/voiceLanguagePreferences.mjs";
@@ -102,9 +103,6 @@ export default function SettingsScreen({ calmeraPreview = false }) {
   </View>;
 }
 
-// The one AI connection, named the way its page names it.
-const CONNECTION_NAMES = { chatgpt: "ChatGPT", "openai-key": "OpenAI key", "claude-key": "Claude key" };
-
 // Read on every visit, since these can change on their own pages or outside the app.
 function useLoggingStatus(userId, preview) {
   const [status, setStatus] = useState(preview ? { connection: PREVIEW.connection, language: PREVIEW.language } : { connection: null, language: null });
@@ -117,7 +115,8 @@ function useLoggingStatus(userId, preview) {
       getVoiceLanguage(userId, { signal: controller.signal, isActive: () => active }).catch(() => null),
     ]).then(([connection, language]) => {
       if (!active) return;
-      setStatus({ connection: connection === undefined ? null : CONNECTION_NAMES[connection?.type] || "Not connected",
+      // Named the way its page names it.
+      setStatus({ connection: connectionValue(connection),
         language: VOICE_LANGUAGES.find(({ value }) => value === language)?.label ?? null });
     });
     return () => { active = false; controller.abort(); };

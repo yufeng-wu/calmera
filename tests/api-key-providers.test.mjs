@@ -239,6 +239,8 @@ test("the AI connection is one record: a key is stored masked-on-read, and remov
 test("a ChatGPT sign-in saved before is the connection, and a key replaces it only once saved", async () => {
   const fixture = connectionFixture({ signedIn: true });
   assert.deepEqual(await fixture.store.read(), { type: "chatgpt" });
+  // The one record now names it, so ChatGPT and a key are told apart the same way.
+  assert.deepEqual(JSON.parse(fixture.values.get(connectionStorageKey("local"))), { type: "chatgpt" });
   await assert.rejects(fixture.store.saveKey("anthropic", "sk-ant-short"), /apikey_malformed/);
   assert.equal(fixture.chatgpt.signedIn, true, "a key that can't be saved leaves ChatGPT connected");
   await fixture.store.saveKey("anthropic", KEYS.anthropic);
@@ -251,12 +253,22 @@ test("signing in to ChatGPT replaces a key; disconnecting ChatGPT leaves nothing
   const fixture = connectionFixture();
   await fixture.store.saveKey("openai", KEYS.openai);
   fixture.chatgpt.signedIn = true;           // the ChatGPT sign-in has just been saved...
-  await fixture.store.chatgptConnected();    // ...so the key goes
+  await fixture.store.chatgptConnected();    // ...so the record names it and the key goes
   assert.deepEqual(await fixture.store.read(), { type: "chatgpt" });
-  assert.equal(fixture.values.size, 0);
+  assert.deepEqual([...fixture.values.values()].map(value => JSON.parse(value)), [{ type: "chatgpt" }]);
+  assert.ok(![...fixture.values.values()].join("").includes("FAKE"), "the key is gone");
   await fixture.store.disconnect();
   assert.equal(fixture.chatgpt.signedIn, false);
+  assert.equal(fixture.values.size, 0);
   assert.equal(await fixture.store.read(), null);
+});
+
+test("a record naming ChatGPT without a sign-in behind it is cleared, not trusted", async () => {
+  const fixture = connectionFixture();
+  fixture.values.set(connectionStorageKey("local"), JSON.stringify({ type: "chatgpt" }));
+  assert.equal(await fixture.store.read(), null);
+  assert.equal(fixture.values.size, 0);
+  assert.equal(await fixture.store.credential(), null);
 });
 
 test("a switch that stopped half way is finished, so two credentials never stay", async () => {

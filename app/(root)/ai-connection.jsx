@@ -1,261 +1,173 @@
-import { TYPOGRAPHY } from "@/constants/typography";
-import { useCallback, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Alert, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
-import { FormScreen, FormScrollView, FormHeader, GlassButton, formStyles } from "@/components/GlassForm";
-import SettingsRow from "@/components/SettingsRow";
-import { SettingsSection, SettingsTile, settingsStyles } from "@/components/SettingsSection";
+import { FormScreen, FormScrollView, FormHeader, formStyles } from "@/components/GlassForm";
+import SettingsRow, { SettingsCheck } from "@/components/SettingsRow";
+import { SettingsSection, SettingsTile, settingsStyles, usePressHighlight } from "@/components/SettingsSection";
 import OpenAILogo from "@/components/OpenAILogo";
-import { FORM_COLORS as COLORS } from "@/constants/formTheme";
-import { TINTS } from "@/constants/settingsTheme";
+import { SETTINGS, TINTS } from "@/constants/settingsTheme";
+import { TYPOGRAPHY } from "@/constants/typography";
 import usePageExit from "@/hooks/usePageExit";
 import { LOCAL_OWNER } from "@/lib/owner.mjs";
-import { API_KEY_PROVIDERS, providerFor } from "@/lib/ai/models.mjs";
-import { checkKeyShape, testOutcome } from "@/lib/ai/providers.mjs";
-import { apiKeyIssue } from "@/lib/ai/apiKeyPresentation.mjs";
-import { createConnectionStore } from "@/lib/ai/connection.mjs";
-import { aiConnection, testKey } from "@/lib/ai/mealAI";
-import { createPlanClient } from "@/lib/chatgpt/planClient";
+import { INITIAL_CONNECTION, createConnectionController } from "@/lib/ai/connectionController.mjs";
+import { methodOf } from "@/lib/ai/connectionMethods.mjs";
+import { METHODS, billingLine, checkResult, connectionName, connectionRows, isConnected, privacyLine, searchLine } from "@/lib/ai/connectionPresentation.mjs";
+import { logAfterConnect, takeConnectOutcome } from "@/lib/ai/connectHandoff.mjs";
+import { connectionServices } from "@/lib/ai/connectionServices";
+import { usageValue } from "@/lib/ai/usage.mjs";
+import { previewConnectionServices } from "@/lib/ai/previewConnection.mjs";
 
-// calmera has one AI connection at a time, chosen from three equals.
-const CHOICES = [
-  { type: "chatgpt", title: "ChatGPT", subtitle: "Sign in with your ChatGPT plan" },
-  { type: "openai-key", provider: "openai", title: "OpenAI API key", subtitle: `Your own key · ${API_KEY_PROVIDERS.openai.modelName}` },
-  { type: "claude-key", provider: "anthropic", title: "Claude API key", subtitle: `Your own key · ${API_KEY_PROVIDERS.anthropic.modelName}` },
-];
-const NAMES = { chatgpt: "ChatGPT sign-in", "openai-key": "OpenAI key", "claude-key": "Claude key" };
-// Outcomes that prove nothing is wrong with the key itself, so it is saved.
-const KEEP_ON = new Set(["works", "no-credit", "offline", "rate-limited", "busy"]);
+// Long enough for the check to land before the page hands back to what was being logged.
+const RETURN_AFTER_MS = 700;
 
-const Mark = ({ type, size }) => type === "claude-key"
-  ? <SettingsTile icon="sparkles" tint="tangerine" size={size} />
-  : <SettingsTile tint="cocoa" size={size}><OpenAILogo /></SettingsTile>;
-
-// The gallery preview runs on a Keychain in memory and never touches the network.
-function previewServices(state) {
-  const values = new Map(state === "claude-key"
-    ? [["calmera.connection.preview", JSON.stringify({ type: "claude-key", key: "sk-ant-FAKE-preview-key-0000-WXYZ" })]] : []);
-  let signedIn = state === "chatgpt";
-  const store = createConnectionStore({ owner: "preview", secureStore: {
-    getItemAsync: async key => values.get(key) ?? null,
-    setItemAsync: async (key, value) => { values.set(key, value); },
-    deleteItemAsync: async key => { values.delete(key); },
-  }, chatgpt: { connected: async () => signedIn, forget: async () => { signedIn = false; } } });
-  return { store, test: async () => (state === "error" ? "rejected" : "works"), account: async () => ({ email: "you@example.com" }) };
-}
-
-export default function AIConnectionSettings({ calmeraPreview = false, calmeraPreviewState = "none" }) {
+// calmera's one AI connection, as one list: ChatGPT or an API key. Both are connected the same
+// way (tap the row, connect on its page) and, once connected, carry the same card: Model,
+// Check connection, change it, Disconnect. Picking the other row replaces the one in use once
+// the new one works. `then` comes from Today: "voice" opens the voice sheet after connecting.
+export default function AIConnection({ calmeraPreview = false, calmeraPreviewState = "none" }) {
   const router = useRouter();
+  const { then } = useLocalSearchParams();
   const leave = usePageExit(calmeraPreview ? "/ui-gallery" : "/settings");
   const { fontScale } = useWindowDimensions();
-  const services = useMemo(() => calmeraPreview ? previewServices(calmeraPreviewState) : {
-    store: aiConnection(LOCAL_OWNER), test: testKey, account: () => createPlanClient(LOCAL_OWNER).account(),
-  }, [calmeraPreview, calmeraPreviewState]);
-  const errorPreview = calmeraPreview && calmeraPreviewState === "error";
-  const [current, setCurrent] = useState(undefined);
-  const [email, setEmail] = useState(null);
-  const [choosing, setChoosing] = useState(false);
-  const [picked, setPicked] = useState(errorPreview ? "claude-key" : null);
-  const [draft, setDraft] = useState(errorPreview ? "sk-ant-FAKE-not-a-real-key-0000" : "");
-  const [action, setAction] = useState(null);
-  const [result, setResult] = useState(errorPreview ? { outcome: "rejected", provider: "anthropic", saved: false } : null);
-  const generation = useRef(0);
-
-  const load = useCallback(async isCurrent => {
-    const connection = await services.store.read().catch(() => null);
-    if (!isCurrent()) return;
-    setCurrent(connection);
-    if (connection?.type === "chatgpt") {
-      const account = await services.account().catch(() => null);
-      if (isCurrent()) setEmail(account?.email || null);
-    }
-  }, [services]);
-
+  const services = useMemo(() => (calmeraPreview ? previewConnectionServices(calmeraPreviewState, { delay: 500 }) : connectionServices(LOCAL_OWNER)),
+    [calmeraPreview, calmeraPreviewState]);
+  const [state, setState] = useState(INITIAL_CONNECTION);
+  const controller = useMemo(() => createConnectionController(services, { onChange: setState }), [services]);
   useFocusEffect(useCallback(() => {
-    const visit = ++generation.current;
-    load(() => generation.current === visit);
-    return () => { generation.current += 1; };
-  }, [load]));
+    controller.open({ outcome: takeConnectOutcome() });
+    return () => controller.close();
+  }, [controller]));
 
-  // Each step checks it still belongs to this visit before it shows anything.
-  async function run(kind, work) {
-    if (action) return;
-    const visit = generation.current;
-    setAction(kind); setResult(null);
-    try { await work(() => generation.current === visit); }
-    finally { if (generation.current === visit) setAction(null); }
-  }
+  // Opened from Today without a working connection: once there is one, go back to the meal.
+  const connected = isConnected(state);
+  const arrivedWithout = useRef(null);
+  if (state.loaded && arrivedWithout.current === null) arrivedWithout.current = !connected;
+  const returning = Boolean(then) && !calmeraPreview && arrivedWithout.current === true && connected && !state.busy;
+  useEffect(() => {
+    if (!returning) return undefined;
+    const timer = setTimeout(() => {
+      if (then === "voice") logAfterConnect("voice");
+      leave();
+    }, RETURN_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, [returning, then, leave]);
 
-  const pick = choice => {
-    if (action) return;
-    if (choice.type === "chatgpt") { router.push("/chatgpt"); return; }
-    setPicked(choice.type); setResult(null);
-  };
+  // The check landing is the confirmation; a light tap goes with it.
+  const wasConnected = useRef(null);
+  useEffect(() => {
+    if (!state.loaded) return;
+    if (wasConnected.current === false && connected) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    wasConnected.current = connected;
+  }, [connected, state.loaded]);
 
-  const pickedProvider = CHOICES.find(choice => choice.type === picked)?.provider;
-  const saveKey = () => run("save", async isCurrent => {
-    const provider = pickedProvider;
-    let key;
-    try { key = checkKeyShape(provider, draft); } catch (error) {
-      setResult({ outcome: testOutcome(error), provider, saved: false });
-      return;
-    }
-    const outcome = await services.test(provider, key).catch(() => "failed");
-    if (!isCurrent()) return;
-    if (!KEEP_ON.has(outcome)) { setResult({ outcome, provider, saved: false }); return; }
-    try {
-      // Saving it replaces the old connection; the store deletes the old credential after.
-      const saved = await services.store.saveKey(provider, key);
-      if (!isCurrent()) return;
-      setCurrent(saved); setDraft(""); setPicked(null); setChoosing(false); setEmail(null);
-      setResult({ outcome, provider, saved: true });
-    } catch {
-      if (isCurrent()) Alert.alert("Couldn’t save your key", "Your connection hasn’t changed. Try again.");
-      if (isCurrent()) load(isCurrent);
-    }
-  });
-  const save = () => {
-    if (action || !pickedProvider || !draft.trim()) return;
-    if (!current) { saveKey(); return; }
-    const name = providerFor(pickedProvider).name;
-    Alert.alert(`Replace your ${NAMES[current.type]}?`, `calmera uses one AI connection. Your ${NAMES[current.type]} is deleted from this iPhone once the ${name} key works.`, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Replace", onPress: saveKey },
-    ]);
-  };
+  const { current, busy } = state;
+  const using = methodOf(current);
+  const rows = connectionRows(state);
+  const check = checkResult(using, state.check?.outcome, current?.provider);
+  const go = (page, params) => router.push(calmeraPreview
+    ? { pathname: "/ui-gallery", params: { page: page === "/ai-connect" ? `ai-connect-${params.method}` : page.slice(1) } }
+    : { pathname: page, params });
+  const openConnect = (method, mode) => go("/ai-connect", mode ? { method, mode } : { method });
+  const disconnect = () => Alert.alert(`Disconnect ${connectionName(current)}?`, "AI estimates stop until you connect again.", [
+    { text: "Cancel", style: "cancel" },
+    { text: "Disconnect", style: "destructive", onPress: () => controller.disconnect() },
+  ]);
+  const tile = { chatgpt: <SettingsTile tint="cocoa" size={36}><OpenAILogo /></SettingsTile>, key: <SettingsTile icon="key" tint="tangerine" size={36} /> };
 
-  const test = () => run("test", async isCurrent => {
-    const connection = await services.store.credential().catch(() => null);
-    if (!isCurrent()) return;
-    if (!connection?.key) { load(isCurrent); return; }
-    const outcome = await services.test(connection.provider, connection.key).catch(() => "failed");
-    if (isCurrent()) setResult({ outcome, provider: connection.provider, saved: true, tested: true });
-  });
-
-  const disconnect = () => {
-    if (action || !current) return;
-    const name = NAMES[current.type];
-    Alert.alert(current.type === "chatgpt" ? "Disconnect ChatGPT?" : `Remove your ${name}?`,
-      `It is deleted from this iPhone. AI logging stops until you choose a connection again; you can still add meals by hand.`, [
-        { text: "Cancel", style: "cancel" },
-        { text: current.type === "chatgpt" ? "Disconnect" : "Remove", style: "destructive", onPress: () => run("disconnect", async isCurrent => {
-          try {
-            await services.store.disconnect();
-            if (isCurrent()) { setCurrent(null); setEmail(null); setChoosing(false); setPicked(null); }
-          } catch {
-            if (isCurrent()) Alert.alert("Couldn’t disconnect", "Your connection is still here. Try again.");
-          }
-        }) },
-      ]);
-  };
-
-  const busy = Boolean(action);
-  const showChoices = current === null || choosing;
-  const choices = CHOICES.filter(choice => choice.type !== current?.type);
-  const host = (picked && providerFor(pickedProvider)?.host) || (current?.provider && providerFor(current.provider).host)
-    || (current?.type === "chatgpt" && "OpenAI");
   return <FormScreen style={formStyles.screen}>
-    <FormHeader title="AI connection" onBack={choosing && !busy ? () => { setChoosing(false); setPicked(null); setResult(null); } : leave} />
-    <FormScrollView key={`ai-connection-${fontScale}`} keyboardAware contentContainerStyle={settingsStyles.content}
-      keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-      <Text style={settingsStyles.lead}>
-        calmera uses one AI connection to estimate meals from what you say, type or photograph.
-      </Text>
+    <FormHeader title="AI connection" onBack={leave} />
+    <FormScrollView key={`ai-connection-${fontScale}`} contentContainerStyle={settingsStyles.content} showsVerticalScrollIndicator={false}>
+      <Text style={settingsStyles.lead}>One AI estimates your meals from what you say, type or snap.</Text>
       {/* The Keychain answers at once, so nothing stands in for it. */}
-      {current === undefined ? null
-        : showChoices ? <>
-          <SettingsSection label={current ? "Switch to" : "Choose one"} footnote={current
-            ? `Your ${NAMES[current.type]} stays until the new connection works, then it is deleted from this iPhone.` : undefined}>
-            {choices.map((choice, index) => <SettingsRow key={choice.type} title={choice.title} subtitle={choice.subtitle}
-              iconElement={<Mark type={choice.type} />} divider={index > 0} disabled={busy}
-              accessibilityRole={choice.type === "chatgpt" ? "button" : "radio"} selected={picked === choice.type}
-              showAccessory={choice.type === "chatgpt" || picked === choice.type} onPress={() => pick(choice)} />)}
-          </SettingsSection>
-          {pickedProvider && <SettingsSection label={`${providerFor(pickedProvider).name} key`}>
-            <View style={styles.entry}>
-              {/* A secure field makes iOS show its Passwords bar and offer to save the key as a password;
-                  marking it as a one-time code turns both off. */}
-              <TextInput value={draft} onChangeText={value => { setDraft(value); if (result) setResult(null); }}
-                accessibilityLabel={`${providerFor(pickedProvider).name} API key`} placeholder={`Paste your ${providerFor(pickedProvider).name} key`}
-                placeholderTextColor={COLORS.textLight} secureTextEntry autoCapitalize="none" autoCorrect={false} spellCheck={false}
-                autoComplete="off" textContentType="oneTimeCode" editable={!busy} returnKeyType="done" onSubmitEditing={save}
-                style={styles.input} maxLength={512} />
-              <GlassButton title={action === "save" ? "Checking…" : "Save and test"} role="accent" onPress={save}
-                disabled={busy || !draft.trim()} loading={action === "save"} />
-            </View>
-          </SettingsSection>}
-        </> : <>
-          <SettingsSection label="Connected">
-            <View style={styles.header}>
-              <Mark type={current.type} size={40} />
-              <View style={styles.copy} accessible>
-                <Text accessibilityRole="header" style={styles.title}>{current.type === "chatgpt" ? "ChatGPT" : CHOICES.find(choice => choice.type === current.type).title}</Text>
-                <Text style={styles.detail} numberOfLines={1}>{current.type === "chatgpt" ? email || "Signed in on this phone" : current.masked}</Text>
-              </View>
-              {action === "disconnect" && <ActivityIndicator color={COLORS.primary} accessibilityLabel="Disconnecting" />}
-            </View>
-            {current.type === "chatgpt"
-              ? <SettingsRow title="Model and account" icon="sparkles" tint="plum" divider disabled={busy} onPress={() => router.push("/chatgpt")} />
-              : <>
-                <SettingsRow title="Model" value={providerFor(current.provider).modelName} icon="sparkles" tint="plum" divider />
-                <View style={styles.actions}>
-                  <GlassButton title={action === "test" ? "Testing…" : "Test key"} symbol="checkmark.circle" onPress={test} disabled={busy} loading={action === "test"} />
-                </View>
-              </>}
-          </SettingsSection>
-          <SettingsSection>
-            <SettingsRow title="Use another connection" icon="swap-horizontal" tint="sky" disabled={busy}
-              onPress={() => { if (!busy) { setChoosing(true); setResult(null); } }} />
-            <SettingsRow title="Disconnect" icon="close" tint="rose" destructive divider showAccessory={false} disabled={busy} onPress={disconnect} />
-          </SettingsSection>
-        </>}
-      {result && <Result result={result} />}
-      {!!host && <View style={styles.privacy}>
-        <Ionicons name="lock-closed-outline" size={14} color={COLORS.textLight} accessible={false} />
-        <Text style={styles.privacyText}>{current?.type === "chatgpt" && !picked
-          ? "Only what you log goes to OpenAI. Your ChatGPT sign-in stays on this phone."
-          : `Your key stays in this iPhone’s Keychain. calmera sends it only to ${host}, straight from your phone.`}</Text>
-      </View>}
+      {current !== undefined && <>
+        <SettingsSection footnote={state.notice && <View style={styles.notice} accessibilityRole="alert" accessibilityLiveRegion="polite">
+          <Ionicons name={state.notice.tone === "good" ? "checkmark-circle" : "alert-circle"} size={16} accessible={false}
+            color={state.notice.tone === "good" ? TINTS.leaf.icon : SETTINGS.danger} />
+          <Text style={[styles.noticeText, state.notice.tone === "good" ? styles.good : styles.bad]}>{state.notice.text}</Text>
+        </View>}>
+          <View accessibilityRole="radiogroup">
+            {["chatgpt", "key"].map((id, index) => <Choice key={id} {...rows[id]} divider={index > 0} disabled={Boolean(busy)} tile={tile[id]}
+              onPress={rows[id].state === "current" ? undefined : () => openConnect(id)} />)}
+          </View>
+        </SettingsSection>
+
+        {/* How estimates are made, the same two settings for every connection. */}
+        {using && <SettingsSection label="Estimates" footnote={searchLine(current, { on: state.search, searchable: state.searchable })}>
+          <SettingsRow title="Model" value={state.model || undefined} disabled={Boolean(busy)} onPress={() => go("/ai-model")} />
+          <SettingsRow title="Online search" divider toggle={state.search && state.searchable} disabled={Boolean(busy) || !state.searchable}
+            onToggle={on => controller.setSearch(on)} />
+        </SettingsSection>}
+
+        {/* The same card for either way of connecting. */}
+        {using && <SettingsSection footnote={check?.message
+          ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={settingsStyles.problem}>{check.message}</Text>
+          : billingLine(current)}>
+          <SettingsRow title="Check connection" value={check?.title} tone={check ? (check.ok ? "good" : "bad") : undefined}
+            showAccessory={false} loading={busy === "check"} disabled={Boolean(busy)} onPress={() => controller.check()} />
+          <SettingsRow title={METHODS[using].change} divider disabled={Boolean(busy)} onPress={() => openConnect(using, "change")} />
+          <SettingsRow title="Disconnect" destructive divider showAccessory={false} loading={busy === "disconnect"} disabled={Boolean(busy)}
+            onPress={disconnect} />
+        </SettingsSection>}
+
+        {/* Whatever the connection, and even with none: what the last week of requests used. */}
+        {state.usage && <SettingsSection label="Usage">
+          <SettingsRow title="Last 7 days" value={usageValue(state.usage)} onPress={() => go("/ai-usage")} />
+        </SettingsSection>}
+
+        <View style={styles.privacy}>
+          <Ionicons name="lock-closed-outline" size={14} color={SETTINGS.inkSoft} accessible={false} />
+          <Text style={styles.privacyText}>{privacyLine(current)}</Text>
+        </View>
+      </>}
     </FormScrollView>
   </FormScreen>;
 }
 
-// What a save or test found, in a sentence: green when the key works, red when it doesn't.
-function Result({ result }) {
-  const provider = providerFor(result.provider);
-  if (result.outcome === "works") return <View style={styles.result} accessibilityRole="alert" accessibilityLiveRegion="polite">
-    <Ionicons name="checkmark-circle" size={18} color={TINTS.leaf.icon} accessible={false} />
-    <Text style={[styles.resultText, styles.works]}>
-      {result.tested ? `Works. Meals use ${provider.modelName}.` : `Connected. Meals now use ${provider.modelName}.`}
-    </Text>
-  </View>;
-  const issue = apiKeyIssue(result.outcome, result.provider) || apiKeyIssue("failed", result.provider);
-  return <View style={styles.result} accessibilityRole="alert" accessibilityLiveRegion="polite">
-    <Ionicons name="alert-circle" size={18} color={COLORS.expense} accessible={false} />
-    <Text style={[styles.resultText, styles.problem]}>
-      <Text style={styles.resultTitle}>{issue.title}. </Text>
-      {issue.message}{result.saved && !result.tested ? " Your key is saved." : result.saved ? "" : " Nothing was changed."}
-    </Text>
-  </View>;
+// One of the two ways to connect. The one in use is checked; the other leads to its connect
+// page, so it keeps its chevron. An email or key never wraps: it is cut in the middle.
+function Choice({ title, detail, state, tile, onPress, disabled = false, divider = false }) {
+  const { pressProps, highlight } = usePressHighlight();
+  const stacked = useWindowDimensions().fontScale > 1.3;
+  const current = state === "current", attention = state === "attention";
+  // A check that was there when the page opened just shows; one that has just been earned pops in.
+  const earned = useRef(false);
+  if (!current) earned.current = true;
+  return <Pressable accessibilityRole="radio" accessibilityLabel={title} accessibilityValue={{ text: detail }}
+    accessibilityState={{ checked: current, disabled: disabled || !onPress }}
+    disabled={disabled || !onPress} onPress={onPress} {...pressProps} style={styles.choice}>
+    {highlight}
+    {divider && <View style={styles.choiceDivider} />}
+    {tile}
+    <View style={styles.choiceCopy}>
+      <Text style={styles.choiceTitle}>{title}</Text>
+      <Text numberOfLines={stacked ? undefined : 1} ellipsizeMode="middle" style={[styles.choiceDetail, attention && styles.bad]}>{detail}</Text>
+    </View>
+    {current ? <Landing pop={earned.current} />
+      : attention ? <Ionicons name="alert-circle" size={20} color={SETTINGS.danger} accessible={false} />
+        : <Ionicons name="chevron-forward" size={16} color={SETTINGS.chevron} accessible={false} />}
+  </Pressable>;
+}
+
+// SettingsCheck springs when it turns selected, so a pop mounts it unselected and selects it at once.
+function Landing({ pop }) {
+  const [selected, setSelected] = useState(!pop);
+  useEffect(() => { setSelected(true); }, []);
+  return <SettingsCheck selected={selected} />;
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: "row", alignItems: "center", gap: 12, padding: 16 },
-  copy: { flex: 1, gap: 2 },
-  title: { ...TYPOGRAPHY.sectionTitle, color: COLORS.text },
-  detail: { ...TYPOGRAPHY.caption, color: COLORS.textLight, fontVariant: ["tabular-nums"], letterSpacing: 0.5 },
-  actions: { paddingHorizontal: 16, paddingBottom: 16, paddingTop: 4 },
-  entry: { padding: 16, gap: 12 },
-  // No lineHeight: on iOS it pushes a one-line field's text off its centre.
-  input: { fontSize: TYPOGRAPHY.input.fontSize, fontWeight: TYPOGRAPHY.input.fontWeight, color: COLORS.text, height: 48,
-    paddingHorizontal: 14, borderRadius: 14, backgroundColor: COLORS.track, borderWidth: 0.5, borderColor: "#E4D6CA" },
-  result: { flexDirection: "row", alignItems: "flex-start", gap: 8, paddingHorizontal: 4, marginTop: -8 },
-  resultText: { ...TYPOGRAPHY.caption, flex: 1 },
-  resultTitle: { ...TYPOGRAPHY.captionMedium },
-  works: { color: TINTS.leaf.icon },
-  problem: { color: COLORS.expense },
+  choice: { minHeight: 68, paddingVertical: 14, paddingHorizontal: SETTINGS.rowPadding, gap: 14, flexDirection: "row", alignItems: "center" },
+  choiceDivider: { position: "absolute", top: 0, right: 0, left: SETTINGS.rowPadding + 36 + 14, height: StyleSheet.hairlineWidth, backgroundColor: SETTINGS.hairline },
+  choiceCopy: { flex: 1, gap: 2 },
+  choiceTitle: { ...TYPOGRAPHY.sectionTitle, color: SETTINGS.ink },
+  choiceDetail: { ...TYPOGRAPHY.caption, color: SETTINGS.inkSoft, fontVariant: ["tabular-nums"] },
+  notice: { flexDirection: "row", alignItems: "flex-start", gap: 6, marginHorizontal: 4 },
+  noticeText: { ...TYPOGRAPHY.caption, flex: 1 },
+  good: { color: TINTS.leaf.icon },
+  bad: { color: SETTINGS.danger },
   privacy: { flexDirection: "row", alignItems: "flex-start", gap: 8, paddingHorizontal: 4 },
-  privacyText: { ...TYPOGRAPHY.caption, color: COLORS.textLight, flex: 1 },
+  privacyText: { ...TYPOGRAPHY.caption, color: SETTINGS.inkSoft, flex: 1 },
 });

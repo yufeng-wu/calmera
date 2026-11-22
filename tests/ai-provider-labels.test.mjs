@@ -13,5 +13,8 @@ test("the voice chip never says ChatGPT for a key, and never repeats the name", 
   assert.equal(modelChipLabel("chatgpt", "GPT-6.1 Sol"), "ChatGPT · GPT-6.1 Sol");
   assert.equal(modelChipLabel("openai-key", "GPT-6 Luna"), "OpenAI · GPT-6 Luna");
   assert.equal(modelChipLabel("claude-key", "Claude Haiku 5.5"), "Claude Haiku 5.5");
+  // Model names now leave out the maker, so the chip says whose it is.
+  assert.equal(modelChipLabel("claude-key", "Haiku 5.5"), "Claude · Haiku 5.5");
+  assert.equal(modelChipLabel("chatgpt", "Sol 6.2"), "ChatGPT · Sol 6.2");
   assert.equal(modelChipLabel("claude-key", null), "Claude");
 });
