@@ -52,12 +52,26 @@ Export always writes one JSON file with everything (`exportJson` in
 
 Signing in to ChatGPT and pasting an API key are two ways of doing one thing, so they share
 every step. `app/(root)/ai-connection.jsx` lists both as rows that never move; the one in use
-carries the check and the same card for either (Model, Check connection, Change account or
-Replace key, Disconnect). Tapping a row opens `ai-connect.jsx?method=chatgpt|key`, one page for
-both: what you connect with (the ChatGPT account box or the key field), one line under it (a
-hint, whose key it is, or what went wrong), one button (Connect, Switch to…, Replace key), and a
-note that the old connection stays until the new one works. A switch is said once afterwards in
-green; there is no warning before. Disconnect is the only alert. Underneath, one record names the
-connection (`lib/ai/connection.mjs`), one controller runs connect, check and disconnect for both
-(`lib/ai/connectionController.mjs`), and both report in one set of outcome words
-(`lib/ai/connectionMethods.mjs`) that `lib/ai/connectionPresentation.mjs` turns into sentences.
+carries the check. Under it, for either:
+
+- **Estimates:** Model (opens `ai-model.jsx`: the provider's live list, the recommended model
+  first and already chosen, the rest newest first in plain words, search on long lists) and
+  Online search (one switch, on by default; the note says what it does and costs).
+- **The connection:** Check connection, Change account or Replace key, Disconnect, and who is
+  billed.
+- **Usage:** Last 7 days, whatever is connected (opens `ai-usage.jsx`: estimated cost, requests,
+  tokens and searches; one bar per day; each company and its models).
+
+Tapping a row opens `ai-connect.jsx?method=chatgpt|key`, one page for both: what you connect
+with (the ChatGPT account box or the key field), one line under it (a hint, whose key it is, or
+what went wrong), one button (Connect, Switch to…, Replace key), and a note that the old
+connection stays until the new one works. A switch is said once afterwards in green; there is
+no warning before. Disconnect is the only alert. Model names leave out the maker (Haiku 5.5,
+Sol 6.2), since the page already says whose they are.
+
+Underneath, one record names the connection (`lib/ai/connection.mjs`), one controller runs
+connect, check, disconnect and Online search for both (`lib/ai/connectionController.mjs`),
+both report in one set of outcome words (`lib/ai/connectionMethods.mjs`) that
+`lib/ai/connectionPresentation.mjs` turns into sentences, model lists come from
+`lib/ai/modelCatalog.mjs`, preferences from `lib/ai/preferences.mjs`, and the usage record and
+its prices from `lib/ai/usage.mjs` and `lib/ai/prices.mjs`.
