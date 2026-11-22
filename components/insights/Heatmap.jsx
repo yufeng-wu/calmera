@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
@@ -44,6 +44,13 @@ export default function Heatmap({ keys, logged, started }) {
   const [available, setAvailable] = useState(0);
   const [scrolledTo, setScrolledTo] = useState(null);
   const columns = Math.min(weeks.length, Math.floor((available + GAP) / PITCH));
+  // Open on the newest whole column, again whenever the width changes until the grid is dragged. Scrolling to the
+  // end once, on the first content size, kept an offset from before the width settled and cut a column off.
+  const dragged = useRef(false);
+  const openOnNewest = useCallback(() => {
+    if (columns > 0 && !dragged.current) scroller.current?.scrollTo({ x: (weeks.length - columns) * PITCH, animated: false });
+  }, [columns, weeks.length]);
+  useEffect(openOnNewest, [openOnNewest]);
   // A month label running off either edge would show clipped, like "un" or "Ju".
   const firstColumn = scrolledTo ?? weeks.length - columns;
   return <View style={styles.wrap} onLayout={(event) => setAvailable(event.nativeEvent.layout.width - LABEL_WIDTH)}>
@@ -51,10 +58,13 @@ export default function Heatmap({ keys, logged, started }) {
       <View style={styles.weekdays}>
         {WEEKDAYS.map((label, index) => <Text key={index} maxFontSizeMultiplier={GRID_TEXT} style={styles.weekday}>{label}</Text>)}
       </View>
-      <ScrollView ref={scroller} horizontal showsHorizontalScrollIndicator={false} style={{ width: columns * PITCH - GAP }}
+      {/* Exactly whole columns wide: a horizontal ScrollView grows to fill the row by default, and those extra
+          points showed part of a column at the left edge on wider phones. */}
+      <ScrollView ref={scroller} horizontal showsHorizontalScrollIndicator={false} style={{ width: columns * PITCH - GAP, flexGrow: 0 }}
         snapToInterval={PITCH} decelerationRate="fast" scrollEventThrottle={16}
+        onScrollBeginDrag={() => { dragged.current = true; }}
         onScroll={(event) => setScrolledTo(Math.round(event.nativeEvent.contentOffset.x / PITCH))}
-        onContentSizeChange={() => scroller.current?.scrollToEnd({ animated: false })}>
+        onContentSizeChange={openOnNewest}>
         <View>
           <View style={[styles.months, { width: weeks.length * PITCH - GAP }]}>
             {weeks.map((week, index) => week.month && index >= firstColumn && index < firstColumn + columns - 1 && <Text key={index} maxFontSizeMultiplier={GRID_TEXT} numberOfLines={1} style={[styles.month, { left: index * PITCH }]}>{week.month}</Text>)}
