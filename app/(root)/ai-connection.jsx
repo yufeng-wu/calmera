@@ -78,7 +78,8 @@ export default function AIConnection({ calmeraPreview = false, calmeraPreviewSta
 
   return <FormScreen style={[formStyles.screen, styles.page]}>
     <FormHeader title="AI connection" onBack={leave} />
-    <FormScrollView key={`ai-connection-${fontScale}`} contentContainerStyle={settingsStyles.content} showsVerticalScrollIndicator={false}>
+    {/* Connecting or disconnecting is a new page: it starts at the top. */}
+    <FormScrollView key={`ai-connection-${fontScale}-${card ? "connected" : "options"}`} contentContainerStyle={settingsStyles.content} showsVerticalScrollIndicator={false}>
       {/* The Keychain answers at once, so nothing stands in for it. What is there on arrival just
           shows; what lands later (the status) fades in. */}
       {current !== undefined && <LayoutAnimationConfig skipEntering>
