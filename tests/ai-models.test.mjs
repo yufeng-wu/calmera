@@ -86,9 +86,15 @@ test("preferences: search is on unless turned off; a key's model is remembered w
   const values = new Map();
   const storage = { getItem: async key => values.get(key) ?? null, setItem: async (key, value) => { values.set(key, value); } };
   const preferences = createAIPreferences({ storage, owner: "local" });
-  assert.deepEqual(await preferences.read(), { search: true, models: { anthropic: null, openai: null } });
+  assert.deepEqual(await preferences.read(), { search: true, models: { anthropic: null, openai: null }, status: null });
   await Promise.all([preferences.setModel("openai", { id: "gpt-6.2-sol", name: "GPT-6.2 Sol", detail: "dropped", effort: true }), preferences.setSearch(false)]);
-  assert.deepEqual(await preferences.read(), { search: false, models: { anthropic: null, openai: { id: "gpt-6.2-sol", name: "GPT-6.2 Sol", effort: true } } });
+  assert.deepEqual(await preferences.read(), { search: false, models: { anthropic: null, openai: { id: "gpt-6.2-sol", name: "GPT-6.2 Sol", effort: true } }, status: null });
+  // The last check's status: an outcome word for a named connection, nothing else.
+  await preferences.setStatus({ of: "claude-key:sk-ant-••••WXYZ", outcome: "works", key: "dropped" });
+  assert.deepEqual((await preferences.read()).status, { of: "claude-key:sk-ant-••••WXYZ", outcome: "works" });
+  assert.equal(normalizePreferences({ status: { of: "chatgpt", outcome: "<script>" } }).status, null);
+  await preferences.setStatus(null);
+  assert.equal((await preferences.read()).status, null);
   assert.deepEqual([...values.keys()], [preferencesKey("local")]);
   assert.equal(preferencesKey("local"), "calmera.ai.v1.local", "a calmera key, so Erase all data removes it");
   await preferences.setModel("openai", null);
