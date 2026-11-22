@@ -54,9 +54,9 @@ Signing in to ChatGPT and pasting an API key are two ways of doing one thing, so
 every step. `app/(root)/ai-connection.jsx` lists both as rows that never move; the one in use
 carries the check. Under it, for either:
 
-- **Estimates:** Model (opens `ai-model.jsx`: the provider's live list, the recommended model
-  first and already chosen, the rest newest first in plain words, search on long lists) and
-  Online search (one switch, on by default; the note says what it does and costs).
+- **Estimates:** Model (opens `ai-model.jsx`: the provider's live list, names only, newest
+  first; no model is singled out, the default is simply the one checked) and Online search (one
+  switch, on by default; the note says what it does and costs).
 - **The connection:** Check connection, Change account or Replace key, Disconnect, and who is
   billed.
 - **Usage:** Last 7 days, whatever is connected (opens `ai-usage.jsx`: estimated cost, requests,
