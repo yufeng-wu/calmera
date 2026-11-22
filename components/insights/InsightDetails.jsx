@@ -11,6 +11,7 @@ import { NUTRIENT_COLORS } from "@/constants/colors";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { useFoodIcons } from "@/context/FoodIconsContext";
 import { formatNearClock, formatNumber, formatRange, goalScale, percentOfGoal } from "@/lib/insights/stats.mjs";
+import { produceEmoji } from "@/lib/insights/produce.mjs";
 
 export const PERIODS = [
   { id: "week", label: "Week", name: "7 days", accessibilityLabel: "Week, past 7 days" },
@@ -237,7 +238,7 @@ export function ProduceDetail({ produce }) {
   const { vegetables, fruits } = produce;
   const kinds = (count, word) => `${formatNumber(count)} ${count === 1 ? "kind" : "kinds"} of ${word}`;
   return <InsightCard
-    answer={vegetables.length || fruits.length ? `${kinds(vegetables.length, "vegetable")} and ${kinds(fruits.length, "fruit")}.` : "No vegetables or fruit spotted yet."}>
+    answer={vegetables.length || fruits.length ? `${kinds(vegetables.length, "vegetable")} and ${kinds(fruits.length, "fruit")}.` : "No vegetables or fruits spotted yet."}>
     <ProduceGroup title="Vegetables" items={vegetables} />
     <ProduceGroup title="Fruits" items={fruits} />
   </InsightCard>;
@@ -250,7 +251,7 @@ function ProduceGroup({ title, items }) {
     <Text accessibilityRole="header" style={styles.nutrientName}>{title}</Text>
     <View style={styles.produceItems}>
       {items.map((item) => <View key={item.id} style={styles.produceItem} accessible accessibilityLabel={`${item.name}, ${plural(item.count, "time")}`}>
-        <Text style={styles.produceIcon}>{iconFor({ foodName: item.name }).emoji}</Text>
+        <Text style={styles.produceIcon}>{produceEmoji(item, iconFor)}</Text>
         <Text style={[styles.foodName, styles.produceName]}>{item.name}</Text>
         <Text style={styles.footnote}>{item.count}×</Text>
       </View>)}
