@@ -14,7 +14,7 @@ import usePageExit from "@/hooks/usePageExit";
 import { LOCAL_OWNER } from "@/lib/owner.mjs";
 import { INITIAL_CONNECTION, createConnectionController } from "@/lib/ai/connectionController.mjs";
 import { methodOf } from "@/lib/ai/connectionMethods.mjs";
-import { METHODS, billingLine, checkResult, connectionName, connectionRows, isConnected, privacyLine } from "@/lib/ai/connectionPresentation.mjs";
+import { METHODS, billingLine, checkResult, connectionName, connectionRows, isConnected, privacyLine, searchLine } from "@/lib/ai/connectionPresentation.mjs";
 import { logAfterConnect, takeConnectOutcome } from "@/lib/ai/connectHandoff.mjs";
 import { connectionServices } from "@/lib/ai/connectionServices";
 import { previewConnectionServices } from "@/lib/ai/previewConnection.mjs";
@@ -93,12 +93,18 @@ export default function AIConnection({ calmeraPreview = false, calmeraPreviewSta
           </View>
         </SettingsSection>
 
+        {/* How estimates are made, the same two settings for every connection. */}
+        {using && <SettingsSection label="Estimates" footnote={searchLine(current, { on: state.search, searchable: state.searchable })}>
+          <SettingsRow title="Model" value={state.model || undefined} disabled={Boolean(busy)} onPress={() => go("/ai-model")} />
+          <SettingsRow title="Look up online" divider toggle={state.search && state.searchable} disabled={Boolean(busy) || !state.searchable}
+            onToggle={on => controller.setSearch(on)} />
+        </SettingsSection>}
+
         {/* The same card for either way of connecting. */}
         {using && <SettingsSection footnote={check?.message
           ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={settingsStyles.problem}>{check.message}</Text>
           : billingLine(current)}>
-          <SettingsRow title="Model" value={state.model || undefined} disabled={Boolean(busy)} onPress={() => go("/ai-model")} />
-          <SettingsRow title="Check connection" value={check?.title} tone={check ? (check.ok ? "good" : "bad") : undefined} divider
+          <SettingsRow title="Check connection" value={check?.title} tone={check ? (check.ok ? "good" : "bad") : undefined}
             showAccessory={false} loading={busy === "check"} disabled={Boolean(busy)} onPress={() => controller.check()} />
           <SettingsRow title={METHODS[using].change} divider disabled={Boolean(busy)} onPress={() => openConnect(using, "change")} />
           <SettingsRow title="Disconnect" destructive divider showAccessory={false} loading={busy === "disconnect"} disabled={Boolean(busy)}

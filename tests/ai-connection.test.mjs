@@ -162,7 +162,7 @@ test("opening reads the one connection and nothing else; a key never reaches the
   assert.deepEqual(none.state, { ...INITIAL_CONNECTION, current: null, loaded: true });
   const key = page("claude-key");
   await key.controller.open();
-  assert.deepEqual([key.state.current, key.state.model], [claude, "Claude Haiku 5.5"]);
+  assert.deepEqual([key.state.current, key.state.model], [claude, "Haiku 5.5"]);
   assert.ok(!JSON.stringify(key.states).includes(PREVIEW_KEY));
   const signedIn = page("chatgpt");
   await signedIn.controller.open();

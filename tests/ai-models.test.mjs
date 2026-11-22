@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { AUTOMATIC, FALLBACK_MODELS, anthropicModels, chatgptModels, keyModels, modelName, openaiModels, selectedName } from "../lib/ai/modelCatalog.mjs";
+import { AUTOMATIC, FALLBACK_MODELS, anthropicModels, chatgptModels, keyModels, modelName, openaiModels, selectedName, shortName } from "../lib/ai/modelCatalog.mjs";
 import { createAIPreferences, normalizePreferences, preferencesKey } from "../lib/ai/preferences.mjs";
 import { createApiKeyCompletion, listModels, mealRequest, modelsRequest, testOutcome } from "../lib/ai/providers.mjs";
 import { apiKeyIssue, loggingIssue } from "../lib/ai/apiKeyPresentation.mjs";
@@ -19,10 +19,13 @@ const caps = ({ images = true, effort = true, search = true } = {}) => ({ image_
 test("names read the way the providers write them", () => {
   assert.deepEqual(["gpt-6-luna", "gpt-6.2-sol", "gpt-6.1-terra", "gpt-5.4-mini", "gpt-5.5-pro", "gpt-4.1-mini-2025-04-14", "chatgpt-4o-latest", "o4-mini"]
     .map(id => modelName("openai", id)),
-  ["GPT-6 Luna", "GPT-6.2 Sol", "GPT-6.1 Terra", "GPT-5.4 mini", "GPT-5.5 pro", "GPT-4.1 mini (2025-04-14)", "ChatGPT-4o latest", "o4-mini"]);
+  ["Luna 6", "Sol 6.2", "Terra 6.1", "GPT-5.4 mini", "GPT-5.5 pro", "GPT-4.1 mini (2025-04-14)", "ChatGPT-4o latest", "o4-mini"]);
   assert.deepEqual(["claude-haiku-5-5", "claude-opus-4-8", "claude-haiku-4-5-20251001", "claude-fable-5"].map(id => modelName("anthropic", id)),
-    ["Claude Haiku 5.5", "Claude Opus 4.8", "Claude Haiku 4.5", "Claude Fable 5"]);
+    ["Haiku 5.5", "Opus 4.8", "Haiku 4.5", "Fable 5"]);
   assert.equal(modelName("anthropic", ""), "");
+  // Names the providers send are shortened the same way: the page already says whose model it is.
+  assert.deepEqual(["Claude Fable 5.2", "Claude Haiku 4.5", "Claude 3.5 Sonnet", "GPT-6.2 Sol", "GPT-6 Luna", "GPT-5.4 mini", " Automatic ", null].map(shortName),
+    ["Fable 5.2", "Haiku 4.5", "Sonnet 3.5", "Sol 6.2", "Luna 6", "GPT-5.4 mini", "Automatic", ""]);
 });
 
 test("Anthropic's list keeps every model that reads photos, newest first, with what each can do", () => {
@@ -35,7 +38,7 @@ test("Anthropic's list keeps every model that reads photos, newest first, with w
     { id: "claude-sonnet-5-5", created_at: "2026-08-01T00:00:00Z" },
   ]);
   assert.deepEqual(listed.map(model => model.id), ["claude-opus-5-5", "claude-haiku-5-5", "claude-sonnet-5-5", "claude-haiku-4-5-20251001"]);
-  assert.deepEqual(listed.find(model => model.id === "claude-haiku-4-5-20251001"), { id: "claude-haiku-4-5-20251001", name: "Claude Haiku 4.5",
+  assert.deepEqual(listed.find(model => model.id === "claude-haiku-4-5-20251001"), { id: "claude-haiku-4-5-20251001", name: "Haiku 4.5",
     created: Date.parse("2025-10-01T00:00:00Z"), effort: false, search: true });
   assert.equal(listed.find(model => model.id === "claude-sonnet-5-5").effort, undefined, "no capabilities reported: nothing assumed");
   assert.deepEqual(anthropicModels(null), []);
@@ -62,7 +65,7 @@ test("a key's list: the recommended model first, then newest first, with plain w
     ["claude-opus-4-8", "Earlier version"],
   ]);
   assert.deepEqual([catalog.recommended, catalog.selected, catalog.fromFallback], ["claude-haiku-5-5", "claude-haiku-5-5", false]);
-  assert.equal(selectedName(catalog), "Claude Haiku 5.5");
+  assert.equal(selectedName(catalog), "Haiku 5.5");
   // A saved choice is shown even when the list can't be fetched, and stays chosen.
   const offline = keyModels("openai", null, { id: "gpt-6.2-astra", name: "GPT-6.2 Astra" });
   assert.deepEqual([offline.fromFallback, offline.selected, offline.models[0].id], [true, "gpt-6.2-astra", "gpt-6-luna"]);
@@ -75,7 +78,7 @@ test("a key's list: the recommended model first, then newest first, with plain w
 
 test("ChatGPT's list has the same shape, with Automatic recommended", () => {
   const catalog = chatgptModels({ choices: [{ slug: "gpt-6.2-sol", display_name: "GPT-6.2 Sol" }, { slug: "gpt-6-luna" }], preferred: "gpt-6-luna" });
-  assert.deepEqual(catalog.models.map(model => [model.id, model.name]), [[AUTOMATIC, "Automatic"], ["gpt-6.2-sol", "GPT-6.2 Sol"], ["gpt-6-luna", "GPT-6 Luna"]]);
+  assert.deepEqual(catalog.models.map(model => [model.id, model.name]), [[AUTOMATIC, "Automatic"], ["gpt-6.2-sol", "Sol 6.2"], ["gpt-6-luna", "Luna 6"]]);
   assert.deepEqual([catalog.provider, catalog.recommended, catalog.selected], ["chatgpt", AUTOMATIC, "gpt-6-luna"]);
   assert.equal(chatgptModels({ choices: [{ slug: "gpt-6-luna" }], preferred: "retired" }).selected, AUTOMATIC);
   assert.equal(chatgptModels({ choices: [], preferred: "kept", issue: { kind: "temporary" } }).selected, "kept");
@@ -130,15 +133,15 @@ test("a model that can't read photos says so, and the fix is the recommended mod
   assert.match(loggingIssue(error).message, /^GPT-5\.4 mini can’t read photos/);
   const problem = loggingProblem(error);
   assert.deepEqual([problem.title, problem.action, problem.actionLabel, problem.provider, problem.recommended],
-    ["Can’t read photos", "model", "Use Recommended", "openai", "GPT-6 Luna"]);
+    ["Can’t read photos", "model", "Use Recommended", "openai", "Luna 6"]);
   // The same fix from the voice sheet: it opens no page, so it stays a button.
   assert.equal(loggingProblem(error, { inSheet: true }).action, "model");
   const unavailable = loggingProblem(Object.assign(new Error("apikey_model_unavailable"), { provider: "anthropic", model: "claude-opus-4-1" }));
-  assert.deepEqual([unavailable.action, unavailable.recommended], ["model", "Claude Haiku 5.5"]);
-  assert.match(unavailable.message, /can’t use Claude Opus 4\.1/);
+  assert.deepEqual([unavailable.action, unavailable.recommended], ["model", "Haiku 5.5"]);
+  assert.match(unavailable.message, /can’t use Opus 4\.1/);
   assert.equal(problemFor("key", "no-images", "openai", "GPT-5.4 mini").fix, "model");
   assert.equal(problemFor("chatgpt", "not-allowed").fix, null, "ChatGPT's plan access isn't a model choice");
-  assert.match(apiKeyIssue("not-allowed", "anthropic").message, /can’t use Claude Haiku 5\.5/);
+  assert.match(apiKeyIssue("not-allowed", "anthropic").message, /can’t use Haiku 5\.5/);
 });
 
 test("model lists are fetched with the key's own headers, from the provider only", async () => {

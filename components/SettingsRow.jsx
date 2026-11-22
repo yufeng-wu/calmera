@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, View, useWindowDimensions } from "react-native";
 import Animated, { FadeIn, LayoutAnimationConfig, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { SettingsTile, usePressHighlight } from "@/components/SettingsSection";
@@ -11,10 +11,13 @@ import { useMotionPreference } from "@/hooks/useMotionPreference";
 // a radio row shows a check that pops in when chosen. The divider starts at the title.
 // With large text the value moves under the title, so neither has to break mid-word.
 // tone colors the value when it reports a result ("good" or "bad"); accessory replaces the chevron,
-// for a row that leaves the app.
-export default function SettingsRow({ title, subtitle, value, icon, tint, iconElement, onPress, selected = false,
+// for a row that leaves the app. With onToggle the row is a switch: tapping anywhere on it flips it.
+export default function SettingsRow({ title, subtitle, value, icon, tint, iconElement, onPress: press, selected = false,
   destructive = false, disabled = false, divider = false, showAccessory = true, loading = false, centered = false,
-  accessibilityRole = "button", accessibilityValue, accessibilityHint, tone, accessory }) {
+  accessibilityRole = "button", accessibilityValue, accessibilityHint, tone, accessory, toggle, onToggle }) {
+  const switched = typeof onToggle === "function";
+  const onPress = switched ? () => onToggle(!toggle) : press;
+  if (switched) accessibilityRole = "switch";
   const interactive = typeof onPress === "function";
   const radio = accessibilityRole === "radio";
   const tiled = Boolean(icon || iconElement);
@@ -31,7 +34,7 @@ export default function SettingsRow({ title, subtitle, value, icon, tint, iconEl
   return <Row accessible accessibilityRole={interactive ? accessibilityRole : "text"}
     accessibilityLabel={[title, subtitle].filter(Boolean).join(". ")}
     accessibilityValue={spoken} accessibilityHint={accessibilityHint}
-    accessibilityState={interactive ? { disabled, busy: loading, ...(radio ? { checked: selected } : {}) } : undefined}
+    accessibilityState={interactive ? { disabled, busy: loading, ...(radio ? { checked: selected } : {}), ...(switched ? { checked: Boolean(toggle) } : {}) } : undefined}
     {...(interactive ? { disabled, onPress, ...pressProps } : {})}
     style={rowStyles}>
     {interactive && highlight}
@@ -44,6 +47,8 @@ export default function SettingsRow({ title, subtitle, value, icon, tint, iconEl
     </View>
     {!stacked && shownValue}
     {loading ? <ActivityIndicator color={SETTINGS.accent} />
+      : switched ? <Switch value={Boolean(toggle)} onValueChange={onToggle} disabled={disabled} accessible={false}
+        trackColor={{ true: SETTINGS.accent }} ios_backgroundColor={SETTINGS.hairline} />
       : radio ? <SettingsCheck selected={selected} />
         : interactive && showAccessory && (accessory || <Ionicons name="chevron-forward" size={16} color={SETTINGS.chevron} />)}
   </Row>;
