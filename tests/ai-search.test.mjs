@@ -117,11 +117,10 @@ test("ChatGPT's stream reads the final answer and reports tokens and searches wh
   assert.deepEqual(result.usage, { input: 1200, output: 300, cached: 100, searches: 1 });
 });
 
-test("one switch, the same for every connection, with what it costs", async () => {
+test("one switch, the same for every connection, with no prices", async () => {
   const claude = { type: "claude-key", provider: "anthropic", masked: "sk-ant-••••WXYZ" };
-  assert.equal(searchLine(claude), "When you name a restaurant or brand, Anthropic can look it up on the web. Each search costs about 1¢.");
-  assert.equal(searchLine({ type: "chatgpt" }), "When you name a restaurant or brand, ChatGPT can look it up on the web. It counts toward your plan.");
-  assert.equal(searchLine(claude, { on: false }), "Anthropic estimates from what it already knows.");
+  assert.equal(searchLine(claude), "Looks up restaurants and brands you mention.");
+  assert.equal(searchLine({ type: "chatgpt" }), "Looks up restaurants and brands you mention. Searches count toward your plan.");
   assert.match(searchLine(claude, { searchable: false }), /can’t search the web/);
   assert.equal(searchLine(null), null);
   for (const state of ["chatgpt", "claude-key"]) {
@@ -137,5 +136,5 @@ test("one switch, the same for every connection, with what it costs", async () =
   const failing = createConnectionController({ ...previewConnectionServices("claude-key"), setSearch: async () => { throw new Error("disk"); } });
   await failing.open();
   await failing.setSearch(false);
-  assert.deepEqual([failing.state.search, failing.state.notice.tone], [true, "bad"], "put back when it can't be saved");
+  assert.deepEqual([failing.state.search, failing.state.notice.at], [true, "search"], "put back when it can't be saved");
 });
