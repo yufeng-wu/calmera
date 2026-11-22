@@ -17,6 +17,7 @@ import { methodOf } from "@/lib/ai/connectionMethods.mjs";
 import { METHODS, billingLine, checkResult, connectionName, connectionRows, isConnected, privacyLine, searchLine } from "@/lib/ai/connectionPresentation.mjs";
 import { logAfterConnect, takeConnectOutcome } from "@/lib/ai/connectHandoff.mjs";
 import { connectionServices } from "@/lib/ai/connectionServices";
+import { usageValue } from "@/lib/ai/usage.mjs";
 import { previewConnectionServices } from "@/lib/ai/previewConnection.mjs";
 
 // Long enough for the check to land before the page hands back to what was being logged.
@@ -96,7 +97,7 @@ export default function AIConnection({ calmeraPreview = false, calmeraPreviewSta
         {/* How estimates are made, the same two settings for every connection. */}
         {using && <SettingsSection label="Estimates" footnote={searchLine(current, { on: state.search, searchable: state.searchable })}>
           <SettingsRow title="Model" value={state.model || undefined} disabled={Boolean(busy)} onPress={() => go("/ai-model")} />
-          <SettingsRow title="Look up online" divider toggle={state.search && state.searchable} disabled={Boolean(busy) || !state.searchable}
+          <SettingsRow title="Online search" divider toggle={state.search && state.searchable} disabled={Boolean(busy) || !state.searchable}
             onToggle={on => controller.setSearch(on)} />
         </SettingsSection>}
 
@@ -109,6 +110,11 @@ export default function AIConnection({ calmeraPreview = false, calmeraPreviewSta
           <SettingsRow title={METHODS[using].change} divider disabled={Boolean(busy)} onPress={() => openConnect(using, "change")} />
           <SettingsRow title="Disconnect" destructive divider showAccessory={false} loading={busy === "disconnect"} disabled={Boolean(busy)}
             onPress={disconnect} />
+        </SettingsSection>}
+
+        {/* Whatever the connection, and even with none: what the last week of requests used. */}
+        {state.usage && <SettingsSection label="Usage">
+          <SettingsRow title="Last 7 days" value={usageValue(state.usage)} onPress={() => go("/ai-usage")} />
         </SettingsSection>}
 
         <View style={styles.privacy}>

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { formOwnsTopInset } from "../lib/headerLayout.mjs";
 
 test("adopted iOS26 forms own the safe area without shifting ordinary tabs", () => {
-  for (const path of ["/create", "/update-goals", "/photo-log", "/ai-connection", "/ai-connect", "/ai-model", "/voice-language", "/theme", "/goals-survey", "/export-data", "/erase-data", "/privacy", "/insights/typical", "/edit/synthetic-id", "/motion-check"]) {
+  for (const path of ["/create", "/update-goals", "/photo-log", "/ai-connection", "/ai-connect", "/ai-model", "/ai-usage", "/voice-language", "/theme", "/goals-survey", "/export-data", "/erase-data", "/privacy", "/insights/typical", "/edit/synthetic-id", "/motion-check"]) {
     assert.equal(formOwnsTopInset(path, undefined, "ios", "26.0"), true, path);
   }
   for (const path of ["/dashboard", "/settings", "/ui-gallery", "/background-compare", "/unknown"]) {

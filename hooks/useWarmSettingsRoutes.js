@@ -9,6 +9,7 @@ const pages = [
   () => import("@/app/(root)/ai-connection"),
   () => import("@/app/(root)/ai-connect"),
   () => import("@/app/(root)/ai-model"),
+  () => import("@/app/(root)/ai-usage"),
   () => import("@/app/(root)/export-data"),
   () => import("@/app/(root)/erase-data"),
   () => import("@/app/(root)/privacy"),

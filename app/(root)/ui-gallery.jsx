@@ -12,6 +12,7 @@ import TodayCalendarPreview from "@/components/TodayCalendarPreview";
 import AIConnection from "@/app/(root)/ai-connection";
 import AIConnect from "@/app/(root)/ai-connect";
 import AIModel from "@/app/(root)/ai-model";
+import AIUsage from "@/app/(root)/ai-usage";
 import VoiceLanguage from "@/app/(root)/voice-language";
 import ThemeSettings from "@/app/(root)/theme";
 import Survey from "@/app/(root)/goals-survey";
@@ -55,6 +56,8 @@ const screens = [
   { id: "ai-model", title: "ChatGPT model", Component: AIModel, state: "chatgpt" },
   { id: "ai-model-key", title: "Claude key model", Component: AIModel, state: "claude-key" },
   { id: "ai-model-error", title: "ChatGPT model recovery", Component: AIModel, state: "catalog-error" },
+  { id: "ai-usage", title: "AI usage, last 7 days", Component: AIUsage, state: "sample" },
+  { id: "ai-usage-empty", title: "AI usage, nothing yet", Component: AIUsage, state: "empty" },
   { id: "voice-language", title: "Voice language", Component: VoiceLanguage },
   { id: "voice-language-load-error", title: "Voice language load recovery", Component: VoiceLanguage, state: "load-error" },
   { id: "voice-language-save-error", title: "Voice language save recovery", Component: VoiceLanguage, state: "save-error" },

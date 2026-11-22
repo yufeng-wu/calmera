@@ -66,7 +66,7 @@ export default function EraseData({ calmeraPreview = false, calmeraPreviewStage 
       <SettingsSection label="What’s erased" footnote="Copies in iCloud backups follow your backup settings.">
         <SettingsRow title="Meals you’ve logged" icon="restaurant" tint="leaf" />
         <SettingsRow title="Goals" icon="flag" tint="sky" divider />
-        <SettingsRow title="Settings" subtitle="Theme, voice language and food icons" icon="options" tint="plum" divider />
+        <SettingsRow title="Settings" subtitle="Theme, voice language, food icons and AI usage" icon="options" tint="plum" divider />
         <SettingsRow title="AI connection" subtitle="Your ChatGPT sign-in or API key" icon="link" tint="plum" divider />
       </SettingsSection>
       <SettingsSection label="Before you go" footnote="Keep a copy of your meals and goals first, if you’d like one.">

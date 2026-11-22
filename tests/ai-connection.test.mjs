@@ -5,6 +5,7 @@ import { chatgptOutcome, connectChatGPT, connectKey, issueOutcome, keepsKey, met
 import { METHODS, billingLine, checkResult, connectTitle, connectionName, connectionRows, connectionValue, isConnected, keepsUntil,
   methodPrivacy, modelValue, privacyLine, problemFor, readKeyDraft, switchNotice } from "../lib/ai/connectionPresentation.mjs";
 import { INITIAL_CONNECTION, createConnectionController } from "../lib/ai/connectionController.mjs";
+import { summarizeUsage } from "../lib/ai/usage.mjs";
 import { PREVIEW_KEY, previewConnectionServices } from "../lib/ai/previewConnection.mjs";
 import { leaveConnectOutcome, logAfterConnect, takeConnectOutcome, takeLogAfterConnect } from "../lib/ai/connectHandoff.mjs";
 import { loggingProblem } from "../lib/ai/loggingProblem.mjs";
@@ -159,7 +160,7 @@ test("opening reads the one connection and nothing else; a key never reaches the
   const none = page("none");
   assert.equal(none.state, INITIAL_CONNECTION);
   await none.controller.open();
-  assert.deepEqual(none.state, { ...INITIAL_CONNECTION, current: null, loaded: true });
+  assert.deepEqual(none.state, { ...INITIAL_CONNECTION, current: null, loaded: true, usage: summarizeUsage([]) });
   const key = page("claude-key");
   await key.controller.open();
   assert.deepEqual([key.state.current, key.state.model], [claude, "Haiku 5.5"]);
