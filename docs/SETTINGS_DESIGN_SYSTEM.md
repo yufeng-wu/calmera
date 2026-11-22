@@ -51,23 +51,37 @@ Export always writes one JSON file with everything (`exportJson` in
 ## AI connection
 
 Signing in to ChatGPT and pasting an API key are two ways of doing one thing, so they share
-every step. `app/(root)/ai-connection.jsx` lists both as rows that never move; the one in use
-carries the check. Under it, for either:
+every step. The Settings row's value says which is in use: Not connected, ChatGPT, OpenAI key
+or Anthropic key. Keys go by their company (OpenAI, Anthropic), signing in by the product
+(ChatGPT), and models by their name alone.
+
+With nothing connected, `app/(root)/ai-connection.jsx` shows "Choose one" and two cards of the
+same size with "or" between: Your ChatGPT account (Opens OpenAI to sign in, then comes back
+here; a filled **Sign in with ChatGPT** that starts OpenAI's sign-in at once) and An API key
+(OpenAI or Anthropic; an outlined **Paste a key** that opens the key page). A sign-in that
+fails says so in red in its card's line. No intro and no recommendation; the privacy line sits
+under both. Today's first voice, text or photo tap opens this same page and goes back to the
+meal once connected.
+
+Once connected, the one in use is a card of its own (its name, who or which key, a green
+check and Connected; red with "Tap to …" when it needs connecting again), and the other way
+folds into one row under it: Switch to an API key, or Switch to ChatGPT. Then, for either:
 
 - **Estimates:** Model (opens `ai-model.jsx`: the provider's live list, names only, newest
   first; no model is singled out, the default is simply the one checked) and Online search (one
   switch, on by default; the note says what it does and costs).
 - **The connection:** Check connection, Change account or Replace key, Disconnect, and who is
   billed.
-- **Usage:** Last 7 days, whatever is connected (opens `ai-usage.jsx`: estimated cost, requests,
-  tokens and searches; one bar per day; each company and its models).
+- **Usage:** Last 7 days (opens `ai-usage.jsx`: estimated cost, requests, tokens and searches;
+  one bar per day; each company and its models). With nothing connected it shows only if the
+  last 7 days had requests.
 
-Tapping a row opens `ai-connect.jsx?method=chatgpt|key`, one page for both: what you connect
-with (the ChatGPT account box or the key field), one line under it (a hint, whose key it is, or
-what went wrong), one button (Connect, Switch to…, Replace key), and a note that the old
-connection stays until the new one works. A switch is said once afterwards in green; there is
-no warning before. Disconnect is the only alert. Model names leave out the maker (Haiku 5.5,
-Sol 6.2), since the page already says whose they are.
+Paste a key, a switch, Change account and Replace key open `ai-connect.jsx?method=chatgpt|key`,
+one page for both: what you connect with (the ChatGPT account box or the key field), one line
+under it (a hint, whose key it is, or what went wrong), one button (Connect, Switch to…,
+Replace key), and a note that the old connection stays until the new one works. A switch is
+said once afterwards in green; there is no warning before. Disconnect is the only alert. Model
+names leave out the maker (Haiku 5.5, Sol 6.2), since the page already says whose they are.
 
 Underneath, one record names the connection (`lib/ai/connection.mjs`), one controller runs
 connect, check, disconnect and Online search for both (`lib/ai/connectionController.mjs`),

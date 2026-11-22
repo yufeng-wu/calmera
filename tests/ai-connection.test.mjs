@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { keyProvider } from "../lib/ai/providers.mjs";
 import { chatgptOutcome, connectChatGPT, connectKey, issueOutcome, keepsKey, methodOf } from "../lib/ai/connectionMethods.mjs";
-import { METHODS, billingLine, checkResult, connectTitle, connectionName, connectionRows, connectionValue, isConnected, keepsUntil,
+import { METHODS, billingLine, checkResult, connectTitle, connectionCard, connectionName, connectionValue, isConnected, keepsUntil,
   methodPrivacy, modelValue, privacyLine, problemFor, readKeyDraft, switchNotice } from "../lib/ai/connectionPresentation.mjs";
 import { INITIAL_CONNECTION, createConnectionController } from "../lib/ai/connectionController.mjs";
 import { summarizeUsage } from "../lib/ai/usage.mjs";
@@ -85,21 +85,26 @@ test("one name for each connection and each problem, wherever it is shown", () =
   assert.equal(problemFor("key", "rejected", "anthropic").message.split(" ")[0], "Anthropic");
 });
 
-test("the two rows keep their place; only the detail and the mark change, the same way for both", () => {
-  const none = connectionRows({ current: null });
-  assert.deepEqual(none, {
-    chatgpt: { id: "chatgpt", title: "ChatGPT", detail: "Sign in with your account", state: "available" },
-    key: { id: "key", title: "API key", detail: "OpenAI or Anthropic", state: "available" },
-  });
-  const signedIn = connectionRows({ current: chatgpt, account: "you@example.com" });
-  assert.deepEqual([signedIn.chatgpt.detail, signedIn.chatgpt.state, signedIn.key.state], ["you@example.com", "current", "available"]);
-  const key = connectionRows({ current: claude });
-  assert.deepEqual([key.key.title, key.key.detail, key.key.state, key.chatgpt.state], ["API key", "Anthropic · sk-ant-••••WXYZ", "current", "available"]);
+test("two cards with nothing connected; once connected, one card for the one in use and a row for the other", () => {
+  // Both ways are offered the same way: a title, one line and a button. Keys go by their
+  // company, signing in by the product.
+  assert.deepEqual(["chatgpt", "key"].map(id => [METHODS[id].account, METHODS[id].offer, METHODS[id].start]), [
+    ["Your ChatGPT account", "Opens OpenAI to sign in, then comes back here.", "Sign in with ChatGPT"],
+    ["An API key", "OpenAI or Anthropic", "Paste a key"],
+  ]);
+  assert.equal(connectionCard({ current: null }), null);
+  assert.equal(connectionCard({ current: undefined }), null);
+  assert.deepEqual(connectionCard({ current: chatgpt, account: "you@example.com" }),
+    { method: "chatgpt", title: "ChatGPT", detail: "you@example.com", attention: false, other: "key" });
+  assert.equal(connectionCard({ current: chatgpt }).detail, "Signed in");
+  assert.deepEqual(connectionCard({ current: claude }), { method: "key", title: "Anthropic key", detail: "sk-ant-••••WXYZ", attention: false, other: "chatgpt" });
+  assert.equal(connectionCard({ current: openai }).title, "OpenAI key");
+  assert.deepEqual(["chatgpt", "key"].map(id => METHODS[id].switchTo), ["Switch to ChatGPT", "Switch to an API key"]);
   // Needing to connect again looks the same for both: red detail, tap to fix.
-  const expired = connectionRows({ current: chatgpt, account: "you@example.com", attention: "signed-out" });
-  const refused = connectionRows({ current: claude, attention: "rejected" });
-  assert.deepEqual([expired.chatgpt.state, expired.chatgpt.detail], ["attention", "Signed out. Tap to sign in again."]);
-  assert.deepEqual([refused.key.state, refused.key.detail], ["attention", "Key not accepted. Tap to replace it."]);
+  const expired = connectionCard({ current: chatgpt, account: "you@example.com", attention: "signed-out" });
+  const refused = connectionCard({ current: claude, attention: "rejected" });
+  assert.deepEqual([expired.attention, expired.detail], [true, "Signed out. Tap to sign in again."]);
+  assert.deepEqual([refused.attention, refused.detail], [true, "Key not accepted. Tap to replace it."]);
   assert.equal(isConnected({ current: chatgpt, attention: "signed-out" }), false);
   assert.equal(isConnected({ current: claude }), true);
   assert.equal(isConnected({ current: null }), false);
@@ -226,14 +231,14 @@ test("needing to connect again shows on the row for both ways, and connecting ag
   const expired = page("expired");
   await expired.controller.open();
   assert.equal(expired.state.attention, "signed-out");
-  assert.equal(connectionRows(expired.state).chatgpt.state, "attention");
+  assert.equal(connectionCard(expired.state).attention, true);
   await expired.controller.connect("chatgpt", {});
   assert.equal(expired.state.attention, null);
   assert.equal(expired.state.notice, null, "signing back in to the same connection isn't a switch");
   const refused = page("claude-key", { check: async () => "rejected" });
   await refused.controller.open();
   await refused.controller.check();
-  assert.deepEqual([refused.state.attention, connectionRows(refused.state).key.state], ["rejected", "attention"]);
+  assert.deepEqual([refused.state.attention, connectionCard(refused.state).attention], ["rejected", true]);
   const empty = page("claude-key", { check: async () => "no-credit" });
   await empty.controller.open();
   await empty.controller.check();
