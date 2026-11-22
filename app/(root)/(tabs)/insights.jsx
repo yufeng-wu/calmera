@@ -23,10 +23,15 @@ import { useFoodIcons } from "@/context/FoodIconsContext";
 import { useInsights } from "@/hooks/useInsights";
 import { useMotionPreference } from "@/hooks/useMotionPreference";
 import { formatNumber, formatRange, percentOfGoal } from "@/lib/insights/stats.mjs";
+import { produceEmoji, produceItems, produceRow } from "@/lib/insights/produce.mjs";
 
 const dayLetter = (key) => new Date(`${key}T12:00:00`).toLocaleDateString("en-US", { weekday: "narrow" });
 const weekdayName = (key) => new Date(`${key}T12:00:00`).toLocaleDateString("en-US", { weekday: "long" });
-const TOP_PRODUCE = 6;
+// The icon row: each icon's square at the default text size, the space between them, and the card's sides
+// (the page's 20 and the card's 18 on each), which give the row's width before it has been measured.
+const PRODUCE_SLOT = 30;
+const PRODUCE_GAP = 10;
+const CARD_SIDES = 76;
 const TYPICAL_TEXT = 132;
 const SHARE_NAME = 62;
 const SWIPE_DISTANCE = 50;
@@ -311,17 +316,22 @@ function FoodsCard({ foodsBy, onPress }) {
 
 function ProduceCard({ produce, onPress }) {
   const { iconFor } = useFoodIcons();
+  const { fontScale, width: windowWidth } = useWindowDimensions();
+  const [rowWidth, setRowWidth] = useState(null);
   const { vegetables, fruits } = produce;
   const counts = [vegetables.length && plural(vegetables.length, "vegetable"), fruits.length && plural(fruits.length, "fruit")].filter(Boolean);
-  // One emoji covers many greens, so each appears once, and ones without a real match are left out.
-  const icons = new Map();
-  for (const item of [...vegetables, ...fruits].sort((a, b) => b.count - a.count)) {
-    const icon = iconFor({ foodName: item.name });
-    if (icon.id !== "meal" && !icons.has(icon.emoji)) icons.set(icon.emoji, item.name);
-  }
+  const slot = Math.round(PRODUCE_SLOT * fontScale);
+  // "+N" in the caption face: the plus and each digit about 9 pt at the default size, with 8 pt either side.
+  const chipWidth = (more) => Math.max(slot, Math.ceil((String(more).length + 1) * 9 * fontScale) + 16);
+  const { shown, more } = produceRow(produceItems(produce), { width: rowWidth ?? windowWidth - CARD_SIDES, slot, gap: PRODUCE_GAP, chipWidth });
   return <InsightCard title="Veggies and fruit" onPress={onPress} answer={counts.length ? counts.join(" · ") : "None spotted yet."}>
-    {icons.size > 0 && <View style={styles.produceIcons}>
-      {[...icons.keys()].slice(0, TOP_PRODUCE).map((emoji) => <Text key={emoji} style={styles.produceIcon}>{emoji}</Text>)}
+    {shown.length + more > 0 && <View style={styles.produceIcons} onLayout={({ nativeEvent }) => setRowWidth(nativeEvent.layout.width)}>
+      {shown.map((item) => <View key={item.key} style={[styles.produceSlot, { width: slot, height: slot }]}>
+        <Text style={styles.produceIcon}>{produceEmoji(item, iconFor)}</Text>
+      </View>)}
+      {more > 0 && <View accessibilityLabel={`and ${more} more`} style={[styles.produceMore, { minWidth: slot, height: slot, borderRadius: slot / 2 }]}>
+        <Text numberOfLines={1} style={styles.produceMoreText}>{`+${more}`}</Text>
+      </View>}
     </View>}
   </InsightCard>;
 }
@@ -396,8 +406,11 @@ const styles = StyleSheet.create({
   typicalRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
   typicalStacked: { flexDirection: "column", alignItems: "stretch", gap: 6 },
   typicalChart: { flex: 1 },
-  produceIcons: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  produceIcons: { flexDirection: "row", flexWrap: "nowrap", alignItems: "center", gap: PRODUCE_GAP, overflow: "hidden" },
+  produceSlot: { alignItems: "center", justifyContent: "center" },
   produceIcon: { fontSize: 24, lineHeight: 30 },
+  produceMore: { alignItems: "center", justifyContent: "center", paddingHorizontal: 8, backgroundColor: COLORS.track },
+  produceMoreText: { ...TYPOGRAPHY.caption, fontWeight: "600", color: COLORS.textLight, fontVariant: ["tabular-nums"] },
   shareRows: { gap: 12 },
   shareRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   shareName: { ...TYPOGRAPHY.body, color: COLORS.text },
