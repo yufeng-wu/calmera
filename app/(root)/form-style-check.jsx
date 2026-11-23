@@ -22,7 +22,7 @@ export default function FormStyleCheck() {
     <GlassButton title="Check Goals save navigation" symbol="checkmark" onPress={() => router.push("/update-goals?calmeraFixture=ui-goals-save")} />
     <GlassButton title="Check Goals save failure" symbol="checkmark" onPress={() => router.push("/update-goals?calmeraFixture=ui-goals-save-error")} />
     <GlassButton title="Check Back during loading" symbol="chevron.left" onPress={() => router.push("/update-goals?calmeraFixture=ui-goals-slow")} />
-    <GlassButton title="Open Text Log" symbol="pencil" onPress={() => router.push("/create?calmeraFixture=ui-manual")} />
+    <GlassButton title="Open Text Log" symbol="pencil" onPress={() => router.push("/create?calmeraFixture=ui-text")} />
     <GlassButton title="Open Photo — empty" symbol="camera" onPress={() => router.push("/photo-log?calmeraFixture=ui-photo-empty")} />
     <GlassButton title="Open Photo — selected" symbol="photo" onPress={() => router.push("/photo-log?calmeraFixture=ui-photo-preview")} />
   </ScrollView>;

@@ -6,7 +6,7 @@
 
 | Repository | Tag | What it holds |
 | --- | --- | --- |
-| [cal_mobile](https://github.com/yufeng-wu/cal_mobile) | `cloud-v1` | The app: everything on `main` (goals survey, Insights), plus account deletion ([#20](https://github.com/yufeng-wu/cal_mobile/pull/20)) and the Privacy Policy with its consent sheet (branch `claude/more-bug-fix-4`). |
+| [calmera](https://github.com/yufeng-wu/calmera) | `cloud-v1` | The app: everything on `main` (goals survey, Insights), plus account deletion ([#20](https://github.com/yufeng-wu/calmera/pull/20)) and the Privacy Policy with its consent sheet (branch `claude/more-bug-fix-4`). |
 | [cal_backend](https://github.com/yufeng-wu/cal_backend) | `cloud-v1` | The server running on Render on November 8, 2026 (`78b3d3d`, including account deletion from [cal_backend#5](https://github.com/yufeng-wu/cal_backend/pull/5)). |
 
 The two tags go together: the app at `cloud-v1` expects the server at `cloud-v1`.
@@ -24,8 +24,8 @@ iPhone ── sign-in ───────────────────�
 - People sign in with email and password through Clerk. Their first launch creates their row in `users`.
 - Meals and goals are read from and saved to the server. The phone keeps a copy so the app opens quickly.
 - AI estimates never pass through the server. The phone calls OpenAI directly with the person's ChatGPT sign-in, with `store: false`. Voice is turned into text on the iPhone first.
-- Before anything else opens, people agree to the Privacy Policy and to sending meal text, photos and voice text to OpenAI ([PRIVACY.md](PRIVACY.md)).
-- Settings → Delete account removes the person's rows and closes their Clerk account ([ACCOUNT_DELETION.md at cloud-v1](https://github.com/yufeng-wu/cal_mobile/blob/cloud-v1/docs/ACCOUNT_DELETION.md)).
+- Before anything else opens, people agree to the Privacy Policy and to sending meal text, photos and voice text to OpenAI ([cloud privacy policy](https://github.com/yufeng-wu/calmera/blob/cloud-v1/docs/PRIVACY.md)).
+- Settings → Delete account removes the person's rows and closes their Clerk account ([ACCOUNT_DELETION.md at cloud-v1](https://github.com/yufeng-wu/calmera/blob/cloud-v1/docs/ACCOUNT_DELETION.md)).
 
 ### What is stored where
 
@@ -69,7 +69,7 @@ Some older screens also call the server, but nothing in the current app links to
 
 ## Running it again
 
-**App**, from your cal_mobile checkout:
+**App**, from your Calmera checkout:
 
 ```bash
 git worktree add ../mobile-cloud-v1 cloud-v1
@@ -77,7 +77,7 @@ cd ../mobile-cloud-v1 && npm install
 node --test tests/*.test.mjs
 ```
 
-Next, create `.env` with `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` and `EXPO_PUBLIC_API_BASE_URL`, using `.env.chatgpt.example` as the template. Then build with `npm run ios`. Signing and phone builds are covered in [PHONE_TEST.md](PHONE_TEST.md) and [SETUP_CHECKLIST.md](SETUP_CHECKLIST.md).
+Next, create `.env` with `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` and `EXPO_PUBLIC_API_BASE_URL`, using `.env.chatgpt.example` as the template. Then build with `npm run ios`. Signing and phone builds are covered in [PHONE_TEST.md](../PHONE_TEST.md) and [SETUP_CHECKLIST.md](SETUP_CHECKLIST.md).
 
 **Server**, from your cal_backend checkout:
 
@@ -103,7 +103,7 @@ Keep Render, Neon and Clerk running until two things are true: the phone-only ve
 
 ## Privacy text for this version
 
-At `cloud-v1`, `lib/privacyPolicy.mjs` (policy version 2026-11-08) describes this version. It names Clerk, Neon, Render and Upstash and describes data kept in an account. The phone-only version has its own policy version; see [PRIVACY.md](PRIVACY.md).
+At `cloud-v1`, `lib/privacyPolicy.mjs` (policy version 2026-11-08) describes this version. It names Clerk, Neon, Render and Upstash and describes data kept in an account. The phone-only version has its own policy version; see [PRIVACY.md](../PRIVACY.md).
 
 ## Next: keeping everything on the iPhone
 
@@ -115,7 +115,7 @@ Plan as of November 8, 2026:
 4. **No sign-in.** Done: sign-in, sign-up, password reset, account setup, the Account page and Sign out are gone, and so are the server request helpers, `constants/api.js` and the unlinked scale camera, payment and voice-test screens. One local owner (`lib/owner.mjs`) replaces the signed-in user for settings and the ChatGPT sign-in. Settings → Erase all data (`app/(root)/erase-data.jsx`) removes everything calmera keeps on the iPhone and starts over from the privacy agreement, which is now kept only on the iPhone. The Privacy Policy describes phone-only storage (version 2026-11-09).
 5. **Release.** Add Import for the export file, set the Privacy Policy version and date to the publish date and publish it, then release. Unused packages (Clerk, Stripe, TensorFlow, expo-camera and others) can be removed with a native rebuild.
 
-Things to know:
+Historical migration assumptions (superseded by the [current storage and export details](../PRIVACY.md)):
 
 - iCloud Backup and Quick Start (setting up a new iPhone from the old one) both copy the app's data, including the database on the phone. People who use neither can move their data with Export and Import.
 - The ChatGPT sign-in is saved for this device only, so on a new iPhone people reconnect ChatGPT once. Their meals come across either way.

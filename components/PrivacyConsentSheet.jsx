@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import FoodwrapWordmark from "@/components/FoodwrapWordmark";
 import { FormHeader, FormScreen, FormScrollView, GlassButton } from "@/components/GlassForm";
@@ -20,6 +20,23 @@ const EDGE = 28;
 export default function PrivacyConsentSheet({ updated = false, saving = false, error = "", notice = "", onAgree, onDecline, preview = false }) {
   const { bottom } = useSafeAreaInsets();
   const [policy, setPolicy] = useState(null);
+  const { fontScale, height } = useWindowDimensions();
+  const inScroll = fontScale >= 1.5 || height < 600;
+  const footer = (
+    <View style={[styles.footer, inScroll ? styles.inlineFooter : { paddingBottom: Math.max(bottom, 16) }]}>
+      <Pressable accessibilityRole="link" accessibilityLabel={COPY.agreement} accessibilityHint="Opens the Privacy Policy"
+        testID="consent-privacy-policy" onPress={() => setPolicy("privacy")}>
+        <Text style={styles.agreement}>{before}<Text style={styles.policyLink}>{POLICY_LINK}</Text>{after}</Text>
+      </Pressable>
+      <GlassButton title={COPY.agree} role="accent" onPress={onAgree} loading={saving} disabled={saving} style={styles.agree} />
+      {!!error && <Text accessibilityLiveRegion="assertive" style={[settingsStyles.problem, styles.message]}>{error}</Text>}
+      {!!notice && <Text accessibilityLiveRegion="polite" style={[styles.agreement, styles.message, styles.notice]}>{notice}</Text>}
+      <Pressable onPress={onDecline} disabled={saving} accessibilityRole="button" accessibilityState={{ disabled: saving }}
+        style={styles.decline}>
+        <Text style={styles.declineText}>{COPY.decline}</Text>
+      </Pressable>
+    </View>
+  );
   return <FormScreen>
     <FormScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <FoodwrapWordmark style={styles.wordmark} />
@@ -37,20 +54,9 @@ export default function PrivacyConsentSheet({ updated = false, saving = false, e
         </View>
         <Text style={styles.note}>{COPY.ai.note}</Text>
       </View>
+      {inScroll && footer}
     </FormScrollView>
-    <View style={[styles.footer, { paddingBottom: Math.max(bottom, 16) }]}>
-      <Text style={styles.agreement}>
-        {before}<Text accessibilityRole="link" accessibilityHint="Opens the Privacy Policy" suppressHighlighting={false}
-          onPress={() => setPolicy("privacy")} style={styles.policyLink}>{POLICY_LINK}</Text>{after}
-      </Text>
-      <GlassButton title={COPY.agree} role="accent" onPress={onAgree} loading={saving} disabled={saving} style={styles.agree} />
-      {!!error && <Text accessibilityLiveRegion="assertive" style={[settingsStyles.problem, styles.message]}>{error}</Text>}
-      {!!notice && <Text accessibilityLiveRegion="polite" style={[styles.agreement, styles.message, styles.notice]}>{notice}</Text>}
-      <Pressable onPress={onDecline} disabled={saving} accessibilityRole="button" accessibilityState={{ disabled: saving }}
-        style={styles.decline}>
-        <Text style={styles.declineText}>{COPY.decline}</Text>
-      </Pressable>
-    </View>
+    {!inScroll && footer}
     <Modal visible={Boolean(policy)} presentationStyle="pageSheet" animationType="slide" onRequestClose={() => setPolicy(null)}>
       {/* A page sheet starts below the status bar, so it needs no top inset of its own. */}
       <SafeScreenTopContext.Provider value={0}>
@@ -80,6 +86,7 @@ const styles = StyleSheet.create({
   list: { gap: 4, paddingLeft: 14, borderLeftWidth: 2, borderLeftColor: SETTINGS.edge },
   note: { fontSize: 14, fontWeight: "400", lineHeight: 20, color: SETTINGS.inkSoft },
   footer: { paddingHorizontal: EDGE, paddingTop: 16, gap: 14 },
+  inlineFooter: { paddingHorizontal: 0, marginTop: 16 },
   agreement: { fontSize: 13, fontWeight: "400", lineHeight: 19, color: SETTINGS.inkSoft },
   policyLink: { fontWeight: "500", color: SETTINGS.accent, textDecorationLine: "underline" },
   agree: { width: "100%", minHeight: 54 },

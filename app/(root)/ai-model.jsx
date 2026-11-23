@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Alert, Linking, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { FormScreen, FormScrollView, FormHeader, GlassButton, formStyles } from "@/components/GlassForm";
@@ -8,6 +8,7 @@ import SettingsRow from "@/components/SettingsRow";
 import { SettingsSection, settingsStyles } from "@/components/SettingsSection";
 import usePageExit from "@/hooks/usePageExit";
 import { LOCAL_OWNER } from "@/lib/owner.mjs";
+import { PROVIDER_PAGES } from "@/lib/ai/loggingProblem.mjs";
 import { providerFor } from "@/lib/ai/models.mjs";
 import { connectionServices } from "@/lib/ai/connectionServices";
 import { previewConnectionServices } from "@/lib/ai/previewConnection.mjs";
@@ -74,6 +75,11 @@ export default function AIModel({ calmeraPreview = false, calmeraPreviewState = 
         </View>}
         {catalog?.models.map((model, index) => <SettingsRow key={model.id} title={model.name} accessibilityRole="radio" divider={loading || index > 0}
           selected={catalog.selected === model.id} loading={saving === model.id} disabled={loading || Boolean(saving)} onPress={() => choose(model)} />)}
+      </SettingsSection>}
+      {catalog?.provider === "chatgpt" && <SettingsSection cardStyle={styles.card}>
+        <SettingsRow title="Manage usage" subtitle="These estimates use your ChatGPT plan." onPress={() => {
+          if (!calmeraPreview) Linking.openURL(PROVIDER_PAGES.chatgpt.url).catch(() => Alert.alert("Couldn’t open ChatGPT settings", "Please try again."));
+        }} />
       </SettingsSection>}
     </FormScrollView>
   </FormScreen>;

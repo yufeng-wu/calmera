@@ -1,6 +1,6 @@
 Please investigate the remaining intermittent iOS 27 meal-action visibility report in foodwrap.
 
-Work in /Users/yw/Projects/calmera/mobile on codex/chatgpt-inference-mvp. Read docs/IOS27_MEAL_ACTION_VISIBILITY.md and current Git status first. The latest targeted fix is committed on this branch; do not restart the visual redesign or repeat already-passed cases without a reason.
+Work in the mobile repository root on codex/chatgpt-inference-mvp. Read docs/IOS27_MEAL_ACTION_VISIBILITY.md and current Git status first. The latest targeted fix is committed on this branch; do not restart the visual redesign or repeat already-passed cases without a reason.
 
 The human reports that left-swiped Edit / Delete sometimes completely fail to appear. The preceding agent reproduced a narrower variant: card fully shifted, AX Edit/Delete present, native progress 1, but the glass capsules disappeared and bare labels remained. Keeping UIGlassEffect assigned alone failed. Moving the actual native renderer outside ReanimatedSwipeable's opacity/clipping subtree, and deriving reveal from the card's actual translation, restored complete capsules in the tested cycles. This does not prove that the complete-loss-of-labels variant is fixed. Reproduce and distinguish these phenotypes before changing more code.
 

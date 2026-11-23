@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { chatGPTKeys, eraseThisPhone, formerOwners, ownsKey, secureKeysFor, SHARED_SECURE_KEYS } from "../lib/eraseData.mjs";
+import { chatGPTCredentialKeys, eraseThisPhone, formerOwners, ownsKey, secureKeysFor, SHARED_SECURE_KEYS } from "../lib/eraseData.mjs";
 import { consentStorageKey } from "../lib/privacyConsent.mjs";
 import { createPhoneStore } from "../lib/store/phone.mjs";
 import { createMemoryStorage } from "../lib/store/memoryStorage.mjs";
@@ -17,7 +17,9 @@ test("a person's keys are recognised exactly", () => {
     consentStorageKey(me), `calmera.chatgpt.${me}.model`]) assert.equal(ownsKey(key, me), true, key);
   for (const key of [`calmera.theme.v1:${me}x`, `calmera.meal-times.loc`, `other.theme.v1:${me}`, null]) assert.equal(ownsKey(key, me), false, String(key));
   assert.equal(ownsKey(`calmera.theme.v1:${me}`, ""), false);
-  assert.ok(chatGPTKeys(me).every((key) => ownsKey(key, me)));
+  assert.ok(!chatGPTCredentialKeys(me).includes(`calmera.chatgpt.${me}.welcome`));
+  assert.ok(secureKeysFor(me).includes(`calmera.chatgpt.${me}.welcome`));
+  assert.ok(chatGPTCredentialKeys(me).every((key) => ownsKey(key, me)));
   assert.equal(new Set(secureKeysFor(me)).size, 7);
   assert.ok(secureKeysFor(me).includes("calmera.connection.local"), "a pasted API key is erased too");
 });

@@ -41,8 +41,7 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
   const stackedNutrients = large || (width - 2 * (20 + 12) - 3 * 6) / 4 < 72 * fontScale;
   const inFlowSave = fontScale >= 2.3;
   const { iconFor } = useFoodIcons();
-  // A review that starts as one blank food was opened to enter a meal by hand: its fields are open.
-  const [expandedId, setExpandedId] = useState(() => (review.entries.length === 1 && review.entries[0].origin === "added" ? review.entries[0].id : null));
+  const [expandedId, setExpandedId] = useState(null);
   // The whole row header tints while touched, as a table cell does.
   // Once the entrance has settled, build every row's edit panel so taps open instantly.
   const [warm, setWarm] = useState(false);
@@ -332,7 +331,7 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
                       multiline scrollEnabled={false} style={[styles.input, large && styles.inputStacked]} />
                   </View>
                 </View>
-                <View style={styles.nutrients}>{nutrients.map(([label, key, unit], index) => {
+                {entry.origin !== "added" && <View style={styles.nutrients}>{nutrients.map(([label, key, unit], index) => {
                   const focused = focusedField?.id === entry.id && focusedField?.name === key;
                   // Step the number down as it grows so it and its unit stay on one line.
                   const digits = String(entry[key]).length;
@@ -348,12 +347,12 @@ export default function MealReview({ photo, text, review, setReview, busy, estim
                       order={index} pulse={pulse?.entryId === entry.id ? { id: pulse.id, from: pulse.from[key] } : undefined}
                       style={styles.valueRow} valueStyle={[styles.nutrientText, fit]} unitStyle={[styles.nutrientUnit, { fontSize: 14 - step }]} />
                   </Pressable>;
-                })}</View>
+                })}</View>}
                 {validation?.id === entry.id && <Text accessibilityRole="alert" style={styles.error}>{validation.message}</Text>}
                 {/* Glass buttons are built only once a row has been opened; until then a
                     same-size placeholder keeps the measured height exact. */}
                 {!expanded && !openedIds.current.has(entry.id) ? <View style={[styles.itemActions, styles.actionsPlaceholder]} /> : <View style={styles.itemActions}>
-                  <GlassButton title="Re-estimate" symbol="sparkles" onPress={() => { Keyboard.dismiss(); beforeEstimate.current[entry.id] = { entry }; onReestimate(entry.id); }}
+                  <GlassButton title={entry.origin === "added" ? "Estimate nutrition" : "Re-estimate"} symbol="sparkles" onPress={() => { Keyboard.dismiss(); beforeEstimate.current[entry.id] = { entry }; onReestimate(entry.id); }}
                     disabled={locked || !entry.foodName.trim() || !entry.quantity.trim()} loading={estimating === entry.id} style={styles.reestimate} />
                   <GlassButton symbol="trash" role="destructive" onPress={() => removeFood(entry.id)} disabled={locked}
                     accessibilityLabel={`Remove ${name}`} style={styles.remove} />

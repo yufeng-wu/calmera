@@ -229,7 +229,7 @@ test("food rows start compact; expanding exposes one set of directly editable fi
   assert.equal(fixture.props.review.entries[0].calories, "250");
 });
 
-test("new food appears before Add, blocks another unfinished entry, and saves direct edits", () => {
+test("a missing food requires an estimate before nutrition editing or another addition", () => {
   const fixture = reviewFixture(); button(fixture.render(), "Add another item").props.onPress();
   let tree = fixture.render();
   assert.equal(fixture.props.review.entries.length, 2);
@@ -237,9 +237,10 @@ test("new food appears before Add, blocks another unfinished entry, and saves di
   const nodes = all(tree);
   assert.ok(nodes.indexOf(input(tree, "Food name")) < nodes.indexOf(button(tree, "Add another item")));
   input(tree, "Food name").props.onChangeText("Egg"); input(tree, "Amount").props.onChangeText("1 egg");
-  input(tree, "Calories, kilocalories").props.onChangeText("70");
   tree = fixture.render();
-  assert.equal(button(tree, "Add another item").props.disabled, false);
+  assert.equal(input(tree, "Calories, kilocalories"), undefined);
+  assert.equal(button(tree, "Estimate nutrition").props.disabled, false);
+  assert.equal(button(tree, "Add another item").props.disabled, true);
   assert.equal(fixture.saves.length, 0);
 });
 
@@ -340,32 +341,19 @@ test("a typed meal is analyzed as text, produces structured foods, and never sav
   assert.equal(fixture.exits(), 1);
 });
 
-test("without an AI the page offers to connect one, and a typed meal can still be entered by hand", async () => {
-  const fixture = logFixture("text", { state: "none" }); const tree = fixture.render();
-  // One main button: there is no Analyze to press while nothing could answer it.
-  assert.equal(button(tree, "Analyze Meal"), undefined);
-  const connect = button(tree, "Connect an AI to estimate");
-  assert.equal(connect.props.role, "accent");
-  connect.props.onPress();
-  // The connection page is asked to come back here once an AI is connected.
-  assert.equal(JSON.stringify(fixture.pushes), JSON.stringify([{ pathname: "/ai-connection", params: { then: "back" } }]));
-  button(tree, "Enter it by hand").props.onPress();
-  const review = fixture.render();
-  assert.equal(review.type, "MealReview");
-  assert.deepEqual(review.props.review.entries.map(entry => [entry.origin, entry.foodName, entry.calories]), [["added", "", ""]]);
-  assert.equal(fixture.requests.length, 0, "nothing is sent anywhere");
-  const filled = { ...review.props.review, entries: [{ ...review.props.review.entries[0], foodName: "Apple", quantity: "1 medium", calories: "95", protein: "0.5", carbs: "25", fat: "0.3" }] };
-  await review.props.onSave("Snack", filled);
-  assert.equal(fixture.writes.length, 1);
-  assert.equal(fixture.writes[0].draft.entries[0].foodName, "Apple");
-  // A photo can't be entered by hand, so that page offers only the connection.
-  const photo = logFixture("photo", { state: "none" }).render();
-  assert.ok(button(photo, "Connect an AI to estimate"));
-  assert.equal(button(photo, "Enter it by hand"), undefined);
-  // With a working connection neither extra button exists.
-  const ready = logFixture().render();
-  assert.equal(button(ready, "Connect an AI to estimate"), undefined);
-  assert.equal(button(ready, "Enter it by hand"), undefined);
+test("without an AI, text and photo logging lead to connection and cannot open a blank review", () => {
+  for (const mode of ["text", "photo"]) {
+    const fixture = logFixture(mode, { state: "none" });
+    if (mode === "text") input(fixture.render(), "Meal description").props.onChangeText("An apple");
+    const tree = fixture.render();
+    assert.equal(button(tree, "Analyze Meal"), undefined);
+    assert.equal(button(tree, "Enter it by hand"), undefined);
+    assert.notEqual(tree.type, "MealReview");
+    button(tree, "Connect an AI to estimate").props.onPress();
+    assert.deepEqual(JSON.parse(JSON.stringify(fixture.pushes)), [{ pathname: "/ai-connection", params: { then: "back" } }]);
+    assert.equal(fixture.requests.length, 0);
+    assert.equal(fixture.writes.length, 0);
+  }
 });
 
 test("photo input uses the same review flow with only the selected image", async () => {

@@ -19,7 +19,7 @@ import { inferenceError, estimateMacros } from "@/lib/chatgpt/nutrition";
 import { mealAI } from "@/lib/ai/mealAI";
 import MealReview from "@/components/MealReview";
 import { useFoodIcons } from "@/context/FoodIconsContext";
-import { addReviewFood, createMealReview, saveMealReview, updateReviewFood, MEAL_TYPES } from "@/lib/mealReview.mjs";
+import { createMealReview, saveMealReview, updateReviewFood, MEAL_TYPES } from "@/lib/mealReview.mjs";
 import { createConfirmedMealSave } from "@/lib/confirmedMealSave.mjs";
 import { getLocalTimeWithOffset } from "@/lib/utils";
 
@@ -37,7 +37,7 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
   const { calmeraFixture } = useLocalSearchParams();
   const testBuild = Constants.expoConfig?.extra?.calmeraFullAppTest === true;
   const photoTestFixture = testBuild && calmeraFixture === "label-phone";
-  const uiFixture = testBuild && (calmeraPreview || ["ui-photo-empty", "ui-photo-preview", "ui-text", "ui-manual"].includes(calmeraFixture));
+  const uiFixture = testBuild && (calmeraPreview || ["ui-photo-empty", "ui-photo-preview", "ui-text"].includes(calmeraFixture));
   const savedNavigationFixture = testBuild && calmeraPreview && calmeraPreviewState === "saved-navigation-error";
   const previewFixture = uiFixture && (savedNavigationFixture || calmeraFixture === "ui-photo-preview" || (calmeraPreview && ["selected", "review"].includes(calmeraPreviewState)));
   const exit = usePageExit(uiFixture ? "/ui-gallery" : "/dashboard");
@@ -178,12 +178,6 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
     ]);
   });
 
-  // Logging never needs an AI: a blank food opens in the same review, to fill in by hand.
-  const enterByHand = () => {
-    if (operation.current || uncertain || mealSaved || confirmedSave.current.hasConfirmed(userId)) return;
-    Keyboard.dismiss();
-    setReview(addReviewFood(createMealReview([], userId, getLocalTimeWithOffset())));
-  };
   // Every connection problem but usage and a plain retry is fixed on the AI connection page,
   // which comes back here once it's sorted.
   const fixConnection = action => {
@@ -412,8 +406,6 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
             style={styles.logButton}
             accessibilityLabel={busy ? "Analyzing meal" : "Analyze Meal"}
           />}
-          {textMode && !busy && connectionCopy.action && !mealSaved && !uncertain && <GlassButton title="Enter it by hand" symbol="pencil"
-            onPress={enterByHand} disabled={selecting} style={styles.logButton} />}
           {mealSaved && <GlassButton title="Go back" symbol="chevron.left" onPress={leaveLog} disabled={busy || selecting} style={styles.logButton} />}
           {uncertain && (
             <GlassButton title="View meals" symbol="clock" onPress={() => { if (!operation.current) router.replace("/dashboard"); }} disabled={busy || selecting} style={styles.logButton} />

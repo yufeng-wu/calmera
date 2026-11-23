@@ -46,3 +46,6 @@ ios/
 *.ipa
 *.xcarchive
 credentials.json
+
+# Local Claude worktrees
+.claude/worktrees/
