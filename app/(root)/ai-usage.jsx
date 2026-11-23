@@ -40,6 +40,7 @@ export default function AIUsage({ calmeraPreview = false, calmeraPreviewState = 
 
   const total = summary?.total;
   const priced = Boolean(total?.priced);
+  const planOnly = total?.requests > 0 && total.plan === total.requests;
   return <FormScreen style={[formStyles.screen, styles.page]}>
     <FormHeader title="Usage" onBack={leave} />
     <FormScrollView key={`ai-usage-${fontScale}`} contentContainerStyle={settingsStyles.content} showsVerticalScrollIndicator={false}>
@@ -53,7 +54,8 @@ export default function AIUsage({ calmeraPreview = false, calmeraPreviewState = 
               : "No AI requests in the last 7 days."}>
               <View style={styles.headlineMain}>
                 <Text style={styles.hero}>{priced ? formatCost(total.cost) : total.requests ? plural(total.requests, "request") : "Nothing yet"}</Text>
-                <Text style={styles.heroLabel}>{priced ? "estimated cost" : total.requests ? "included in your ChatGPT plan" : "Meals you log with AI show up here."}</Text>
+                <Text style={styles.heroLabel}>{priced ? "estimated cost" : planOnly ? "included in your ChatGPT plan"
+                  : total.requests ? "Cost estimate unavailable" : "Meals you log with AI show up here."}</Text>
               </View>
               {total.requests > 0 && <View style={styles.headlineSide}>
                 {priced && <Text style={styles.sideValue}>{plural(total.requests, "request")}</Text>}

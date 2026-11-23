@@ -7,7 +7,7 @@ import { useFocusEffect, useNavigation, usePreventRemove } from "@react-navigati
 import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
 import useMealLogConnection from "@/hooks/useMealLogConnection";
-import { canAnalyzeMeal, connectionPresentation, estimationTitle, NO_FOOD_DETECTED, noFoodMessage, providerName } from "@/lib/mealLogPresentation.mjs";
+import { canAnalyzeMeal, connectionPresentation, estimationTitle, NO_FOOD_DETECTED, noFoodMessage } from "@/lib/mealLogPresentation.mjs";
 import usePageExit from "@/hooks/usePageExit";
 import { FormScreen, FormScrollView, FormHeader, FormCard, GlassButton } from "@/components/GlassForm";
 import { phoneTestNutritionLabel } from "@/lib/chatgpt/phoneTestFixtures.mjs";
@@ -421,9 +421,9 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
           {uiFixture && !savedNavigationFixture && busy && (
             <GlassButton title="Reset preview" symbol="arrow.counterclockwise" onPress={resetPreview} style={styles.logButton} />
           )}
-          <View style={styles.privacy}>
-            <Ionicons name="lock-closed-outline" size={14} color={COLORS.textLight} accessible={false} />
-            <Text style={styles.note}>{`Only your ${textMode ? "meal description" : "selected photo"} is analyzed by ${connection.state === "none" ? "the AI you connect" : providerName(connection.type)}. Nutrition estimates are approximate.`}</Text>
+          <View style={styles.disclaimer}>
+            <Ionicons name="information-circle-outline" size={14} color={COLORS.textLight} accessible={false} />
+            <Text style={styles.note}>Nutrition estimates are approximate. AI may make mistakes.</Text>
           </View>
         </View>
         </View>
@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
   keyboardDone: { minHeight: 44, justifyContent: "center", paddingHorizontal: 12 },
   keyboardDoneText: { ...TYPOGRAPHY.button, color: COLORS.primary },
   mealText: { ...TYPOGRAPHY.input, minHeight: 120, color: COLORS.text, padding: 0 },
-  privacy: { flexDirection: "row", alignItems: "flex-start", gap: 7, paddingHorizontal: 8 },
+  disclaimer: { flexDirection: "row", alignItems: "flex-start", gap: 7, paddingHorizontal: 8 },
   container: { flex: 1, backgroundColor: COLORS.background },
   content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 36 },
   sections: { gap: 16 },
