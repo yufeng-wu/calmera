@@ -88,9 +88,10 @@ test("one name for each connection and each problem, wherever it is shown", () =
 
 test("with nothing connected: two option cards, and nothing more about either outside its card", () => {
   assert.deepEqual(["chatgpt", "key"].map(id => [METHODS[id].eyebrow, METHODS[id].title, METHODS[id].description, METHODS[id].start]), [
-    ["Option 1", "ChatGPT Plan", "Sign in with your ChatGPT account to use your paid plan’s limits. Requires a Go, Plus, or Pro tier.", "Sign in with ChatGPT"],
+    ["Option 1", "ChatGPT Plan", "Sign in with your ChatGPT account to use your paid plan’s limits.", "Sign in with ChatGPT"],
     ["Option 2", "API Key", "You may be eligible for free monthly API credits with one of these plans:", "Add API key"],
   ]);
+  assert.equal(METHODS.chatgpt.note, "Requires a Go, Plus, or Pro tier.");
   assert.deepEqual(METHODS.key.creditPlans, ["ChatGPT Pro and Business", "Claude Max, Ultra, and Team"]);
   assert.deepEqual([KEY_PAGE.title, KEY_PAGE.hint], ["API key", "Paste it, and Calmera can tell which one it is."]);
   // Where each company explains the credits: its own help page, over HTTPS.

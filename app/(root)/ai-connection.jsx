@@ -134,13 +134,14 @@ function Option({ method, problem = null, busy = false, disabled = false, onPres
         {children}
         {words.creditPlans
           ? <View style={styles.credits}>
-            <Text style={styles.creditText}>{words.description}</Text>
+            <Text style={styles.optionNote}>{words.description}</Text>
             {words.creditPlans.map(plan => <View key={plan} style={styles.plan}>
-              <Text style={styles.creditText} accessible={false}>•</Text>
-              <Text style={[styles.creditText, styles.planText]}>{plan}</Text>
+              <Text style={styles.optionNote} accessible={false}>•</Text>
+              <Text style={[styles.optionNote, styles.planText]}>{plan}</Text>
             </View>)}
           </View>
           : <Text style={styles.optionText}>{words.description}</Text>}
+        {words.note && <Text style={styles.optionNote}>{words.note}</Text>}
       </View>}
     <GlassButton title={busy ? "Signing in…" : words.start} role="accent" onPress={onPress} disabled={disabled}
       style={styles.optionButton} />
@@ -178,7 +179,7 @@ const styles = StyleSheet.create({
   optionTitle: { ...TYPOGRAPHY.pageTitle, color: SETTINGS.ink, marginBottom: 8 },
   optionText: { ...TYPOGRAPHY.body, color: SETTINGS.inkSoft },
   credits: { gap: 4 },
-  creditText: { ...TYPOGRAPHY.caption, color: SETTINGS.inkSoft },
+  optionNote: { ...TYPOGRAPHY.caption, color: SETTINGS.inkSoft },
   plan: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
   planText: { flex: 1 },
   problem: { ...TYPOGRAPHY.body, color: SETTINGS.danger },
