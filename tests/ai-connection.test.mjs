@@ -135,8 +135,8 @@ test("connected: one status card, the email or real masked key, then what the la
 test("small words under the cards: billing, online search, the model and privacy; no prices", () => {
   assert.equal(billingLine(chatgpt), "Estimates count toward your ChatGPT plan.");
   assert.equal(billingLine(claude), null);
-  assert.equal(searchLine(chatgpt), "When enabled, the AI can automatically look up nutrition information for restaurants and brands you mention. Searches count toward your plan.");
-  assert.equal(searchLine(claude), "When enabled, the AI can automatically look up nutrition information for restaurants and brands you mention.");
+  assert.equal(searchLine(chatgpt), "Lets your AI look up restaurants and brands you mention for better estimates. Searches count toward your plan.");
+  assert.equal(searchLine(claude), "Lets your AI look up restaurants and brands you mention for better estimates.");
   assert.match(searchLine(claude, { searchable: false }), /can’t search the web/);
   assert.equal(searchLine(null), null);
   const choices = [{ slug: "a", display_name: "Model A" }, { slug: "b" }];
