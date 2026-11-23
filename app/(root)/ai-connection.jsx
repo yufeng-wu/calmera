@@ -99,7 +99,7 @@ export default function AIConnection({ calmeraPreview = false, calmeraPreviewSta
           <Status card={card} />
         </SettingsSection>}
 
-        {card && <SettingsSection cardStyle={styles.card} footnote={said("search") || searchLine(current, { searchable: state.searchable })}>
+        {card && <SettingsSection label="Settings" cardStyle={styles.card} footnote={said("search") || searchLine(current, { searchable: state.searchable })}>
           <SettingsRow title="Model" value={state.model || undefined} disabled={Boolean(busy)} onPress={() => go("/ai-model")} />
           <SettingsRow title="Online search" divider toggle={state.search && state.searchable} disabled={Boolean(busy) || !state.searchable}
             onToggle={on => controller.setSearch(on)} />
