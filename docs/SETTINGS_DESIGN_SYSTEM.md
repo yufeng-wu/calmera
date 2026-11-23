@@ -79,7 +79,7 @@ Once connected, the page is about that connection:
 
 1. **Status card:** its name (ChatGPT, or OpenAI / Anthropic API key), then the email or the
    masked key and what the last check found: Connected in green, or what's wrong in red. The
-   note under it says who pays, or what to do ("Disconnect, then sign in with ChatGPT again.").
+   note explains ChatGPT plan usage or what to do when a connection needs attention.
    The check runs on every visit and spends nothing (a key lists its provider's models;
    ChatGPT's model list is read). The last status shows at once and changes only when the
    result is different; not reaching the provider changes nothing.

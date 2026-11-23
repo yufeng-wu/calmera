@@ -93,9 +93,9 @@ export default function AIConnection({ calmeraPreview = false, calmeraPreviewSta
           {said("page")}
         </View>}
 
-        {card && <SettingsSection cardStyle={styles.card} footnote={card.note.tone === "bad"
+        {card && <SettingsSection cardStyle={styles.card} footnote={card.note?.tone === "bad"
           ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={settingsStyles.problem}>{card.note.text}</Text>
-          : card.note.text}>
+          : card.note?.text}>
           <Status card={card} />
         </SettingsSection>}
 

@@ -114,9 +114,9 @@ test("connected: one status card, the email or real masked key, then what the la
     note: { tone: "plain", text: "Estimates count toward your ChatGPT plan." } });
   assert.deepEqual(connectionCard({ current: claude, status: "works" }), {
     method: "key", title: "Anthropic API key", detail: "sk-ant-••••WXYZ", status: { tone: "good", text: "Connected" },
-    note: { tone: "plain", text: "Estimates are billed to your Anthropic account." } });
+    note: null });
   const open = connectionCard({ current: openai, status: "works" });
-  assert.deepEqual([open.title, open.detail, open.note.text], ["OpenAI API key", "sk-proj-••••ABCD", "Estimates are billed to your OpenAI account."]);
+  assert.deepEqual([open.title, open.detail, open.note], ["OpenAI API key", "sk-proj-••••ABCD", null]);
   // Before any check has ever finished, nothing is claimed.
   assert.equal(connectionCard({ current: claude, status: null }).status, null);
   // Needing to connect again: red status, and the note says how, since there is one connection at a time.
@@ -134,9 +134,9 @@ test("connected: one status card, the email or real masked key, then what the la
 
 test("small words under the cards: billing, online search, the model and privacy; no prices", () => {
   assert.equal(billingLine(chatgpt), "Estimates count toward your ChatGPT plan.");
-  assert.equal(billingLine(claude), "Estimates are billed to your Anthropic account.");
-  assert.equal(searchLine(chatgpt), "Looks up restaurants and brands you mention. Searches count toward your plan.");
-  assert.equal(searchLine(claude), "Looks up restaurants and brands you mention.");
+  assert.equal(billingLine(claude), null);
+  assert.equal(searchLine(chatgpt), "When enabled, the AI can automatically look up nutrition information for restaurants and brands you mention. Searches count toward your plan.");
+  assert.equal(searchLine(claude), "When enabled, the AI can automatically look up nutrition information for restaurants and brands you mention.");
   assert.match(searchLine(claude, { searchable: false }), /can’t search the web/);
   assert.equal(searchLine(null), null);
   const choices = [{ slug: "a", display_name: "Model A" }, { slug: "b" }];
@@ -144,9 +144,10 @@ test("small words under the cards: billing, online search, the model and privacy
   assert.equal(modelValue({ choices, preferred: "a" }), "Model A");
   assert.equal(modelValue({ choices, preferred: "gone" }), "Automatic", "a model the account lost falls back, as logging does");
   assert.equal(modelValue({ choices: [], preferred: "kept" }), "kept");
-  assert.equal(privacyLine(chatgpt), "Only what you log goes to OpenAI. Your sign-in stays on this iPhone.");
-  assert.equal(privacyLine(claude), "Only what you log goes to Anthropic. Your API key stays in this iPhone’s Keychain.");
-  assert.equal(privacyLine(openai), "Only what you log goes to OpenAI. Your API key stays in this iPhone’s Keychain.");
+  assert.equal(privacyLine(chatgpt), "Your sign-in stays on this iPhone.");
+  assert.equal(privacyLine(claude), "Your API key stays in this iPhone’s Keychain.");
+  assert.equal(privacyLine(openai), "Your API key stays in this iPhone’s Keychain.");
+  assert.match(methodPrivacy("key", "anthropic"), /^Only what you log goes to Anthropic\./);
   assert.match(methodPrivacy("key", null), /the company it’s from/);
   // Every sentence these pages say: no prices, and the brand written Calmera.
   const words = JSON.stringify([METHODS, KEY_PAGE, CREDIT_PAGES.map(page => page.name), SIGN_IN_FAILED, privacyLine(null), privacyLine(chatgpt),
