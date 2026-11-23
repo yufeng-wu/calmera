@@ -87,11 +87,11 @@ test("one name for each connection and each problem, wherever it is shown", () =
 });
 
 test("with nothing connected: two option cards, and nothing more about either outside its card", () => {
-  assert.deepEqual(["chatgpt", "key"].map(id => [METHODS[id].eyebrow, METHODS[id].title, ...METHODS[id].lines, METHODS[id].start]), [
-    ["Option 1", "ChatGPT Plan", "Works great if you already have a paid ChatGPT subscription.", "Sign in with ChatGPT"],
-    ["Option 2", "API key", "Bring your own OpenAI or Anthropic API key.",
-      "ChatGPT Pro and Business, and Claude Max, Ultra and Team include monthly API credits you can use here.", "Add API key"],
+  assert.deepEqual(["chatgpt", "key"].map(id => [METHODS[id].eyebrow, METHODS[id].title, METHODS[id].description, METHODS[id].start]), [
+    ["Option 1", "ChatGPT Plan", "Sign in with your ChatGPT account to use your plan’s limits. Works well if you already have a paid ChatGPT subscription.", "Sign in with ChatGPT"],
+    ["Option 2", "API Key", "You may be eligible for free monthly API credits with one of these plans.", "Add API key"],
   ]);
+  assert.deepEqual(METHODS.key.creditPlans, ["ChatGPT Pro and Business", "Claude Max, Ultra, and Team"]);
   assert.deepEqual([KEY_PAGE.title, KEY_PAGE.hint], ["API key", "Paste it, and Calmera can tell which one it is."]);
   // Where each company explains the credits: its own help page, over HTTPS.
   assert.deepEqual(CREDIT_PAGES.map(page => page.name), ["OpenAI", "Anthropic"]);

@@ -61,19 +61,19 @@ These pages (AI connection, the key page, Model, Usage) have a solid #FFF4EA pag
 cards, over whichever theme canvas is chosen (`AI_PAGE` in `constants/settingsTheme.js`). No
 spinners: a button says "Signing in…" or "Checking…" while it works.
 
-With nothing connected, `app/(root)/ai-connection.jsx` shows two cards of the same width with
-OR between, and everything about an option stays in its card:
+With nothing connected, `app/(root)/ai-connection.jsx` stacks two numbered cards with matching
+orange buttons.
 
-- **Option 1, ChatGPT Plan:** "Works great if you already have a paid ChatGPT subscription." Its
-  filled **Sign in with ChatGPT** starts OpenAI's sign-in at once. If that fails, red text takes
+- **Option 1, ChatGPT Plan** explains that signing in uses the limits of the person's ChatGPT
+  plan. **Sign in with ChatGPT** starts OpenAI's sign-in at once. If that fails, red text takes
   the description's place: "Couldn't reach ChatGPT. Check your connection and try again."
-- **Option 2, API key:** "Bring your own OpenAI or Anthropic API key." and which plans include
-  monthly API credits, then "How to get credits: OpenAI · Anthropic" (accent links to each
-  company's help page, in Safari). Its outlined **Add API key** opens `ai-connect.jsx`, where the
-  key is pasted and Calmera works out whose it is.
+- **Option 2, API Key** lists plans that may qualify for free monthly API credits. The provider
+  names in "Bring your own OpenAI or Anthropic API key." link to their credit guides in Safari.
+  **Add API key** opens `ai-connect.jsx`, where Calmera identifies the provider of the pasted key.
 
-Then Usage and the privacy line. Today's first voice, text or photo tap opens this same page and
-goes back to the meal once connected.
+Usage appears when there are requests in the last seven days, including after disconnecting. The
+privacy line follows. Today's first voice, text or photo tap opens this same page and goes back
+to the meal once connected.
 
 Once connected, the page is about that connection:
 
