@@ -6,7 +6,6 @@ module.exports = ({ config }) => {
   const baseConfig = { ...config, extra };
   if (process.env.CALMERA_FULL_APP_TEST === "1") return {
     ...baseConfig,
-    name: "calmera.",
     extra: { ...extra, calmeraFullAppTest: true },
     scheme: "calmera-chatgpt-dev",
     ios: { ...config.ios, bundleIdentifier: "com.yfwu02.calmera.chatgptdev" },

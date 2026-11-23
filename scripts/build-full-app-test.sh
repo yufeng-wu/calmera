@@ -18,7 +18,6 @@ import pathlib, plistlib, sys
 project, build = map(pathlib.Path, sys.argv[1:])
 with (project/'ios/mobile/Info.plist').open('rb') as f:
     info=plistlib.load(f)
-info['CFBundleDisplayName']='calmera.'
 info['CFBundleURLTypes']=[{'CFBundleURLSchemes':['calmera-chatgpt-dev','com.yfwu02.calmera.chatgptdev']}]
 with (build/'PhoneTest-Info.plist').open('wb') as f:
     plistlib.dump(info,f)
@@ -69,7 +68,7 @@ import pathlib, plistlib, sys
 app=pathlib.Path(sys.argv[1])
 info=plistlib.loads((app/'Info.plist').read_bytes())
 assert info['CFBundleIdentifier']=='com.yfwu02.calmera.chatgptdev'
-assert info['CFBundleDisplayName']=='calmera.'
+assert info['CFBundleDisplayName']=='Calmera'
 assert (app/'main.jsbundle').stat().st_size>0, 'Missing standalone JS bundle'
 print('Full-UI test app built with an embedded JS bundle. No app was installed.')
 PYTHON

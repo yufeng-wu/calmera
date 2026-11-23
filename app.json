@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "calmera.",
+    "name": "Calmera",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,7 +8,7 @@
     "scheme": "mobile",
     "userInterfaceStyle": "light",
     "ios": {
-      "buildNumber": "8",
+      "buildNumber": "9",
       "supportsTablet": false,
       "infoPlist": {
         "NSMicrophoneUsageDescription": "calmera uses the microphone when you log a meal by voice.",
