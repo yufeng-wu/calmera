@@ -8,7 +8,7 @@ import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import MaskedView from "@react-native-masked-view/masked-view";
 import { LinearGradient } from "expo-linear-gradient";
-import FoodwrapWordmark from "@/components/brand/FoodwrapWordmark";
+import CalmeraWordmark from "@/components/brand/CalmeraWordmark";
 import SettingsRow from "@/components/settings/SettingsRow";
 import { SettingsSection, settingsStyles, usePressHighlight } from "@/components/settings/SettingsSection";
 import { NUTRIENT_COLORS } from "@/constants/colors";
@@ -95,7 +95,7 @@ export default function SettingsScreen({ calmeraPreview = false }) {
 
       {!!previewMessage && <Text accessibilityLiveRegion="polite" style={settingsStyles.footnote}>{previewMessage}</Text>}
       <View accessible accessibilityLabel={`calmera. Version ${Constants.expoConfig?.version ?? ""}`} style={styles.footer}>
-        <FoodwrapWordmark maxWidth={68} style={styles.wordmark} />
+        <CalmeraWordmark maxWidth={68} style={styles.wordmark} />
         <Text style={settingsStyles.footnote}>Version {Constants.expoConfig?.version}</Text>
       </View>
     </ScrollView>

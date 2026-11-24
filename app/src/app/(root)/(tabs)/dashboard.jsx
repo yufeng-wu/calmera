@@ -20,7 +20,7 @@ import { NutritionSummaryCard } from "@/components/today/NutritionSummaryCard";
 import { FoodEntryItem, closeOpenMealActions, closeSettledMealActions } from "@/components/meals/FoodEntryItem";
 import TodayScene, { TodayStageHost } from "@/components/today/TodayScene";
 import { buddyMood, daySeed, emptyTodayGreeting } from "@/lib/today/nutritionPresentation.mjs";
-import FoodwrapWordmark from "@/components/brand/FoodwrapWordmark";
+import CalmeraWordmark from "@/components/brand/CalmeraWordmark";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { preloadNutritionModels } from "@/lib/chatgpt/planClient";
 import { aiConnection } from "@/lib/ai/mealAI";
@@ -233,7 +233,7 @@ export default function SummaryScreen() {
       >
         {/* Header and card sit above the scene, whose empty-day sky starts up behind them. */}
         <View style={[styles.headerContainer, { paddingTop: 8, zIndex: 1 }]}>
-          <FoodwrapWordmark style={{ marginBottom: 4 }} />
+          <CalmeraWordmark style={{ marginBottom: 4 }} />
           <DayDrop motion={calendarMotion} selectedDate={selectedDate} isToday={isToday} onSelectDate={selectDate} onToday={goToToday} onOpen={loadCalendar} onClose={scrollToTop}
             dataByDate={dataByDate} calorieGoal={goals.calorieGoal} startDate={startDate} historyLoading={historyLoading}
             historyError={historyError} historyPending={historyPending} onRetryHistory={retryHistory} />

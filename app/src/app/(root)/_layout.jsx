@@ -5,7 +5,7 @@ import { formOwnsTopInset } from "@/lib/headerLayout.mjs";
 import Constants from "expo-constants";
 import { usePathname } from "expo-router";
 import { Stack } from "expo-router/stack";
-import FoodwrapStartupGate from "@/components/brand/FoodwrapStartupGate";
+import CalmeraStartupGate from "@/components/brand/CalmeraStartupGate";
 import PrivacyConsentGate from "@/components/privacy/PrivacyConsentGate";
 import { COLORS } from "@/constants/colors";
 import { useAppReset } from "@/context/AppResetContext";
@@ -28,7 +28,7 @@ export default function Layout() {
     <PrivacyConsentGate key={epoch} disabled={review}>
     <FoodIconsProvider owner={LOCAL_OWNER}>
     <EntriesRefreshProvider>
-    <FoodwrapStartupGate disabled={review}>
+    <CalmeraStartupGate disabled={review}>
       {/* After Start Over this stack mounts with no saved place, so it opens on the tabs
           (Today) instead of the first screen listed below. Launch links still set their own. */}
       <Stack initialRouteName="(tabs)" screenLayout={renderNavigationScene} screenOptions={{ headerShown: false, animation: "simple_push", contentStyle: { backgroundColor: COLORS.background, paddingTop: topInset } }}>
@@ -44,7 +44,7 @@ export default function Layout() {
         <Stack.Screen name="(tabs)" options={{ animation: launched ? "simple_push" : "none" }} listeners={{ transitionEnd: () => setLaunched(true) }} />
         <Stack.Screen name="ui-gallery" options={{ contentStyle: { backgroundColor: COLORS.background, paddingTop: 0 } }} />
       </Stack>
-    </FoodwrapStartupGate>
+    </CalmeraStartupGate>
     </EntriesRefreshProvider>
     </FoodIconsProvider>
     </PrivacyConsentGate>

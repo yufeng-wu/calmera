@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import FoodwrapWordmark from "@/components/brand/FoodwrapWordmark";
+import CalmeraWordmark from "@/components/brand/CalmeraWordmark";
 import { FormHeader, FormScreen, FormScrollView, GlassButton } from "@/components/GlassForm";
 import PrivacyPolicyView from "@/components/privacy/PrivacyPolicyView";
 import { SafeScreenTopContext } from "@/components/SafeScreen";
@@ -39,7 +39,7 @@ export default function PrivacyConsentSheet({ updated = false, saving = false, e
   );
   return <FormScreen>
     <FormScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <FoodwrapWordmark style={styles.wordmark} />
+      <CalmeraWordmark style={styles.wordmark} />
       <Text accessibilityRole="header" style={styles.title}>{updated ? COPY.updatedTitle : COPY.title}</Text>
       <Text style={styles.lead}>{updated ? COPY.updatedLead : COPY.lead}</Text>
       <View style={styles.section}>

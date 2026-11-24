@@ -1,13 +1,13 @@
 import { useEffect, useRef } from "react";
 import { Animated, Easing, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Svg, { G, Path } from "react-native-svg";
-import { FOODWRAP_ARTWORK as art } from "@/components/brand/FoodwrapWordmark";
+import { CALMERA_ARTWORK as art } from "@/components/brand/CalmeraWordmark";
 import { useMotionPreference } from "@/hooks/useMotionPreference";
 import { COLORS } from "@/constants/colors";
 
 // Native-driver transforms animate the existing vector artwork, not its paths.
 // The period has its own tightly cropped layer so its squash stays centered.
-export default function FoodwrapLoading({ active = true, staticOnly = false, style, showCaption = true, label = "Getting your meals…" }) {
+export default function CalmeraLoading({ active = true, staticOnly = false, style, showCaption = true, label = "Getting your meals…" }) {
   const { width: screenWidth, fontScale: systemFontScale } = useWindowDimensions();
   const fontScale = systemFontScale;
   const breath = useRef(new Animated.Value(0)).current;

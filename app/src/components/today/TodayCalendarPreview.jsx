@@ -3,7 +3,7 @@ import { Alert, ScrollView, Text, View } from "react-native";
 import { styles } from "@/components/today/home.styles";
 import DayDrop from "@/components/today/DayDrop";
 import { FoodEntryItem } from "@/components/meals/FoodEntryItem";
-import FoodwrapWordmark from "@/components/brand/FoodwrapWordmark";
+import CalmeraWordmark from "@/components/brand/CalmeraWordmark";
 import NoRecordYet from "@/components/today/NoRecordYet";
 import { NutritionSummaryCard } from "@/components/today/NutritionSummaryCard";
 import { localDateKey, normalizeDay } from "@/lib/store/nutritionStore.mjs";
@@ -54,7 +54,7 @@ export default function TodayCalendarPreview({ calmeraPreviewState = "ready" }) 
   };
   return <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
     <View style={[styles.headerContainer, { paddingTop: 12 }]}>
-      <FoodwrapWordmark style={{ marginBottom: 16 }} />
+      <CalmeraWordmark style={{ marginBottom: 16 }} />
       <DayDrop selectedDate={selectedDate} isToday={isToday} onSelectDate={setPickedDate} onToday={() => setPickedDate(null)}
         dataByDate={dataByDate} calorieGoal={CURRENT_GOALS.calorieGoal} startDate={startDate} historyLoading={loading}
         historyError={failed ? "Synthetic failure" : null} historyPending={pending} onRetryHistory={retry} />

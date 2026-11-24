@@ -22,19 +22,19 @@ import PrivacyConsentGate from "@/components/privacy/PrivacyConsentGate";
 import EditMeal from "@/app/(root)/edit/[id]";
 import TextLog from "@/app/(root)/create";
 import Photo from "@/app/(root)/photo-log";
-import FoodwrapWordmark from "@/components/brand/FoodwrapWordmark";
+import CalmeraWordmark from "@/components/brand/CalmeraWordmark";
 import AppLoadingScreen from "@/components/brand/AppLoadingScreen";
-import FoodwrapLoading from "@/components/brand/FoodwrapLoading";
+import CalmeraLoading from "@/components/brand/CalmeraLoading";
 
 function TodayLoadingPreview({ calmeraPreviewState }) {
   const focused = useIsFocused();
   return <View style={{ flex: 1, paddingTop: 12 }}>
-    <FoodwrapWordmark style={{ marginBottom: 16 }} />
+    <CalmeraWordmark style={{ marginBottom: 16 }} />
     <Text style={[styles.note, { textAlign: "center", paddingHorizontal: 20 }]}>
       {calmeraPreviewState === "reduced" ? "Reduced Motion preview" : "Today loading preview"}
     </Text>
     <View style={{ flex: 1, justifyContent: "center" }}>
-      <FoodwrapLoading active={focused} staticOnly={calmeraPreviewState === "reduced"} />
+      <CalmeraLoading active={focused} staticOnly={calmeraPreviewState === "reduced"} />
     </View>
   </View>;
 }

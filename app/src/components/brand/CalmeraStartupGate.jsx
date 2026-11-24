@@ -11,7 +11,7 @@ const READY_WAIT_MS = 1000;
 
 // Holds launch only until there is something real to show: Today and the goals, or the wait above.
 // Returning to the app never waits, because the data already in memory is still good to show.
-export default function FoodwrapStartupGate({ children, disabled = false }) {
+export default function CalmeraStartupGate({ children, disabled = false }) {
   const { store } = useRefreshSignal();
   const data = useDataStore();
   const [preparing, setPreparing] = useState(!disabled);

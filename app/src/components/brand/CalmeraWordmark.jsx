@@ -11,7 +11,7 @@ const WORDMARK_BODY = "M449 -347Q402 -379 354 -379Q328 -379 305.5 -370.0Q283 -36
 const WORDMARK_DOT = "M4144 -96Q4144 -120 4153.0 -141.5Q4162 -163 4178.0 -179.0Q4194 -195 4215.5 -204.0Q4237 -213 4261 -213Q4285 -213 4306.5 -204.0Q4328 -195 4344.0 -179.0Q4360 -163 4369.0 -141.5Q4378 -120 4378 -96Q4378 -72 4369.0 -50.5Q4360 -29 4344.0 -13.0Q4328 3 4306.5 12.0Q4285 21 4261 21Q4237 21 4215.5 12.0Q4194 3 4178.0 -13.0Q4162 -29 4153.0 -50.5Q4144 -72 4144 -96Z";
 const WORDMARK_TRANSFORM = "matrix(0.0583409 0 0 0.0583409 -2.4503178 55.5988940)";
 
-export const FOODWRAP_ARTWORK = Object.freeze({
+export const CALMERA_ARTWORK = Object.freeze({
   width: WORDMARK_WIDTH,
   height: 64,
   body: WORDMARK_BODY,
@@ -22,7 +22,7 @@ export const FOODWRAP_ARTWORK = Object.freeze({
   dotBounds: Object.freeze({"x": 239.3143718, "y": 43.172282349999996, "width": 13.6517706, "height": 13.6517706}),
 });
 
-export default function FoodwrapWordmark({ style, maxWidth = Infinity, color = WORDMARK_COLOR }) {
+export default function CalmeraWordmark({ style, maxWidth = Infinity, color = WORDMARK_COLOR }) {
   const { width: screenWidth, fontScale } = useWindowDimensions();
   const width = Math.min((22 * fontScale * WORDMARK_WIDTH) / 64, Math.max(1, screenWidth - 32), maxWidth);
   const height = (width * 64) / WORDMARK_WIDTH;
