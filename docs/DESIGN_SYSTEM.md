@@ -1,6 +1,6 @@
 # Calmera design system
 
-One page to check before adding a screen. Tokens live in `constants/`.
+One page to check before adding a screen. Paths are relative to `app/src/`, and tokens live in `constants/`.
 
 ## Character
 

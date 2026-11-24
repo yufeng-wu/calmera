@@ -1,5 +1,5 @@
-// Writes the public Privacy Policy pages from lib/privacyPolicy.mjs, the same text the app
-// shows, so the website and the app can't drift apart.
+// Writes the public Privacy Policy pages from src/lib/privacy/privacyPolicy.mjs, the same text
+// the app shows, so the website and the app can't drift apart. From app/:
 //   node scripts/build-privacy-site.mjs [outDir]   (default: site)
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";

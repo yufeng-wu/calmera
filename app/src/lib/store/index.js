@@ -3,7 +3,7 @@ import { createPhoneStore } from "./phone.mjs";
 
 // The one place the app reads and writes meals, goals and the profile. Everything lives on
 // this iPhone (./phone.mjs); screens, components and hooks only call these methods.
-// `lib/nutritionStore.mjs` is the in-memory copy screens share while the app is open.
+// `lib/store/nutritionStore.mjs` is the in-memory copy screens share while the app is open.
 //
 // Days of meals
 //   readDay(date)        One day ("YYYY-MM-DD"): { date, foodEntries, dailyTotals, mealTotals, goals? }.
