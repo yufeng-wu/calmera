@@ -16,13 +16,12 @@ test("every place that names a signing team names calmera's paid team", () => {
   assert.match(read("scripts/signing-team.sh"), new RegExp(`^CALMERA_TEAM_ID=${TEAM}$`, "m"));
 });
 
-test("app.config.js keeps the team for the real app and both test variants", () => {
+test("app.config.js keeps the team for the real app and the test variant", () => {
   const appConfig = require("../app.config.js");
   const { expo } = JSON.parse(read("app.json"));
   const saved = { ...process.env };
   try {
-    for (const env of [{}, { CALMERA_PHONE_TEST: "1" }, { CALMERA_FULL_APP_TEST: "1" }]) {
-      delete process.env.CALMERA_PHONE_TEST;
+    for (const env of [{}, { CALMERA_FULL_APP_TEST: "1" }]) {
       delete process.env.CALMERA_FULL_APP_TEST;
       Object.assign(process.env, env);
       assert.equal(appConfig({ config: expo }).ios.appleTeamId, TEAM, JSON.stringify(env));

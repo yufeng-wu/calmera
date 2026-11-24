@@ -9,7 +9,7 @@ import { execFileSync } from "node:child_process";
 // the JS thread). A pod install after a Release build had left Pods/.last_build_configuration saying Release
 // over a debug engine, so React Native's build phase skipped swapping in the release one.
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
-const RELEASE_SCRIPTS = ["scripts/install-iphone.sh", "scripts/build-phone-test.sh", "scripts/build-full-app-test.sh"];
+const RELEASE_SCRIPTS = ["scripts/install-iphone.sh", "scripts/build-full-app-test.sh"];
 
 const runHelper = (call, ...args) => {
   try {
