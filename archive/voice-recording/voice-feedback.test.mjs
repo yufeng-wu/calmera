@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { processRecordedMeal } from "../lib/chatgpt/voiceCapture.mjs";
-import { voiceFeedbackDiagnostics as trace } from "../lib/chatgpt/voiceFeedbackDiagnostics.mjs";
+import { processRecordedMeal } from "./voiceCapture.mjs";
+import { voiceFeedbackDiagnostics as trace } from "./voiceFeedbackDiagnostics.mjs";
 
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
 function fixture(overrides = {}) {

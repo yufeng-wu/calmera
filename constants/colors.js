@@ -66,7 +66,7 @@ export const COLORS = THEMES.coffee;
 // Keep Tangerine as the brand accent; use soft leaf green for calorie progress.
 export const CALORIE_PROGRESS_COLOR = "#6F9D78";
 
-// Rainbow colors for the live AI indicator animation
+// First drawn for the old live AI indicator; Today's protein, carbs and fat rings use entries 1 to 3.
 export const RAINBOW_COLORS = [
   "#7694f8",
   "#7094f8",

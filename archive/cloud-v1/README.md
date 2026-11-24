@@ -52,7 +52,7 @@ All of them need a Clerk token. The base URL is `EXPO_PUBLIC_API_BASE_URL`, whic
 | `GET /food-entries/summaries`, `GET /food-entries/summary-by-date/:date` | Today and History |
 | `GET /health` | Uptime check (no token) |
 
-The old server AI routes (`/food-entries/estimate`, `/users/recommend-goals`, voice and vision) answer 410. Payment routes exist only with `CALMERA_ENABLE_BILLING=true`. `PUT /users/update-scale-type` belongs to the old scale flow.
+The old server AI routes (`/food-entries/estimate`, `/users/recommend-goals`, voice and vision) answer 410. `PUT /users/update-scale-type` belongs to the old scale flow.
 
 ### Where the app talks to the server
 
@@ -63,7 +63,7 @@ The old server AI routes (`/food-entries/estimate`, `/users/recommend-goals`, vo
 - **Hooks:** `hooks/useNutritionData.js` (meals, and the copy kept on the phone), `hooks/useProfile.js`
 - **Request helpers:** `lib/mealRequest.mjs`, `lib/nutritionRequest.mjs`, `lib/nutritionDelete.mjs`, `lib/accountSetup.mjs`, `lib/goalProfile.mjs`, `lib/accountDeletion.mjs`, `lib/accountDeletionDevice.js`, `lib/chatgpt/entryPersistence.mjs`
 
-Some older screens also call the server, but nothing in the current app links to them. They're the scale camera, payments and a voice test: `app/(root)/camera.jsx`, `calmera-welcome.jsx`, `update-scale-type.jsx`, `go-premium.jsx`, `voice-test.jsx`, `context/PremiumContext.js` and `hooks/useCookingSession.js`.
+Some older screens, such as the scale camera (`app/(root)/camera.jsx`, `update-scale-type.jsx`, `hooks/useCookingSession.js`) and a voice test (`voice-test.jsx`), also call the server, but nothing in that version links to them.
 
 35 files import Clerk (`@clerk/clerk-expo`).
 
@@ -77,7 +77,7 @@ cd ../mobile-cloud-v1 && npm install
 node --test tests/*.test.mjs
 ```
 
-Next, create `.env` with `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` and `EXPO_PUBLIC_API_BASE_URL`, using `.env.chatgpt.example` as the template. Then build with `npm run ios`. Signing and phone builds are covered in [PHONE_TEST.md](../PHONE_TEST.md) and [SETUP_CHECKLIST.md](SETUP_CHECKLIST.md).
+Next, create `.env` with `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` and `EXPO_PUBLIC_API_BASE_URL`, using `.env.chatgpt.example` as the template. Then build with `npm run ios`. Signing and phone builds are covered in [PHONE_TEST.md](https://github.com/yufeng-wu/calmera/blob/cloud-v1/docs/PHONE_TEST.md) and [SETUP_CHECKLIST.md](https://github.com/yufeng-wu/calmera/blob/cloud-v1/docs/SETUP_CHECKLIST.md) at the tag.
 
 **Server**, from your cal_backend checkout:
 
@@ -99,24 +99,12 @@ npm test
 | Upstash | Shared rate limits, optional | Off by default; the server uses local limits |
 | OpenAI | AI estimates, through each person's ChatGPT account | Stays in the phone-only version |
 
-Keep Render, Neon and Clerk running until two things are true: the phone-only version is released, and everyone using the cloud version, you included, has exported their data. Export is Settings → Export your data, which saves `calmera-data-YYYY-MM-DD.json`. The phone-only version's Import is meant to read that file.
+Keep Render, Neon and Clerk running until two things are true: the phone-only version is released, and everyone using the cloud version, you included, has exported their data. Export is Settings → Export your data, which saves `calmera-data-YYYY-MM-DD.json`.
 
 ## Privacy text for this version
 
-At `cloud-v1`, `lib/privacyPolicy.mjs` (policy version 2026-11-08) describes this version. It names Clerk, Neon, Render and Upstash and describes data kept in an account. The phone-only version has its own policy version; see [PRIVACY.md](../PRIVACY.md).
+At `cloud-v1`, `lib/privacyPolicy.mjs` (policy version 2026-11-08) describes this version. It names Clerk, Neon, Render and Upstash and describes data kept in an account. The phone-only version has its own policy version; see [docs/PRIVACY.md](../../docs/PRIVACY.md).
 
-## Next: keeping everything on the iPhone
+## What came next
 
-Plan as of November 8, 2026:
-
-1. **Save this version.** Done: this page and the `cloud-v1` tags.
-2. **One entry point.** Done: every meal, goal and profile read and write goes through `lib/store` (`useDataStore()`), whose methods are listed at the top of `lib/store/index.js`.
-3. **Phone storage.** Done: `lib/store/phone.mjs` keeps meals (one entry per day), goals with their start dates, and the profile in the iPhone's app storage under `calmera.data.v1.*`. The first launch starts the profile that day with the default goals. `tests/data-store.test.mjs` covers it with in-memory storage (`lib/store/memoryStorage.mjs`).
-4. **No sign-in.** Done: sign-in, sign-up, password reset, account setup, the Account page and Sign out are gone, and so are the server request helpers, `constants/api.js` and the unlinked scale camera, payment and voice-test screens. One local owner (`lib/owner.mjs`) replaces the signed-in user for settings and the ChatGPT sign-in. Settings → Erase all data (`app/(root)/erase-data.jsx`) removes everything calmera keeps on the iPhone and starts over from the privacy agreement, which is now kept only on the iPhone. The Privacy Policy describes phone-only storage (version 2026-11-09).
-5. **Release.** Add Import for the export file, set the Privacy Policy version and date to the publish date and publish it, then release. Unused packages (Clerk, Stripe, TensorFlow, expo-camera and others) can be removed with a native rebuild.
-
-Historical migration assumptions (superseded by the [current storage and export details](../PRIVACY.md)):
-
-- iCloud Backup and Quick Start (setting up a new iPhone from the old one) both copy the app's data, including the database on the phone. People who use neither can move their data with Export and Import.
-- The ChatGPT sign-in is saved for this device only, so on a new iPhone people reconnect ChatGPT once. Their meals come across either way.
-- An export holds the current goals but not the history of goal changes. Importing one restores meals and the current goals.
+On November 8, 2026 (`2c65fd0`), Calmera moved everything to the iPhone and dropped sign-in. Version 1.0.0, the first App Store version, is that phone-only app.
