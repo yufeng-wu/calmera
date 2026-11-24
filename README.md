@@ -9,7 +9,7 @@
   <a href="mailto:calmeradev@gmail.com">Support: calmeradev@gmail.com</a>
 </p>
 
-Calmera is a free, open-source calorie and macro tracker for iPhone. Type, say or snap a photo of a meal, and your own AI estimates its calories, protein, carbs and fat.
+Calmera is a 100% free calorie and macro tracker for iPhone, with its source code openly available. Type, say or snap a photo of a meal, and your own AI estimates its calories, protein, carbs and fat.
 
 ## Core features
 
@@ -32,14 +32,12 @@ Calmera is a free, open-source calorie and macro tracker for iPhone. Type, say o
 
 ## Contribute
 
-Bug reports and ideas are welcome. [Open an issue](https://github.com/yufeng-wu/calmera/issues) or email [calmeradev@gmail.com](mailto:calmeradev@gmail.com).
-
-To run Calmera yourself, you need a Mac with Node.js 22, CocoaPods and Xcode 26. Setup, tests and release steps are in [docs/README.md](docs/README.md), and every command runs from `app/`.
-
-For larger changes, please open an issue first so we can agree on the approach. By submitting a pull request, you agree that your contribution is licensed under the GPL-3.0 and that Yufeng Wu may also ship it in the App Store version of Calmera.
+Bug reports and ideas are welcome. Please email [calmeradev@gmail.com](mailto:calmeradev@gmail.com) for collaboration. 
 
 ## License
 
-Calmera is open source under the [GNU General Public License v3.0](LICENSE). [NOTICE](NOTICE) adds a few terms: keep the attribution, and give modified versions their own name and icon. The Calmera name, logo and app icon aren't covered by the GPL.
+Calmera's source code is openly available under the [PolyForm Noncommercial License 1.0.0](LICENSE.md). You may use, change and share it for noncommercial purposes, as long as you keep the license and its Required Notice. Any commercial use, including selling or redistributing Calmera or a modified version for profit, needs written permission from Yufeng Wu ([calmeradev@gmail.com](mailto:calmeradev@gmail.com)).
+
+The Calmera name, logo and app icon are not licensed for any use.
 
 Copyright (C) 2026 Yufeng Wu.
