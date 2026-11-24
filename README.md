@@ -9,7 +9,7 @@
   <a href="mailto:calmeradev@gmail.com">Support: calmeradev@gmail.com</a>
 </p>
 
-Calmera is a 100% free calorie and macro tracker for iPhone, with its source code openly available. Type, say or snap a photo of a meal, and your own AI estimates its calories, protein, carbs and fat.
+Calmera is a 100% free calorie and macro tracker for iPhone, with its source code openly available. Contributions are welcome! Type, say or snap a photo of a meal, and your own AI estimates its calories, protein, carbs and fat.
 
 ## Core features
 
