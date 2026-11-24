@@ -17,6 +17,8 @@ open ios/mobile.xcworkspace
 
 In Xcode, select the **mobile** scheme and an iPhone simulator, then Run. For a Debug build, run `npm start` in `app/` to serve JavaScript. A Release build embeds the JavaScript bundle. The custom native photo picker and ChatGPT sign-in require the native app.
 
+Calmera's own Swift lives in the local Expo module `modules/calmera-native/`. App code reaches it only through that folder's `index.js`. `ios/CalmeraNativeModule.swift` lists every native view and function; the code is in `ios/UI/` (one file per view), `ios/SignIn/` and `ios/Photos/`. After adding or renaming a Swift file there, run `pod install` in `ios/`.
+
 ## Verify changes
 
 ```sh
