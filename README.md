@@ -1,20 +1,24 @@
-# Calmera
+<p align="center">
+  <img src="app/assets/images/icon.png" width="128" alt="Calmera app icon">
+</p>
 
-Calmera is a meal journal for iPhone. You log a meal by typing it, taking or choosing a photo, or saying it out loud, and Calmera estimates its calories, protein, carbs and fat. You check the estimate, fix anything that's off and save it. You can set daily nutrition goals yourself or answer a short survey for suggested ones, and Insights shows your eating patterns over a week, a month or a year.
+<h1 align="center">Calmera – AI calorie and macro tracker</h1>
 
-- **Open source.** The code is under the [MIT license](LICENSE).
-- **Free.** No price, no subscription and no in-app purchases.
-- **Your own AI.** Sign in with ChatGPT to use an eligible paid plan (Go, Plus or Pro), or add your own OpenAI or Anthropic API key. Estimates count toward your ChatGPT plan's limits or are billed to your API account by the provider, not by Calmera.
+<p align="center">
+  <a href="https://yufengwu.dev/calmera/">Website</a> ·
+  <a href="mailto:calmeradev@gmail.com">Support: calmeradev@gmail.com</a>
+</p>
 
-Everything you save stays on your iPhone. There's no Calmera account and no Calmera server. Settings can export your data to a file or erase all of it.
+Calmera is a free iPhone app that estimates the calories, protein, carbs and fat in a meal you type, say or photograph. You check the estimate, fix anything that's off and save it, and Insights shows your patterns over a week, a month or a year.
 
-Website: [yufengwu.dev/calmera](https://yufengwu.dev/calmera/) · [Privacy Policy](https://yufengwu.dev/calmera/privacy/) · Support: [calmeradev@gmail.com](mailto:calmeradev@gmail.com)
+## Core features
 
-## How Calmera uses AI
+1. **Powered by your own AI.** Sign in with ChatGPT to use your existing plan, or use an OpenAI or Anthropic API key. Every estimate runs on your own AI, and Calmera itself is free, with no subscription fee.
+2. **Pick your model,** such as Sonnet, Opus or Haiku, with optional online search for restaurants and brands.
+3. **No account.** No sign-up, and all your data stays on your iPhone.
+4. **Log by text, voice or photo.**
 
-Estimates come from the AI service you connect in Settings → AI connection, and your iPhone sends each request straight to it. With an API key, Calmera also estimates what the last 7 days cost. A meal's text, or the photo you chose, is sent only when you ask for an estimate. Voice is turned into text on the iPhone, and only the words are sent.
-
-## Folders
+## Repo organization
 
 | Folder | What's in it |
 | --- | --- |
@@ -26,10 +30,16 @@ Estimates come from the AI service you connect in Settings → AI connection, an
 | `docs/` | Development, release, privacy and design notes |
 | `archive/` | Features the app no longer uses, kept for reference |
 
-## Building
+## Contribute
 
-Setup, tests and the App Store release steps are in [docs/README.md](docs/README.md). You need a Mac with Node.js 22, CocoaPods and Xcode 26. Every command runs from `app/`.
+Bug reports and ideas are welcome. [Open an issue](https://github.com/yufeng-wu/calmera/issues) or email [calmeradev@gmail.com](mailto:calmeradev@gmail.com).
+
+To run Calmera yourself, you need a Mac with Node.js 22, CocoaPods and Xcode 26. Setup, tests and release steps are in [docs/README.md](docs/README.md), and every command runs from `app/`.
+
+For larger changes, please open an issue first so we can agree on the approach. By submitting a pull request, you agree that your contribution is licensed under the GPL-3.0 and that Yufeng Wu may also ship it in the App Store version of Calmera.
 
 ## License
 
-Calmera is open source under the [MIT license](LICENSE). Copyright (c) 2026 Yufeng Wu.
+Calmera is open source under the [GNU General Public License v3.0](LICENSE). [NOTICE](NOTICE) adds a few terms: keep the attribution, and give modified versions their own name and icon. The Calmera name, logo and app icon aren't covered by the GPL.
+
+Copyright (C) 2026 Yufeng Wu.
