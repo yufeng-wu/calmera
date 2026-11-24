@@ -1,11 +1,11 @@
 import ExpoModulesCore
 
-public final class CalmeraChatGPTModule: Module {
+public final class CalmeraNativeModule: Module {
   private let callback = PlanLoopback()
   private let picker = PlanPhotoPicker()
 
   public func definition() -> ModuleDefinition {
-    Name("CalmeraChatGPT")
+    Name("CalmeraNative")
     View(CalmeraGlassView.self) {
       // Zero keeps the capsule shape; a panel passes its own corner radius.
       Prop("cornerRadius") { (view: CalmeraGlassView, value: Double) in view.cornerRadius = CGFloat(max(0, value)) }

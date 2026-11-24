@@ -25,7 +25,7 @@ function fixture({ tier = 'priority', fullTest = true, meals = null, modelFetch 
   const mocks = {
     'react-native': { Platform: { OS: 'ios' } },
     'expo-constants': { __esModule: true, default: { expoConfig: { extra: { calmeraFullAppTest: fullTest } } } },
-    '../../../modules/calmera-chatgpt': { requireCalmeraNativeModule: () => ({}) },
+    '../../../modules/calmera-native': { requireCalmeraNativeModule: () => ({}) },
     'expo-secure-store': { WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'synthetic-accessibility',
       getItemAsync: async key => values.get(key) ?? null,
       setItemAsync: async (key, value) => { values.set(key, value); },

@@ -1,6 +1,6 @@
 import { useContext } from "react";
 import { BottomTabBar, BottomTabBarHeightCallbackContext } from "@react-navigation/bottom-tabs";
-import { requireCalmeraNativeView } from "../../modules/calmera-chatgpt";
+import { requireCalmeraNativeView } from "../../modules/calmera-native";
 import { Platform, StyleSheet, View } from "react-native";
 
 const SystemTabs = Platform.OS === "ios"

@@ -3,7 +3,7 @@ import { AccessibilityInfo, Animated, BackHandler, Easing, Platform, Pressable, 
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/constants/colors";
 import GlassSurface from "../GlassSurface";
-import { requireCalmeraNativeView } from "../../../modules/calmera-chatgpt";
+import { requireCalmeraNativeView } from "../../../modules/calmera-native";
 
 export const ADD_MENU_OPTION_WIDTH = 120;
 

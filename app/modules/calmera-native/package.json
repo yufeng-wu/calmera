@@ -1,0 +1,8 @@
+{
+  "name": "calmera-native",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Calmera's native iOS code: the Liquid Glass views and tab bar, Sign in with ChatGPT and the photo picker",
+  "main": "index.js",
+  "license": "PolyForm-Noncommercial-1.0.0"
+}

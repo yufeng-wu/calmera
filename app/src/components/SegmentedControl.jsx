@@ -1,5 +1,5 @@
 import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { requireCalmeraNativeView } from "../../modules/calmera-chatgpt";
+import { requireCalmeraNativeView } from "../../modules/calmera-native";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
 

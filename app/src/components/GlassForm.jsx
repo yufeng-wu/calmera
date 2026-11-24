@@ -5,7 +5,7 @@ import { createContext, forwardRef, useCallback, useContext, useMemo, useRef, us
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { ActionSheetIOS, ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Animated from "react-native-reanimated";
-import { requireCalmeraNativeView } from "../../modules/calmera-chatgpt";
+import { requireCalmeraNativeView } from "../../modules/calmera-native";
 import { Ionicons } from "@expo/vector-icons";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 

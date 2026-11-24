@@ -1,5 +1,5 @@
 import { Alert, Platform, Pressable, StyleSheet } from "react-native";
-import { requireCalmeraNativeView } from "../../../modules/calmera-chatgpt";
+import { requireCalmeraNativeView } from "../../../modules/calmera-native";
 
 const NativeGoalsMenu = Platform.OS === "ios" ? requireCalmeraNativeView("GoalsMenu") : null;
 

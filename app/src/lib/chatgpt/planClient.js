@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 import Constants from "expo-constants";
-import { requireCalmeraNativeModule } from "../../../modules/calmera-chatgpt";
+import { requireCalmeraNativeModule } from "../../../modules/calmera-native";
 import * as SecureStore from "expo-secure-store";
 import * as Crypto from "expo-crypto";
 import * as WebBrowser from "expo-web-browser";

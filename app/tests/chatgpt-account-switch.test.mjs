@@ -40,7 +40,7 @@ function fixture({ prior = record('old'), registration = prior?.client_id, cance
   const mocks = {
     'react-native': { Platform: { OS: 'ios' } },
     'expo-constants': { __esModule: true, default: { expoConfig: { extra: {} } } },
-    '../../../modules/calmera-chatgpt': { requireCalmeraNativeModule: () => native },
+    '../../../modules/calmera-native': { requireCalmeraNativeModule: () => native },
     'expo-secure-store': { WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'synthetic-device-only',
       getItemAsync: async name => values.get(name) ?? null,
       setItemAsync: async (name, value) => {

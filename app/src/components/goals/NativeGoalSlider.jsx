@@ -1,5 +1,5 @@
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { requireCalmeraNativeView } from "../../../modules/calmera-chatgpt";
+import { requireCalmeraNativeView } from "../../../modules/calmera-native";
 import { COLORS } from "@/constants/colors";
 
 const NativeSlider = Platform.OS === "ios" ? requireCalmeraNativeView("GoalSlider") : null;

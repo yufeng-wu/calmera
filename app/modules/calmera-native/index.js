@@ -2,7 +2,7 @@
 // ios/ registers every view and function below under one Expo module name.
 import { requireNativeViewManager, requireOptionalNativeModule } from "expo-modules-core";
 
-const MODULE_NAME = "CalmeraChatGPT";
+const MODULE_NAME = "CalmeraNative";
 
 // A native view by its ViewName in the Swift module definition, such as
 // "SystemTabs" or "GoalSlider". With no name: the decorative glass material.

@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { requireCalmeraNativeView } from "../../../modules/calmera-chatgpt";
+import { requireCalmeraNativeView } from "../../../modules/calmera-native";
 import Animated, { useAnimatedProps, useAnimatedReaction, useAnimatedStyle } from "react-native-reanimated";
 import { COLORS } from "@/constants/colors";
 

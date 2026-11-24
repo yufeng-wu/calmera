@@ -1,5 +1,5 @@
 import { Platform, StyleSheet, View } from "react-native";
-import { requireCalmeraNativeView } from "../../modules/calmera-chatgpt";
+import { requireCalmeraNativeView } from "../../modules/calmera-native";
 
 const NativeGlass = Platform.OS === "ios"
   ? requireCalmeraNativeView()
