@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { surveyBmr, surveyActivityFactor, surveyGoals, surveyPickerCommit, surveyInputSignature,
-  CALORIE_FLOORS, CARBS_RDA, DEFICIT } from "../src/lib/goalsSurvey.mjs";
+  CALORIE_FLOORS, CARBS_RDA, DEFICIT } from "../src/lib/goals/goalsSurvey.mjs";
 
 const canonical = Object.freeze({ weightKg: 70, heightCm: 175, age: 30, sex: "female",
   workActivity: "moderate", exerciseActivity: "moderate", goal: "maintain" });

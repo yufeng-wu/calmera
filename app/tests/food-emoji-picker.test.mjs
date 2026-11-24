@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import vm from "node:vm";
-import { FOOD_ICON_CATALOG } from "../src/lib/foodIcons.mjs";
-import * as pickerModel from "../src/lib/foodEmojiPicker.mjs";
+import { FOOD_ICON_CATALOG } from "../src/lib/meals/foodIcons.mjs";
+import * as pickerModel from "../src/lib/meals/foodEmojiPicker.mjs";
 
 const { FOOD_EMOJI_CATEGORIES, getFoodEmojiSections } = pickerModel;
 const ids = sections => sections.flatMap(section => section.icons.map(icon => icon.id));
@@ -43,7 +43,7 @@ test("category browsing and global search stay predictable and leave the catalog
 const require = createRequire(import.meta.url);
 const React = require("react");
 const babel = require("@babel/core");
-const compiled = babel.transformSync(readFileSync(new URL("../src/components/FoodEmojiPicker.jsx", import.meta.url), "utf8"), {
+const compiled = babel.transformSync(readFileSync(new URL("../src/components/meals/FoodEmojiPicker.jsx", import.meta.url), "utf8"), {
   babelrc: false, configFile: false, presets: [[require.resolve("@babel/preset-react"), { runtime: "automatic" }]],
   plugins: [require.resolve("@babel/plugin-transform-modules-commonjs")],
 }).code;
@@ -68,7 +68,7 @@ function fixture({ disabled = false, fontScale = 1 } = {}) {
     "react-native-safe-area-context": { useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }) },
     "@expo/vector-icons": { Ionicons: "Ionicons" }, "@/components/GlassForm": { GlassButton: "GlassButton" },
     "@/constants/formTheme": { FORM_COLORS: {} }, "@/constants/typography": { TYPOGRAPHY: {} },
-    "@/lib/foodEmojiPicker.mjs": pickerModel,
+    "@/lib/meals/foodEmojiPicker.mjs": pickerModel,
   };
   const module = { exports: {} };
   vm.runInNewContext(compiled, { module, exports: module.exports, require: name => {

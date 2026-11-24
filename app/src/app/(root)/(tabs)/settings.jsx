@@ -8,9 +8,9 @@ import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import MaskedView from "@react-native-masked-view/masked-view";
 import { LinearGradient } from "expo-linear-gradient";
-import FoodwrapWordmark from "@/components/FoodwrapWordmark";
-import SettingsRow from "@/components/SettingsRow";
-import { SettingsSection, settingsStyles, usePressHighlight } from "@/components/SettingsSection";
+import FoodwrapWordmark from "@/components/brand/FoodwrapWordmark";
+import SettingsRow from "@/components/settings/SettingsRow";
+import { SettingsSection, settingsStyles, usePressHighlight } from "@/components/settings/SettingsSection";
 import { NUTRIENT_COLORS } from "@/constants/colors";
 import { SETTINGS, SETTINGS_MOTION } from "@/constants/settingsTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
@@ -22,7 +22,7 @@ import { aiConnection } from "@/lib/ai/mealAI";
 import { connectionValue } from "@/lib/ai/connectionPresentation.mjs";
 import { formatNumber } from "@/lib/insights/stats.mjs";
 import { LOCAL_OWNER } from "@/lib/owner.mjs";
-import { VOICE_LANGUAGES } from "@/lib/voiceLanguagePreferences.mjs";
+import { VOICE_LANGUAGES } from "@/lib/voice/voiceLanguagePreferences.mjs";
 
 const GOALS = [
   { key: "calorieGoal", label: "Calories", unit: "", spoken: "kilocalories", color: NUTRIENT_COLORS.calories },

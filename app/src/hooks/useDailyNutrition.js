@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { Alert, LayoutAnimation } from "react-native";
-import { EMPTY_DAY, localDateKey } from "@/lib/nutritionStore.mjs";
+import { EMPTY_DAY, localDateKey } from "@/lib/store/nutritionStore.mjs";
 import { useNutritionData } from "./useNutritionData";
 
 export const useDailyNutrition = (date = new Date()) => {

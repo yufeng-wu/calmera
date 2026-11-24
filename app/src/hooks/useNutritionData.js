@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { AppState } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
-import { dataLoader, localDateKey } from "@/lib/nutritionStore.mjs";
-import { nutritionViewState, retryNutritionError } from "@/lib/nutritionPresentation.mjs";
-import { completeNutritionRefresh } from "@/lib/completeNutritionRefresh.mjs";
-import { removeStoredNutritionEntry } from "@/lib/nutritionDelete.mjs";
+import { dataLoader, localDateKey } from "@/lib/store/nutritionStore.mjs";
+import { nutritionViewState, retryNutritionError } from "@/lib/today/nutritionPresentation.mjs";
+import { completeNutritionRefresh } from "@/lib/store/completeNutritionRefresh.mjs";
+import { removeStoredNutritionEntry } from "@/lib/meals/nutritionDelete.mjs";
 import { LOCAL_OWNER } from "@/lib/owner.mjs";
 import { useDataStore } from "@/lib/store";
 

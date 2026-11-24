@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { calendarStart, isDaySelectable, listMonths, monthCells, monthRowCount, parseLocalDate } from "../src/lib/calendarMonths.mjs";
+import { calendarStart, isDaySelectable, listMonths, monthCells, monthRowCount, parseLocalDate } from "../src/lib/today/calendarMonths.mjs";
 
 
 test("backend dates parse as local wall-clock days", () => {

@@ -3,11 +3,11 @@ import { Platform, Share, StyleSheet, Text, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import RNFS from "react-native-fs";
 import { FormHeader, FormScreen, FormScrollView, GlassButton } from "@/components/GlassForm";
-import SettingsRow from "@/components/SettingsRow";
-import { SettingsSection, settingsStyles } from "@/components/SettingsSection";
+import SettingsRow from "@/components/settings/SettingsRow";
+import { SettingsSection, settingsStyles } from "@/components/settings/SettingsSection";
 import { profileGoals, useNutritionData } from "@/hooks/useNutritionData";
 import usePageExit from "@/hooks/usePageExit";
-import { EXPORT_RANGES, exportFileName, exportJson, exportKeys, exportSummary, isExportFile, wellFormed } from "@/lib/dataExport.mjs";
+import { EXPORT_RANGES, exportFileName, exportJson, exportKeys, exportSummary, isExportFile, wellFormed } from "@/lib/settings/dataExport.mjs";
 import { formatNumber } from "@/lib/insights/stats.mjs";
 
 // Short on purpose: how many foods, and for all history, since when.

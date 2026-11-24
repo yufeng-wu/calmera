@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createNutritionStore, EMPTY_DAY, normalizeDay } from "../src/lib/nutritionStore.mjs";
-import { BUDDY_FACES, buddyFace, buddyMood, calendarDayStatus, daySeed, emptyTodayGreeting, nutritionViewState, retryNutritionError } from "../src/lib/nutritionPresentation.mjs";
+import { createNutritionStore, EMPTY_DAY, normalizeDay } from "../src/lib/store/nutritionStore.mjs";
+import { BUDDY_FACES, buddyFace, buddyMood, calendarDayStatus, daySeed, emptyTodayGreeting, nutritionViewState, retryNutritionError } from "../src/lib/today/nutritionPresentation.mjs";
 
 const date = "2026-10-19";
 const meal = { id: 1, food_name: "Synthetic banana", calories: 105 };

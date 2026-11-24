@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRefreshSignal } from "@/context/EntriesRefreshContext";
 import { profileGoals } from "@/hooks/useNutritionData";
-import { dataLoader } from "@/lib/nutritionStore.mjs";
+import { dataLoader } from "@/lib/store/nutritionStore.mjs";
 import { LOCAL_OWNER } from "@/lib/owner.mjs";
 import { useDataStore } from "@/lib/store";
 

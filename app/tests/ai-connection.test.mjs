@@ -9,7 +9,7 @@ import { summarizeUsage, usageRow } from "../src/lib/ai/usage.mjs";
 import { PREVIEW_KEY, PREVIEW_OPENAI_KEY, previewConnectionServices } from "../src/lib/ai/previewConnection.mjs";
 import { leaveConnectOutcome, logAfterConnect, takeConnectOutcome, takeLogAfterConnect } from "../src/lib/ai/connectHandoff.mjs";
 import { loggingProblem } from "../src/lib/ai/loggingProblem.mjs";
-import { connectionPresentation } from "../src/lib/mealLogPresentation.mjs";
+import { connectionPresentation } from "../src/lib/meals/mealLogPresentation.mjs";
 import { connectionIssue } from "../src/lib/chatgpt/connectionStatus.mjs";
 
 // Obviously fake keys: never a real one in tests.

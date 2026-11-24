@@ -1,10 +1,10 @@
 import { Text } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { FormHeader, FormScreen, FormScrollView } from "@/components/GlassForm";
-import PrivacyPolicyView from "@/components/PrivacyPolicyView";
-import { settingsStyles } from "@/components/SettingsSection";
+import PrivacyPolicyView from "@/components/privacy/PrivacyPolicyView";
+import { settingsStyles } from "@/components/settings/SettingsSection";
 import usePageExit from "@/hooks/usePageExit";
-import { PRIVACY_DOCS, PRIVACY_POLICY } from "@/lib/privacyPolicy.mjs";
+import { PRIVACY_DOCS, PRIVACY_POLICY } from "@/lib/privacy/privacyPolicy.mjs";
 
 // The Privacy Policy from Settings, and the Washington health data policy it links to.
 export default function Privacy({ calmeraPreview = false, calmeraPreviewStage }) {

@@ -3,11 +3,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import vm from "node:vm";
-import { createConfirmedMealSave } from "../src/lib/confirmedMealSave.mjs";
-import * as reviewModel from "../src/lib/mealReview.mjs";
-import * as foodIcons from "../src/lib/foodIcons.mjs";
+import { createConfirmedMealSave } from "../src/lib/meals/confirmedMealSave.mjs";
+import * as reviewModel from "../src/lib/meals/mealReview.mjs";
+import * as foodIcons from "../src/lib/meals/foodIcons.mjs";
 import { connectionIssue } from "../src/lib/chatgpt/connectionStatus.mjs";
-import { canAnalyzeMeal, connectionPresentation, providerName } from "../src/lib/mealLogPresentation.mjs";
+import { canAnalyzeMeal, connectionPresentation, providerName } from "../src/lib/meals/mealLogPresentation.mjs";
 
 const require = createRequire(import.meta.url);
 const React = require("react");
@@ -45,7 +45,7 @@ const saveMenu = tree => find(tree, node => node.props?.testID === "save-meal");
 const motionBuilder = new Proxy(function builder() {}, { get: (_, key) => key === "then" ? undefined : motionBuilder, apply: () => motionBuilder });
 const reanimatedStub = { View: "AnimatedView", Easing: { bezier: () => () => 0 }, FadeIn: motionBuilder, FadeInDown: motionBuilder, FadeOutDown: motionBuilder,
   useAnimatedStyle: () => ({}), useSharedValue: value => ({ value }), withTiming: value => value, withSpring: value => value, useReducedMotion: () => false };
-const compiledReview = compile("../src/components/MealReview.jsx");
+const compiledReview = compile("../src/components/meals/MealReview.jsx");
 function reviewFixture() {
   const runtime = hooks(); const saves = [], alerts = [];
   const props = { photo: { dataURL: "synthetic-photo" }, review: reviewModel.createMealReview([food], "owner", "2026-10-21T12:00:00-04:00"),
@@ -65,9 +65,9 @@ function reviewFixture() {
     "@/components/GlassForm": Object.fromEntries(["FormScreen", "FormScrollView", "FormHeader", "FormCard", "GlassButton", "MenuButton"].map(key => [key, key])),
     "@/constants/formTheme": { FORM_COLORS: {} }, "@/constants/typography": { TYPOGRAPHY: {} },
     "@/constants/surfaces": { SURFACES: { edge: {} } },
-    "@/components/FoodEmojiPicker": "FoodEmojiPicker", "@/components/NutrientValue": "NutrientValue",
-    "@/lib/foodIcons.mjs": foodIcons,
-    "@/context/FoodIconsContext": { useFoodIcons: () => ({ iconFor: entry => foodIcons.getFoodIcon(entry.foodName) }) }, "@/lib/mealReview.mjs": reviewModel,
+    "@/components/meals/FoodEmojiPicker": "FoodEmojiPicker", "@/components/meals/NutrientValue": "NutrientValue",
+    "@/lib/meals/foodIcons.mjs": foodIcons,
+    "@/context/FoodIconsContext": { useFoodIcons: () => ({ iconFor: entry => foodIcons.getFoodIcon(entry.foodName) }) }, "@/lib/meals/mealReview.mjs": reviewModel,
   });
   return { props, saves, alerts, render: () => { runtime.reset(); return Review(props); } };
 }
@@ -271,7 +271,7 @@ test("text analysis needs one nonblank description; amount is optional at input"
   for (const flag of ["busy", "selecting", "uncertain", "mealSaved"]) assert.equal(canAnalyzeMeal({ ...ready, [flag]: true }), false);
 });
 
-const compiledLog = compile("../src/components/MealLogScreen.jsx");
+const compiledLog = compile("../src/components/meals/MealLogScreen.jsx");
 function logFixture(inputMode = "text", connection = { state: "ready" }) {
   const runtime = hooks();
   let focus, cleanup, owner = "owner", exits = 0;
@@ -293,7 +293,7 @@ function logFixture(inputMode = "text", connection = { state: "ready" }) {
     "expo-constants": { expoConfig: { extra: {} } },
     "@expo/vector-icons": { Ionicons: "Ionicons" },
     "@/hooks/useMealLogConnection": () => ({ connection, refresh() {} }),
-    "@/lib/mealLogPresentation.mjs": { canAnalyzeMeal, connectionPresentation, providerName, estimationTitle: () => "Sending…", NO_FOOD_DETECTED: { title: "No Food Detected" }, noFoodMessage: mode => `${mode} no food` },
+    "@/lib/meals/mealLogPresentation.mjs": { canAnalyzeMeal, connectionPresentation, providerName, estimationTitle: () => "Sending…", NO_FOOD_DETECTED: { title: "No Food Detected" }, noFoodMessage: mode => `${mode} no food` },
     "@/hooks/usePageExit": () => () => { exits++; },
     "@/components/GlassForm": Object.fromEntries(["FormScreen", "FormScrollView", "FormHeader", "FormCard", "GlassButton"].map(key => [key, key])),
     "@/lib/chatgpt/phoneTestFixtures.mjs": { phoneTestNutritionLabel: "synthetic-photo" },
@@ -304,11 +304,11 @@ function logFixture(inputMode = "text", connection = { state: "ready" }) {
     "@/lib/ai/mealAI": { mealAI: async () => ({ source: "chatgpt", label: "Synthetic", estimate: options => { requests.push(options); return service.analyze(options); } }) },
     "@/lib/chatgpt/nutrition": {
       estimateMacros: (...args) => service.estimate(...args), inferenceError: error => errors.push(error) },
-    "@/components/MealReview": "MealReview",
+    "@/components/meals/MealReview": "MealReview",
     "@/context/FoodIconsContext": { useFoodIcons: () => ({ rememberIcons: async () => {} }) },
-    "@/lib/mealReview.mjs": { ...reviewModel, saveMealReview: async (draft, id, store, options) => {
+    "@/lib/meals/mealReview.mjs": { ...reviewModel, saveMealReview: async (draft, id, store, options) => {
       assert.equal(store, data); writes.push({ draft, id, options }); return draft.entries.map((entry, index) => ({ ...entry, id: index + 1 })); } },
-    "@/lib/confirmedMealSave.mjs": { createConfirmedMealSave },
+    "@/lib/meals/confirmedMealSave.mjs": { createConfirmedMealSave },
     "@/lib/utils": { getLocalTimeWithOffset: () => "2026-10-22T12:00:00-04:00" },
   });
   const Form = Log({ inputMode }).type;

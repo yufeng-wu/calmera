@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ownsKey } from "../src/lib/eraseData.mjs";
-import { consentRecord, consentStatus, consentStorageKey, coversVersion, readConsent, saveConsent } from "../src/lib/privacyConsent.mjs";
+import { ownsKey } from "../src/lib/settings/eraseData.mjs";
+import { consentRecord, consentStatus, consentStorageKey, coversVersion, readConsent, saveConsent } from "../src/lib/privacy/privacyConsent.mjs";
 import {
   CONSENT_COPY, HEALTH_DATA_POLICY, SEARCH_NOTICE, PRIVACY_DOCS, PRIVACY_POLICY, PRIVACY_POLICY_VERSION, placeholdersRemaining,
-} from "../src/lib/privacyPolicy.mjs";
+} from "../src/lib/privacy/privacyPolicy.mjs";
 import { escapeHTML, renderPolicyPage } from "../scripts/build-privacy-site.mjs";
 import { createMemoryStorage } from "../src/lib/store/memoryStorage.mjs";
 

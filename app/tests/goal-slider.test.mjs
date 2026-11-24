@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { goalAllowed, goalInputValue, goalSaveValue, goalSliderBounds } from "../src/lib/goalSlider.mjs";
+import { goalAllowed, goalInputValue, goalSaveValue, goalSliderBounds } from "../src/lib/goals/goalSlider.mjs";
 
 test("stored and survey decimal targets become whole-unit display values", () => {
   assert.deepEqual([2425.6, 50.25, "290.75", "88.00"].map(goalInputValue), ["2426", "50", "291", "88"]);

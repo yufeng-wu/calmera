@@ -1,4 +1,4 @@
-import { localDateKey } from "../nutritionStore.mjs";
+import { localDateKey } from "../store/nutritionStore.mjs";
 import { modelName } from "./modelCatalog.mjs";
 import { requestCost } from "./prices.mjs";
 

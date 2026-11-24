@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CLOSED, PHASE, dragPosition, pressIsTap, releaseTarget, rowTouch, scrollCloses, tapCloses } from "../src/lib/swipeRow.mjs";
+import { CLOSED, PHASE, dragPosition, pressIsTap, releaseTarget, rowTouch, scrollCloses, tapCloses } from "../src/lib/meals/swipeRow.mjs";
 
 // A meal row on Today: swipe left for Delete. The owner's phone showed rows springing shut the moment the finger
 // lifted, on every swipe: the touch that opened the row also closed it.

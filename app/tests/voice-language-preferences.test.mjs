@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createVoiceLanguagePreferences } from "../src/lib/voiceLanguagePreferences.mjs";
+import { createVoiceLanguagePreferences } from "../src/lib/voice/voiceLanguagePreferences.mjs";
 
 const deferred = () => {
   let resolve, reject;

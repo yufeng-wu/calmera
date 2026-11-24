@@ -3,7 +3,7 @@
 //   node scripts/build-privacy-site.mjs [outDir]   (default: site)
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { HEALTH_DATA_POLICY, PRIVACY_EFFECTIVE_DATE, PRIVACY_POLICY, placeholdersRemaining } from "../src/lib/privacyPolicy.mjs";
+import { HEALTH_DATA_POLICY, PRIVACY_EFFECTIVE_DATE, PRIVACY_POLICY, placeholdersRemaining } from "../src/lib/privacy/privacyPolicy.mjs";
 
 const PAGES = { [PRIVACY_POLICY.id]: "privacy/index.html", [HEALTH_DATA_POLICY.id]: "privacy/health-data/index.html" };
 

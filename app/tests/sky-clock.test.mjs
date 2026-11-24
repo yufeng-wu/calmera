@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bodyAt, minutesOf, nearestClock, skyAt, skyFade, starAt } from "../src/lib/skyClock.mjs";
+import { bodyAt, minutesOf, nearestClock, skyAt, skyFade, starAt } from "../src/lib/today/skyClock.mjs";
 
 const HILL = { x: 212, spread: 54, low: 125, rise: 125 };
 const at = (hour, minute = 0) => hour * 60 + minute;

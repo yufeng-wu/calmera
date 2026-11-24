@@ -2,7 +2,7 @@
 // unfinished, so it appears in charts and foods but never in typical values. Days with
 // nothing logged are gaps, never zeros, and a day with one meal logged doesn't count as
 // a typical day, so forgotten meals don't read as light eating.
-import { localDateKey } from "../nutritionStore.mjs";
+import { localDateKey } from "../store/nutritionStore.mjs";
 
 const FIELDS = ["calories", "protein", "carbs", "fat"];
 export const MEALS = ["Breakfast", "Lunch", "Dinner", "Snack"];

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createNutritionStore } from "../src/lib/nutritionStore.mjs";
+import { createNutritionStore } from "../src/lib/store/nutritionStore.mjs";
 const date = "2026-10-19";
 const row = (id, calories = 100) => ({ id, food_name: `Synthetic meal ${id}`, meal_type: "Breakfast", local_time: "09:00:00", calories, protein: 2, carbs: 3, fat: 4 });
 const summary = (...entries) => ({ foodEntries: entries, dailyTotals: { calories: entries.reduce((sum, item) => sum + Number(item.calories), 0) } });

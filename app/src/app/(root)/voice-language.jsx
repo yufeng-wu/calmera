@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useIsFocused } from "@react-navigation/native";
 import useFormTaskScope from "@/hooks/useFormTaskScope";
-import { VOICE_LANGUAGES, createVoiceLanguagePreferences } from "@/lib/voiceLanguagePreferences.mjs";
+import { VOICE_LANGUAGES, createVoiceLanguagePreferences } from "@/lib/voice/voiceLanguagePreferences.mjs";
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { LOCAL_OWNER } from "@/lib/owner.mjs";
 import { FormScreen, FormScrollView, FormHeader, GlassButton, formStyles } from "@/components/GlassForm";
-import SettingsRow from "@/components/SettingsRow";
-import { SettingsSection, settingsStyles } from "@/components/SettingsSection";
+import SettingsRow from "@/components/settings/SettingsRow";
+import { SettingsSection, settingsStyles } from "@/components/settings/SettingsSection";
 import usePageExit from "@/hooks/usePageExit";
 import { getVoiceLanguage, setVoiceLanguage } from "@/lib/chatgpt/nutrition";
 

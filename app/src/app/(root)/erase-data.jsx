@@ -4,13 +4,13 @@ import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { FormHeader, FormScreen, FormScrollView, GlassButton } from "@/components/GlassForm";
-import SettingsRow from "@/components/SettingsRow";
-import { SettingsSection, settingsStyles } from "@/components/SettingsSection";
+import SettingsRow from "@/components/settings/SettingsRow";
+import { SettingsSection, settingsStyles } from "@/components/settings/SettingsSection";
 import { SETTINGS } from "@/constants/settingsTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { useAppReset } from "@/context/AppResetContext";
 import usePageExit from "@/hooks/usePageExit";
-import { eraseAllData } from "@/lib/eraseDevice";
+import { eraseAllData } from "@/lib/settings/eraseDevice";
 import { useDataStore } from "@/lib/store";
 
 // Review stages show each state with synthetic outcomes; nothing is erased.

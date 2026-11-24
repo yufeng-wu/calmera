@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { completeNutritionRefresh } from "../src/lib/completeNutritionRefresh.mjs";
+import { completeNutritionRefresh } from "../src/lib/store/completeNutritionRefresh.mjs";
 
 for (const failedIndex of [0, 1]) {
   test(`refresh remains pending when read ${failedIndex} fails before its sibling`, async () => {

@@ -6,7 +6,7 @@ import { mealAI } from "@/lib/ai/mealAI";
 import { loggingProblem } from "@/lib/ai/loggingProblem.mjs";
 import { friendlyError } from "./protocol.mjs";
 import { mealSaveErrorPresentation } from "./saveErrorPresentation.mjs";
-import { createVoiceLanguagePreferences } from "../voiceLanguagePreferences.mjs";
+import { createVoiceLanguagePreferences } from "../voice/voiceLanguagePreferences.mjs";
 
 export async function estimateMacros(userId, foodName, quantity, { signal } = {}) {
   const ai = await mealAI(userId);

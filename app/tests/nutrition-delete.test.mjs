@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { removeStoredNutritionEntry } from "../src/lib/nutritionDelete.mjs";
-import { createNutritionStore, dataLoader } from "../src/lib/nutritionStore.mjs";
+import { removeStoredNutritionEntry } from "../src/lib/meals/nutritionDelete.mjs";
+import { createNutritionStore, dataLoader } from "../src/lib/store/nutritionStore.mjs";
 import { createPhoneStore } from "../src/lib/store/phone.mjs";
 import { createMemoryStorage } from "../src/lib/store/memoryStorage.mjs";
 

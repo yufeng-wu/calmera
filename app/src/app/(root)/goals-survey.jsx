@@ -8,9 +8,9 @@ import { useNavigation, StackActions } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FormHeader, GlassButton, FormScreen, FormScrollView, formStyles } from "@/components/GlassForm";
 import SegmentedControl from "@/components/SegmentedControl";
-import SettingsRow from "@/components/SettingsRow";
+import SettingsRow from "@/components/settings/SettingsRow";
 import SheetModal from "@/components/SheetModal";
-import { SettingsSection, settingsStyles } from "@/components/SettingsSection";
+import { SettingsSection, settingsStyles } from "@/components/settings/SettingsSection";
 import { NUTRIENT_COLORS } from "@/constants/colors";
 import { SETTINGS, SETTINGS_MOTION } from "@/constants/settingsTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
@@ -21,7 +21,7 @@ import { LOCAL_OWNER } from "@/lib/owner.mjs";
 import { useDataStore } from "@/lib/store";
 import { createMemoryStorage } from "@/lib/store/memoryStorage.mjs";
 import { createPhoneStore } from "@/lib/store/phone.mjs";
-import { ADULT_AGE, DEFICIT, surveyGoals, surveyPickerCommit } from "@/lib/goalsSurvey.mjs";
+import { ADULT_AGE, DEFICIT, surveyGoals, surveyPickerCommit } from "@/lib/goals/goalsSurvey.mjs";
 import { formatNumber } from "@/lib/insights/stats.mjs";
 
 const sexOptions = [

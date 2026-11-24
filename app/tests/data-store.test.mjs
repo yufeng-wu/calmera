@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createPhoneStore, DEFAULT_GOALS } from "../src/lib/store/phone.mjs";
 import { createMemoryStorage } from "../src/lib/store/memoryStorage.mjs";
-import { createNutritionStore, dataLoader } from "../src/lib/nutritionStore.mjs";
+import { createNutritionStore, dataLoader } from "../src/lib/store/nutritionStore.mjs";
 
 // The data module (lib/store) on the iPhone's app storage: every read and write the app
 // makes for meals, goals and the profile, and what callers see when one can't happen.

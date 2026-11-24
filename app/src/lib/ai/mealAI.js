@@ -3,7 +3,7 @@ import { fetch } from "expo/fetch";
 import { createPlanClient, isChatGPTAvailable } from "@/lib/chatgpt/planClient";
 import { selectNutritionModel } from "@/lib/chatgpt/modelSelection.mjs";
 import { modelLabel } from "@/lib/voice/voiceLog.mjs";
-import { chatGPTCredentialKeys } from "@/lib/eraseData.mjs";
+import { chatGPTCredentialKeys } from "@/lib/settings/eraseData.mjs";
 import { LOCAL_OWNER } from "@/lib/owner.mjs";
 import { createConnectionStore } from "./connection.mjs";
 import { createMealEstimator } from "./mealEstimator.mjs";

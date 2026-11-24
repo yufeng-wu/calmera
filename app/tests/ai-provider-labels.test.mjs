@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { modelChipLabel, providerName } from "../src/lib/mealLogPresentation.mjs";
+import { modelChipLabel, providerName } from "../src/lib/meals/mealLogPresentation.mjs";
 
 test("the estimate names the provider that is actually connected", () => {
   assert.equal(providerName("chatgpt"), "ChatGPT");

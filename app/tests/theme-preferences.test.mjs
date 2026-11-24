@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createThemePreferences } from "../src/lib/themePreferences.mjs";
+import { createThemePreferences } from "../src/lib/settings/themePreferences.mjs";
 import { APPEARANCE_THEMES, DEFAULT_THEME_ID } from "../src/constants/appearance.mjs";
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
 

@@ -3,9 +3,9 @@ import { StyleSheet, Text, View } from "react-native";
 import Animated, { Easing, FadeIn, FadeInDown, FadeOut, cancelAnimation, useAnimatedProps, useAnimatedStyle, useReducedMotion,
   useSharedValue, withDelay, withRepeat, withSequence, withTiming } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
-import CitrusBuddy, { BUDDY_SIZE } from "@/components/CitrusBuddy";
+import CitrusBuddy, { BUDDY_SIZE } from "@/components/brand/CitrusBuddy";
 import { Ionicons } from "@expo/vector-icons";
-import { modelChipLabel } from "@/lib/mealLogPresentation.mjs";
+import { modelChipLabel } from "@/lib/meals/mealLogPresentation.mjs";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { VOICE_STEPS, stageCopy, voiceStep } from "@/lib/voice/voiceLog.mjs";

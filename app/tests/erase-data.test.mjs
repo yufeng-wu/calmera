@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { chatGPTCredentialKeys, eraseThisPhone, formerOwners, ownsKey, secureKeysFor, SHARED_SECURE_KEYS } from "../src/lib/eraseData.mjs";
-import { consentStorageKey } from "../src/lib/privacyConsent.mjs";
+import { chatGPTCredentialKeys, eraseThisPhone, formerOwners, ownsKey, secureKeysFor, SHARED_SECURE_KEYS } from "../src/lib/settings/eraseData.mjs";
+import { consentStorageKey } from "../src/lib/privacy/privacyConsent.mjs";
 import { createPhoneStore } from "../src/lib/store/phone.mjs";
 import { createMemoryStorage } from "../src/lib/store/memoryStorage.mjs";
 

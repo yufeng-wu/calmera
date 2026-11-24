@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { createNutritionStore } from "@/lib/nutritionStore.mjs";
+import { createNutritionStore } from "@/lib/store/nutritionStore.mjs";
 import { LOCAL_OWNER } from "@/lib/owner.mjs";
 
 const EntriesRefreshContext = createContext(null);

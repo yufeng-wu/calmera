@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { FOOD_ICON_CATALOG, getFoodIcon, getFoodEmoji } from "../src/lib/foodIcons.mjs";
+import { FOOD_ICON_CATALOG, getFoodIcon, getFoodEmoji } from "../src/lib/meals/foodIcons.mjs";
 
 test("named dishes win over their ingredients in English and Chinese", () => {
   for (const [name, expected] of [

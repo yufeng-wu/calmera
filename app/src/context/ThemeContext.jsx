@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { DEFAULT_THEME_ID, isThemeId, themeForId } from "@/constants/appearance.mjs";
 import { useAppReset } from "@/context/AppResetContext";
-import { createThemePreferences } from "@/lib/themePreferences.mjs";
+import { createThemePreferences } from "@/lib/settings/themePreferences.mjs";
 import { LOCAL_OWNER } from "@/lib/owner.mjs";
 
 const preferences = createThemePreferences(AsyncStorage);

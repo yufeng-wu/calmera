@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { EXPORT_RANGES, wellFormed, exportJson, exportFileName, exportKeys, exportSummary } from "../src/lib/dataExport.mjs";
+import { EXPORT_RANGES, wellFormed, exportJson, exportFileName, exportKeys, exportSummary } from "../src/lib/settings/dataExport.mjs";
 
 const days = {
   "2026-10-30": { entries: [{ id: 2, user_id: "user_secret", foodName: "Rice, steamed", food_name: "Rice, steamed", quantity: "1 cup", calories: "200.50", protein: "4", carbs: "44", fat: "0.4", mealType: "Dinner", localTime: "19:05:00" }] },

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createFoodIconPreferences } from "../src/lib/foodIconPreferences.mjs";
+import { createFoodIconPreferences } from "../src/lib/meals/foodIconPreferences.mjs";
 
 const storage = () => {
   const data = new Map();

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getFoodIcon } from "../src/lib/foodIcons.mjs";
+import { getFoodIcon } from "../src/lib/meals/foodIcons.mjs";
 import { PRODUCE_FALLBACK, PRODUCE_SLOTS, produceEmoji, produceItems, produceRow } from "../src/lib/insights/produce.mjs";
 
 const iconFor = (entry) => getFoodIcon(entry.foodName);

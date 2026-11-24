@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { FormHeader, GlassButton, FormScreen, FormScrollView, formStyles } from "@/components/GlassForm";
-import { settingsStyles, usePressHighlight } from "@/components/SettingsSection";
+import { settingsStyles, usePressHighlight } from "@/components/settings/SettingsSection";
 import ThemeCanvas from "@/components/ThemeCanvas";
 import { APPEARANCE_THEMES } from "@/constants/appearance.mjs";
 import { SETTINGS, SETTINGS_MOTION } from "@/constants/settingsTheme";

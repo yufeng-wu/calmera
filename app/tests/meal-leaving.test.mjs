@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { groupLeaving, rowLeaving, withLeaving, withoutLeaving } from "../src/lib/mealLeaving.mjs";
+import { groupLeaving, rowLeaving, withLeaving, withoutLeaving } from "../src/lib/meals/mealLeaving.mjs";
 
 // Deleting on Today: the meal folds away first. The last meal of a group takes the heading with it.
 const dinner = [{ id: 1 }, { id: 2 }, { id: 3 }];

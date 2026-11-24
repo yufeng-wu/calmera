@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createConfirmedMealSave } from "../src/lib/confirmedMealSave.mjs";
+import { createConfirmedMealSave } from "../src/lib/meals/confirmedMealSave.mjs";
 
 const deferred = () => { let resolve, reject; const promise = new Promise((done, fail) => { resolve = done; reject = fail; }); return { promise, resolve, reject }; };
 const nextTurn = () => new Promise(resolve => setImmediate(resolve));

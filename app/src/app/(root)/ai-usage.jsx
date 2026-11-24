@@ -3,8 +3,8 @@ import { Linking, Pressable, StyleSheet, Text, View, useWindowDimensions } from 
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { FormScreen, FormScrollView, FormHeader, formStyles } from "@/components/GlassForm";
-import SettingsRow from "@/components/SettingsRow";
-import { SettingsSection, settingsStyles } from "@/components/SettingsSection";
+import SettingsRow from "@/components/settings/SettingsRow";
+import { SettingsSection, settingsStyles } from "@/components/settings/SettingsSection";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { AI_PAGE, SETTINGS } from "@/constants/settingsTheme";
 import { TYPOGRAPHY } from "@/constants/typography";

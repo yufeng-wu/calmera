@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getFoodIcon } from "@/lib/foodIcons.mjs";
-import { createFoodIconPreferences, foodIconById } from "@/lib/foodIconPreferences.mjs";
+import { getFoodIcon } from "@/lib/meals/foodIcons.mjs";
+import { createFoodIconPreferences, foodIconById } from "@/lib/meals/foodIconPreferences.mjs";
 
 const preferences = createFoodIconPreferences(AsyncStorage);
 const FoodIconsContext = createContext({ iconFor: entry => getFoodIcon(entry.foodName ?? entry.food_name), rememberIcons: async () => {} });

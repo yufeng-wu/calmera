@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { AppState } from "react-native";
 import { Easing, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
-import { minutesOf, nearestClock } from "@/lib/skyClock.mjs";
+import { minutesOf, nearestClock } from "@/lib/today/skyClock.mjs";
 
 const TICK_MS = 60000;
 // A minute moves the sun a fraction of a point, too little to see, so a tick just sets the new time: one redraw

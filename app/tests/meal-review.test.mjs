@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { addReviewFood, createMealReview, updateReviewFood, reviewTotals, saveMealReview, setReviewField } from "../src/lib/mealReview.mjs";
-import { createConfirmedMealSave } from "../src/lib/confirmedMealSave.mjs";
+import { addReviewFood, createMealReview, updateReviewFood, reviewTotals, saveMealReview, setReviewField } from "../src/lib/meals/mealReview.mjs";
+import { createConfirmedMealSave } from "../src/lib/meals/confirmedMealSave.mjs";
 import { createPhoneStore } from "../src/lib/store/phone.mjs";
 import { createMemoryStorage } from "../src/lib/store/memoryStorage.mjs";
 const food = { foodName: "Rice", quantity: "1 cup", mealType: "Lunch", calories: 200, protein: 4, carbs: 45, fat: 1 };

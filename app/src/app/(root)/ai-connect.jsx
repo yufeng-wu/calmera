@@ -4,7 +4,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { FormScreen, FormScrollView, FormHeader, GlassButton, formStyles } from "@/components/GlassForm";
-import { SettingsSection, settingsStyles } from "@/components/SettingsSection";
+import { SettingsSection, settingsStyles } from "@/components/settings/SettingsSection";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { AI_PAGE, SETTINGS, TINTS } from "@/constants/settingsTheme";
 import { TYPOGRAPHY } from "@/constants/typography";

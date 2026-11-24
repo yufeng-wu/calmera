@@ -8,7 +8,7 @@ import Constants from "expo-constants";
 import { FormHeader, GlassButton } from "@/components/GlassForm";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import Settings from "@/app/(root)/(tabs)/settings";
-import TodayCalendarPreview from "@/components/TodayCalendarPreview";
+import TodayCalendarPreview from "@/components/today/TodayCalendarPreview";
 import AIConnection from "@/app/(root)/ai-connection";
 import AIConnect from "@/app/(root)/ai-connect";
 import AIModel from "@/app/(root)/ai-model";
@@ -18,13 +18,13 @@ import ThemeSettings from "@/app/(root)/theme";
 import Survey from "@/app/(root)/goals-survey";
 import EraseData from "@/app/(root)/erase-data";
 import Privacy from "@/app/(root)/privacy";
-import PrivacyConsentGate from "@/components/PrivacyConsentGate";
+import PrivacyConsentGate from "@/components/privacy/PrivacyConsentGate";
 import EditMeal from "@/app/(root)/edit/[id]";
 import TextLog from "@/app/(root)/create";
 import Photo from "@/app/(root)/photo-log";
-import FoodwrapWordmark from "@/components/FoodwrapWordmark";
-import AppLoadingScreen from "@/components/AppLoadingScreen";
-import FoodwrapLoading from "@/components/FoodwrapLoading";
+import FoodwrapWordmark from "@/components/brand/FoodwrapWordmark";
+import AppLoadingScreen from "@/components/brand/AppLoadingScreen";
+import FoodwrapLoading from "@/components/brand/FoodwrapLoading";
 
 function TodayLoadingPreview({ calmeraPreviewState }) {
   const focused = useIsFocused();

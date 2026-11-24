@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateMealNutrition } from "../src/lib/mealNutritionValidation.mjs";
+import { validateMealNutrition } from "../src/lib/meals/mealNutritionValidation.mjs";
 
 const valid = { calories: "105", protein: "1.3", carbs: "27", fat: "0.4" };
 const fields = ["calories", "protein", "carbs", "fat"];
