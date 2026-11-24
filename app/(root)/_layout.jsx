@@ -16,8 +16,7 @@ import { LOCAL_OWNER } from "@/lib/owner.mjs";
 
 export default function Layout() {
   const pathname = usePathname();
-  const review = Constants.expoConfig?.extra?.calmeraFullAppTest === true
-    && ["/ui-gallery", "/background-compare", "/glass-compare", "/motion-check", "/theme-check", "/palette-compare"].includes(pathname);
+  const review = Constants.expoConfig?.extra?.calmeraFullAppTest === true && pathname === "/ui-gallery";
   const topInset = useContext(SafeScreenTopContext);
   // Erase all data starts everything below over, from the privacy agreement on.
   const { epoch } = useAppReset();

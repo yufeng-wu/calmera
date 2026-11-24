@@ -85,7 +85,7 @@ export default function UpdateGoals() {
     savePending.current = null;
     setLoading(false);
   });
-  const leaveEditor = usePageExit(isFixture ? "/form-style-check" : "/dashboard");
+  const leaveEditor = usePageExit("/dashboard");
   const [fixtureSaved, setFixtureSaved] = useState(false);
   const hasAnimated = useRef(false);
   const navigation = useNavigation();

@@ -24,9 +24,8 @@ export default function RootLayout() {
   // Keep real navigator frames stable through push/pop. Each native screen
   // owns its own inset, so opening a form cannot move the previous tab page.
   const fullBleedHeader = Platform.OS === "ios" && Number.parseInt(String(Platform.Version), 10) >= 26
-    && (segments[0] === "(root)" || ["/motion-check", "/palette-compare"].includes(pathname));
-  const review = Constants.expoConfig?.extra?.calmeraFullAppTest === true
-    && ["/ui-gallery", "/background-compare", "/glass-compare", "/motion-check", "/theme-check", "/palette-compare"].includes(pathname);
+    && segments[0] === "(root)";
+  const review = Constants.expoConfig?.extra?.calmeraFullAppTest === true && pathname === "/ui-gallery";
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: BASE_CANVAS_COLOR }}>
