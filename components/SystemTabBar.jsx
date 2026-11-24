@@ -31,13 +31,6 @@ export default function SystemTabBar(props) {
   </View>;
 }
 
-// Isolated interaction check: uses the same UIKit control without account data.
-export function SystemTabsInteractionCheck({ selectedIndex, onSelect, bottomInset, style, previewPalette }) {
-  if (!SystemTabs) return null;
-  return <SystemTabs selectedIndex={selectedIndex} onSelect={onSelect} previewPalette={previewPalette || "tangerine"}
-    style={[{ height: 64 + bottomInset, width: "100%" }, style]} />;
-}
-
 const styles = StyleSheet.create({
   overlay: { position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: "transparent" },
 });
