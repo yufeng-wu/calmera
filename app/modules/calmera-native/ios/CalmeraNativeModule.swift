@@ -1,8 +1,8 @@
 import ExpoModulesCore
 
 public final class CalmeraNativeModule: Module {
-  private let callback = PlanLoopback()
-  private let picker = PlanPhotoPicker()
+  private let callback = ChatGPTSignIn()
+  private let picker = PhotoPicker()
 
   public func definition() -> ModuleDefinition {
     Name("CalmeraNative")
@@ -128,7 +128,7 @@ public final class CalmeraNativeModule: Module {
     }
     Function("cancelCallback") { self.callback.stop() }
     AsyncFunction("validateIdentity") { (token: String, clientID: String, nonce: String, subject: String) async throws -> [String: String] in
-      try await PlanIdentity.fetchAndVerify(token, clientID: clientID, nonce: nonce, priorSubject: subject)
+      try await ChatGPTIdentity.fetchAndVerify(token, clientID: clientID, nonce: nonce, priorSubject: subject)
     }
     AsyncFunction("pickPhoto") { (source: String, promise: Promise) in
       guard let controller = self.appContext?.utilities?.currentViewController() else {

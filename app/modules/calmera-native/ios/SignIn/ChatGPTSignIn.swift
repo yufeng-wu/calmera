@@ -2,7 +2,7 @@ import Foundation
 import Network
 
 // Temporary 127.0.0.1-only OAuth listener; no LAN endpoint, message access or disk writes.
-final class PlanLoopback {
+final class ChatGPTSignIn {
   private let queue = DispatchQueue(label: "calmera.oauth.loopback")
   private var listener: NWListener?
   private var waiter: ((Result<String, Error>) -> Void)?
@@ -111,7 +111,7 @@ final class PlanLoopback {
             url.path == "/auth/callback", url.fragment == nil else { self.respond(connection, id: id, ok: false); return }
       let items = url.queryItems ?? []
       guard items.filter({ $0.name == "state" }).count == 1,
-            PlanIdentity.equal(items.first(where: { $0.name == "state" })?.value ?? "", self.state),
+            ChatGPTIdentity.equal(items.first(where: { $0.name == "state" })?.value ?? "", self.state),
             let callback = url.url?.absoluteString else { self.respond(connection, id: id, ok: false); return }
       self.accepted = true
       self.respond(connection, id: id, ok: true)

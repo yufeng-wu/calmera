@@ -24,14 +24,14 @@ struct ChatGPTNativeTests {
     let publicBytes = privateKey.publicKey.x963Representation
     let jwk: [String: Any] = ["kid": "synthetic", "alg": "ES256", "kty": "EC", "crv": "P-256",
       "x": base64(publicBytes.subdata(in: 1..<33)), "y": base64(publicBytes.subdata(in: 33..<65))]
-    let claims: [String: Any] = ["iss": PlanIdentity.issuer, "aud": "oaiapp_synthetic", "sub": "fictional-user",
+    let claims: [String: Any] = ["iss": ChatGPTIdentity.issuer, "aud": "oaiapp_synthetic", "sub": "fictional-user",
       "iat": 1000, "exp": 2000, "nonce": "fictional-nonce"]
     func token(_ claims: [String: Any]) throws -> String {
       let payload = try encoded(["alg": "ES256", "kid": "synthetic"]) + "." + encoded(claims)
       return try payload + "." + base64(privateKey.signature(for: Data(payload.utf8)).rawRepresentation)
     }
     func verify(_ token: String, nonce: String = "fictional-nonce", subject: String = "") throws -> [String: String] {
-      try PlanIdentity.verify(token, clientID: "oaiapp_synthetic", nonce: nonce, priorSubject: subject, keys: [jwk], now: 1500)
+      try ChatGPTIdentity.verify(token, clientID: "oaiapp_synthetic", nonce: nonce, priorSubject: subject, keys: [jwk], now: 1500)
     }
     let valid = try token(claims)
     check(try verify(valid)["sub"] == "fictional-user", "signed identity")
@@ -75,13 +75,13 @@ struct ChatGPTNativeTests {
     let rsaPayload = try encoded(["alg": "RS256", "kid": "rsa-synthetic"]) + "." + encoded(claims)
     let rsaSignature = SecKeyCreateSignature(rsaPrivate, .rsaSignatureMessagePKCS1v15SHA256, Data(rsaPayload.utf8) as CFData, nil)! as Data
     let rsaToken = rsaPayload + "." + base64(rsaSignature)
-    let rsaIdentity = try PlanIdentity.verify(rsaToken, clientID: "oaiapp_synthetic", nonce: "fictional-nonce", priorSubject: "", keys: [rsaJWK], now: 1500)
+    let rsaIdentity = try ChatGPTIdentity.verify(rsaToken, clientID: "oaiapp_synthetic", nonce: "fictional-nonce", priorSubject: "", keys: [rsaJWK], now: 1500)
     check(rsaIdentity["sub"] == "fictional-user", "RS256 signature verified")
     rejected("RS256 signature tampering") {
-      _ = try PlanIdentity.verify(rsaToken + "a", clientID: "oaiapp_synthetic", nonce: "fictional-nonce", priorSubject: "", keys: [rsaJWK], now: 1500)
+      _ = try ChatGPTIdentity.verify(rsaToken + "a", clientID: "oaiapp_synthetic", nonce: "fictional-nonce", priorSubject: "", keys: [rsaJWK], now: 1500)
     }
 
-    let server = PlanLoopback()
+    let server = ChatGPTSignIn()
     let state = String(repeating: "synthetic-state-", count: 4)
     let uri = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
       server.start(state: state) { continuation.resume(with: $0) }

@@ -3,7 +3,7 @@ import PhotosUI
 import UIKit
 
 // Only user-selected/captured images. No library enumeration or photo-library writes.
-final class PlanPhotoPicker: NSObject, PHPickerViewControllerDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate, UIAdaptivePresentationControllerDelegate {
+final class PhotoPicker: NSObject, PHPickerViewControllerDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate, UIAdaptivePresentationControllerDelegate {
   private var completion: ((Result<[String: Any]?, Error>) -> Void)?
 
   func present(source: String, from controller: UIViewController, completion: @escaping (Result<[String: Any]?, Error>) -> Void) {

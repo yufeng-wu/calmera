@@ -10,7 +10,7 @@ enum PlanError: String, Error, LocalizedError {
   var errorDescription: String? { rawValue }
 }
 
-enum PlanIdentity {
+enum ChatGPTIdentity {
   static let issuer = "https://auth.openai.com"
 
   static func decode(_ value: String) throws -> Data {
