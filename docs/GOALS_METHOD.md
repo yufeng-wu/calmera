@@ -1,6 +1,6 @@
 # How the goals survey suggests numbers
 
-The survey (`app/(root)/goals-survey.jsx`, maths in `lib/goalsSurvey.mjs`) turns seven answers into starting goals. It gives general wellness information, not a prescription: every number comes from a published guideline, the user can change all of them, and the screen says so. This file is the record of where each number comes from, so a change to the maths comes with a change here.
+The survey (`app/src/app/(root)/goals-survey.jsx`, maths in `app/src/lib/goals/goalsSurvey.mjs`) turns seven answers into starting goals. It gives general wellness information, not a prescription: every number comes from a published guideline, the user can change all of them, and the screen says so. This file is the record of where each number comes from, so a change to the maths comes with a change here.
 
 ## Questions
 

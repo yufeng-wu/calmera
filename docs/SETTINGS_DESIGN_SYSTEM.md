@@ -1,8 +1,8 @@
 # Settings design system
 
-The Settings tab and every page it opens share one list style. Tokens live in
-`constants/settingsTheme.js`; the parts are `SettingsSection`, `SettingsTile` and
-`settingsStyles` in `components/SettingsSection.jsx`, and `components/SettingsRow.jsx`.
+The Settings tab and every page it opens share one list style. Paths are relative to `app/src/`.
+Tokens live in `constants/settingsTheme.js`; the parts are `SettingsSection`, `SettingsTile` and
+`settingsStyles` in `components/settings/SettingsSection.jsx`, and `components/settings/SettingsRow.jsx`.
 
 ## Rules
 
@@ -46,7 +46,7 @@ The Settings tab and every page it opens share one list style. Tokens live in
 4. The wordmark and version.
 
 Export always writes one JSON file with everything (`exportJson` in
-`lib/dataExport.mjs`). The only choice is the last 30 days or all history.
+`lib/settings/dataExport.mjs`). The only choice is the last 30 days or all history.
 
 ## AI connection
 

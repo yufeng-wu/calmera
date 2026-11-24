@@ -1,0 +1,93 @@
+// constants/colors.js
+const coffeeTheme = {
+  primary: "#BC5A19",
+  // Page canvases reveal the shared ThemeCanvas; cards remain opaque white.
+  background: "transparent",
+  canvas: "#FFFBF9",
+  text: "#4A3428",
+  border: "#E5D3B7",
+  white: "#FFFFFF",
+  textLight: "#9A8478",
+  expense: "#E74C3C",
+  income: "#2ECC71",
+  card: "#FFFFFF",
+  shadow: "#000000",
+};
+
+const forestTheme = {
+  primary: "#2E7D32",
+  background: "#E8F5E9",
+  text: "#1B5E20",
+  border: "#C8E6C9",
+  white: "#FFFFFF",
+  textLight: "#66BB6A",
+  expense: "#C62828",
+  income: "#388E3C",
+  card: "#FFFFFF",
+  shadow: "#000000",
+};
+
+const purpleTheme = {
+  primary: "#6A1B9A",
+  background: "#F3E5F5",
+  text: "#4A148C",
+  border: "#D1C4E9",
+  white: "#FFFFFF",
+  textLight: "#BA68C8",
+  expense: "#D32F2F",
+  income: "#388E3C",
+  card: "#FFFFFF",
+  shadow: "#000000",
+};
+
+const oceanTheme = {
+  primary: "#0277BD",
+  background: "#E1F5FE",
+  text: "#01579B",
+  border: "#B3E5FC",
+  white: "#FFFFFF",
+  textLight: "#4FC3F7",
+  expense: "#EF5350",
+  income: "#26A69A",
+  card: "#FFFFFF",
+  shadow: "#000000",
+};
+
+export const THEMES = {
+  coffee: coffeeTheme,
+  forest: forestTheme,
+  purple: purpleTheme,
+  ocean: oceanTheme,
+};
+
+// 👇 change this to switch theme
+export const COLORS = THEMES.coffee;
+
+// Keep Tangerine as the brand accent; use soft leaf green for calorie progress.
+export const CALORIE_PROGRESS_COLOR = "#6F9D78";
+
+// First drawn for the old live AI indicator; Today's protein, carbs and fat rings use entries 1 to 3.
+export const RAINBOW_COLORS = [
+  "#7694f8",
+  "#7094f8",
+  "#ac70a2",
+  "#da808d",
+  "#a85863",
+];
+
+// Macros match the rings on Today's summary card. Calories stay the brand orange in Insights.
+export const NUTRIENT_COLORS = {
+  calories: COLORS.primary,
+  protein: RAINBOW_COLORS[1],
+  carbs: RAINBOW_COLORS[2],
+  fat: RAINBOW_COLORS[3],
+};
+
+// Meals are the sky through the day: morning sun, midday sky, dusk, and mint for snacks.
+// Each sits apart from the nutrient colors, so a hue still means one thing on a screen.
+export const MEAL_COLORS = {
+  Breakfast: "#F5C04A",
+  Lunch: "#6CC3D5",
+  Dinner: "#6F69AC",
+  Snack: "#93C9A0",
+};

@@ -1,0 +1,375 @@
+import { SURFACES } from "../../constants/surfaces";
+// styles/home.styles.js
+import { StyleSheet } from "react-native";
+import { COLORS } from "../../constants/colors";
+
+export const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  content: {
+    padding: 20,
+    paddingBottom: 0,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+    paddingHorizontal: 0,
+    paddingVertical: 4,
+  },
+  headerLeft: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  headerLogo: {
+    width: 50,
+    height: 50,
+    marginLeft: 15, // add spacing from text
+    marginRight: 5,
+  },
+  welcomeContainer: {
+    flex: 1,
+    marginTop: 6, // reduce top margin to align horizontally with logo
+    marginLeft: 6,
+    alignItems: "flex-end", // right-align the content
+  },
+  welcomeText: {
+    fontSize: 12,
+    color: COLORS.textLight,
+    marginBottom: 3,
+    textAlign: "right", // right-align text
+  },
+  usernameText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.text,
+    textAlign: "right", // right-align text
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: COLORS.text,
+  },
+  addButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+    flexDirection: "row",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  addButtonText: {
+    color: COLORS.white,
+    fontWeight: "600",
+    marginLeft: 4,
+  },
+  logoutButton: {
+    padding: 10,
+    borderRadius: 20,
+    backgroundColor: COLORS.card,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  balanceCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 24,
+    ...SURFACES.edge,
+    ...SURFACES.elevated,
+  },
+  balanceCardEditBtn: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    padding: 6,
+    borderRadius: 16,
+  },
+  balanceTitle: {
+    fontSize: 14,
+    color: COLORS.textLight,
+    marginBottom: 2,
+  },
+  balanceAmount: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: COLORS.text,
+  },
+  balanceStats: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  balanceStatItem: {
+    flex: 1,
+    alignItems: "flex-start",
+  },
+  statDivider: {
+    borderRightWidth: 1,
+    borderColor: COLORS.border,
+    marginVertical: 8,
+    marginHorizontal: 12,
+  },
+  balanceStatLabel: {
+    fontSize: 12,
+    color: COLORS.textLight,
+    marginBottom: 4,
+  },
+  balanceStatAmount: {
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "left",
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 15,
+  },
+  foodEntryCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 28,
+    marginBottom: 10,
+    ...SURFACES.edge,
+    ...SURFACES.elevated,
+  },
+  transactionContent: {
+    flexDirection: "row",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: "center",
+  },
+  categoryIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#F5F5F5",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  transactionLeft: {
+    flex: 1,
+    paddingRight: 4,
+  },
+  transactionTitle: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: COLORS.text,
+    marginBottom: 1,
+  },
+  macrosText: {
+    fontSize: 12,
+    color: COLORS.textLight,
+    marginTop: 0,
+  },
+  transactionCategory: {
+    fontSize: 12,
+    color: COLORS.textLight,
+  },
+  transactionRight: {
+    alignItems: "flex-end",
+  },
+  transactionAmount: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  transactionDate: {
+    fontSize: 10,
+    color: COLORS.textLight,
+  },
+  deleteButton: {
+    padding: 15,
+    borderLeftWidth: 1,
+    borderLeftColor: COLORS.border,
+  },
+  expandedContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    paddingTop: 0,
+  },
+  deleteButtonExpanded: {
+    paddingLeft: 15,
+  },
+  editButtonExpanded: {
+    paddingRight: 5,
+  },
+  iconButtonsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  indicatorContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    paddingLeft: 10,
+  },
+  transactionsContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 20,
+  },
+  // Full width and full height: the scene paints its own hill to the screen's bottom edge.
+  sceneContainer: {
+    flexGrow: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: COLORS.background,
+  },
+  emptyState: {
+    backgroundColor: COLORS.card,
+    borderRadius: 28,
+    padding: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 10,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  emptyStateIcon: {
+    marginBottom: 16,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  emptyStateText: {
+    color: COLORS.textLight,
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  emptyStateButton: {
+    backgroundColor: COLORS.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  emptyStateButtonText: {
+    color: COLORS.white,
+    fontWeight: "600",
+    marginLeft: 6,
+  },
+
+  transactionsList: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  transactionsListContent: {
+    paddingBottom: 20,
+  },
+  mealGroupContainer: {
+    marginBottom: 16,
+  },
+  mealGroupTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  todayWordmark: {
+    fontSize: 22,
+    fontWeight: "600",
+    letterSpacing: -0.4,
+    color: COLORS.primary,
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  dateText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 12,
+  },
+  headerContainer: {
+    paddingHorizontal: 16,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  fab: {
+    position: "absolute",
+    bottom: 40,
+    right: 20,
+    width: 80,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.primary,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  fabText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: "600",
+    marginLeft: 4,
+    numberOfLines: 1,
+    flexShrink: 0,
+  },
+  fabOption: {
+    width: 120,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  fabOptionWide: {
+    width: 100,
+  },
+  fabExpanded: {
+    width: 56,
+  },
+  fabOptionContainer: {
+    position: "absolute",
+    right: 20,
+    alignItems: "flex-end",
+  },
+});

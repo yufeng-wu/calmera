@@ -2,13 +2,13 @@
 
 ## Consent and data flow
 
-The app and the two public policies share their wording in `lib/privacyPolicy.mjs`. The first-run screen names OpenAI and Anthropic, lists the data each estimate can send and explains optional web search. **Allow AI and Continue** records the policy version on the iPhone. **Not Now** keeps the consent screen open. Both policies can be read before deciding. A material change to the disclosures requires a new version and agreement.
+The app and the two public policies share their wording in `app/src/lib/privacy/privacyPolicy.mjs`. The first-run screen names OpenAI and Anthropic, lists the data each estimate can send and explains optional web search. **Allow AI and Continue** records the policy version on the iPhone. **Not Now** keeps the consent screen open. Both policies can be read before deciding. A material change to the disclosures requires a new version and agreement.
 
 Every new meal starts with a successful AI estimate. People can correct the result before saving and edit existing entries afterward. Disconnecting in Settings stops future estimates. Erase all data removes the journal, local consent and credentials. Exports already shared and records retained by the AI provider have separate lifecycles.
 
 ## Public pages
 
-Generate both pages directly into the website checkout from the app repository root.
+From `app/`, generate both pages directly into the website checkout.
 
 ```sh
 node scripts/build-privacy-site.mjs /path/to/website/calmera
@@ -36,6 +36,6 @@ Provide the dedicated reviewer credential privately in App Store Connect’s App
 
 Suggested reviewer notes for the Anthropic path:
 
-> Calmera is a free iPhone meal journal. New meals use AI to estimate nutrition. On first launch, read the disclosure and tap Allow AI and Continue. Open Settings → AI connection → Add API key and enter the Anthropic review key supplied privately with this submission. In Text Log, enter “one apple and one cup of plain yogurt,” tap Analyze Meal, review the foods and tap Save to choose a meal category. The result appears in Today and History. Photo Log and Voice Log use the same connection. An eligible ChatGPT plan is another connection option. No Calmera account is required.
+> Calmera is a free iPhone meal journal. New meals use AI to estimate nutrition. On first launch, read the disclosure and tap Allow AI and Continue. Open Settings → AI connection → Add API key and enter the Anthropic review key supplied privately with this submission. In Text Log, enter “one apple and one cup of plain yogurt,” tap Analyze Meal, review the foods and tap Save to choose a meal category. The result appears in Today. Photo Log and Voice Log use the same connection. An eligible ChatGPT plan is another connection option. No Calmera account is required.
 
-The first release is intended for the US storefront. Record the actual privacy questionnaire, support and privacy URLs, reviewer access and build number in App Store Connect before submission. The public repository reserves reuse rights. Retain the basis for offering ChatGPT plan access in this distribution if Apple requests it. [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/) · [OpenAI plan-usage documentation](https://developers.openai.com/siwc/token-sharing-open-source)
+The first release is intended for the US storefront. Record the actual privacy questionnaire, support and privacy URLs, reviewer access and build number in App Store Connect before submission. The repository is open source under the MIT license. Retain the basis for offering ChatGPT plan access in this distribution if Apple requests it. [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/) · [OpenAI plan-usage documentation](https://developers.openai.com/siwc/token-sharing-open-source)
