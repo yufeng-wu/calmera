@@ -7,7 +7,7 @@ import { useFocusEffect, useNavigation, usePreventRemove } from "@react-navigati
 import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
 import useMealLogConnection from "@/hooks/useMealLogConnection";
-import { canAnalyzeMeal, connectionPresentation, estimationTitle, NO_FOOD_DETECTED, noFoodMessage, providerName } from "@/lib/mealLogPresentation.mjs";
+import { canAnalyzeMeal, connectionPresentation, estimationTitle, NO_FOOD_DETECTED, noFoodMessage } from "@/lib/mealLogPresentation.mjs";
 import usePageExit from "@/hooks/usePageExit";
 import { FormScreen, FormScrollView, FormHeader, FormCard, GlassButton } from "@/components/GlassForm";
 import { phoneTestNutritionLabel } from "@/lib/chatgpt/phoneTestFixtures.mjs";
@@ -19,7 +19,7 @@ import { inferenceError, estimateMacros } from "@/lib/chatgpt/nutrition";
 import { mealAI } from "@/lib/ai/mealAI";
 import MealReview from "@/components/MealReview";
 import { useFoodIcons } from "@/context/FoodIconsContext";
-import { addReviewFood, createMealReview, saveMealReview, updateReviewFood, MEAL_TYPES } from "@/lib/mealReview.mjs";
+import { createMealReview, saveMealReview, updateReviewFood, MEAL_TYPES } from "@/lib/mealReview.mjs";
 import { createConfirmedMealSave } from "@/lib/confirmedMealSave.mjs";
 import { getLocalTimeWithOffset } from "@/lib/utils";
 
@@ -37,7 +37,7 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
   const { calmeraFixture } = useLocalSearchParams();
   const testBuild = Constants.expoConfig?.extra?.calmeraFullAppTest === true;
   const photoTestFixture = testBuild && calmeraFixture === "label-phone";
-  const uiFixture = testBuild && (calmeraPreview || ["ui-photo-empty", "ui-photo-preview", "ui-text", "ui-manual"].includes(calmeraFixture));
+  const uiFixture = testBuild && (calmeraPreview || ["ui-photo-empty", "ui-photo-preview", "ui-text"].includes(calmeraFixture));
   const savedNavigationFixture = testBuild && calmeraPreview && calmeraPreviewState === "saved-navigation-error";
   const previewFixture = uiFixture && (savedNavigationFixture || calmeraFixture === "ui-photo-preview" || (calmeraPreview && ["selected", "review"].includes(calmeraPreviewState)));
   const exit = usePageExit(uiFixture ? "/ui-gallery" : "/dashboard");
@@ -178,12 +178,6 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
     ]);
   });
 
-  // Logging never needs an AI: a blank food opens in the same review, to fill in by hand.
-  const enterByHand = () => {
-    if (operation.current || uncertain || mealSaved || confirmedSave.current.hasConfirmed(userId)) return;
-    Keyboard.dismiss();
-    setReview(addReviewFood(createMealReview([], userId, getLocalTimeWithOffset())));
-  };
   // Every connection problem but usage and a plain retry is fixed on the AI connection page,
   // which comes back here once it's sorted.
   const fixConnection = action => {
@@ -412,8 +406,6 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
             style={styles.logButton}
             accessibilityLabel={busy ? "Analyzing meal" : "Analyze Meal"}
           />}
-          {textMode && !busy && connectionCopy.action && !mealSaved && !uncertain && <GlassButton title="Enter it by hand" symbol="pencil"
-            onPress={enterByHand} disabled={selecting} style={styles.logButton} />}
           {mealSaved && <GlassButton title="Go back" symbol="chevron.left" onPress={leaveLog} disabled={busy || selecting} style={styles.logButton} />}
           {uncertain && (
             <GlassButton title="View meals" symbol="clock" onPress={() => { if (!operation.current) router.replace("/dashboard"); }} disabled={busy || selecting} style={styles.logButton} />
@@ -421,9 +413,9 @@ function MealLogForm({ inputMode = "photo", calmeraPreview = false, calmeraPrevi
           {uiFixture && !savedNavigationFixture && busy && (
             <GlassButton title="Reset preview" symbol="arrow.counterclockwise" onPress={resetPreview} style={styles.logButton} />
           )}
-          <View style={styles.privacy}>
-            <Ionicons name="lock-closed-outline" size={14} color={COLORS.textLight} accessible={false} />
-            <Text style={styles.note}>{`Only your ${textMode ? "meal description" : "selected photo"} is analyzed by ${connection.state === "none" ? "the AI you connect" : providerName(connection.type)}. Nutrition estimates are approximate.`}</Text>
+          <View style={styles.disclaimer}>
+            <Ionicons name="information-circle-outline" size={14} color={COLORS.textLight} accessible={false} />
+            <Text style={styles.note}>Nutrition estimates are approximate. AI may make mistakes.</Text>
           </View>
         </View>
         </View>
@@ -444,7 +436,7 @@ const styles = StyleSheet.create({
   keyboardDone: { minHeight: 44, justifyContent: "center", paddingHorizontal: 12 },
   keyboardDoneText: { ...TYPOGRAPHY.button, color: COLORS.primary },
   mealText: { ...TYPOGRAPHY.input, minHeight: 120, color: COLORS.text, padding: 0 },
-  privacy: { flexDirection: "row", alignItems: "flex-start", gap: 7, paddingHorizontal: 8 },
+  disclaimer: { flexDirection: "row", alignItems: "flex-start", gap: 7, paddingHorizontal: 8 },
   container: { flex: 1, backgroundColor: COLORS.background },
   content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 36 },
   sections: { gap: 16 },

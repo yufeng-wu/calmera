@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Linking, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Alert, Linking, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Animated, { FadeIn, LayoutAnimationConfig } from "react-native-reanimated";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -22,13 +22,11 @@ import { previewConnectionServices } from "@/lib/ai/previewConnection.mjs";
 
 // Long enough for "Connected" to land before the page hands back to what was being logged.
 const RETURN_AFTER_MS = 700;
+const [openAICredits, anthropicCredits] = CREDIT_PAGES;
 
-// Calmera's one AI connection. With none, two cards of the same width with OR between: ChatGPT
-// Plan, whose filled button starts OpenAI's sign-in at once, and API key, whose outlined button
-// opens the page to paste one. Once connected, the page is about that connection: a status card
-// (checked for free on every visit), Model and Online search, Usage, and Disconnect. To connect
-// another way, a person disconnects first. `then` comes from Today: "voice" opens the voice sheet
-// after connecting.
+// ChatGPT Plan starts OpenAI's sign-in. API Key opens the page to paste a key.
+// Once connected, the page shows the status, model, search and disconnect controls.
+// `then` comes from Today: "voice" opens the voice sheet after connecting.
 export default function AIConnection({ calmeraPreview = false, calmeraPreviewState = "none" }) {
   const router = useRouter();
   const { then } = useLocalSearchParams();
@@ -65,7 +63,7 @@ export default function AIConnection({ calmeraPreview = false, calmeraPreviewSta
     wasConnected.current = connected;
   }, [connected, state.loaded]);
 
-  const { current, busy, notice } = state;
+  const { current, busy, notice, usage } = state;
   const card = connectionCard(state);
   const signInLine = state.problem?.method === "chatgpt" ? signInProblem(state.problem.outcome) : null;
   const go = page => router.push(calmeraPreview ? { pathname: "/ui-gallery", params: { page: page === "/ai-connect" ? "ai-connect-key" : page.slice(1) } } : page);
@@ -84,31 +82,34 @@ export default function AIConnection({ calmeraPreview = false, calmeraPreviewSta
           shows; what lands later (the status) fades in. */}
       {current !== undefined && <LayoutAnimationConfig skipEntering>
         {!card && <View style={styles.choices}>
-          <Option method="chatgpt" accent problem={signInLine} busy={busy === "connect"} disabled={Boolean(busy)}
+          <Option method="chatgpt" problem={signInLine} busy={busy === "connect"} disabled={Boolean(busy)}
             onPress={() => controller.connect("chatgpt")} />
-          <Text style={styles.or} accessibilityRole="text">or</Text>
           <Option method="key" disabled={Boolean(busy)} onPress={() => go("/ai-connect")}>
-            <CreditLinks preview={calmeraPreview} />
+            <Text style={styles.optionText}>
+              {"Bring your own "}<CreditLink page={openAICredits} preview={calmeraPreview} />{" or "}
+              <CreditLink page={anthropicCredits} preview={calmeraPreview} />{" API key."}
+            </Text>
           </Option>
           {said("page")}
         </View>}
 
-        {card && <SettingsSection cardStyle={styles.card} footnote={card.note.tone === "bad"
+        {card && <SettingsSection cardStyle={styles.card} footnote={card.note?.tone === "bad"
           ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={settingsStyles.problem}>{card.note.text}</Text>
-          : card.note.text}>
+          : card.note?.text}>
           <Status card={card} />
         </SettingsSection>}
 
-        {card && <SettingsSection cardStyle={styles.card} footnote={said("search") || searchLine(current, { searchable: state.searchable })}>
+        {card && <SettingsSection label="Settings" cardStyle={styles.card} footnote={said("search")}>
           <SettingsRow title="Model" value={state.model || undefined} disabled={Boolean(busy)} onPress={() => go("/ai-model")} />
-          <SettingsRow title="Online search" divider toggle={state.search && state.searchable} disabled={Boolean(busy) || !state.searchable}
+          <SettingsRow title="Online search" subtitle={searchLine(current, { searchable: state.searchable })}
+            divider toggle={state.search && state.searchable} disabled={Boolean(busy) || !state.searchable}
             onToggle={on => controller.setSearch(on)} />
         </SettingsSection>}
 
-        {/* Every connection's requests together, kept after a disconnect. */}
-        <SettingsSection label="Usage" cardStyle={styles.card}>
-          <SettingsRow title="Last 7 days" value={state.usage ? usageValue(state.usage) : undefined} onPress={() => go("/ai-usage")} />
-        </SettingsSection>
+        {/* History spans all connections and stays visible after disconnecting. */}
+        {usage?.total.requests > 0 && <SettingsSection label="Usage" cardStyle={styles.card}>
+          <SettingsRow title="Last 7 days" value={usageValue(usage)} onPress={() => go("/ai-usage")} />
+        </SettingsSection>}
 
         {card && <SettingsSection cardStyle={styles.card} footnote={said("disconnect")}>
           <SettingsRow title="Disconnect" destructive centered showAccessory={false} disabled={Boolean(busy)} onPress={disconnect} />
@@ -123,38 +124,34 @@ export default function AIConnection({ calmeraPreview = false, calmeraPreviewSta
   </FormScreen>;
 }
 
-// One way to connect, with nothing connected: everything about it stays in its card. Both cards
-// are the same width; only ChatGPT's button is filled. A sign-in that failed says so in red in
-// place of the description.
-function Option({ method, accent = false, problem = null, busy = false, disabled = false, onPress, children }) {
+// A failed sign-in shows the error in place of the description.
+function Option({ method, problem = null, busy = false, disabled = false, onPress, children }) {
   const words = METHODS[method];
   return <View style={[settingsStyles.card, styles.card, styles.option]}>
-    <View style={styles.optionHead} accessible accessibilityRole="header" accessibilityLabel={`${words.eyebrow}, ${words.title}`}>
-      <Text style={styles.eyebrow}>{words.eyebrow}</Text>
-      <Text style={styles.optionTitle}>{words.title}</Text>
-    </View>
+    <Text style={styles.optionTitle} accessibilityRole="header">{`${words.eyebrow}: ${words.title}`}</Text>
     {problem
       ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.problem}>{problem}</Text>
-      : words.lines.map(line => <Text key={line} style={styles.optionText}>{line}</Text>)}
-    {children}
-    <GlassButton title={busy ? "Signing in…" : words.start} role={accent ? "accent" : "default"} onPress={onPress} disabled={disabled}
+      : <View style={styles.optionBody}>
+        {children}
+        {words.creditPlans
+          ? <View style={styles.credits}>
+            <Text style={styles.optionNote}>{words.description}</Text>
+            {words.creditPlans.map(plan => <View key={plan} style={styles.plan}>
+              <Text style={styles.optionNote} accessible={false}>•</Text>
+              <Text style={[styles.optionNote, styles.planText]}>{plan}</Text>
+            </View>)}
+          </View>
+          : <Text style={styles.optionText}>{words.description}</Text>}
+        {words.note && <Text style={styles.optionNote}>{words.note}</Text>}
+      </View>}
+    <GlassButton title={busy ? "Signing in…" : words.start} role="accent" onPress={onPress} disabled={disabled}
       style={styles.optionButton} />
   </View>;
 }
 
-// "How to get credits: OpenAI · Anthropic", each opening that company's help page in Safari.
-function CreditLinks({ preview }) {
-  return <View style={styles.links}>
-    <Text style={styles.optionText}>How to get credits:</Text>
-    {CREDIT_PAGES.map((page, index) => <View key={page.name} style={styles.linkItem}>
-      {index > 0 && <Text style={styles.optionText} accessible={false}>·</Text>}
-      <Pressable accessibilityRole="link" accessibilityLabel={`How to get ${page.name} API credits`} accessibilityHint="Opens in Safari."
-        hitSlop={8} onPress={() => { if (!preview) Linking.openURL(page.url).catch(() => {}); }}
-        style={({ pressed }) => [styles.link, pressed && styles.linkPressed]}>
-        <Text style={styles.linkText}>{page.name}</Text>
-      </Pressable>
-    </View>)}
-  </View>;
+function CreditLink({ page, preview }) {
+  return <Text accessibilityRole="link" accessibilityHint="Opens the API credit guide in Safari."
+    onPress={() => { if (!preview) Linking.openURL(page.url).catch(() => {}); }} style={styles.linkText}>{page.name}</Text>;
 }
 
 // The connection in use: its name, then the email or masked key and what the last check found.
@@ -177,21 +174,18 @@ function Status({ card }) {
 const styles = StyleSheet.create({
   page: { backgroundColor: AI_PAGE.page },
   card: { backgroundColor: AI_PAGE.card },
-  choices: { gap: 12 },
-  or: { ...TYPOGRAPHY.eyebrow, color: AI_PAGE.faint, textTransform: "uppercase", textAlign: "center" },
+  choices: { gap: 16 },
   option: { padding: 20 },
-  optionHead: { gap: 2, marginBottom: 8 },
-  eyebrow: { ...TYPOGRAPHY.eyebrow, color: AI_PAGE.faint, textTransform: "uppercase" },
-  optionTitle: { ...TYPOGRAPHY.pageTitle, color: SETTINGS.ink },
+  optionBody: { gap: 8 },
+  optionTitle: { ...TYPOGRAPHY.pageTitle, color: SETTINGS.ink, marginBottom: 8 },
   optionText: { ...TYPOGRAPHY.body, color: SETTINGS.inkSoft },
+  credits: { gap: 4 },
+  optionNote: { ...TYPOGRAPHY.caption, color: SETTINGS.inkSoft },
+  plan: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  planText: { flex: 1 },
   problem: { ...TYPOGRAPHY.body, color: SETTINGS.danger },
   optionButton: { marginTop: 16 },
-  // Links out of the app, in the accent colour, each with room to tap.
-  links: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", columnGap: 6, marginTop: 4 },
-  linkItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  link: { minHeight: 32, justifyContent: "center" },
   linkText: { ...TYPOGRAPHY.bodyMedium, color: COLORS.primary },
-  linkPressed: { opacity: 0.45 },
   status: { minHeight: 64, paddingVertical: 14, paddingHorizontal: SETTINGS.rowPadding, gap: 2, justifyContent: "center" },
   statusTitle: { ...TYPOGRAPHY.sectionTitle, color: SETTINGS.ink },
   statusLine: { flexDirection: "row", alignItems: "center" },

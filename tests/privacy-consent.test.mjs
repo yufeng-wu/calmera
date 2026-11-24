@@ -14,13 +14,15 @@ const older = { version: "2025-01-01", acceptedAt: "2025-01-01T00:00:00.000Z", a
 test("a record names the current version, the time and both AI providers", () => {
   assert.deepEqual(consentRecord(NOW), { version: PRIVACY_POLICY_VERSION, acceptedAt: NOW.toISOString(), ai: ["openai", "anthropic"] });
   assert.match(PRIVACY_POLICY_VERSION, /^\d{4}-\d{2}-\d{2}$/);
-  assert.ok(PRIVACY_POLICY_VERSION > "2026-11-09", "naming Anthropic asks everyone again");
+  assert.ok(PRIVACY_POLICY_VERSION > "2026-11-21", "the revised disclosures require fresh consent");
 });
 
 test("only a record for this version or later opens the app", () => {
   assert.equal(coversVersion(consentRecord(NOW)), true);
   assert.equal(coversVersion({ ...consentRecord(NOW), version: "2099-01-01" }), true);
   assert.equal(coversVersion(older), false);
+  assert.equal(consentStatus({ ...consentRecord(NOW), ai: ["openai"] }), "updated");
+  assert.equal(coversVersion({ ...consentRecord(NOW), acceptedAt: "" }), false);
   for (const bad of [null, "yes", {}, { version: "latest", acceptedAt: "x" }, { version: PRIVACY_POLICY_VERSION }]) {
     assert.equal(coversVersion(bad), false);
   }
@@ -82,7 +84,7 @@ test("the policy describes data kept on the iPhone, with no account or calmera s
   assert.match(text, /Erase all data/);
   assert.match(text, /iCloud Backup/);
   assert.match(CONSENT_COPY.data.text, /stay on this iPhone/);
-  assert.doesNotMatch(JSON.stringify(CONSENT_COPY), /Sign Out|sign in|connection/i);
+  assert.match(CONSENT_COPY.lead, /new meal/);
 });
 
 test("the consent sheet names both providers, the three kinds of data and the choice", () => {
@@ -96,14 +98,15 @@ test("the consent sheet names both providers, the three kinds of data and the ch
   assert.match(CONSENT_COPY.agreement, /OpenAI or Anthropic/);
   // Online search is said in one sentence, the same on every page that mentions it.
   assert.ok(CONSENT_COPY.ai.note.includes(SEARCH_NOTICE));
-  assert.match(SEARCH_NOTICE, /^When Online search is on, which it is unless you turn it off in Settings, your AI provider may also search the web with what you log/);
+  assert.match(SEARCH_NOTICE, /^Online search is on by default/);
   const everywhere = JSON.stringify([PRIVACY_POLICY, HEALTH_DATA_POLICY]);
   assert.equal(everywhere.split(SEARCH_NOTICE).length - 1, 3, "summary, AI section and health data policy");
   // The usage record is named with what it keeps, and what it never does.
   assert.match(JSON.stringify(PRIVACY_POLICY), /AI usage.*how many tokens and web searches.*Never what you logged/);
   assert.match(JSON.stringify(PRIVACY_POLICY), /AI usage record keeps only the last 7 days/);
   assert.match(CONSENT_COPY.agreement, new RegExp(CONSENT_COPY.agree));
-  assert.match(CONSENT_COPY.agreement, /need to agree/);
+  assert.equal(CONSENT_COPY.agree, "Allow AI and Continue");
+  assert.equal(CONSENT_COPY.decline, "Not Now");
   // The sheet turns this phrase into the link that opens the policy, so it appears once.
   assert.equal(CONSENT_COPY.agreement.split("Privacy Policy").length, 2);
 });

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createMealReview, updateReviewFood, reviewTotals, saveMealReview, setReviewField } from "../lib/mealReview.mjs";
+import { addReviewFood, createMealReview, updateReviewFood, reviewTotals, saveMealReview, setReviewField } from "../lib/mealReview.mjs";
 import { createConfirmedMealSave } from "../lib/confirmedMealSave.mjs";
 import { createPhoneStore } from "../lib/store/phone.mjs";
 import { createMemoryStorage } from "../lib/store/memoryStorage.mjs";
@@ -39,7 +39,8 @@ test("final save uses edits, removals, additions and chosen meal category, never
   let review = draft([food, { ...food, foodName: "Remove me" }]);
   review = updateReviewFood(review, review.entries[0].id, { ...food, foodName: "Brown rice", quantity: "150 g", calories: "180", protein: "3.5", carbs: "39", fat: "1.5" });
   review = { ...review, entries: review.entries.slice(0, 1), mealType: "Dinner" };
-  review = updateReviewFood(review, null, { ...food, foodName: "Broccoli", quantity: "100 g", calories: 35, carbs: 7, protein: 2.5, fat: 0.5 });
+  review = addReviewFood(review);
+  review = updateReviewFood(review, review.entries.at(-1).id, { ...food, foodName: "Broccoli", quantity: "100 g", calories: 35, carbs: 7, protein: 2.5, fat: 0.5 });
   const data = store();
   const saved = await saveMealReview(review, "owner-a", data);
   const meals = await savedMeals(data);
@@ -50,6 +51,18 @@ test("final save uses edits, removals, additions and chosen meal category, never
   assert.ok(meals.every(entry => entry.mealType === "Dinner" && entry.localTime === "12:00:00" && Number.isInteger(entry.id)));
   assert.deepEqual(saved.map(entry => entry.id), meals.map(entry => entry.id));
   assert.deepEqual(reviewTotals(review), { calories: 215, protein: 6, carbs: 46, fat: 2 });
+});
+
+test("a newly added item must receive an estimate before the journal can save it", async () => {
+  const data = store();
+  const review = addReviewFood(draft([food]));
+  const added = review.entries.at(-1);
+  Object.assign(added, food);
+  assert.throws(() => saveMealReview(review, "owner-a", data), /Estimate nutrition/);
+  const estimated = updateReviewFood(review, added.id, food);
+  const corrected = setReviewField(estimated, added.id, "calories", "240");
+  await saveMealReview(corrected, "owner-a", data);
+  assert.equal((await savedMeals(data))[1].calories, 240);
 });
 
 test("invalid or empty reviews and a changed owner never begin a write", async () => {
@@ -73,9 +86,9 @@ test("food validation rejects unsupported amounts, negative macros and excessive
 test("IDs survive removals and never collide with later additions", () => {
   let review = draft([food, food]); const removed = review.entries[1].id;
   review = { ...review, entries: review.entries.slice(0, 1) };
-  review = updateReviewFood(review, null, food);
+  review = addReviewFood(review);
   assert.notEqual(review.entries[1].id, removed);
-  assert.throws(() => updateReviewFood(draft(Array(20).fill(food)), null, food), /up to 20/);
+  assert.throws(() => addReviewFood(draft(Array(20).fill(food))), /up to 20/);
 });
 
 test("a rapid duplicate save is coalesced and a confirmed save cannot be repeated", async () => {

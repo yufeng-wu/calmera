@@ -36,3 +36,6 @@ ios/.xcode.env.local
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+
+# Local Claude worktrees
+.claude/worktrees/

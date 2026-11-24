@@ -7,7 +7,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>calmera.</string>
+    <string>Calmera</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>calmera.</string>
+    <string>Calmera</string>
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>
@@ -39,12 +39,14 @@
       </dict>
     </array>
     <key>CFBundleVersion</key>
-    <string>8</string>
+    <string>10</string>
     <key>ITSAppUsesNonExemptEncryption</key>
     <false/>
     <key>LSMinimumSystemVersion</key>
     <string>12.0</string>
     <key>LSRequiresIPhoneOS</key>
+    <true/>
+    <key>RCTAsyncStorageExcludeFromBackup</key>
     <true/>
     <key>NSAppTransportSecurity</key>
     <dict>
@@ -57,10 +59,8 @@
     <string>calmera uses the camera when you take a photo of a meal.</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>calmera uses the microphone when you log a meal by voice.</string>
-    <key>NSPhotoLibraryAddUsageDescription</key>
-    <string>Allow calmera to save captured photos to your photo library.</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>Allow calmera to access your photo library to load/import meal photos.</string>
+    <string>Choose a meal photo for a nutrition estimate.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
     <string>calmera turns what you say into text on this iPhone to log your meal. Your recording isn’t saved or sent anywhere.</string>
     <key>NSUserActivityTypes</key>

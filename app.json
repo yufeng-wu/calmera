@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "calmera.",
+    "name": "Calmera",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,15 +8,15 @@
     "scheme": "mobile",
     "userInterfaceStyle": "light",
     "ios": {
-      "buildNumber": "8",
+      "buildNumber": "10",
       "supportsTablet": false,
       "infoPlist": {
         "NSMicrophoneUsageDescription": "calmera uses the microphone when you log a meal by voice.",
         "NSSpeechRecognitionUsageDescription": "calmera turns what you say into text on this iPhone to log your meal. Your recording isn’t saved or sent anywhere.",
         "ITSAppUsesNonExemptEncryption": false,
+        "RCTAsyncStorageExcludeFromBackup": true,
         "NSCameraUsageDescription": "calmera uses the camera when you take a photo of a meal.",
-        "NSPhotoLibraryUsageDescription": "Allow calmera to access your photo library to load/import meal photos.",
-        "NSPhotoLibraryAddUsageDescription": "Allow calmera to save captured photos to your photo library."
+        "NSPhotoLibraryUsageDescription": "Choose a meal photo for a nutrition estimate."
       },
       "bundleIdentifier": "com.yfwu02.calmera",
       "appleTeamId": "2G2578H6DX"

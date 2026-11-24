@@ -1,30 +1,41 @@
-# Privacy Policy and consent
+# Privacy and App Review
 
-## Where the text lives
+## Consent and data flow
 
-`lib/privacyPolicy.mjs` is the only copy of the Privacy Policy, the Consumer Health Data Privacy Policy (Washington's My Health My Data Act) and the first-run consent sheet's wording. Three places read it:
+The app and the two public policies share their wording in `lib/privacyPolicy.mjs`. The first-run screen names OpenAI and Anthropic, lists the data each estimate can send and explains optional web search. **Allow AI and Continue** records the policy version on the iPhone. **Not Now** keeps the consent screen open. Both policies can be read before deciding. A material change to the disclosures requires a new version and agreement.
 
-- **Settings → Privacy Policy** (`app/(root)/privacy.jsx`), which links to the health data policy.
-- **The consent sheet's "Privacy Policy" link**, which opens the same text in a page sheet.
-- **The public web pages**: `node scripts/build-privacy-site.mjs [outDir]` writes `privacy/index.html` and `privacy/health-data/index.html`. Host them and put the first URL in App Store Connect.
+Every new meal starts with a successful AI estimate. People can correct the result before saving and edit existing entries afterward. Disconnecting in Settings stops future estimates. Erase all data removes the journal, local consent and credentials. Exports already shared and records retained by the AI provider have separate lifecycles.
 
-The policy is US-only (calmera ships only in the US App Store) and names Yufeng Wu, calmeradev@gmail.com, as publisher and contact. `placeholdersRemaining()` and the site script flag any bracketed placeholder that comes back.
+## Public pages
 
-## Consent
+Generate both pages directly into the website checkout from the app repository root.
 
-`components/PrivacyConsentGate.jsx` wraps the whole app (`app/(root)/_layout.jsx`). Until the person agrees to the current version, nothing else opens, so nothing reaches an AI provider. One sheet (`components/PrivacyConsentSheet.jsx`) covers both the policy and sending meal text, chosen photos and voice transcripts to the AI provider the person chooses. It names OpenAI (ChatGPT account or OpenAI API key) and Anthropic (Anthropic API key) and has no pre-checked box. Agreeing is required: **Not Now** explains that calmera can't open without it and keeps the sheet up.
+```sh
+node scripts/build-privacy-site.mjs /path/to/website/calmera
+```
 
-The record `{ version, acceptedAt, ai: ["openai", "anthropic"] }` (`lib/privacyConsent.mjs`) is kept only on this iPhone (`calmera.privacy-consent.local` in app storage), so launch checks it instantly. Settings → Erase all data removes it with everything else, and calmera then asks again.
+After publishing, compare the HTML served at both URLs with the generated files. [Privacy Policy](https://yufengwu.dev/calmera/privacy/) · [Consumer Health Data Privacy Policy](https://yufengwu.dev/calmera/privacy/health-data/)
 
-**Changing the policy.** For a material change, set `PRIVACY_POLICY_VERSION` and `PRIVACY_EFFECTIVE_DATE` to the new date. Everyone with an older record then sees "We've updated our Privacy Policy" and must agree again. Fixing a typo needs no new version. The phone-only text was version 2026-11-09; 2026-11-20 adds Anthropic for Claude API keys; 2026-11-21 adds the AI usage record (last 7 days of requests on the iPhone: time, provider, model, tokens, searches; never what was logged) and Online search (on by default: the provider may search the web with what is logged, using its own web search; one sentence, `SEARCH_NOTICE`, used in the summary, the AI section, the health data policy and the first-launch sheet), so earlier agreements are asked again; set both to the real publish date before release.
+## App Privacy answers for this build
 
-## Testing
+The selected provider receives requests on an identifiable account and can retain content beyond the request. The app declares the following categories as **linked to the user**, for **App Functionality**, with **Tracking** set to **No**. Review the archive’s aggregated privacy report and the provider terms when entering the answers in App Store Connect. [Apple’s definitions](https://developer.apple.com/app-store/app-privacy-details/)
 
-- `tests/privacy-consent.test.mjs`: status for missing, older and current records, saving and reading on the phone, a save that fails, erasing removing the record, policy wording (OpenAI and Anthropic with both links, each kind of data, no account or calmera servers, Erase all data) and the web pages.
-- Review gallery: `privacy-consent`, `privacy-consent-updated`, `privacy-consent-error`, `privacy`, `privacy-health-data`.
+| Data type | What leaves the phone |
+| --- | --- |
+| Health | Meal and nutrition details submitted for an estimate. Saved goals and goal-survey inputs are local. |
+| Other User Content | Typed meal descriptions, voice transcripts, and food names and portions submitted for analysis. |
+| Photos or Videos | The chosen meal photo when the person requests an estimate. |
+| User ID | Requests authenticate to the person’s AI provider account or API project. |
+| Device ID | ChatGPT registration sends OpenAI a persistent identifier generated for this installation. |
 
-## Still to do outside the code
+Voice audio is transcribed on the phone. The journal’s app storage is excluded from iCloud Backup. Provider retention depends on the service, account and any applicable exceptions. [OpenAI API data controls](https://developers.openai.com/api/docs/guides/your-data) · [ChatGPT plan controls](https://help.openai.com/en/articles/20001542-using-your-chatgpt-plan-in-other-apps-and-sites) · [Anthropic API retention](https://privacy.claude.com/en/articles/7996866-how-long-do-you-store-my-organization-s-data)
 
-- Host the web pages, then add the URL in App Store Connect (App Privacy → Privacy Policy URL).
-- Make the App Store privacy label match the policy: meals, goals and settings stay on the iPhone, and meal text, photos and voice text go to the AI provider the person connects: OpenAI (ChatGPT account or OpenAI API key) or Anthropic (Anthropic API key). `ios/mobile/PrivacyInfo.xcprivacy` declares this as Other User Content and Photos, for app functionality. None of it is used for tracking.
-- Have a lawyer review the text.
+## App Review access
+
+Provide the dedicated reviewer credential privately in App Store Connect’s App Review Information. Verify it on the production build with sufficient model access and available credit throughout review. Keep the credential out of screenshots, source control and public metadata.
+
+Suggested reviewer notes for the Anthropic path:
+
+> Calmera is a free iPhone meal journal. New meals use AI to estimate nutrition. On first launch, read the disclosure and tap Allow AI and Continue. Open Settings → AI connection → Add API key and enter the Anthropic review key supplied privately with this submission. In Text Log, enter “one apple and one cup of plain yogurt,” tap Analyze Meal, review the foods and tap Save to choose a meal category. The result appears in Today and History. Photo Log and Voice Log use the same connection. An eligible ChatGPT plan is another connection option. No Calmera account is required.
+
+The first release is intended for the US storefront. Record the actual privacy questionnaire, support and privacy URLs, reviewer access and build number in App Store Connect before submission. The public repository reserves reuse rights. Retain the basis for offering ChatGPT plan access in this distribution if Apple requests it. [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/) · [OpenAI plan-usage documentation](https://developers.openai.com/siwc/token-sharing-open-source)

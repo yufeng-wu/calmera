@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Keyboard, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
-import Animated, { Easing, FadeIn, interpolate, runOnJS, useAnimatedKeyboard, useAnimatedStyle, useReducedMotion, useSharedValue,
+import Animated, { Easing, FadeIn, interpolate, runOnJS, useAnimatedStyle, useReducedMotion, useSharedValue,
   withRepeat, withSequence, withSpring, withTiming, Extrapolation, cancelAnimation } from "react-native-reanimated";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,6 +15,7 @@ import CitrusBuddy from "@/components/CitrusBuddy";
 import VoiceWave from "@/components/voice/VoiceWave";
 import VoiceThinking from "@/components/voice/VoiceThinking";
 import useLiveSpeech from "@/hooks/useLiveSpeech";
+import useVoiceKeyboardHeight from "@/hooks/useVoiceKeyboardHeight";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { useFoodIcons } from "@/context/FoodIconsContext";
@@ -52,7 +53,7 @@ const NOTICES = {
 };
 
 // The voice log: a Liquid Glass sheet over Today. It listens as soon as it opens, shows the words
-// as they're heard over a wave that follows the voice, then on Send grows to show ChatGPT working
+// as they're heard over a wave that follows the voice, then on Send grows to show the estimate
 // and the review, the same one Text and Photo logs end in.
 export default function VoiceLogSheet({ open, ...props }) {
   if (!open) return null;
@@ -71,6 +72,7 @@ function VoiceSheet({ language, onClose, onSaved }) {
   const onLevel = useCallback(value => { level.value = withTiming(value, { duration: 70 }); }, [level]);
   const speech = useLiveSpeech({ language, onLevel });
   const [phase, setPhase] = useState("listen");
+  const [editingWords, setEditingWords] = useState(false);
   const [notice, setNotice] = useState(null);
   const [stage, setStage] = useState("sending");
   const [model, setModel] = useState(null);
@@ -105,7 +107,7 @@ function VoiceSheet({ language, onClose, onSaved }) {
   const phaseCode = useSharedValue(0);
   const tint = useSharedValue(TINT[0]);
   const drag = useSharedValue(0);
-  const keyboard = useAnimatedKeyboard();
+  const keyboardHeight = useVoiceKeyboardHeight(screenHeight);
   useEffect(() => {
     const code = PHASES[phase];
     phaseCode.value = code;
@@ -115,7 +117,7 @@ function VoiceSheet({ language, onClose, onSaved }) {
   }, [phase, listenHeight, listenTarget, largeHeight, reducedMotion, size, tint, phaseCode]);
 
   const sheetStyle = useAnimatedStyle(() => {
-    const raised = keyboard.height.value;
+    const raised = keyboardHeight.value;
     const reviewing = phaseCode.value === PHASES.review;
     const lift = reviewing ? 0 : raised;
     // Lifted over the keyboard, a sheet grown tall with words still has to fit under the status bar.
@@ -160,6 +162,7 @@ function VoiceSheet({ language, onClose, onSaved }) {
     listen();
   };
   const listen = () => {
+    setEditingWords(false);
     setNotice(null);
     haptic(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light));
     speech.start();
@@ -299,9 +302,8 @@ function VoiceSheet({ language, onClose, onSaved }) {
               onContentSizeChange={() => { if (listening) transcriptScroll.current?.scrollToEnd({ animated: !reducedMotion }); }}
               keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
               <View onLayout={({ nativeEvent }) => setWordsHeight(nativeEvent.layout.height)}>
-              {paused && hasWords ? <TextInput value={speech.committed} onChangeText={speech.editText} multiline maxLength={3000}
-                accessibilityLabel="What you said" accessibilityHint="Edit the words before sending"
-                returnKeyType="done" submitBehavior="blurAndSubmit" style={[styles.words, styles.wordsInput]} />
+              {paused && (hasWords || editingWords) ? <TranscriptInput text={speech.committed} onChangeText={speech.editText}
+                onFocus={() => setEditingWords(true)} onBlur={() => setEditingWords(false)} />
                 : hasWords ? <Text style={styles.words} accessibilityLiveRegion="polite">{speech.text}</Text>
                   : <View style={styles.empty}>
                     <Text style={styles.prompt}>{listening ? "Tell me what you ate" : speech.elapsed >= VOICE_LIMIT_MS ? "Close to start a new voice log" : "Tap Resume to keep talking"}</Text>
@@ -322,7 +324,7 @@ function VoiceSheet({ language, onClose, onSaved }) {
                 disabled={speech.status === "stopping" || !speech.available || (!listening && speech.elapsed >= VOICE_LIMIT_MS)}
                 accessibilityLabel={listening ? "Pause listening" : "Resume listening"} style={styles.secondary} />
               <GlassButton title="Send" symbol="arrow.up" role="accent" onPress={send}
-                disabled={!hasWords || speech.status === "stopping"} accessibilityLabel="Send to ChatGPT" style={styles.primary} />
+                disabled={!hasWords || speech.status === "stopping"} accessibilityLabel="Send for estimation" style={styles.primary} />
             </View>
           </View>}
 
@@ -346,6 +348,14 @@ function VoiceSheet({ language, onClose, onSaved }) {
       </Animated.View>
     </GestureHandlerRootView>
   </Modal>;
+}
+
+function TranscriptInput({ text, onChangeText, onFocus, onBlur }) {
+  // UIKit owns the text and caret while editing. The speech log still receives every edit.
+  const initialText = useRef(text);
+  return <TextInput defaultValue={initialText.current} onChangeText={onChangeText} onFocus={onFocus} onBlur={onBlur}
+    multiline maxLength={3000} accessibilityLabel="What you said" accessibilityHint="Edit the words before sending"
+    returnKeyType="done" submitBehavior="blurAndSubmit" style={[styles.words, styles.wordsInput]} />;
 }
 
 // A small live light beside "Listening" that breathes while the microphone is on.

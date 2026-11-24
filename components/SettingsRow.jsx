@@ -1,11 +1,15 @@
 import { useEffect } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Switch, Text, View, useWindowDimensions } from "react-native";
 import Animated, { FadeIn, LayoutAnimationConfig, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { SettingsTile, usePressHighlight } from "@/components/SettingsSection";
 import { SETTINGS, SETTINGS_MOTION, TINTS } from "@/constants/settingsTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
 import { useMotionPreference } from "@/hooks/useMotionPreference";
+
+// React Native 0.79 uses the old 51 × 31 pt frame. The wider iOS 26 switch
+// draws its own track, so the rounded background behind it shows through.
+const usesModernIOSSwitch = Platform.OS === "ios" && Number.parseInt(String(Platform.Version), 10) >= 26;
 
 // One row of a Settings list. A navigation row shows its current value and a chevron;
 // a radio row shows a check that pops in when chosen. The divider starts at the title.
@@ -48,7 +52,8 @@ export default function SettingsRow({ title, subtitle, value, icon, tint, iconEl
     {!stacked && shownValue}
     {loading ? <ActivityIndicator color={SETTINGS.accent} />
       : switched ? <Switch value={Boolean(toggle)} onValueChange={onToggle} disabled={disabled} accessible={false}
-        trackColor={{ true: SETTINGS.accent }} ios_backgroundColor={SETTINGS.hairline} />
+        trackColor={{ true: SETTINGS.accent }} style={usesModernIOSSwitch ? styles.ios26Switch : undefined}
+        ios_backgroundColor={usesModernIOSSwitch ? undefined : SETTINGS.hairline} />
       : radio ? <SettingsCheck selected={selected} />
         : interactive && showAccessory && (accessory || <Ionicons name="chevron-forward" size={16} color={SETTINGS.chevron} />)}
   </Row>;
@@ -85,4 +90,5 @@ const styles = StyleSheet.create({
   value: { ...TYPOGRAPHY.body, color: SETTINGS.inkSoft, flexShrink: 1, maxWidth: "50%", textAlign: "right" },
   valueStacked: { maxWidth: "100%", textAlign: "left" },
   check: { width: 22, alignItems: "center" },
+  ios26Switch: { width: 63, height: 28 },
 });

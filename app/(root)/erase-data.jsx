@@ -63,7 +63,7 @@ export default function EraseData({ calmeraPreview = false, calmeraPreviewStage 
     <FormScrollView contentContainerStyle={settingsStyles.content} showsVerticalScrollIndicator={false} pointerEvents={busy ? "none" : "auto"}>
       {calmeraPreview && <Text style={settingsStyles.footnote}>Synthetic preview · nothing is erased</Text>}
       <Text style={settingsStyles.lead}>This erases everything calmera keeps on this iPhone. It can’t be undone.</Text>
-      <SettingsSection label="What’s erased" footnote="Copies in iCloud backups follow your backup settings.">
+      <SettingsSection label="What’s erased" footnote="Files you exported and requests already sent to your AI provider are separate.">
         <SettingsRow title="Meals you’ve logged" icon="restaurant" tint="leaf" />
         <SettingsRow title="Goals" icon="flag" tint="sky" divider />
         <SettingsRow title="Settings" subtitle="Theme, voice language, food icons and AI usage" icon="options" tint="plum" divider />

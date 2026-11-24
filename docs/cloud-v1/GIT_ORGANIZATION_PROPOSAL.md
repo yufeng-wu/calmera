@@ -5,7 +5,7 @@ No branch, index, commit, remote or history has been changed for this proposal. 
 ## Observed repository state
 
 - The enclosing calmera_for_chatgpt folder is not a repository. Mobile and backend already have separate Git histories and GitHub remotes.
-- Mobile: yufeng-wu/cal_mobile, local main and remote main at d936721. At inspection there were 27 modified tracked files, 104 untracked files and nothing staged. Newly implemented native modules, app configuration, shared UI, tests, build scripts and docs are still untracked. Counts can grow as the current fixes and this proposal are added.
+- Mobile: yufeng-wu/calmera, local main and remote main at d936721. At inspection there were 27 modified tracked files, 104 untracked files and nothing staged. Newly implemented native modules, app configuration, shared UI, tests, build scripts and docs are still untracked. Counts can grow as the current fixes and this proposal are added.
 - Backend: yufeng-wu/cal_backend. Local main is b8b818c; its cached origin/main is 042a0d1, while the live remote main is 9c9ad733c98e94fa244d0c1d07524a461727a114. The local checkout also has substantial modifications overlapping the deployed recovery/auth/device-inference work. It must be compared with the current remote before committing or merging.
 - The older calmera(dot) prototype has its own repository and is outside the shipping Expo app. Its historical iMessage/Shortcut paths need not be imported into the app repositories.
 
