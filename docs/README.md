@@ -24,15 +24,15 @@ The automated suite uses synthetic inputs. For a live smoke test, connect a dedi
 
 ## Archive the first release
 
-1. Use the checked-in `ios/mobile.xcworkspace`, the **mobile** scheme and a generic iOS device destination. Leave `CALMERA_FULL_APP_TEST`, `CALMERA_PHONE_TEST` and custom `ENTRY_FILE` overrides unset.
+1. Use the checked-in `ios/mobile.xcworkspace`, the **mobile** scheme and a generic iOS device destination. Leave `CALMERA_FULL_APP_TEST` and custom `ENTRY_FILE` overrides unset.
 2. Choose **Product → Archive**. The scheme archives the Release configuration. Confirm the bundle identifier is `com.yfwu02.calmera` and the intended version and build number are available in App Store Connect.
 3. In Organizer, inspect the archive’s privacy report and use **Validate App** with the distribution team. Verify the archive contains the app’s `PrivacyInfo.xcprivacy`, `main.jsbundle` and Release Hermes before distributing. If CocoaPods has just refreshed Hermes over an earlier Release build, run the repository’s `forget_hermes_configuration` helper before archiving and check the result with `require_release_hermes` from `scripts/release-hermes.sh`.
 
-The EAS profiles upload source using `.easignore`, which excludes `ios/` and regenerates a native project. The first-release instructions above build the checked-in native project. The phone-test profile launches a separate diagnostic app.
+The EAS profiles upload source using `.easignore`, which excludes `ios/` and regenerates a native project. The first-release instructions above build the checked-in native project.
 
 ## More documentation
 
 - [Privacy disclosures and the App Store privacy answers](PRIVACY.md)
 - [Design system](DESIGN_SYSTEM.md)
 - [Nutrition goal calculations and references](GOALS_METHOD.md)
-- [Archived cloud version, setup and deployment](cloud-v1/CLOUD_VERSION.md)
+- [Archived features, including the cloud version](../archive/README.md)

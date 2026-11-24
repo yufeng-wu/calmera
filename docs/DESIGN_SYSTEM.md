@@ -1,6 +1,6 @@
 # Calmera design system
 
-One page to check before adding a screen. Tokens live in `constants/`; the older notes in `TYPOGRAPHY.md`, `CONTENT_SURFACES.md`, `LIQUID_GLASS_UI.md` and `THEMES.md` explain how each part was tuned.
+One page to check before adding a screen. Tokens live in `constants/`.
 
 ## Character
 
