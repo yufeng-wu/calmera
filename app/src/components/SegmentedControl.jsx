@@ -1,9 +1,9 @@
 import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { requireNativeViewManager } from "expo-modules-core";
+import { requireCalmeraNativeView } from "../../modules/calmera-chatgpt";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
 
-const NativeSegmented = Platform.OS === "ios" ? requireNativeViewManager("CalmeraChatGPT", "Segmented") : null;
+const NativeSegmented = Platform.OS === "ios" ? requireCalmeraNativeView("Segmented") : null;
 
 // One row of choices. iOS draws UIKit's segmented control (Liquid Glass on iOS 26).
 // fitContent sizes each segment to its title instead of equal widths.

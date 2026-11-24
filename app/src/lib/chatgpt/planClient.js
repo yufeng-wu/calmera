@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 import Constants from "expo-constants";
-import { requireOptionalNativeModule } from "expo-modules-core";
+import { requireCalmeraNativeModule } from "../../../modules/calmera-chatgpt";
 import * as SecureStore from "expo-secure-store";
 import * as Crypto from "expo-crypto";
 import * as WebBrowser from "expo-web-browser";
@@ -13,7 +13,7 @@ import { openAIResponseError, savedChatGPTAccount } from "./connectionStatus.mjs
 import { createMealEstimator } from "../ai/mealEstimator.mjs";
 import { waitForBrowserCallback } from "./browserCallback.mjs";
 
-const native = Platform.OS === "ios" ? requireOptionalNativeModule("CalmeraChatGPT") : null;
+const native = Platform.OS === "ios" ? requireCalmeraNativeModule() : null;
 const secureOptions = { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY };
 const queues = new Map();
 // Meal requests may reuse a short-lived catalog; Settings still refreshes it.

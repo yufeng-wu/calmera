@@ -1,7 +1,7 @@
 import { Alert, Platform, Pressable, StyleSheet } from "react-native";
-import { requireNativeViewManager } from "expo-modules-core";
+import { requireCalmeraNativeView } from "../../../modules/calmera-chatgpt";
 
-const NativeGoalsMenu = Platform.OS === "ios" ? requireNativeViewManager("CalmeraChatGPT", "GoalsMenu") : null;
+const NativeGoalsMenu = Platform.OS === "ios" ? requireCalmeraNativeView("GoalsMenu") : null;
 
 export default function SummaryGoalsMenu({ onEditGoals }) {
   if (NativeGoalsMenu) return <NativeGoalsMenu style={StyleSheet.absoluteFill} onEditGoals={onEditGoals} />;

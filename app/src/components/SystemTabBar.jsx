@@ -1,10 +1,10 @@
 import { useContext } from "react";
 import { BottomTabBar, BottomTabBarHeightCallbackContext } from "@react-navigation/bottom-tabs";
-import { requireNativeViewManager } from "expo-modules-core";
+import { requireCalmeraNativeView } from "../../modules/calmera-chatgpt";
 import { Platform, StyleSheet, View } from "react-native";
 
 const SystemTabs = Platform.OS === "ios"
-  ? requireNativeViewManager("CalmeraChatGPT", "SystemTabs")
+  ? requireCalmeraNativeView("SystemTabs")
   : null;
 const routes = ["dashboard", "insights", "settings"];
 

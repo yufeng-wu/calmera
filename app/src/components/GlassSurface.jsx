@@ -1,8 +1,8 @@
 import { Platform, StyleSheet, View } from "react-native";
-import { requireNativeViewManager } from "expo-modules-core";
+import { requireCalmeraNativeView } from "../../modules/calmera-chatgpt";
 
 const NativeGlass = Platform.OS === "ios"
-  ? requireNativeViewManager("CalmeraChatGPT")
+  ? requireCalmeraNativeView()
   : null;
 
 // Keep content above the material so text and touch targets stay crisp.

@@ -3,7 +3,7 @@ import { AccessibilityInfo, Animated, BackHandler, Easing, Platform, Pressable, 
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/constants/colors";
 import GlassSurface from "../GlassSurface";
-import { requireNativeViewManager } from "expo-modules-core";
+import { requireCalmeraNativeView } from "../../../modules/calmera-chatgpt";
 
 export const ADD_MENU_OPTION_WIDTH = 120;
 
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
 
 
 const NativeMenu = Platform.OS === "ios"
-  ? requireNativeViewManager("CalmeraChatGPT", "ActionMenu")
+  ? requireCalmeraNativeView("ActionMenu")
   : null;
 
 export default function AddMealMenu(props) {

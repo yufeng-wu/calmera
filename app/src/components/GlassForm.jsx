@@ -5,18 +5,18 @@ import { createContext, forwardRef, useCallback, useContext, useMemo, useRef, us
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { ActionSheetIOS, ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Animated from "react-native-reanimated";
-import { requireNativeViewManager } from "expo-modules-core";
+import { requireCalmeraNativeView } from "../../modules/calmera-chatgpt";
 import { Ionicons } from "@expo/vector-icons";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 
-const NativeButton = Platform.OS === "ios" ? requireNativeViewManager("CalmeraChatGPT", "FormButton") : null;
+const NativeButton = Platform.OS === "ios" ? requireCalmeraNativeView("FormButton") : null;
 const nativeEdgeSupported = Platform.OS === "ios" && Number.parseInt(String(Platform.Version), 10) >= 26;
 // An app binary built before MenuButton existed falls back to the JS menu.
 const NativeMenuButton = (() => {
   if (Platform.OS !== "ios") return null;
-  try { return requireNativeViewManager("CalmeraChatGPT", "MenuButton"); } catch { return null; }
+  try { return requireCalmeraNativeView("MenuButton"); } catch { return null; }
 })();
-const NativeHeaderEdge = nativeEdgeSupported ? requireNativeViewManager("CalmeraChatGPT", "HeaderScrollEdge") : null;
+const NativeHeaderEdge = nativeEdgeSupported ? requireCalmeraNativeView("HeaderScrollEdge") : null;
 const HeaderScrollContext = createContext(null);
 
 // Preserve the resting layout while letting the native scroll edge soften

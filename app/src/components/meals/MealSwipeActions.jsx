@@ -1,12 +1,12 @@
 import { memo } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { requireNativeViewManager } from "expo-modules-core";
+import { requireCalmeraNativeView } from "../../../modules/calmera-chatgpt";
 import Animated, { useAnimatedProps, useAnimatedReaction, useAnimatedStyle } from "react-native-reanimated";
 import { COLORS } from "@/constants/colors";
 
 export const MEAL_EFFECT_OUTSET = 40;
 
-const NativeActions = Platform.OS === "ios" ? requireNativeViewManager("CalmeraChatGPT", "MealActions") : null;
+const NativeActions = Platform.OS === "ios" ? requireCalmeraNativeView("MealActions") : null;
 
 const AnimatedNativeActions = NativeActions ? Animated.createAnimatedComponent(NativeActions) : null;
 Animated.addWhitelistedNativeProps({ revealProgress: true });

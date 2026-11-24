@@ -1,8 +1,8 @@
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { requireNativeViewManager } from "expo-modules-core";
+import { requireCalmeraNativeView } from "../../../modules/calmera-chatgpt";
 import { COLORS } from "@/constants/colors";
 
-const NativeSlider = Platform.OS === "ios" ? requireNativeViewManager("CalmeraChatGPT", "GoalSlider") : null;
+const NativeSlider = Platform.OS === "ios" ? requireCalmeraNativeView("GoalSlider") : null;
 export default function NativeGoalSlider({ value, minimumValue = 0, maximumValue = 100,
   step = 1, onValueChange, onSlidingComplete, accessibilityLabel, unit = "", disabled = false, unset = false, color, style }) {
   const update = (next) => { onValueChange?.(next); onSlidingComplete?.(next); };
