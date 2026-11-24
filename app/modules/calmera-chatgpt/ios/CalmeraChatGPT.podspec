@@ -4,7 +4,7 @@ Pod::Spec.new do |s|
   s.summary = 'Calmera local ChatGPT authorization'
   s.description = 'Loopback-only OAuth, signed identity validation and selected-photo input.'
   s.author = 'Calmera'
-  s.license = 'UNLICENSED'
+  s.license = 'MIT'
   s.homepage = 'https://developers.openai.com/siwc/token-sharing-open-source'
   s.source = { :git => '' }
   s.platform = :ios, '15.1'

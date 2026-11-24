@@ -1,6 +1,10 @@
 # Calmera
 
-Calmera is a free meal journal for iPhone. You log a meal by typing it, taking or choosing a photo, or saying it out loud, and Calmera estimates its calories, protein, carbs and fat. You check the estimate, fix anything that's off and save it. You can set daily nutrition goals yourself or answer a short survey for suggested ones, and Insights shows your eating patterns over a week, a month or a year.
+Calmera is a meal journal for iPhone. You log a meal by typing it, taking or choosing a photo, or saying it out loud, and Calmera estimates its calories, protein, carbs and fat. You check the estimate, fix anything that's off and save it. You can set daily nutrition goals yourself or answer a short survey for suggested ones, and Insights shows your eating patterns over a week, a month or a year.
+
+- **Open source.** The code is under the [MIT license](LICENSE).
+- **Free.** No price, no subscription and no in-app purchases.
+- **Your own AI.** Sign in with ChatGPT to use an eligible paid plan (Go, Plus or Pro), or add your own OpenAI or Anthropic API key. Estimates count toward your ChatGPT plan's limits or are billed to your API account by the provider, not by Calmera.
 
 Everything you save stays on your iPhone. There's no Calmera account and no Calmera server. Settings can export your data to a file or erase all of it.
 
@@ -8,12 +12,7 @@ Website: [yufengwu.dev/calmera](https://yufengwu.dev/calmera/) · [Privacy Polic
 
 ## How Calmera uses AI
 
-Estimates come from an AI service you connect in Settings → AI connection. Your iPhone sends each request straight to that service:
-
-- **Sign in with ChatGPT** to use your ChatGPT plan. Estimates count toward the plan's limits.
-- **Add your own API key** from OpenAI or Anthropic. The provider bills you for what you use, and Calmera shows an estimate of the last 7 days' cost.
-
-A meal's text, or the photo you chose, is sent only when you ask for an estimate. Voice is turned into text on the iPhone, and only the words are sent.
+Estimates come from the AI service you connect in Settings → AI connection, and your iPhone sends each request straight to it. With an API key, Calmera also estimates what the last 7 days cost. A meal's text, or the photo you chose, is sent only when you ask for an estimate. Voice is turned into text on the iPhone, and only the words are sent.
 
 ## Folders
 
@@ -31,10 +30,6 @@ A meal's text, or the photo you chose, is sent only when you ask for an estimate
 
 Setup, tests and the App Store release steps are in [docs/README.md](docs/README.md). You need a Mac with Node.js 22, CocoaPods and Xcode 26. Every command runs from `app/`.
 
-## Source and permissions
+## License
 
-The source code is publicly available for reference.
-
-© 2026 Yufeng Wu. All rights reserved.
-
-Except as permitted by applicable law or GitHub’s Terms of Service, you may not use, copy, modify, or redistribute Calmera’s original source code without prior written consent from Yufeng Wu.
+Calmera is open source under the [MIT license](LICENSE). Copyright (c) 2026 Yufeng Wu.
