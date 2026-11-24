@@ -5,7 +5,6 @@ import Animated, { Easing, FadeIn, FadeInDown, FadeOut, cancelAnimation, useAnim
 import Svg, { Circle } from "react-native-svg";
 import CitrusBuddy, { BUDDY_SIZE } from "@/components/CitrusBuddy";
 import { Ionicons } from "@expo/vector-icons";
-import OpenAILogo from "@/components/OpenAILogo";
 import { modelChipLabel } from "@/lib/mealLogPresentation.mjs";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
 import { TYPOGRAPHY } from "@/constants/typography";
@@ -58,7 +57,7 @@ export default function VoiceThinking({ stage, model, provider, transcript, done
   return <View style={styles.wrap} accessibilityLiveRegion="polite" accessibilityLabel={`${copy.title}. ${copy.detail}`}>
     {/* Held invisible until the connection is known, so a Claude key never flashes ChatGPT. */}
     <View style={[styles.chip, !model && styles.chipPending]}>
-      {provider === "claude-key" ? <Ionicons name="sparkles" size={15} color="#D9772B" /> : <OpenAILogo />}
+      <Ionicons name="sparkles" size={15} color="#D9772B" />
       <Text style={styles.chipText} numberOfLines={1}>{modelChipLabel(provider, model)}</Text>
     </View>
     <View style={styles.stage}>
