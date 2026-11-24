@@ -20,7 +20,6 @@ import EraseData from "@/app/(root)/erase-data";
 import Privacy from "@/app/(root)/privacy";
 import PrivacyConsentGate from "@/components/PrivacyConsentGate";
 import EditMeal from "@/app/(root)/edit/[id]";
-import Guide from "@/app/(root)/calmera-guide";
 import TextLog from "@/app/(root)/create";
 import Photo from "@/app/(root)/photo-log";
 import FoodwrapWordmark from "@/components/FoodwrapWordmark";
@@ -83,7 +82,6 @@ const screens = [
   { id: "today-calendar", title: "Today calendar", Component: TodayCalendarPreview },
   { id: "today-calendar-loading", title: "Today calendar loading", Component: TodayCalendarPreview, state: "cold-loading" },
   { id: "today-calendar-error", title: "Today calendar retry", Component: TodayCalendarPreview, state: "history-error" },
-  { id: "guide", title: "Tutorial", Component: Guide },
   { id: "manual", title: "Text Log", Component: TextLog },
   { id: "manual-save-navigation-error", title: "Text saved navigation recovery", Component: TextLog, state: "saved-navigation-error" },
   { id: "text-review", title: "Text meal review", Component: TextLog, state: "review" },
