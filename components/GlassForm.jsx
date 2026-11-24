@@ -8,7 +8,6 @@ import Animated from "react-native-reanimated";
 import { requireNativeViewManager } from "expo-modules-core";
 import { Ionicons } from "@expo/vector-icons";
 import { FORM_COLORS as COLORS } from "@/constants/formTheme";
-import OpenAILogo, { OPENAI_BLOSSOM_SYMBOL } from "./OpenAILogo";
 
 const NativeButton = Platform.OS === "ios" ? requireNativeViewManager("CalmeraChatGPT", "FormButton") : null;
 const nativeEdgeSupported = Platform.OS === "ios" && Number.parseInt(String(Platform.Version), 10) >= 26;
@@ -100,8 +99,7 @@ export function GlassButton({ title = "", symbol = "", onPress, disabled = false
     onPress={onPress} style={({ pressed }) => [buttonStyle, styles.fallback,
       role === "accent" && styles.accent, role === "destructive" && styles.destructive, navigation && styles.navigation, pressed && (navigation ? styles.navigationPressed : styles.pressed), (disabled || loading) && styles.disabled]}>
     {loading ? <ActivityIndicator color={foreground} /> : <>
-      {!!symbol && (symbol === OPENAI_BLOSSOM_SYMBOL ? <OpenAILogo /> : <Ionicons name={fallbackSymbols[symbol] || "ellipse-outline"} size={20}
-        color={foreground} />)}
+      {!!symbol && <Ionicons name={fallbackSymbols[symbol] || "ellipse-outline"} size={20} color={foreground} />}
       {!!title && <Text style={[styles.buttonText, role === "accent" && styles.accentText, role === "destructive" && styles.destructiveText, neutral && styles.navigationText]}>{title}</Text>}
     </>}
   </Pressable>;
