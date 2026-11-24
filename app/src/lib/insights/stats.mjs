@@ -14,11 +14,8 @@ const AXIS_START = 6 * 60, AXIS_END = 24 * 60;
 // Fewer days than this on either side and a comparison would mislead.
 const MIN_TO_COMPARE = { 7: 3, 30: 7, 365: 30 };
 const MIN_WEEKEND_DAYS = 3, MIN_WEEKDAYS = 5;
-const MIN_MEAL_GAP = 5; // Grams; smaller gaps between meals are noise.
-const MIN_FOOD_LEAD = 0.25; // How much more often a food shows up on the better days.
 const FOOD_LIMIT = 100; // Per nutrient, so a year's list stays readable.
 const FOOD_FIELDS = ["count", "calories", "protein", "carbs", "fat"];
-const MIN_HALF_GAP = 5; // Grams; "higher" days have to actually be higher.
 const MIN_GOAL_SCALE = 1.2, MAX_GOAL_SCALE = 2;
 // A day runs from here to here the next morning, so a late snack isn't "earlier" than breakfast.
 const DAY_START = 5 * 60;
