@@ -1,12 +1,12 @@
+<h1 align="center">
+  <img src="docs/images/readme-icon.png" width="200" alt=""><br>
+  Calmera
+</h1>
+
 <p align="center">
-  <img src="docs/images/readme-icon.png" width="216" alt="Calmera app icon">
+  AI calorie and macro tracker<br>
+  <strong>Powered by your own ChatGPT or Claude.</strong>
 </p>
-
-<h1 align="center">Calmera</h1>
-
-<p align="center">AI calorie and macro tracker</p>
-
-<p align="center"><strong>Powered by your own ChatGPT or Claude.</strong></p>
 
 <p align="center">
   <a href="https://yufengwu.dev/calmera/">Website</a> ·
