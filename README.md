@@ -1,8 +1,12 @@
 <p align="center">
-  <img src="app/assets/images/icon.png" width="128" alt="Calmera app icon">
+  <img src="docs/images/readme-icon.png" width="216" alt="Calmera app icon">
 </p>
 
-<h1 align="center">Calmera – AI calorie and macro tracker</h1>
+<h1 align="center">Calmera</h1>
+
+<p align="center">AI calorie and macro tracker</p>
+
+<p align="center"><strong>Powered by your own ChatGPT or Claude.</strong></p>
 
 <p align="center">
   <a href="https://yufengwu.dev/calmera/">Website</a> ·
@@ -10,6 +14,13 @@
 </p>
 
 Calmera is a 100% free calorie and macro tracker for iPhone, with its source code openly available. Contributions are welcome! Type, say or snap a photo of a meal, and your own AI estimates its calories, protein, carbs and fat.
+
+## Updates
+
+<!-- Newest first. Keep these the same as the Updates on https://yufengwu.dev/calmera/. -->
+
+- **Nov 21, 2026:** Submitted to the App Store and in review with Apple.
+- **Nov 10, 2026:** Finished the first round of beta testing with friends and family, and incorporated their feedback.
 
 ## Core features
 
